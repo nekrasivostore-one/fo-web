@@ -569,6 +569,214 @@ body::before{content:""; position:fixed; inset:0; z-index:-1; pointer-events:non
 
 /* «Поставить задачу»: переключатель рядом с заголовком */
 .ntmode{margin-left:14px!important}
+
+/* кабинет клиента */
+.cabh{display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin-bottom:18px; padding:18px 22px}
+.cbback{width:auto; flex:none; padding:9px 14px; font-size:12.5px}
+.cabh .av{width:40px;height:40px;font-size:14px;border-radius:13px}
+.cabn{min-width:0}
+.cabn .n{font-family:Unbounded,sans-serif; font-size:17px; font-weight:500; letter-spacing:-.03em}
+.cabn .r{font-size:12px; color:var(--ink-3); margin-top:2px}
+.inv{margin-left:auto; min-width:270px}
+.cabh{row-gap:16px}
+.invl{font-size:10.5px; font-weight:700; color:var(--ink-3); text-transform:uppercase;
+  letter-spacing:.05em; margin-bottom:6px}
+.invr{display:flex; align-items:center; gap:8px; flex-wrap:wrap}
+.invr code{font-family:Unbounded,ui-monospace,monospace; font-size:16px; font-weight:500;
+  letter-spacing:.14em; padding:7px 12px; border-radius:11px;
+  border:1px solid var(--stroke); background:var(--panel-2)}
+.invb{width:auto; flex:none; padding:8px 12px; font-size:11.5px}
+.invh{font-size:11px; color:var(--ink-3); margin-top:7px; max-width:46ch; line-height:1.45}
+
+.cabt .gl-t{flex-wrap:wrap}
+.cabbtns{display:flex; gap:8px; margin-left:auto}
+.cabbtns .bt{width:auto; padding:9px 14px; font-size:12.5px}
+.ownrow{display:flex; gap:8px; margin-bottom:16px}
+.ownrow .fi{flex:1}
+.ownrow .bt{width:auto; padding:11px 18px; font-size:13px}
+
+.plb{margin-bottom:18px}
+.plbh{font-size:11px; font-weight:700; color:var(--ink-3); text-transform:uppercase;
+  letter-spacing:.05em; padding:0 0 9px}
+.plbh span{opacity:.7; font-weight:500}
+.plr{border:1px solid var(--stroke-2); border-radius:var(--r2); padding:14px 16px 16px;
+  background:var(--panel-2); margin-bottom:10px; transition:border-color .16s, box-shadow .16s}
+.plr:hover{border-color:var(--stroke)}
+.plr.appr{border-color:color-mix(in srgb, #7C5CFF 38%, var(--stroke-2))}
+.plt{display:flex; align-items:center; gap:10px; margin-bottom:13px}
+.pln{font-size:14px; font-weight:600; flex:1; min-width:0; letter-spacing:-.01em}
+.plc{font-size:10.5px; color:var(--ink-3); font-variant-numeric:tabular-nums; flex:none;
+  padding:3px 7px; border-radius:7px; background:var(--panel); border:1px solid var(--stroke-2)}
+.plx{border:none; background:none; color:var(--ink-3); cursor:pointer; font-size:18px;
+  line-height:1; padding:2px 6px; border-radius:8px; font-family:inherit; flex:none}
+.plx:hover{color:var(--crit); background:var(--panel)}
+
+/* чип «на согласование» */
+.plt .ck{display:inline-flex; align-items:center; gap:7px; flex:none; cursor:pointer;
+  font-family:inherit; font-size:12px; font-weight:600; color:var(--ink-3);
+  padding:6px 11px 6px 8px; border-radius:10px; border:1px solid var(--stroke-2);
+  background:var(--panel); transition:.15s; white-space:nowrap}
+.plt .ck:hover{color:var(--ink); border-color:var(--neu-b)}
+.plt .ck i{width:15px; height:15px; border-radius:5px; flex:none; position:relative;
+  border:1.5px solid var(--neu-b); background:var(--panel-2); transition:.15s}
+.plt .ck.on{color:#fff; background:#7C5CFF; border-color:#7C5CFF}
+.plt .ck.on i{background:rgba(255,255,255,.22); border-color:rgba(255,255,255,.5)}
+.plt .ck.on i:after{content:""; position:absolute; left:4px; top:1px; width:4px; height:8px;
+  border:solid #fff; border-width:0 2px 2px 0; transform:rotate(43deg)}
+
+/* поля: одинаковые колонки во всех строках */
+.plf{display:grid; gap:11px 12px;
+  grid-template-columns:minmax(0,1.05fr) minmax(0,1.5fr) minmax(0,.8fr) minmax(0,.65fr)
+                        minmax(0,1.2fr) minmax(0,1.2fr) minmax(0,1.2fr)}
+.plf label{display:flex; flex-direction:column; gap:5px; min-width:0}
+.plf label > span{font-size:10px; font-weight:600; color:var(--ink-3);
+  text-transform:uppercase; letter-spacing:.04em; white-space:nowrap}
+.fi.sm{padding:8px 10px; font-size:12.5px; border-radius:10px}
+.fi.sm.warn{border-color:color-mix(in srgb, var(--warn) 45%, var(--stroke-2))}
+.pldays.off, .plappr.off{visibility:hidden; pointer-events:none}
+.chipsd{display:flex; gap:4px}
+.cd{flex:1; min-width:0; font-family:inherit; font-size:11px; padding:8px 0; border-radius:9px;
+  cursor:pointer; border:1px solid var(--stroke-2); background:var(--panel); color:var(--ink-3);
+  transition:.14s}
+.cd:hover{color:var(--ink); border-color:var(--neu-b)}
+.cd.on{background:var(--neu); border-color:var(--neu-b); color:var(--ink); font-weight:600}
+@media (max-width:1240px){
+  .plf{grid-template-columns:repeat(3, minmax(0,1fr))}
+  .pldays.off, .plappr.off{display:none}
+}
+@media (max-width:760px){ .plf{grid-template-columns:repeat(2, minmax(0,1fr))} }
+
+/* владелец кабинета в Telegram */
+.tgb{min-width:210px}
+.tgr{display:flex; align-items:center; gap:0; border:1px solid var(--stroke);
+  border-radius:11px; background:var(--panel-2); overflow:hidden}
+.tgr .at{padding:0 2px 0 11px; font-size:13px; font-weight:600; color:var(--ink-3)}
+.tgr .fi{border:none; background:none; border-radius:0; flex:1; min-width:0; padding-left:3px}
+.tgr:focus-within{border-color:var(--neu-b)}
+
+/* выбор функций */
+.pk{border:1px solid var(--stroke); border-radius:var(--r2); margin-bottom:18px;
+  background:var(--panel-2); overflow:hidden}
+.pkh{display:flex; gap:9px; padding:13px; border-bottom:1px solid var(--stroke-2)}
+.pkh .fi{flex:1}
+.pkh .bt{width:auto; flex:none; padding:10px 16px; font-size:12.5px}
+.pkl{max-height:380px; overflow-y:auto; padding:6px 13px 13px}
+.pkb{margin-top:12px}
+.pkbh{display:flex; align-items:center; gap:8px; font-size:10.5px; font-weight:700;
+  color:var(--ink-3); text-transform:uppercase; letter-spacing:.05em; padding:6px 0}
+.pkbh span{opacity:.7; font-weight:500}
+.pkbh .glink{margin-left:auto; text-transform:none; letter-spacing:0; font-size:11.5px; padding:2px 0}
+.pkr{display:flex; align-items:center; gap:10px; padding:8px 9px; border-radius:10px;
+  cursor:pointer; font-size:12.5px; transition:.12s}
+.pkr:hover{background:var(--panel)}
+.pkr.has{background:var(--panel)}
+.pkr input{width:16px;height:16px;flex:none;accent-color:#7C5CFF;cursor:pointer}
+.pkr .k{flex:1; min-width:0}
+.pkr .c{font-size:10.5px; color:var(--ink-3); font-variant-numeric:tabular-nums; flex:none}
+.pkr .m{font-size:11px; color:var(--ink-3); flex:none; width:56px; text-align:right}
+.pkf2{font-size:11.5px; color:var(--ink-3); padding:11px 13px;
+  border-top:1px solid var(--stroke-2); line-height:1.45}
+
+/* «Мои клиенты» на рельсе */
+.rail .rw{position:relative}
+.cabmenu{position:fixed; left:0; top:0; width:256px; z-index:200;
+  padding:8px; display:none; box-shadow:0 18px 46px rgba(16,20,32,.20)}
+.cabmenu.on{display:block}
+.cabmenu{background:var(--panel); border:1px solid var(--stroke); border-radius:var(--r2)}
+
+.cabmenu .add{display:flex; align-items:center; gap:8px; width:100%; font-family:inherit;
+  font-size:12.5px; font-weight:600; padding:10px 11px; border-radius:11px; cursor:pointer;
+  border:1px dashed var(--neu-b); background:none; color:var(--ink); margin-bottom:6px}
+.cabmenu .add:hover{background:var(--panel-2)}
+.cabmenu .ci{display:flex; align-items:center; gap:9px; width:100%; font-family:inherit;
+  font-size:12.5px; padding:8px 11px; border-radius:11px; cursor:pointer; border:none;
+  background:none; color:var(--ink-2); text-align:left}
+.cabmenu .ci:hover{background:var(--panel-2); color:var(--ink)}
+.cabmenu .ci .av2{width:22px;height:22px;border-radius:7px;flex:none;display:grid;
+  place-items:center;font-size:9px;font-weight:700;color:#fff}
+.cabmenu .ci .k{flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.cabmenu .ci .n2{font-size:10.5px; color:var(--ink-3); flex:none}
+.cabmenu .none{font-size:11.5px; color:var(--ink-3); padding:8px 11px}
+
+/* карточки клиентов */
+.ccbar{font-size:12.5px; color:var(--ink-2); background:var(--panel-2);
+  border:1px solid var(--stroke-2); border-radius:var(--r2); padding:11px 15px; margin-bottom:14px}
+.ccgrid{display:grid; gap:14px; grid-template-columns:repeat(auto-fill,minmax(430px,1fr))}
+.cc{padding:18px 20px 16px}
+.cc.part{border-color:color-mix(in srgb, var(--warn) 28%, var(--stroke))}
+.cch{display:flex; align-items:center; gap:12px; margin-bottom:16px}
+.cch .av{width:38px;height:38px;font-size:13px;border-radius:12px;flex:none}
+.cct{min-width:0; flex:1}
+.cct .n{font-family:Unbounded,sans-serif; font-size:15px; font-weight:500; letter-spacing:-.03em;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.cct .r{font-size:11.5px; color:var(--ink-3); margin-top:3px}
+.ccopen{width:auto; flex:none; padding:8px 14px; font-size:12px}
+.ccf{display:grid; gap:11px 12px; grid-template-columns:1fr 1fr}
+.ccf label{display:flex; flex-direction:column; gap:5px; min-width:0}
+.ccf label > span{font-size:10px; font-weight:600; color:var(--ink-3);
+  text-transform:uppercase; letter-spacing:.04em}
+.ccn{font-size:11.5px; color:var(--ink-3); margin-top:13px; padding-top:12px;
+  border-top:1px solid var(--stroke-2)}
+.ccn.warn2{color:var(--warn)}
+@media (max-width:620px){ .ccf{grid-template-columns:1fr} }
+.ccacc{margin-top:14px; padding-top:13px; border-top:1px solid var(--stroke-2)}
+.acch{font-size:10px; font-weight:700; color:var(--ink-3); text-transform:uppercase;
+  letter-spacing:.05em; margin-bottom:10px}
+.accp{margin:11px 0 0; padding:11px 13px; border-radius:11px; background:var(--panel-2);
+  border:1px solid var(--stroke-2); font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+  font-size:11.5px; line-height:1.55; color:var(--ink-2); white-space:pre-wrap}
+
+/* полоса Ганта раскрывается по наведению */
+.gb{transition:box-shadow .16s ease, padding .16s ease}
+.gb .gbt{overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:100%}
+.gb .gbi{display:none; font-size:10.5px; font-weight:600; opacity:.92; white-space:nowrap; margin-top:2px}
+.gb:hover{filter:none; z-index:40; height:auto; min-height:19px; min-width:180px; width:auto !important;
+  padding:6px 10px; flex-direction:column; align-items:flex-start; overflow:visible;
+  box-shadow:0 12px 30px rgba(16,20,32,.22); opacity:1 !important}
+.gb:hover .gbt{white-space:normal; overflow:visible; line-height:1.25}
+.gb:hover .gbi{display:block}
+.ln{overflow:visible}
+.opencab{margin-left:auto}
+.plchk .ck{display:inline-flex; align-items:center; gap:7px; cursor:pointer; font-size:12.5px;
+  font-weight:600; color:var(--ink-2); user-select:none}
+.plchk .ck i{width:16px; height:16px; border-radius:5px; border:1.5px solid var(--neu-b);
+  background:var(--neu); display:inline-block; position:relative; transition:.14s}
+.plchk .ck.on i{background:var(--acc,#4f46e5); border-color:var(--acc,#4f46e5)}
+.plchk .ck.on i:after{content:""; position:absolute; left:4.5px; top:1.5px; width:4px; height:8px;
+  border:solid #fff; border-width:0 2px 2px 0; transform:rotate(43deg)}
+.plchk .ck.on{color:var(--ink)}
+
+/* премии и штрафы */
+.paysum{display:grid; gap:12px; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); margin-bottom:16px}
+.pss{padding:13px 15px; border-radius:var(--r2); background:var(--panel-2); border:1px solid var(--stroke-2)}
+.pss .l{font-size:10.5px; font-weight:700; color:var(--ink-3); text-transform:uppercase; letter-spacing:.05em}
+.pss .v{font-family:Unbounded,sans-serif; font-size:19px; font-weight:500; letter-spacing:-.03em; margin-top:7px}
+.pss .v.up{color:var(--ok,#12A150)} .pss .v.okv{color:var(--ok,#12A150)}
+.pss .v.warnv{color:var(--warn)} .pss .v.critv{color:var(--crit)}
+.pss .d{font-size:11px; color:var(--ink-3); margin-top:5px; line-height:1.4}
+.paynote{font-size:12px; color:var(--warn); background:var(--panel-2); border:1px solid var(--stroke-2);
+  border-radius:var(--r2); padding:10px 14px; margin-bottom:14px}
+.paytw{overflow-x:auto; margin:0 -2px}
+.payt{width:100%; border-collapse:collapse; font-size:12.5px; min-width:920px}
+.payt th{font-size:10px; font-weight:700; color:var(--ink-3); text-transform:uppercase;
+  letter-spacing:.04em; text-align:left; padding:0 10px 9px; white-space:nowrap}
+.payt td{padding:11px 10px; border-top:1px solid var(--stroke-2); vertical-align:middle;
+  font-variant-numeric:tabular-nums; white-space:nowrap}
+.payt tr:hover td{background:var(--panel-2)}
+.payt .who{display:flex; align-items:center; gap:9px; min-width:170px}
+.payt .who .av{width:26px;height:26px;border-radius:9px;font-size:10px;flex:none}
+.payt .wn{display:flex; flex-direction:column; line-height:1.25; white-space:nowrap}
+.payt .wn i{font-style:normal; font-size:10.5px; color:var(--ink-3)}
+.payt .sub2{display:block; font-style:normal; font-size:10.5px; color:var(--ink-3); margin-top:2px}
+.payt .dim{color:var(--ink-3)}
+.payt .warnc{color:var(--warn)} .payt .okc{color:var(--ok,#12A150)} .payt .critc{color:var(--crit)}
+.payt .tot{font-weight:700}
+.fi.xs{width:66px; padding:6px 8px; font-size:12px; border-radius:9px; text-align:center}
+.payh{font-size:11.5px; color:var(--ink-3); line-height:1.5; margin-top:14px;
+  padding-top:13px; border-top:1px solid var(--stroke-2)}
+.rolesel{flex:none}
+.rolesel .fi{padding:9px 30px 9px 13px; font-size:12.5px; font-weight:600; border-radius:12px;
+  min-width:172px; cursor:pointer}
 </style>
 </head>
 <body>
@@ -660,7 +868,9 @@ body::before{content:""; position:fixed; inset:0; z-index:-1; pointer-events:non
     <div class="lg">Ф</div>
     <button class="ri" data-v="work" aria-current="true" title="Рабочий экран"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="2"/><rect x="14" y="3" width="7" height="5" rx="2"/><rect x="14" y="12" width="7" height="9" rx="2"/><rect x="3" y="16" width="7" height="5" rx="2"/></svg><span class="rl">Рабочий экран</span></button>
     <button class="ri" data-v="people" title="Моя команда"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><path d="M16 5.5a3 3 0 0 1 0 5.6M18 20c0-2.4-1-4.5-2.6-5.6"/></svg><span class="rl">Моя команда</span></button>
-    <button class="ri" data-v="projects" title="Мои клиенты"><svg viewBox="0 0 24 24"><path d="M3 7.5A2.5 2.5 0 0 1 5.5 5h3.2l1.8 2.3h8A2.5 2.5 0 0 1 21 9.8v7.7A2.5 2.5 0 0 1 18.5 20h-13A2.5 2.5 0 0 1 3 17.5z"/></svg><span class="rl">Мои клиенты</span></button>
+    <div class="rw"><button class="ri" data-v="projects" title="Мои клиенты"><svg viewBox="0 0 24 24"><path d="M3 7.5A2.5 2.5 0 0 1 5.5 5h3.2l1.8 2.3h8A2.5 2.5 0 0 1 21 9.8v7.7A2.5 2.5 0 0 1 18.5 20h-13A2.5 2.5 0 0 1 3 17.5z"/></svg><span class="rl">Мои клиенты</span></button><div class="gl cabmenu" id="cabMenu"></div></div>
+    <button class="ri" data-v="cards" title="Карточки клиентов"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="3"/><circle cx="8.5" cy="11" r="2"/><path d="M5.5 16.4c.5-1.5 1.7-2.4 3-2.4s2.5.9 3 2.4"/><path d="M14.5 10h4M14.5 13.5h4"/></svg><span class="rl">Карточки клиентов</span></button>
+    <button class="ri" data-v="staff" title="Карточки команды"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="4"/><circle cx="12" cy="10" r="2.4"/><path d="M8 17c.6-1.9 2.2-3 4-3s3.4 1.1 4 3"/></svg><span class="rl">Карточки команды</span></button>
     <button class="ri" title="Функции"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h10M4 18h13"/><circle cx="18.5" cy="12" r="2"/></svg><span class="rl">Функции</span></button>
     <button class="ri" id="moneyIc" title="Деньги"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="3"/><circle cx="12" cy="12" r="2.6"/></svg><span class="rl">Деньги</span></button>
     <button class="ri" title="Рейтинг"><svg viewBox="0 0 24 24"><path d="M5 20V11M12 20V5M19 20v-6"/></svg><span class="rl">Рейтинг</span></button>
@@ -675,10 +885,7 @@ body::before{content:""; position:fixed; inset:0; z-index:-1; pointer-events:non
         <div class="sub" id="sub">Загружаю данные…</div>
       </div>
       <div class="grow"></div>
-      <div class="seg" id="roleSw" role="group" aria-label="Роль">
-        <button data-r="owner" aria-pressed="true">Собственник</button>
-        <button data-r="mgr" aria-pressed="false">Менеджер</button>
-      </div>
+      <div class="rolesel" id="roleSw"><select class="fi" id="roleSel" aria-label="Роль"><option value="owner">Собственник</option><option value="dir">Директор</option><option value="head">Руководитель</option><option value="pm">Проджект</option><option value="mgr">Менеджер главный</option><option value="jun">Менеджер младший</option><option value="asst">Ассистент</option><option value="client">Клиент агентства</option></select></div>
       <div class="bal" id="balWrap">
         <button class="balb" id="balb" aria-expanded="false">
           <span><span class="bv">12 400 ₽</span><span class="bd"> · подписка до 8 окт</span></span>
@@ -709,6 +916,7 @@ body::before{content:""; position:fixed; inset:0; z-index:-1; pointer-events:non
     <div class="grid" id="screen" hidden>
       <div class="gl s12" style="padding:16px 22px" data-b="kpistrip"></div>
       <section class="gl s12 tall" data-b="gantt"></section>
+      <section class="gl s12" id="payPanel" data-b="bonus"></section>
       <section class="gl s12" data-b="newtask"></section>
       <section class="gl s5"><div class="gl-t"><h2 id="tasksTitle">Задачи дня</h2><span class="m" id="tasksMeta"></span></div>
         <div data-b="tasks" data-scroll="1"></div></section>
@@ -753,10 +961,10 @@ function dayTasks(d){ return S.tasks.filter(function(t){ return t.dow===d; }); }
 function minutesOf(list){ return list.reduce(function(a,t){ return a+(t.minutes||0); },0); }
 function loadOf(pid,dow){ return minutesOf(dayTasks(dow).filter(function(t){ return t.person===pid; })); }
 function pctOf(pid,dow){ return Math.round(loadOf(pid,dow)/NORM*100); }
-function visiblePeople(){ return role==="mgr" ? S.people.filter(function(p){ return p.id===meId; }) : S.people; }
+function visiblePeople(){ return isMgr() ? S.people.filter(function(p){ return p.id===meId; }) : S.people; }
 function visibleTasks(){
   var l=dayTasks(dow);
-  if(role==="mgr") l=l.filter(function(t){ return t.person===meId; });
+  if(isMgr()) l=l.filter(function(t){ return t.person===meId; });
   else if(selPerson) l=l.filter(function(t){ return t.person===selPerson; });
   if(proj) l=l.filter(function(t){ return t.project===proj; });
   return l.sort(function(a,b){ return (a.start||0)-(b.start||0); });
@@ -790,12 +998,12 @@ B.kpistrip=function(el){
     var m=pl.reduce(function(a,p){ return a+loadOf(p.id,d); },0);
     return pl.length? Math.round(m/(NORM*pl.length)*100):0; });
   var K=[
-   {l: role==="mgr"?"Моя загрузка":"Загрузка команды", v:loadPct+"%", c:loadPct>125?"var(--crit)":loadPct>100?"var(--warn)":"", d:"норма 8 ч в день", p:week},
+   {l: isMgr()?"Моя загрузка":"Загрузка команды", v:loadPct+"%", c:loadPct>125?"var(--crit)":loadPct>100?"var(--warn)":"", d:"норма 8 ч в день", p:week},
    {l:"Успеваемость дня", v:succ+"%", c:"", d:done+" из "+tl.length+" задач", p:[40,55,48,60,succ]},
    {l:"Осталось сегодня", v:hrs(left)+" ч", c:left>NORM?"var(--warn)":"", d:tl.length-done+" задач", p:[8,7,6,5,left/60]},
-   {l: role==="mgr"?"Побед по скорости":"Без ответственного",
-    v: role==="mgr"? String(wins().length) : String(noOwner), c:"",
-    d: role==="mgr"?"задач быстрее норматива":"задачи ждут распределения", p:[1,2,1,3,2]}
+   {l: isMgr()?"Побед по скорости":"Без ответственного",
+    v: isMgr()? String(wins().length) : String(noOwner), c:"",
+    d: isMgr()?"задач быстрее норматива":"задачи ждут распределения", p:[1,2,1,3,2]}
   ];
   el.innerHTML='<div style="display:flex;gap:14px;flex-wrap:wrap;align-items:center">'+
     K.map(function(k,i){
@@ -841,7 +1049,7 @@ function wins(){
 }
 
 B.need=function(el){
-  if(role==="mgr"){
+  if(isMgr()){
     var w=wins();
     document.querySelector("#needPanel h2").textContent="Победы по скорости";
     el.innerHTML = w.length ? '<div class="mo">'+w.slice(0,5).map(function(t){
@@ -872,7 +1080,7 @@ B.gantt=function(el){
   var sp=selPerson?person(selPerson):null;
   var byProject = !!sp;            /* выбран сотрудник → строки = проекты */
   var units, pick;
-  if(role==="mgr"){
+  if(isMgr()){
     units=S.projects.map(function(x){ return {id:x.id,name:x.name,av:x.av,color:x.color}; });
     pick=function(u,d){ return dayTasks(d).filter(function(t){ return t.person===meId && t.project===u.id; }); };
   } else if(byProject){
@@ -890,7 +1098,7 @@ B.gantt=function(el){
     rowsData=units.map(function(u){
       var list=pick(u,dow).sort(function(a,b){ return a.start-b.start; });
       return {u:u, mins:list.reduce(function(a,t){return a+t.minutes;},0),
-        bars:list.map(function(t,k){ return {x:t.start-10, w:t.minutes/60, lab:t.title, c:kindColor(t), row:k%2, id:t.id, done:t.done}; }),
+        bars:list.map(function(t,k){ return {x:t.start-10, w:t.minutes/60, lab:t.title, c:kindColor(t), row:k%2, id:t.id, done:t.done, mins:t.minutes, st:t.start, pid:t.person, prj:t.project}; }),
         end:list.reduce(function(a,t){ return Math.max(a,t.start-10+t.minutes/60); },0), norm:8};
     });
   } else if(scale==="неделя"){
@@ -900,7 +1108,7 @@ B.gantt=function(el){
       for(var d=0;d<5;d++){
         pick(u,d).sort(function(a,b){ return a.start-b.start; }).forEach(function(t,k){
           mins+=t.minutes;
-          bars.push({x:d+(t.start-10)/10, w:Math.max(.1,t.minutes/600), lab:t.title, c:kindColor(t), row:k%2, id:t.id, done:t.done});
+          bars.push({x:d+(t.start-10)/10, w:Math.max(.1,t.minutes/600), lab:t.title, c:kindColor(t), row:k%2, id:t.id, done:t.done, mins:t.minutes, st:t.start, pid:t.person, prj:t.project, dw:d});
         });
       }
       return {u:u, mins:mins, bars:bars, end:0, norm:5};
@@ -916,7 +1124,7 @@ B.gantt=function(el){
     });
   }
 
-  var h='<div class="gh"><div class="sp2">'+(byProject||role==="mgr"?"проект":"менеджер")+'</div><div class="tk">'+
+  var h='<div class="gh"><div class="sp2">'+(byProject||isMgr()?"проект":"менеджер")+'</div><div class="tk">'+
     head.map(function(t){ return '<span>'+t+'</span>'; }).join("")+'</div></div>';
 
   var rowsHtml=rowsData.map(function(r){
@@ -925,7 +1133,7 @@ B.gantt=function(el){
       var neu=!b.c;
       return '<div class="gb'+(neu?" n":"")+'" data-open="'+esc(b.id)+'" style="left:'+(b.x/span*100).toFixed(2)+
         '%;width:calc('+(b.w/span*100).toFixed(2)+'% - 4px);top:'+(5+b.row*23)+'px'+
-        (neu?"":";background:"+b.c)+(b.done?";opacity:.42":"")+'" title="'+esc(b.lab)+'">'+esc(b.lab)+'</div>';
+        (neu?"":";background:"+b.c)+(b.done?";opacity:.42":"")+'" title="'+esc(b.lab)+'"><span class="gbt">'+esc(b.lab)+'</span>'+(b.mins?'<span class="gbi">'+gbInfo(b)+'</span>':'')+'</div>';
     }).join("");
     var ov = r.end>r.norm ? '<div class="ov" style="left:'+(r.norm/span*100)+'%;right:'+
       Math.max(0,100-r.end/span*100)+'%"></div>' : "";
@@ -933,8 +1141,8 @@ B.gantt=function(el){
     var nowMark=(scale==="день" && dow===today && nowH>10 && nowH<20)
       ? '<div class="nw" style="left:'+((nowH-10)/span*100)+'%"></div>' : "";
     var pct=Math.round(r.mins/(scale==="день"?NORM:scale==="неделя"?NORM*5:NORM*20)*100);
-    return '<div class="gr"><div class="gn'+(byProject||role==="mgr"?"":" pickp")+'" data-person="'+
-      (byProject||role==="mgr"?"":esc(r.u.id))+'">'+
+    return '<div class="gr"><div class="gn'+(byProject||isMgr()?"":" pickp")+'" data-person="'+
+      (byProject||isMgr()?"":esc(r.u.id))+'">'+
       '<div class="av" style="background:'+r.u.color+';width:26px;height:26px;font-size:10px;border-radius:9px">'+esc(r.u.av)+'</div>'+
       '<div class="t"><div class="n">'+esc(r.u.name)+'</div><div class="h">'+hrs(r.mins)+' ч · '+pct+'%</div></div></div>'+
       '<div class="ln">'+cells+bs+ov+nowMark+'</div></div>';
@@ -944,9 +1152,9 @@ B.gantt=function(el){
     ? '<div class="seg sm dowseg" role="group" aria-label="День недели">'+DOWS.map(function(d,i){
         return '<button data-d="'+i+'" aria-pressed="'+(i===dow)+'">'+d+'</button>'; }).join("")+'</div>' : '';
 
-  el.innerHTML='<div class="gl-t"><h2>'+(byProject? esc(sp.name)+' по проектам' : role==="mgr"?"Мой график":"Проект по часам")+
+  el.innerHTML='<div class="gl-t"><h2>'+(byProject? esc(sp.name)+' по проектам' : isMgr()?"Мой график":"Проект по часам")+
     '</h2><div class="grow"></div>'+
-    (role==="mgr"?'':'<div class="gsel" id="projSel"><div class="sq" style="background:'+(p?p.color:"var(--ink-3)")+'">'+
+    (isMgr()?'':'<div class="gsel" id="projSel"><div class="sq" style="background:'+(p?p.color:"var(--ink-3)")+'">'+
       (p?esc(p.av):"ВСЕ")+'</div><div><div class="pn">'+(p?esc(p.name):"Все проекты")+'</div>'+
       '<div class="pm">'+(p?(p.cabinets+" каб · "+p.articles+" арт"):(S.projects.length+" проекта"))+'</div></div>'+
       '<svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></div>')+
@@ -963,7 +1171,7 @@ B.gantt=function(el){
     '<span><i style="background:var(--crit)"></i>срочные</span>'+
     '<span><i style="background:var(--warn)"></i>планёрки и дедлайны</span>'+
     '<span><i style="background:repeating-linear-gradient(45deg,rgba(219,74,95,.5) 0 4px,rgba(219,74,95,.12) 4px 8px)"></i>за пределами нормы</span>'+
-    (role==="mgr"||byProject?'':'<span style="margin-left:auto;opacity:.8">нажмите на имя — увидите его по проектам</span>')+'</div>';
+    (isMgr()||byProject?'':'<span style="margin-left:auto;opacity:.8">нажмите на имя — увидите его по проектам</span>')+'</div>';
 };
 
 /* ── постановка задачи ── */
@@ -987,7 +1195,7 @@ B.newtask=function(el){
       S.cabs.filter(function(c){ return !proj || c.project===(document.getElementById("ntProject")?document.getElementById("ntProject").value:proj); })
         .map(function(c){ return '<option value="'+esc(c.id)+'">'+esc(c.name)+'</option>'; }).join("")+'</select>'+
     '<select class="sel" id="ntPerson"><option value="">Без ответственного</option>'+
-      opts(S.people,role==="mgr"?meId:"",function(x){return x.name;})+'</select>'+
+      opts(S.people,isMgr()?meId:"",function(x){return x.name;})+'</select>'+
     '<select class="sel" id="ntFn"><option value="">Разовая задача</option>'+
       opts(S.fns,"",function(x){return x.name+" · "+x.minutes+" мин";})+'</select>'+
     '<select class="sel" id="ntKind"><option value="cyc">Цикличная</option><option value="urg">Срочная</option>'+
@@ -1075,6 +1283,7 @@ B.tasks=function(el){
 /* ── отрисовка ── */
 function render(){
   if(view!=="work"){
+    if(view==="cab"){ renderCab(); return; }
     if(view==="people") renderPeople(); else renderProjects();
     paintBars(document.getElementById("sect")); return; }
   var sc=document.getElementById("screen");
@@ -1113,7 +1322,7 @@ function dropAuth(){ A={token:"",refresh:"",role:"",level:9,email:""}; try{ loca
 
 function saveState(){ if(MODE!=="demo") return;
   try{ localStorage.setItem(LSK, JSON.stringify(
-    {people:S.people, projects:S.projects, cabs:S.cabs, tasks:S.tasks})); }catch(e){} }
+    {people:S.people, projects:S.projects, cabs:S.cabs, tasks:S.tasks, plan:S.plan||[]})); }catch(e){} }
 function restoreState(){ try{ var r=localStorage.getItem(LSK); if(!r) return null;
   var o=JSON.parse(r);
   if(o && o.people && o.people.length) return o;
@@ -1185,6 +1394,8 @@ function genWeekFor(p, r){
         start:Math.min(19.4, 10+used/60), done:done,
         spentSec: done && r()<.55 ? Math.round(mins*60*(.6+r()*.7)) : 0,
         comment:"", link:"", approver:"Без согласования",
+        from: (r()<.10 && S.people.length>1) ? "OTHER" : "",
+        due: (r()<.16) ? (10+Math.floor(r()*8)) : null,
         status: (!done && r()<.08) ? "wait" : "", createdAt:Date.now()});
       used+=mins;
     }
@@ -1193,6 +1404,16 @@ function genWeekFor(p, r){
 }
 
 /* разложить задачи всем, у кого их нет */
+function linkPickedUp(){
+  var ids=(S.people||[]).map(function(x){ return x.id; });
+  if(ids.length<2) return;
+  (S.tasks||[]).forEach(function(t){
+    if(t.from==="OTHER"){
+      var pool=ids.filter(function(i){ return i!==t.person; });
+      t.from=pool[Math.floor(Math.random()*pool.length)];
+    }
+  });
+}
 function fillMissing(){
   var r=rng(Date.now()&0xffff), added=0;
   S.people.forEach(function(p){
@@ -1214,7 +1435,7 @@ function regenDemo(){
       minutes:f.minutes*2, kind:"urg", dow:today, start:10, done:false, spentSec:0,
       comment:"", link:"", approver:"Без согласования", status:"", createdAt:Date.now()});
   }
-  S.tasks=t; saveState();
+  S.tasks=t; linkPickedUp(); saveState();
 }
 
 function buildDemo(){
@@ -1228,6 +1449,7 @@ function buildDemo(){
   } else {
     regenDemo();
   }
+  linkPickedUp();
   meId = S.people.length ? (S.people[1]||S.people[0]).id : null;
 }
 
@@ -1404,13 +1626,12 @@ function toggleTimer(id){
 }
 
 /* ── роль, тема, баланс ── */
-document.getElementById("roleSw").addEventListener("click", function(e){
-  var b=e.target.closest("button"); if(!b) return;
-  role=b.getAttribute("data-r"); selPerson=null;
-  q("#roleSw button").forEach(function(x){ x.setAttribute("aria-pressed", x===b?"true":"false"); });
-  var me=role==="mgr"? person(meId) : null;
-  document.getElementById("balWrap").hidden = role==="mgr";
-  document.getElementById("moneyIc").hidden = role==="mgr";
+document.getElementById("roleSel").addEventListener("change", function(e){
+  role=e.target.value; selPerson=null;
+  applyRoleRail();
+  var me=isMgr()? person(meId) : null;
+  document.getElementById("balWrap").hidden = isMgr();
+  document.getElementById("moneyIc").hidden = isMgr();
   document.getElementById("meName").innerHTML = me
     ? esc(me.name)+' <span style="color:var(--ink-3);font-weight:500">· 000004</span>'
     : 'Виталий <span style="color:var(--ink-3);font-weight:500">· 000001</span>';
@@ -1443,6 +1664,13 @@ document.getElementById("themeBtn").onclick=function(){
   var next=isDark?"light":"dark";
   apply(next); try{localStorage.setItem(TK,next);}catch(e){}
 };
+
+/* ── роли ── */
+var MGR_ROLES={mgr:1, jun:1, asst:1};
+function isMgr(){ return !!MGR_ROLES[role]; }
+function isOwner(){ return role==="owner" || role==="dir"; }
+function isFin(){ return role==="owner" || role==="dir" || role==="head" || role==="pm"; }
+function isClient(){ return role==="client"; }
 
 /* ── разделы: рабочий экран, люди, проекты ── */
 var view="work", openProj=null, projDay=null, projGantt=false;
@@ -1564,6 +1792,7 @@ function cabDetail(pr){
         (projDay===i)+'">'+d+'</button>'; }).join("")+'</div>';
 
   if(projDay===null){
+    tabs += '<button class="bt opencab" data-opencab="'+esc(pr.id)+'">Открыть кабинет</button>';
     var byCab=S.cabs.filter(function(c){ return c.project===pr.id; }).map(function(c){
       var ct=all.filter(function(t){ return t.cab===c.id; });
       return {n:c.name, t:ct.length, m:minutesOf(ct), d:pctDone(ct)}; });
@@ -1623,7 +1852,7 @@ function renderProjects(){
   var host=document.getElementById("sect");
   if(!S.projects.length){ host.innerHTML='<div class="gl"><div class="empty">Кабинетов пока нет. '+
     'Заведите их в разделе «Состав».</div></div>'; return; }
-  var mine = role==="mgr";
+  var mine = isMgr();
   var list=S.projects.filter(function(pr){
     if(!mine) return true;
     return S.tasks.some(function(t){ return t.project===pr.id && t.person===meId; });
@@ -1665,11 +1894,403 @@ function setView(v){
   var titles={work:["Рабочий экран",""],people:["Моя команда","Кто чем занят на этой неделе"],
     projects:["Мои клиенты","Что происходит по каждому кабинету"]};
   if(v==="work"){ sec.hidden=true; scr.hidden=false; render(); return; }
+  if(v==="cab"){ scr.hidden=true; sec.hidden=false; renderCab(); return; }
+  if(v==="staff"){ scr.hidden=true; sec.hidden=false;
+    document.getElementById("today").textContent="Карточки команды";
+    document.getElementById("sub").textContent="Зарплата, выплаты, контакты и доступы";
+    renderStaff(); return; }
+  if(v==="cards"){ scr.hidden=true; sec.hidden=false;
+    document.getElementById("today").textContent="Карточки клиентов";
+    document.getElementById("sub").textContent="Собственник, Telegram, телефон, дата платежа";
+    renderCards(); return; }
   scr.hidden=true; sec.hidden=false;
   document.getElementById("today").textContent=titles[v][0];
   document.getElementById("sub").textContent=titles[v][1];
   if(v==="people") renderPeople(); else renderProjects();
   paintBars(sec);
+}
+
+
+/* ── кабинеты клиента: задачи, настройки задач, инвайт ── */
+var cabOpen=null, pickOpen=false, pickQ="";
+var BLOCKS={1:"Функции в кабинете клиента",2:"Функции организационные",3:"Функции технические"};
+var CYCLES=[["none","Разовая"],["daily","Каждый день"],["weekly","Раз в неделю"],
+  ["biweekly","Раз в 2 недели"],["monthly","Раз в месяц"]];
+var FORMS=[["none","Без формы"],["chat","Отчёт в чат проекта"],["approve","На согласование, потом в чат"]];
+
+function newCode(){
+  var A="ACDEFHJKLMNPRTUVWXY3479", s="";
+  for(var i=0;i<6;i++) s+=A[Math.floor(Math.random()*A.length)];
+  return s;
+}
+function blockOf(fn){ var c=String(fn&&fn.code||"F2"); return +c[1]||2; }
+function planAll(){ if(!S.plan) S.plan=[]; return S.plan; }
+function planOf(cid){ return planAll().filter(function(x){ return x.cab===cid; }); }
+function inviteLink(code){ return location.origin+"/?invite="+code; }
+
+function planAdd(cid, fn, title){
+  var row={id:nextId("pl"), cab:cid, fn:fn?fn.id:"", title:title||(fn?fn.name:""),
+    minutes:fn?fn.minutes:30, cycle:"none", days:[], deadline:"", form:"none",
+    person:"", approver:"", approve:false, block:fn?blockOf(fn):2};
+  planAll().push(row); saveState(); return row;
+}
+function planPatch(id, k, v){
+  planAll().forEach(function(x){ if(x.id===id) x[k]=v; });
+  saveState();
+}
+function planDel(id){ S.plan=planAll().filter(function(x){ return x.id!==id; }); saveState(); }
+
+function sel(list, cur, val, lab){
+  return list.map(function(x){
+    var v=val(x);
+    return '<option value="'+esc(v)+'"'+(v===cur?' selected':'')+'>'+esc(lab(x))+'</option>';
+  }).join("");
+}
+
+function planRow(r){
+  var isW = r.cycle==="weekly" || r.cycle==="biweekly";
+  var f = r.fn ? fnById(r.fn) : null;
+  return '<div class="plr'+(r.approve?' appr':'')+'" data-pl="'+esc(r.id)+'">'+
+    '<div class="plt">'+
+      '<div class="pln">'+esc(r.title)+'</div>'+
+      '<div class="plc">'+(f?esc(f.code):'своя')+'</div>'+
+      '<button class="ck'+(r.approve?' on':'')+'" data-plapp="'+esc(r.id)+'" '+
+        'title="Задачу нельзя закрыть, пока её не согласуют">'+
+        '<i></i>На согласование</button>'+
+      '<button class="plx" data-pldel="'+esc(r.id)+'" title="Убрать из кабинета">×</button></div>'+
+    '<div class="plf">'+
+      '<label><span>Цикличность</span><select class="fi sm" data-plk="cycle">'+
+        sel(CYCLES, r.cycle, function(x){return x[0];}, function(x){return x[1];})+'</select></label>'+
+      '<label class="pldays'+(isW?'':' off')+'"><span>Дни недели</span><div class="chipsd">'+
+        DOWS.map(function(d,i){
+          return '<button class="cd'+(r.days.indexOf(i)>=0?' on':'')+'" data-plday="'+i+'">'+d+'</button>';
+        }).join("")+'</div></label>'+
+      '<label><span>Дедлайн</span><input class="fi sm" type="time" data-plk="deadline" value="'+esc(r.deadline)+'"></label>'+
+      '<label><span>Время, мин</span><input class="fi sm" type="number" min="5" max="480" step="5" data-plk="minutes" value="'+(r.minutes||30)+'"></label>'+
+      '<label><span>Форма сдачи</span><select class="fi sm" data-plk="form">'+
+        sel(FORMS, r.form, function(x){return x[0];}, function(x){return x[1];})+'</select></label>'+
+      '<label><span>Ответственный</span><select class="fi sm'+(r.person?'':' warn')+'" data-plk="person">'+
+        '<option value=""'+(r.person?'':' selected')+'>Не назначен</option>'+
+        sel(S.people, r.person, function(x){return x.id;}, function(x){return x.name;})+'</select></label>'+
+      '<label class="plappr'+(r.approve?'':' off')+'"><span>Согласует</span><select class="fi sm" data-plk="approver">'+
+          '<option value=""'+(r.approver?'':' selected')+'>Владелец кабинета</option>'+
+          sel(S.people, r.approver, function(x){return x.id;}, function(x){return x.name;})+'</select></label>'+
+    '</div></div>';
+}
+
+function pickerHTML(cid){
+  var have={}; planOf(cid).forEach(function(r){ if(r.fn) have[r.fn]=1; });
+  var qq=pickQ.toLowerCase();
+  var byBlock={1:[],2:[],3:[]};
+  S.fns.forEach(function(f){
+    if(qq && f.name.toLowerCase().indexOf(qq)<0 && f.code.toLowerCase().indexOf(qq)<0) return;
+    byBlock[blockOf(f)].push(f);
+  });
+  var body=[1,2,3].map(function(b){
+    if(!byBlock[b].length) return "";
+    return '<div class="pkb"><div class="pkbh">'+BLOCKS[b]+' <span>'+byBlock[b].length+'</span>'+
+      '<button class="glink" data-pkall="'+b+'">взять весь блок</button></div>'+
+      byBlock[b].map(function(f){
+        return '<label class="pkr'+(have[f.id]?' has':'')+'">'+
+          '<input type="checkbox" data-pkf="'+esc(f.id)+'"'+(have[f.id]?' checked':'')+'>'+
+          '<span class="k">'+esc(f.name)+'</span>'+
+          '<span class="c">'+esc(f.code)+'</span>'+
+          '<span class="m">'+f.minutes+' мин</span></label>';
+      }).join("")+'</div>';
+  }).join("");
+  return '<div class="pk"><div class="pkh">'+
+      '<input class="fi" id="pkQ" placeholder="Найти функцию" value="'+esc(pickQ)+'">'+
+      '<button class="bt gh2" id="pkClose">Готово</button></div>'+
+    '<div class="pkl">'+(body||'<div class="empty">Ничего не найдено</div>')+'</div>'+
+    '<div class="pkf2">Отмеченные функции — пакет услуг этого кабинета. '+
+      'Всё остальное добавляется своей задачей.</div></div>';
+}
+
+function renderCab(){
+  var host=document.getElementById("sect");
+  var c=project(cabOpen);
+  if(!c){ setView("projects"); return; }
+  if(!c.code){ c.code=newCode(); saveState(); }
+  var rows=planOf(c.id);
+  var byBlock={1:[],2:[],3:[]};
+  rows.forEach(function(r){ byBlock[r.block||2].push(r); });
+  var noOwner=rows.filter(function(r){ return !r.person; }).length;
+  document.getElementById("today").textContent=c.name;
+  document.getElementById("sub").textContent="Кабинет клиента";
+  host.innerHTML=
+  '<div class="gl cabh">'+
+    '<button class="bt gh2 cbback" id="cabBack">← Мои клиенты</button>'+
+    '<div class="av" style="background:'+c.color+'">'+esc(c.av||"")+'</div>'+
+    '<div class="cabn"><div class="n">'+esc(c.name)+'</div>'+
+      '<div class="r">'+rows.length+' задач в кабинете'+
+      (noOwner?' · <span style="color:var(--crit)">'+noOwner+' без ответственного</span>':'')+'</div></div>'+
+    '<div class="inv">'+
+      '<div class="invl">Код кабинета для приглашений</div>'+
+      '<div class="invr"><code>'+esc(c.code||"")+'</code>'+
+        '<button class="bt gh2 invb" data-copy="'+esc(c.code||"")+'">Код</button>'+
+        '<button class="bt gh2 invb" data-copy="'+esc(inviteLink(c.code||""))+'">Ссылка</button></div>'+
+      '<div class="invh">Сотрудник регистрируется, вводит код — и попадает в этот кабинет. '+
+        'Даже если его ещё нет в системе.</div>'+
+    '</div>'+
+
+  '</div>'+
+  '<div class="gl cabt">'+
+    '<div class="gl-t"><h2>Задачи кабинета</h2>'+
+      '<span class="m">цикличность · дедлайн · форма · время · ответственный</span>'+
+      '<div class="cabbtns"><button class="bt" id="pkOpen">'+
+        (pickOpen?'Свернуть список':'Взять из списка функций')+'</button>'+
+      '<button class="bt gh2" id="ownAdd">Своя задача</button></div></div>'+
+    '<div class="ownrow" id="ownRow" hidden>'+
+      '<input class="fi" id="ownTitle" placeholder="Что сделать — своими словами">'+
+      '<button class="bt" id="ownGo">Добавить</button></div>'+
+    (pickOpen ? pickerHTML(c.id) : "")+
+    (rows.length
+      ? [1,2,3].map(function(b){
+          if(!byBlock[b].length) return "";
+          return '<div class="plb"><div class="plbh">'+BLOCKS[b]+
+            ' <span>'+byBlock[b].length+'</span></div>'+
+            byBlock[b].map(planRow).join("")+'</div>'; }).join("")
+      : '<div class="empty">Задач пока нет. Возьмите их из списка функций или впишите свою.</div>')+
+  '</div>';
+}
+
+function openCab(id){ cabOpen=id; setView("cab"); }
+
+/* ── карточки клиентов: собственник, телеграм, телефон, дата платежа ── */
+function cardVal(pr, k){ return pr && pr[k]!=null ? String(pr[k]) : ""; }
+
+function clientCard(pr){
+  var n=planOf(pr.id).length;
+  var tg=cardVal(pr,"tg").replace(/^@+/,"");
+  var full = cardVal(pr,"owner") && tg && cardVal(pr,"phone") && cardVal(pr,"payDate");
+  return '<section class="gl cc'+(full?'':' part')+'" data-card="'+esc(pr.id)+'">'+
+    '<div class="cch">'+
+      '<div class="av" style="background:'+pr.color+'">'+esc(pr.av||"")+'</div>'+
+      '<div class="cct"><div class="n">'+esc(pr.name)+'</div>'+
+        '<div class="r">'+n+' задач в кабинете · код '+esc(pr.code||"—")+'</div></div>'+
+      '<button class="bt gh2 ccopen" data-opencab="'+esc(pr.id)+'">Кабинет</button>'+
+    '</div>'+
+    '<div class="ccf">'+
+      '<label><span>Собственник</span>'+
+        '<input class="fi sm" data-ck="owner" placeholder="Имя и фамилия" value="'+esc(cardVal(pr,"owner"))+'"></label>'+
+      '<label><span>Telegram</span><div class="tgr">'+
+        '<span class="at">@</span>'+
+        '<input class="fi sm" data-ck="tg" placeholder="nickname" value="'+esc(tg)+'"></div></label>'+
+      '<label><span>Телефон</span>'+
+        '<input class="fi sm" data-ck="phone" type="tel" placeholder="+7 900 000-00-00" value="'+esc(cardVal(pr,"phone"))+'"></label>'+
+      '<label><span>Дата платежа</span>'+
+        '<input class="fi sm" data-ck="payDate" type="date" value="'+esc(cardVal(pr,"payDate"))+'"></label>'+
+    '</div>'+
+    (tg ? '<div class="ccn">В сообщение на согласование подставим @'+esc(tg)+'</div>'
+        : '<div class="ccn warn2">Без ника в Telegram согласование собственнику не уйдёт</div>')+
+  '</section>';
+}
+
+function renderCards(){
+  var host=document.getElementById("sect");
+  var list=S.projects||[];
+  var made=false;
+  list.forEach(function(pr){ if(!pr.code){ pr.code=newCode(); made=true; } });
+  if(made) saveState();
+  var noTg=list.filter(function(pr){ return !cardVal(pr,"tg"); }).length;
+  host.innerHTML=
+    '<div class="ccbar" id="ccBar">'+cardsBarText()+'</div>'+
+    '<div class="ccgrid">'+
+      (list.length ? list.map(clientCard).join("")
+                   : '<div class="empty">Кабинетов пока нет</div>')+
+    '</div>';
+}
+
+/* ── карточки команды: только собственник ── */
+function accessText(m){
+  return "Доступы " + (m.name||"") + "\n" + (m.mail||"") + "\n" + (m.wphone||"");
+}
+function staffCard(m){
+  var tg=String(m.tg||"").replace(/^@+/,"");
+  var ready = m.mail && m.wphone;
+  return '<section class="gl cc'+(ready?'':' part')+'" data-staff="'+esc(m.id)+'">'+
+    '<div class="cch">'+
+      '<div class="av" style="background:'+m.color+'">'+esc(m.av||"")+'</div>'+
+      '<div class="cct"><div class="n">'+esc(m.name)+'</div>'+
+        '<div class="r">'+esc(m.role||"без должности")+'</div></div>'+
+      '<button class="bt gh2 ccopen" data-acc="'+esc(m.id)+'" title="Скопировать в формате для клиента">'+
+        'Доступы</button>'+
+    '</div>'+
+    '<div class="ccf">'+
+      '<label><span>Должность</span>'+
+        '<input class="fi sm" data-sk="role" placeholder="Менеджер" value="'+esc(m.role||"")+'"></label>'+
+      '<label><span>Telegram</span><div class="tgr"><span class="at">@</span>'+
+        '<input class="fi sm" data-sk="tg" placeholder="nickname" value="'+esc(tg)+'"></div></label>'+
+      '<label><span>Зарплата, ₽</span>'+
+        '<input class="fi sm" data-sk="pay" type="number" min="0" step="1000" placeholder="0" value="'+esc(m.pay||"")+'"></label>'+
+      '<label><span>День выплаты</span>'+
+        '<input class="fi sm" data-sk="payDay" type="number" min="1" max="31" placeholder="5" value="'+esc(m.payDay||"")+'"></label>'+
+    '</div>'+
+    '<div class="ccacc">'+
+      '<div class="acch">Доступы для кабинета WB</div>'+
+      '<div class="ccf">'+
+        '<label><span>Почта</span>'+
+          '<input class="fi sm" data-sk="mail" type="email" placeholder="name@mail.ru" value="'+esc(m.mail||"")+'"></label>'+
+        '<label><span>Телефон</span>'+
+          '<input class="fi sm" data-sk="wphone" type="tel" placeholder="+79000000000" value="'+esc(m.wphone||"")+'"></label>'+
+      '</div>'+
+      '<pre class="accp">'+esc(accessText(m))+'</pre>'+
+    '</div>'+
+  '</section>';
+}
+function renderStaff(){
+  var host=document.getElementById("sect");
+  var list=S.people||[];
+  var noAcc=list.filter(function(m){ return !(m.mail && m.wphone); }).length;
+  var fund=list.reduce(function(a,m){ return a + (+m.pay||0); }, 0);
+  host.innerHTML=
+    '<div class="ccbar" id="ccBar">'+staffBarText()+'</div>'+
+    '<div class="ccgrid">'+
+      (list.length ? list.map(staffCard).join("") : '<div class="empty">Команда пока пустая</div>')+
+    '</div>';
+}
+
+
+/* ── сводные строки над карточками, обновляются на лету ── */
+function cardsBarText(){
+  var list=S.projects||[];
+  var noTg=list.filter(function(pr){ return !String(pr.tg||"").trim(); }).length;
+  var noPay=list.filter(function(pr){ return !String(pr.payDate||"").trim(); }).length;
+  if(!list.length) return "Кабинетов пока нет";
+  var out="Карточек: <b>"+list.length+"</b>";
+  if(noTg) out+=' · <span style="color:var(--warn)">'+noTg+' без ника в Telegram</span>';
+  if(noPay) out+=" · "+noPay+" без даты платежа";
+  if(!noTg && !noPay) out+=" · всё заполнено";
+  return out;
+}
+function staffBarText(){
+  var list=S.people||[];
+  var fund=list.reduce(function(a,m){ return a+(+m.pay||0); },0);
+  var noAcc=list.filter(function(m){ return !(m.mail && m.wphone); }).length;
+  var out="Фонд оплаты: <b>"+fund.toLocaleString("ru-RU")+" \u20BD</b> в месяц";
+  if(noAcc) out+=' · <span style="color:var(--warn)">'+noAcc+' без заполненных доступов</span>';
+  return out;
+}
+function refreshCcBar(){
+  var b=document.getElementById("ccBar"); if(!b) return;
+  b.innerHTML = (view==="staff") ? staffBarText() : cardsBarText();
+}
+
+/* ── деньги команды: ставка, переработка, премии, штрафы ── */
+var MONTH_H = 173.2;   /* нормо-часов в месяц: 8 ч × 5 дней × 4,33 недели */
+var WEEK_H  = 40;      /* нормо-часов в неделю */
+
+function rub(x){
+  if(!isFinite(x)) x=0;
+  return Math.round(x).toLocaleString("ru-RU")+" ₽";
+}
+function payRate(m){
+  var pay=+m.pay||0;
+  return {month:pay, hour: pay?pay/MONTH_H:0, min: pay?pay/MONTH_H/60:0, week: pay?pay/4.33:0};
+}
+function payRow(m){
+  var r=payRate(m);
+  var mine=(S.tasks||[]).filter(function(t){ return t.person===m.id; });
+  var factMin=mine.reduce(function(a,t){ return a+(t.minutes||0); },0);
+  var picked=mine.filter(function(t){ return t.from && t.from!==m.id; });
+  var pickMin=picked.reduce(function(a,t){ return a+(t.minutes||0); },0);
+  var late=mine.filter(function(t){ return t.due!=null && !t.done && t.dow<=today; });
+  var lateMin=late.reduce(function(a,t){ return a+(t.minutes||0); },0);
+  var overH=Math.max(0, factMin/60 - WEEK_H);
+  var bp=(m.bonusPct==null?30:+m.bonusPct||0);
+  var fp=(m.finePct==null?0:+m.finePct||0);
+  var overRub=overH*r.hour;
+  var bonus=(pickMin/60)*r.hour*bp/100;
+  var fine=(lateMin/60)*r.hour*fp/100;
+  return {m:m, rate:r, factH:factMin/60, overH:overH, overRub:overRub,
+    pickH:pickMin/60, pickN:picked.length, bonus:bonus,
+    lateH:lateMin/60, lateN:late.length, fine:fine, bp:bp, fp:fp,
+    plan:r.week, fact:r.week+overRub+bonus-fine};
+}
+function payRows(){ return (S.people||[]).map(payRow); }
+
+B.bonus=function(el){
+  var rows=payRows();
+  var noPay=rows.filter(function(x){ return !x.rate.month; }).length;
+  var sumPlan=rows.reduce(function(a,x){ return a+x.plan; },0);
+  var sumFact=rows.reduce(function(a,x){ return a+x.fact; },0);
+  var sumBon=rows.reduce(function(a,x){ return a+x.bonus; },0);
+  var sumFine=rows.reduce(function(a,x){ return a+x.fine; },0);
+  var sumOver=rows.reduce(function(a,x){ return a+x.overRub; },0);
+
+  el.innerHTML=
+    '<div class="gl-t"><h2>Премии и штрафы</h2>'+
+      '<span class="m">за неделю · норма '+WEEK_H+' ч</span></div>'+
+    '<div class="paysum">'+
+      '<div class="pss"><div class="l">Гипотетическая ЗП</div><div class="v">'+rub(sumPlan)+'</div>'+
+        '<div class="d">по окладу, если ровно по норме</div></div>'+
+      '<div class="pss"><div class="l">Фактическая ЗП</div><div class="v'+(sumFact>sumPlan?' up':'')+'">'+rub(sumFact)+'</div>'+
+        '<div class="d">с переработкой, премиями и штрафами</div></div>'+
+      '<div class="pss"><div class="l">Переработка</div><div class="v warnv">'+rub(sumOver)+'</div>'+
+        '<div class="d">сверх нормы часов</div></div>'+
+      '<div class="pss"><div class="l">Премии за чужие задачи</div><div class="v okv">'+rub(sumBon)+'</div>'+
+        '<div class="d">подхватили за коллег</div></div>'+
+      '<div class="pss"><div class="l">Штрафы</div><div class="v'+(sumFine?' critv':'')+'">'+rub(sumFine)+'</div>'+
+        '<div class="d">просроченные дедлайны</div></div>'+
+    '</div>'+
+    (noPay?'<div class="paynote">У '+noPay+' человек не заполнен оклад — ставка и премия не считаются. '+
+      'Оклад ставится в «Карточках команды».</div>':'')+
+    '<div class="paytw"><table class="payt">'+
+      '<thead><tr><th>Сотрудник</th><th>Ставка</th><th>Факт</th><th>Пере&shy;работка</th>'+
+      '<th>Чужие задачи</th><th>% премии</th><th>Премия</th><th>Просрочка</th>'+
+      '<th>% штрафа</th><th>Штраф</th><th>К выплате</th></tr></thead><tbody>'+
+      rows.map(function(x){
+        return '<tr data-payp="'+esc(x.m.id)+'">'+
+          '<td class="who"><span class="av" style="background:'+x.m.color+'">'+esc(x.m.av||"")+'</span>'+
+            '<span class="wn">'+esc(x.m.name)+'<i>'+esc(x.m.role||"")+'</i></span></td>'+
+          '<td>'+(x.rate.hour?Math.round(x.rate.hour)+' ₽/ч':'<span class="dim">—</span>')+
+            (x.rate.min?'<i class="sub2">'+x.rate.min.toFixed(1)+' ₽/мин</i>':'')+'</td>'+
+          '<td>'+x.factH.toFixed(1)+' ч</td>'+
+          '<td class="'+(x.overH>0?'warnc':'')+'">'+(x.overH>0?'+'+x.overH.toFixed(1)+' ч<i class="sub2">'+rub(x.overRub)+'</i>':'—')+'</td>'+
+          '<td>'+(x.pickN?x.pickN+' зад<i class="sub2">'+x.pickH.toFixed(1)+' ч</i>':'—')+'</td>'+
+          '<td><input class="fi xs" type="number" min="0" max="300" step="5" data-payk="bonusPct" value="'+x.bp+'"></td>'+
+          '<td class="'+(x.bonus>0?'okc':'')+'">'+(x.bonus>0?rub(x.bonus):'—')+'</td>'+
+          '<td>'+(x.lateN?x.lateN+' зад<i class="sub2">'+x.lateH.toFixed(1)+' ч</i>':'—')+'</td>'+
+          '<td><input class="fi xs" type="number" min="0" max="300" step="5" data-payk="finePct" value="'+x.fp+'"></td>'+
+          '<td class="'+(x.fine>0?'critc':'')+'">'+(x.fine>0?rub(x.fine):'—')+'</td>'+
+          '<td class="tot">'+rub(x.fact)+'</td>'+
+        '</tr>'; }).join("")+
+    '</tbody></table></div>'+
+    '<div class="payh">Ставка считается от оклада: оклад ÷ '+MONTH_H+' нормо-часов в месяц. '+
+      'Процент премии — доля от ставки за час, начисляется за часы по задачам, подхваченным у другого менеджера. '+
+      'Процент штрафа работает так же, но за просроченные задачи с дедлайном. У каждого человека свои проценты.</div>';
+};
+
+/* ── подсказка внутри полосы Ганта: раскрывается при наведении ── */
+function fmtHM(h){
+  var H=Math.floor(h), M=Math.round((h-H)*60);
+  if(M===60){ H+=1; M=0; }
+  return (H<10?"0":"")+H+":"+(M<10?"0":"")+M;
+}
+function gbInfo(b){
+  var out=[];
+  if(b.st!=null) out.push(fmtHM(b.st)+"–"+fmtHM(b.st+(b.mins||0)/60));
+  if(b.mins) out.push(b.mins+" мин");
+  if(b.pid){ var m=person(b.pid); if(m) out.push(m.name); }
+  if(b.prj){ var pr=project(b.prj); if(pr) out.push(pr.name); }
+  if(b.dw!=null && typeof DOW!=="undefined") out.unshift(DOW[b.dw]);
+  return esc(out.join(" · "));
+}
+
+
+/* ── что видно на рельсе в зависимости от роли ── */
+function applyRoleRail(){
+  var b;
+  b=document.querySelector('.rail .ri[data-v="cards"]');
+  if(b) b.style.display = isFin() ? "" : "none";
+  b=document.querySelector('.rail .ri[data-v="staff"]');
+  if(b) b.style.display = (role==="owner") ? "" : "none";
+  var mi=document.getElementById("moneyIc");
+  if(mi) mi.style.display = isFin() ? "" : "none";
+  var pp=document.getElementById("payPanel");
+  if(pp) pp.hidden = (role!=="owner");
+  if(view==="staff" && role!=="owner") setView("work");
+  if(view==="cards" && !isFin()) setView("work");
 }
 
 /* ── вход и старт ── */
@@ -1989,8 +2610,41 @@ document.getElementById("exitBtn").onclick=function(){
 };
 document.getElementById("resetDemo").onclick=resetDemo;
 document.getElementById("setupBtn").onclick=function(){ if(booted||S.people.length) showSetup(); };
+function fillCabMenu(){
+  var m=document.getElementById("cabMenu"); if(!m) return;
+  var btn=document.querySelector('.rail .ri[data-v="projects"]');
+  var rail=document.querySelector(".rail");
+  if(btn){ var r=btn.getBoundingClientRect();
+    var rr=rail?rail.getBoundingClientRect():r;
+    m.style.left=Math.round(Math.max(r.right, rr.right)+12)+"px";
+    m.style.top=Math.round(Math.min(r.top-8, window.innerHeight-360))+"px"; }
+  var list=S.projects||[];
+  m.innerHTML='<button class="add" id="cabAdd"><span>+</span>Добавить кабинет</button>'+
+    (list.length ? list.map(function(pr){
+      var n=(S.plan||[]).filter(function(x){ return x.cab===pr.id; }).length;
+      return '<button class="ci" data-opencab="'+esc(pr.id)+'">'+
+        '<span class="av2" style="background:'+pr.color+'">'+esc(pr.av||"")+'</span>'+
+        '<span class="k">'+esc(pr.name)+'</span>'+
+        '<span class="n2">'+(n?n+' зад':'—')+'</span></button>'; }).join("")
+      : '<div class="none">Кабинетов пока нет</div>');
+}
+(function(){
+  var rw=document.querySelector(".rail .rw");
+  var m=document.getElementById("cabMenu");
+  if(!rw||!m) return;
+  if(m.parentNode!==document.body) document.body.appendChild(m);  /* стекло рельсы обрезает — выносим */
+  var tm=null;
+  function open(){ clearTimeout(tm); fillCabMenu(); m.classList.add("on"); }
+  function close(){ tm=setTimeout(function(){ m.classList.remove("on"); }, 220); }
+  rw.addEventListener("mouseenter", open);
+  rw.addEventListener("mouseleave", close);
+  m.addEventListener("mouseenter", function(){ clearTimeout(tm); });
+  m.addEventListener("mouseleave", close);
+})();
+
 document.addEventListener("click", function(e){
   var t;
+  if(e.target.closest("#cabAdd")){ if(booted||S.people.length) showSetup(); return; }
   if((t=e.target.closest(".rail .ri[data-v]"))){
     if(!booted) return;
     setView(t.getAttribute("data-v")); return; }
@@ -2019,11 +2673,120 @@ document.addEventListener("click", function(e){
   if(e.target.closest("#backAll")){
     openProj=null; projDay=null; projGantt=false;
     renderProjects(); paintBars(document.getElementById("sect")); return; }
+  /* ── экран кабинета ── */
+  if((t=e.target.closest("[data-opencab]"))){
+    e.stopPropagation(); openCab(t.getAttribute("data-opencab")); return; }
+  if(e.target.closest("#cabBack")){ cabOpen=null; pickOpen=false; setView("projects"); return; }
+  if(e.target.closest("#pkOpen")){ pickOpen=!pickOpen; renderCab(); return; }
+  if(e.target.closest("#pkClose")){ pickOpen=false; renderCab(); return; }
+  if(e.target.closest("#ownAdd")){
+    var or_=document.getElementById("ownRow");
+    if(or_){ or_.hidden=!or_.hidden; if(!or_.hidden) document.getElementById("ownTitle").focus(); }
+    return; }
+  if(e.target.closest("#ownGo")){
+    var ti=document.getElementById("ownTitle"), v=ti?ti.value.trim():"";
+    if(!v){ toast("Впишите, что сделать"); return; }
+    planAdd(cabOpen, null, v); renderCab(); toast("Задача добавлена в кабинет"); return; }
+  if((t=e.target.closest("[data-pldel]"))){
+    planDel(t.getAttribute("data-pldel")); renderCab(); return; }
+  if((t=e.target.closest("[data-plapp]"))){
+    var pid2=t.getAttribute("data-plapp");
+    var cur=planAll().filter(function(x){ return x.id===pid2; })[0];
+    planPatch(pid2, "approve", !(cur&&cur.approve)); renderCab(); return; }
+  if((t=e.target.closest("[data-plday]"))){
+    e.preventDefault();
+    var host=t.closest("[data-pl]"); if(!host) return;
+    var rid=host.getAttribute("data-pl"), di=+t.getAttribute("data-plday");
+    var row=planAll().filter(function(x){ return x.id===rid; })[0]; if(!row) return;
+    var ix=row.days.indexOf(di);
+    if(ix>=0) row.days.splice(ix,1); else row.days.push(di);
+    row.days.sort(); saveState(); renderCab(); return; }
+  if((t=e.target.closest("[data-pkall]"))){
+    var b=+t.getAttribute("data-pkall");
+    var have={}; planOf(cabOpen).forEach(function(r){ if(r.fn) have[r.fn]=1; });
+    S.fns.forEach(function(f){ if(blockOf(f)===b && !have[f.id]) planAdd(cabOpen, f); });
+    renderCab(); toast("Блок добавлен в кабинет"); return; }
+  if((t=e.target.closest("[data-copy]"))){
+    var val=t.getAttribute("data-copy");
+    if(navigator.clipboard) navigator.clipboard.writeText(val).then(function(){ toast("Скопировано"); },
+      function(){ toast(val); });
+    else toast(val);
+    return; }
   if((t=e.target.closest("[data-openpr]"))){
     var op=t.getAttribute("data-openpr");
     if(op!==openProj){ openProj=op; projDay=null; projGantt=false;
       renderProjects(); paintBars(document.getElementById("sect")); }
     return; }
+});
+
+document.addEventListener("change", function(e){
+  var t=e.target;
+  if(t.matches && t.matches("[data-payk]")){
+    var tr=t.closest("[data-payp]"); if(!tr) return;
+    var m=person(tr.getAttribute("data-payp")); if(!m) return;
+    m[t.getAttribute("data-payk")]=Math.max(0, +t.value||0); saveState();
+    var pp=document.getElementById("payPanel"); if(pp) B.bonus(pp);
+    return; }
+  if(t.matches && t.matches("[data-plk]")){
+    var host=t.closest("[data-pl]"); if(!host) return;
+    var k=t.getAttribute("data-plk"), v=t.value;
+    if(k==="minutes") v=Math.max(5, +v||30);
+    planPatch(host.getAttribute("data-pl"), k, v);
+    if(k==="cycle"||k==="form") renderCab();
+    return; }
+  if(t.matches && t.matches("[data-pkf]")){
+    var fid=t.getAttribute("data-pkf");
+    if(t.checked){ planAdd(cabOpen, fnById(fid)); }
+    else {
+      var kill=planOf(cabOpen).filter(function(r){ return r.fn===fid; });
+      kill.forEach(function(r){ planDel(r.id); });
+    }
+    renderCab(); return; }
+});
+
+(function(){
+  var rs=document.getElementById("roleSw");
+  if(rs) rs.addEventListener("click", function(){ setTimeout(applyRoleRail, 0); });
+  setTimeout(applyRoleRail, 0);
+})();
+
+document.addEventListener("click", function(e){
+  var t2=e.target.closest("[data-acc]");
+  if(t2){
+    var m=person(t2.getAttribute("data-acc"));
+    if(m){ var txt=accessText(m);
+      if(navigator.clipboard) navigator.clipboard.writeText(txt).then(function(){ toast("Доступы скопированы"); },
+        function(){ toast(txt); });
+      else toast(txt); }
+  }
+});
+
+document.addEventListener("input", function(e){
+  if(e.target && e.target.matches && e.target.matches("[data-sk]")){
+    var hs=e.target.closest("[data-staff]"); if(!hs) return;
+    var m=person(hs.getAttribute("data-staff")); if(!m) return;
+    var k=e.target.getAttribute("data-sk"), v=e.target.value;
+    if(k==="tg") v=v.replace(/^@+/,"").trim();
+    m[k]=v; saveState(); refreshCcBar();
+    if(k==="mail"||k==="wphone"||k==="name"){
+      var pre=hs.querySelector(".accp"); if(pre) pre.textContent=accessText(m); }
+    return; }
+  if(e.target && e.target.matches && e.target.matches("[data-ck]")){
+    var host=e.target.closest("[data-card]"); if(!host) return;
+    var pr=project(host.getAttribute("data-card")); if(!pr) return;
+    var k=e.target.getAttribute("data-ck"), v=e.target.value;
+    if(k==="tg") v=v.replace(/^@+/,"").trim();
+    pr[k]=v; saveState(); refreshCcBar(); return; }
+  if(e.target && e.target.id==="cabTg"){
+    var c=project(cabOpen);
+    if(c){ c.tg=e.target.value.replace(/^@+/,"").trim(); saveState(); }
+    return; }
+  if(e.target && e.target.id==="pkQ"){
+    pickQ=e.target.value;
+    var host=document.querySelector(".pkl");
+    if(host){ var tmp=document.createElement("div"); tmp.innerHTML=pickerHTML(cabOpen);
+      host.innerHTML=tmp.querySelector(".pkl").innerHTML; }
+  }
 });
 
 (function(){
