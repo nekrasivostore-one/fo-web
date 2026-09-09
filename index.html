@@ -921,6 +921,40 @@ body::before{content:""; position:fixed; inset:0; z-index:-1; pointer-events:non
   display:inline-block; max-width:100%}
 .ofhub2{display:flex; flex-direction:column; align-items:center; gap:3px}
 .gps.dim{color:var(--ink-3); font-weight:600; font-size:11.5px}
+
+/* ── куда сообщать ── */
+.rtw{margin-top:14px}
+.rtadd{width:auto; margin-left:auto; padding:8px 14px; font-size:12.5px}
+.rtrow{display:flex; gap:8px; margin-bottom:14px}
+.rtrow .fi{flex:1} .rtrow select.fi{max-width:230px; flex:none}
+.rtrow .bt{width:auto; flex:none; padding:11px 18px; font-size:13px}
+.rtt{width:100%; border-collapse:collapse; font-size:12.5px; min-width:620px}
+.rtt th{font-size:10px; font-weight:700; color:var(--ink-3); text-transform:uppercase;
+  letter-spacing:.04em; padding:0 10px 10px; text-align:left; vertical-align:bottom}
+.rtt td{padding:10px; border-top:1px solid var(--stroke-2); vertical-align:middle}
+.rtt tr:hover td{background:var(--panel-2)}
+.rtt .evc{min-width:230px}
+.rtt .chc{width:150px; text-align:center}
+.rtt .whc{width:250px}
+.rtt th.chc{text-align:center; position:relative}
+.chn{font-size:11.5px; padding-right:12px; font-weight:700; color:var(--ink); text-transform:none; letter-spacing:0;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:140px; margin:0 auto}
+.chk{font-size:10px; font-weight:500; color:var(--ink-3); text-transform:none; letter-spacing:0; margin-top:2px}
+.chdel{position:absolute; top:-6px; right:-4px; font-size:14px; opacity:.45}
+.chdel:hover{opacity:1}
+.evn{font-size:13px; font-weight:600}
+.evd{font-size:11px; color:var(--ink-3); margin-top:2px}
+.ckb{width:26px; height:26px; border-radius:9px; border:1.5px solid var(--stroke-2);
+  background:var(--panel); cursor:pointer; padding:0; position:relative; transition:.15s}
+.ckb:hover{border-color:var(--neu-b)}
+.ckb.on{background:#7C5CFF; border-color:#7C5CFF}
+.ckb.on i:after{content:""; position:absolute; left:9px; top:5px; width:5px; height:11px;
+  border:solid #fff; border-width:0 2px 2px 0; transform:rotate(43deg)}
+.whw{display:flex; gap:6px; align-items:center}
+.whw .rtwhen{width:132px; flex:none; min-width:0}
+.whw .rttime{width:112px; flex:none}
+.rttime.off2{visibility:hidden}
+.ckb.lock{opacity:.55; cursor:not-allowed}
 </style>
 </head>
 <body>
@@ -2551,6 +2585,113 @@ function renderGrowth(){
     '</div>';
 }
 
+/* ── куда и когда сообщать: матрица событий по чатам кабинета ── */
+var CHAT_KINDS=[["client","Чат с клиентом"],["mpv","МПВ — рабочие моменты"],["internal","Внутренний"]];
+var EVENTS=[
+  {k:"plan_day",   n:"План на день",             d:"утром — что команда делает сегодня",      t:"10:00"},
+  {k:"fact_day",   n:"Итоги дня",                d:"вечером — что сделано, что перенеслось",  t:"19:00"},
+  {k:"task_new",   n:"Новая задача",             d:"как только задачу поставили",             t:"ready"},
+  {k:"task_form",  n:"Отчёт по форме",           d:"задачу сдали через форму",                t:"ready"},
+  {k:"approve_req",n:"Запрос на согласование",   d:"задача с галочкой «На согласование»",     t:"ready"},
+  {k:"approve_res",n:"Согласовано или отклонено",d:"ответ по согласованию",                   t:"ready"},
+  {k:"overdue",    n:"Просрочка дедлайна",       d:"задачу не закрыли вовремя",               t:"ready"},
+  {k:"handover",   n:"Передача задачи",          d:"задачу отдали другому менеджеру",         t:"ready"},
+  {k:"meet_res",   n:"Итоги планёрки",           d:"решения и дата следующей встречи",        t:"ready"}
+];
+/* что по умолчанию уходит клиенту: только результат, без внутренней кухни */
+var CLIENT_DEFAULT={fact_day:1, task_form:1, approve_req:1, approve_res:1};
+
+var WORK_FROM="08:00", WORK_TO="18:00";
+function canRoute(){ return role==="owner"||role==="dir"||role==="head"||role==="pm"||role==="mgr"; }
+function chatsOf(pr){
+  if(!pr.chats){
+    pr.chats=[
+      {id:"ch_"+pr.id+"_cl",  title:"FO "+pr.name,      kind:"client"},
+      {id:"ch_"+pr.id+"_mpv", title:"FO МПВ "+pr.name,  kind:"mpv"}
+    ];
+    saveState();
+  }
+  return pr.chats;
+}
+function routeOf(pr){ if(!pr.route) pr.route={}; return pr.route; }
+function routeRow(pr, k){
+  var r=routeOf(pr);
+  if(!r[k]){
+    var ev=EVENTS.filter(function(e){ return e.k===k; })[0]||{t:"ready"};
+    r[k]={chats:{}, when:ev.t};
+    chatsOf(pr).forEach(function(ch){
+      r[k].chats[ch.id] = (ch.kind==="client") ? !!CLIENT_DEFAULT[k] : true;
+    });
+  }
+  return r[k];
+}
+function kindName(k){
+  var f=CHAT_KINDS.filter(function(x){ return x[0]===k; })[0];
+  return f?f[1]:k;
+}
+
+function routeHTML(pr){
+  var chats=chatsOf(pr);
+  if(!chats.length){
+    return '<div class="gl rtw"><div class="gl-t"><h2>Куда сообщать</h2>'+
+      '<span class="m">чаты кабинета в Telegram</span>'+
+      '<button class="bt gh2 rtadd" id="rtAdd">Добавить чат</button></div>'+
+      '<div class="rtrow" id="rtRow" hidden>'+
+        '<input class="fi" id="rtTitle" placeholder="Название чата, как в Telegram">'+
+        '<select class="fi" id="rtKind">'+CHAT_KINDS.map(function(x){
+          return '<option value="'+x[0]+'">'+x[1]+'</option>'; }).join("")+'</select>'+
+        '<button class="bt" id="rtGo">Добавить</button></div>'+
+      '<div class="empty">Чатов пока нет. Добавьте бота в группу — он запишется сам, '+
+        'или впишите чат руками.</div></div>';
+  }
+  var head='<tr><th class="evc">Событие</th>'+
+    chats.map(function(ch){
+      return '<th class="chc"><div class="chn">'+esc(ch.title)+'</div>'+
+        '<div class="chk">'+esc(kindName(ch.kind))+'</div>'+
+        '<button class="plx chdel" data-rtdel="'+esc(ch.id)+'" title="Убрать чат">×</button></th>'; }).join("")+
+    '<th class="whc">Когда</th></tr>';
+
+  var rows=EVENTS.map(function(ev){
+    var r=routeRow(pr, ev.k);
+    var when=r.when||"ready";
+    return '<tr data-rtk="'+esc(ev.k)+'">'+
+      '<td class="evc"><div class="evn">'+esc(ev.n)+'</div><div class="evd">'+esc(ev.d)+'</div></td>'+
+      chats.map(function(ch){
+        var on=!!r.chats[ch.id];
+        return '<td class="chc"><button class="ckb'+(on?' on':'')+(canRoute()?'':' lock')+'" data-rtc="'+esc(ch.id)+
+          '" aria-pressed="'+on+'" title="'+(on?'Отправляем':'Не отправляем')+'"><i></i></button></td>'; }).join("")+
+      '<td class="whc"><div class="whw">'+
+        '<select class="fi sm rtwhen">'+
+          '<option value="ready"'+(when==="ready"?' selected':'')+'>по готовности</option>'+
+          '<option value="time"'+(when!=="ready"?' selected':'')+'>отложенно</option>'+
+        '</select>'+
+        '<input class="fi sm rttime'+(when==="ready"?' off2':'')+'" type="time" value="'+
+          esc(when==="ready"?(ev.t==="ready"?"10:00":ev.t):when)+'">'+
+      '</div></td></tr>';
+  }).join("");
+
+  var cnt=EVENTS.reduce(function(a,ev){
+    var r=routeRow(pr,ev.k);
+    return a + chats.filter(function(ch){ return r.chats[ch.id]; }).length; },0);
+
+  return '<div class="gl rtw"><div class="gl-t"><h2>Куда сообщать</h2>'+
+      '<span class="m">'+chats.length+' чата · '+cnt+' правил</span>'+
+      '<button class="bt gh2 rtadd" id="rtAdd">Добавить чат</button></div>'+
+    '<div class="rtrow" id="rtRow" hidden>'+
+      '<input class="fi" id="rtTitle" placeholder="Название чата, как в Telegram">'+
+      '<select class="fi" id="rtKind">'+CHAT_KINDS.map(function(x){
+        return '<option value="'+x[0]+'">'+x[1]+'</option>'; }).join("")+'</select>'+
+      '<button class="bt" id="rtGo">Добавить</button></div>'+
+    '<div class="paytw"><table class="rtt">'+head+rows+'</table></div>'+
+    '<div class="hint2">Клиенту по умолчанию уходит только результат: отчёты по формам, '+
+      'согласования и итоги дня. Планы по каждому сотруднику и просрочки — в МПВ. '+
+      'Любую галочку можно переставить.<br>'+
+      'Рабочее окно '+WORK_FROM+'–'+WORK_TO+': всё, что случилось вне его, уходит утром следующего рабочего дня. '+
+      'Запрос на согласование идёт туда, где сидит согласующий — команда в МПВ, владелец кабинета в чат клиента.'+
+      (canRoute()?'':'<br><b>Менять эти настройки могут собственник, РМ и главный менеджер.</b>')+
+      '</div></div>';
+}
+
 /* ── кабинеты клиента: задачи, настройки задач, инвайт ── */
 var cabOpen=null, pickOpen=false, pickQ="";
 var BLOCKS={1:"Функции в кабинете клиента",2:"Функции организационные",3:"Функции технические"};
@@ -2691,7 +2832,8 @@ function renderCab(){
             ' <span>'+byBlock[b].length+'</span></div>'+
             byBlock[b].map(planRow).join("")+'</div>'; }).join("")
       : '<div class="empty">Задач пока нет. Возьмите их из списка функций или впишите свою.</div>')+
-  '</div>';
+  '</div>'+
+  routeHTML(c);
 }
 
 function openCab(id){ cabOpen=id; setView("cab"); }
@@ -3330,6 +3472,34 @@ document.addEventListener("click", function(e){
   if(e.target.closest("#backAll")){
     openProj=null; projDay=null; projGantt=false;
     renderProjects(); paintBars(document.getElementById("sect")); return; }
+  /* ── куда сообщать ── */
+  if((t=e.target.closest("[data-rtc]"))){
+    if(!canRoute()){ toast("Менять может собственник, РМ или главный менеджер"); return; }
+    var trr=t.closest("[data-rtk]"); if(!trr) return;
+    var prr=project(cabOpen); if(!prr) return;
+    var row=routeRow(prr, trr.getAttribute("data-rtk"));
+    var cid=t.getAttribute("data-rtc");
+    row.chats[cid]=!row.chats[cid];
+    saveState(); renderCab(); return; }
+  if((t=e.target.closest("[data-rtdel]"))){
+    if(!canRoute()){ toast("Менять может собственник, РМ или главный менеджер"); return; }
+    var pr2=project(cabOpen); if(!pr2) return;
+    var did=t.getAttribute("data-rtdel");
+    pr2.chats=chatsOf(pr2).filter(function(x){ return x.id!==did; });
+    Object.keys(routeOf(pr2)).forEach(function(k){ delete routeOf(pr2)[k].chats[did]; });
+    saveState(); renderCab(); return; }
+  if(e.target.closest("#rtAdd")){
+    var rr=document.getElementById("rtRow");
+    if(rr){ rr.hidden=!rr.hidden; if(!rr.hidden) document.getElementById("rtTitle").focus(); }
+    return; }
+  if(e.target.closest("#rtGo")){
+    var ti2=document.getElementById("rtTitle"), ki=document.getElementById("rtKind");
+    var tv=ti2?ti2.value.trim():"";
+    if(!tv){ toast("Впишите название чата"); return; }
+    var pr3=project(cabOpen); if(!pr3) return;
+    chatsOf(pr3).push({id:nextId("ch"), title:tv, kind:ki?ki.value:"internal"});
+    saveState(); renderCab(); toast("Чат добавлен"); return; }
+
   /* ── экран кабинета ── */
   if((t=e.target.closest("[data-opencab]"))){
     e.stopPropagation(); openCab(t.getAttribute("data-opencab")); return; }
@@ -3378,6 +3548,16 @@ document.addEventListener("click", function(e){
 
 document.addEventListener("change", function(e){
   var t=e.target;
+  if(t.matches && (t.matches(".rtwhen") || t.matches(".rttime"))){
+    var trw=t.closest("[data-rtk]"); if(!trw) return;
+    var prw=project(cabOpen); if(!prw) return;
+    var rw=routeRow(prw, trw.getAttribute("data-rtk"));
+    if(t.matches(".rtwhen")){
+      rw.when = t.value==="ready" ? "ready" : (trw.querySelector(".rttime").value || "10:00");
+    } else {
+      rw.when = t.value || "10:00";
+    }
+    saveState(); renderCab(); return; }
   if(t.id==="meetCab"){ meetCab=t.value; renderMeet(); return; }
   if(t.id==="offCab"){ officeCab=t.value; renderOffice(); return; }
   if(t.id==="meetDate"){ var md=meetOf(meetPick()); md.date=t.value;
