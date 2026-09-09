@@ -504,6 +504,71 @@ body::before{content:""; position:fixed; inset:0; z-index:-1; pointer-events:non
 .pcbs{display:flex; gap:8px}
 .pcbs .pcb{flex:1}
 .pccabs{border-top:1px solid var(--stroke-2); padding-top:4px}
+
+/* раскрытый кабинет */
+.backall{width:auto; padding:10px 15px; font-size:12.5px; margin-bottom:16px}
+.split{display:grid; grid-template-columns:minmax(300px,360px) minmax(0,1fr); gap:18px;
+  align-items:start; margin-bottom:18px}
+@media (max-width:1000px){ .split{grid-template-columns:1fr} }
+.pc[data-openpr]{cursor:pointer}
+.pc.open{outline:2px solid var(--neu-b); outline-offset:-1px; cursor:default}
+.detail{padding:20px; min-height:320px}
+.dtabs{display:flex; flex-wrap:wrap; margin-bottom:16px}
+.dtabs button{padding:7px 12px; font-size:11.5px}
+.dhead{font-size:13px; color:var(--ink-2); margin-bottom:14px}
+.dhead b{font-family:Unbounded,sans-serif; font-weight:500; font-size:15px; color:var(--ink)}
+.dgrid{display:grid; grid-template-columns:repeat(5,1fr); gap:9px; margin-bottom:18px}
+.dday{font-family:inherit; text-align:left; cursor:pointer; padding:11px 12px; border-radius:var(--r2);
+  border:1px solid var(--stroke-2); background:var(--panel-2); color:var(--ink); transition:.14s}
+.dday:hover{border-color:var(--ink-3)}
+.dday.today{border-color:var(--neu-b); background:var(--neu)}
+.dday .dd{font-size:10.5px; color:var(--ink-3); font-weight:600; text-transform:uppercase; letter-spacing:.04em}
+.dday .dh{font-size:16px; font-weight:500; letter-spacing:-.03em; margin:3px 0 1px}
+.dday .dt{font-size:10.5px; color:var(--ink-3)}
+.dsec{margin-bottom:16px}
+.dsec h4{font-size:10.5px; font-weight:700; color:var(--ink-3); text-transform:uppercase;
+  letter-spacing:.05em; margin:0 0 6px}
+.restlbl{font-size:11px; font-weight:700; color:var(--ink-3); text-transform:uppercase;
+  letter-spacing:.05em; margin:22px 0 12px}
+.gantwrap{margin-bottom:18px}
+
+/* столбцы дней — нажимаемые */
+.mb.days-hit{gap:7px}
+.mbc.hit{border:none; background:none; font-family:inherit; cursor:pointer; padding:0;
+  border-radius:8px; transition:.14s}
+.mbc.hit:hover{background:var(--panel-2)}
+.mbc.hit.on{background:var(--panel); box-shadow:0 0 0 1px var(--neu-b) inset}
+.mbc.hit .mbb{display:block; width:100%; border-radius:7px 7px 4px 4px; background:var(--bar);
+  height:0; transition:height .5s cubic-bezier(.22,.9,.3,1); min-height:3px}
+.mbc.hit .lb{font-size:10px; color:var(--ink-3)}
+
+/* вкладки входа и регистрации */
+.gtabs{display:flex; width:100%; margin-bottom:20px}
+.gtabs button{flex:1; padding:10px 12px; font-size:13px}
+.ghint{font-size:12px; color:var(--ink-3); line-height:1.5; margin:-6px 0 14px}
+.ghint b{color:var(--ink-2); font-weight:600}
+.gok{font-size:12px; color:var(--ok); margin:-6px 0 12px; min-height:0; font-weight:500}
+.fi.code{font-family:Unbounded,ui-monospace,monospace; letter-spacing:.22em;
+  text-align:center; font-size:17px; padding:13px 10px}
+
+/* рельса раскрывается при наведении */
+.rail{width:66px; transition:width .18s cubic-bezier(.22,.9,.3,1); overflow:hidden; z-index:40}
+.rail:hover{width:216px; box-shadow:0 24px 60px -22px rgba(16,24,48,.30)}
+.ri{width:40px; justify-content:center; gap:0; padding:0;
+  transition:width .18s cubic-bezier(.22,.9,.3,1), background .16s, color .16s}
+.rail:hover .ri{width:188px; display:flex; align-items:center;
+  justify-content:flex-start; gap:11px; padding:0 12px}
+.ri .rl{font-size:12.5px; font-weight:600; white-space:nowrap;
+  max-width:0; opacity:0; overflow:hidden; transition:max-width .18s, opacity .14s}
+.rail:hover .ri .rl{max-width:150px; opacity:1}
+@media (max-width:920px){
+  .rail{width:auto} .rail:hover{width:auto; box-shadow:none}
+  .rail:hover .ri{width:40px; justify-content:center; padding:0}
+  .ri .rl{display:none}
+}
+
+/* «Поставить задачу»: переключатель рядом с заголовком */
+.ntmode{margin-left:14px!important}
 </style>
 </head>
 <body>
@@ -514,37 +579,77 @@ body::before{content:""; position:fixed; inset:0; z-index:-1; pointer-events:non
     <h1>Flater Team Service</h1>
     <div class="gsub">Функция и ответственный. Один экран на всю команду.</div>
 
-    <div class="step" id="st1">
-      <div class="fr"><label class="fl" for="gEmail">Рабочая почта</label>
-        <input class="fi" id="gEmail" type="email" autocomplete="username" placeholder="you@company.ru"></div>
-      <div class="gerr" id="gErr"></div>
-      <button class="bt" id="gStart">Выслать код на почту</button>
-      <button class="glink" id="gHavePwd" style="width:100%">У меня уже есть пароль</button>
+    <div class="seg gtabs" id="gTabs" role="group" aria-label="Вход или регистрация">
+      <button data-t="in" aria-pressed="true">Войти</button>
+      <button data-t="up" aria-pressed="false">Зарегистрироваться</button>
     </div>
 
-    <div class="step" id="st2" hidden>
-      <div class="fr"><label class="fl" for="gCode">Код из письма</label>
-        <input class="fi" id="gCode" inputmode="numeric" maxlength="6" placeholder="6 цифр"></div>
-      <div class="fr" id="gPwdWrap"><label class="fl" for="gPwd">Придумайте пароль — минимум 10 символов</label>
-        <input class="fi" id="gPwd" type="password" autocomplete="new-password" placeholder="••••••••••"></div>
-      <div class="gerr" id="gErr2"></div>
-      <button class="bt" id="gVerify">Войти</button>
-      <button class="glink" id="gBack" style="width:100%">Назад</button>
+    <div class="step" id="stIn">
+      <div class="fr"><label class="fl" for="inMail">Рабочая почта</label>
+        <input class="fi" id="inMail" type="email" autocomplete="username" placeholder="you@company.ru"></div>
+      <div class="fr"><label class="fl" for="inPwd">Пароль</label>
+        <input class="fi" id="inPwd" type="password" autocomplete="current-password" placeholder="••••••••••"></div>
+      <div class="gerr" id="errIn"></div>
+      <button class="bt" id="btnIn">Войти</button>
+      <button class="glink" id="toCode" style="width:100%">Войти по коду из письма</button>
     </div>
 
-    <div class="step" id="st3" hidden>
-      <div class="fr"><label class="fl" for="gEmail2">Почта</label>
-        <input class="fi" id="gEmail2" type="email" autocomplete="username" placeholder="you@company.ru"></div>
-      <div class="fr"><label class="fl" for="gPwd2">Пароль</label>
-        <input class="fi" id="gPwd2" type="password" autocomplete="current-password" placeholder="••••••••••"></div>
-      <div class="gerr" id="gErr3"></div>
-      <button class="bt" id="gLogin">Войти</button>
-      <button class="glink" id="gBack2" style="width:100%">Войти по коду из почты</button>
+    <div class="step" id="stCode" hidden>
+      <div class="fr"><label class="fl" for="cdMail">Рабочая почта</label>
+        <input class="fi" id="cdMail" type="email" autocomplete="username" placeholder="you@company.ru"></div>
+      <div class="gerr" id="errCd"></div>
+      <button class="bt" id="btnCdSend">Выслать код на почту</button>
+      <button class="glink" id="cdBack" style="width:100%">Назад ко входу по паролю</button>
+    </div>
+
+    <div class="step" id="stCode2" hidden>
+      <div class="ghint">Письмо ушло на <b id="cdWho"></b>. Проверьте входящие и папку «Спам».</div>
+      <div class="fr"><label class="fl" for="cdCode">Код из письма</label>
+        <input class="fi code" id="cdCode" inputmode="numeric" maxlength="6" placeholder="000000"></div>
+      <div class="gerr" id="errCd2"></div>
+      <button class="bt" id="btnCdIn">Войти</button>
+      <button class="glink" id="cd2Back" style="width:100%">Назад</button>
+    </div>
+
+    <div class="step" id="stUp1" hidden>
+      <div class="fr"><label class="fl" for="upMail">Рабочая почта</label>
+        <input class="fi" id="upMail" type="email" autocomplete="username" placeholder="you@company.ru"></div>
+      <div class="gerr" id="errUp1"></div>
+      <button class="bt" id="btnUp1">Продолжить</button>
+    </div>
+
+    <div class="step" id="stUp2" hidden>
+      <div class="ghint">Код проекта даёт руководитель — шесть символов из карточки кабинета.</div>
+      <div class="fr"><label class="fl" for="upCode">Код проекта</label>
+        <input class="fi code" id="upCode" maxlength="6" placeholder="ABC123" autocapitalize="characters"></div>
+      <div class="gok" id="okUp2"></div>
+      <div class="gerr" id="errUp2"></div>
+      <button class="bt" id="btnUp2">Продолжить</button>
+      <button class="glink" id="toWs" style="width:100%">У меня нет кода — создать своё рабочее пространство</button>
+    </div>
+
+    <div class="step" id="stWs" hidden>
+      <div class="ghint">Вы станете собственником пространства и сможете приглашать команду.</div>
+      <div class="fr"><label class="fl" for="wsName">Название организации</label>
+        <input class="fi" id="wsName" placeholder="Flater"></div>
+      <div class="gerr" id="errWs"></div>
+      <button class="bt" id="btnWs">Создать пространство</button>
+      <button class="glink" id="wsBack" style="width:100%">Назад к коду проекта</button>
+    </div>
+
+    <div class="step" id="stUp3" hidden>
+      <div class="ghint" id="upWho"></div>
+      <div class="fr"><label class="fl" for="upCode2">Код из письма</label>
+        <input class="fi code" id="upCode2" inputmode="numeric" maxlength="6" placeholder="000000"></div>
+      <div class="fr"><label class="fl" for="upPwd">Придумайте пароль — минимум 10 символов</label>
+        <input class="fi" id="upPwd" type="password" autocomplete="new-password" placeholder="••••••••••"></div>
+      <div class="gerr" id="errUp3"></div>
+      <button class="bt" id="btnUp3">Завершить регистрацию</button>
     </div>
 
     <div class="gsep">или</div>
     <button class="bt gh2" id="gDemo">Открыть демо-режим</button>
-    <div class="gfoot">Демо-режим — тот же экран на выдуманных данных: пять человек, четыре проекта,
+    <div class="gfoot">Демо-режим — тот же экран на выдуманных данных: команда, кабинеты,
       47 функций из базы. Всё, что вы там нажмёте, останется только в этом браузере
       и живой базы не коснётся.</div>
   </div>
@@ -553,14 +658,14 @@ body::before{content:""; position:fixed; inset:0; z-index:-1; pointer-events:non
 <div class="app">
   <nav class="rail" aria-label="Разделы">
     <div class="lg">Ф</div>
-    <button class="ri" data-v="work" aria-current="true" title="Рабочий экран"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="2"/><rect x="14" y="3" width="7" height="5" rx="2"/><rect x="14" y="12" width="7" height="9" rx="2"/><rect x="3" y="16" width="7" height="5" rx="2"/></svg></button>
-    <button class="ri" data-v="people" title="Люди"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><path d="M16 5.5a3 3 0 0 1 0 5.6M18 20c0-2.4-1-4.5-2.6-5.6"/></svg></button>
-    <button class="ri" data-v="projects" title="Проекты"><svg viewBox="0 0 24 24"><path d="M3 7.5A2.5 2.5 0 0 1 5.5 5h3.2l1.8 2.3h8A2.5 2.5 0 0 1 21 9.8v7.7A2.5 2.5 0 0 1 18.5 20h-13A2.5 2.5 0 0 1 3 17.5z"/></svg></button>
-    <button class="ri" title="Функции"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h10M4 18h13"/><circle cx="18.5" cy="12" r="2"/></svg></button>
-    <button class="ri" id="moneyIc" title="Деньги"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="3"/><circle cx="12" cy="12" r="2.6"/></svg></button>
-    <button class="ri" title="Рейтинг"><svg viewBox="0 0 24 24"><path d="M5 20V11M12 20V5M19 20v-6"/></svg></button>
+    <button class="ri" data-v="work" aria-current="true" title="Рабочий экран"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="2"/><rect x="14" y="3" width="7" height="5" rx="2"/><rect x="14" y="12" width="7" height="9" rx="2"/><rect x="3" y="16" width="7" height="5" rx="2"/></svg><span class="rl">Рабочий экран</span></button>
+    <button class="ri" data-v="people" title="Моя команда"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><path d="M16 5.5a3 3 0 0 1 0 5.6M18 20c0-2.4-1-4.5-2.6-5.6"/></svg><span class="rl">Моя команда</span></button>
+    <button class="ri" data-v="projects" title="Мои клиенты"><svg viewBox="0 0 24 24"><path d="M3 7.5A2.5 2.5 0 0 1 5.5 5h3.2l1.8 2.3h8A2.5 2.5 0 0 1 21 9.8v7.7A2.5 2.5 0 0 1 18.5 20h-13A2.5 2.5 0 0 1 3 17.5z"/></svg><span class="rl">Мои клиенты</span></button>
+    <button class="ri" title="Функции"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h10M4 18h13"/><circle cx="18.5" cy="12" r="2"/></svg><span class="rl">Функции</span></button>
+    <button class="ri" id="moneyIc" title="Деньги"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="3"/><circle cx="12" cy="12" r="2.6"/></svg><span class="rl">Деньги</span></button>
+    <button class="ri" title="Рейтинг"><svg viewBox="0 0 24 24"><path d="M5 20V11M12 20V5M19 20v-6"/></svg><span class="rl">Рейтинг</span></button>
     <div class="sp"></div>
-    <button class="ri" id="setupBtn" title="Команда и проекты"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6 7 7M17 17l1.4 1.4M18.4 5.6 17 7M7 17l-1.4 1.4"/></svg></button>
+    <button class="ri" id="setupBtn" title="Команда и кабинеты"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6 7 7M17 17l1.4 1.4M18.4 5.6 17 7M7 17l-1.4 1.4"/></svg><span class="rl">Команда и кабинеты</span></button>
   </nav>
 
   <main>
@@ -596,7 +701,7 @@ body::before{content:""; position:fixed; inset:0; z-index:-1; pointer-events:non
         <div class="mr" id="meRole">Собственник</div></div></div>
     </header>
 
-    <div class="demoban" id="demoban" hidden><b>Демо-режим.</b> Данные выдуманные, живой базы не касаются — жмите что угодно. <button class="glink" id="banSetup">Команда и проекты</button><span style="color:var(--ink-3)">Роль переключается справа вверху.</span><button class="glink" id="resetDemo" style="margin-left:auto">Сбросить демо</button></div>
+    <div class="demoban" id="demoban" hidden><b>Демо-режим.</b> Данные выдуманные, живой базы не касаются — жмите что угодно. <span style="color:var(--ink-3)">Роль переключается справа вверху.</span><button class="glink" id="resetDemo" style="margin-left:auto">Сбросить демо</button></div>
     <div id="boot" class="gl wrapmsg" hidden></div>
 
     <div id="sect" hidden></div>
@@ -873,9 +978,9 @@ B.newtask=function(el){
     for(var d=0;d<5;d++){ var f=NORM-loadOf(pid,d); if(f>bd){ bd=f; best=d; } }
     freeNote = best>=0 ? '<div class="win">Окно: <b>'+DOWS[best]+' '+hrs(bd)+' ч</b></div>' : '';
   }
-  el.innerHTML='<div class="gl-t"><h2>Поставить задачу</h2><div class="grow"></div>'+
+  el.innerHTML='<div class="gl-t"><h2>Поставить задачу</h2>'+
     '<div class="seg sm ntmode" role="group">'+['проект','сотрудник'].map(function(m){
-      return '<button data-m="'+m+'" aria-pressed="'+(m===ntMode)+'">В разрезе '+m+'а</button>'; }).join("")+'</div></div>'+
+      return '<button data-m="'+m+'" aria-pressed="'+(m===ntMode)+'">В разрезе '+m+'а</button>'; }).join("")+'</div><div class="grow"></div></div>'+
     '<div class="ntrow">'+
     '<select class="sel" id="ntProject">'+opts(S.projects,proj||(S.projects[0]&&S.projects[0].id),function(x){return x.name;})+'</select>'+
     '<select class="sel" id="ntCab"><option value="">Кабинет: не указан</option>'+
@@ -1064,7 +1169,7 @@ function buildRefs(){
 /* задачи на неделю для одного человека — из его нормы загрузки */
 function genWeekFor(p, r){
   if(!S.cabs.length) return [];
-  var out=[], kinds=["cyc","cyc","cyc","cyc","fix","urg"], base=p.target||100;
+  var out=[], kinds=["cyc","cyc","cyc","cyc","cyc","cyc","fix","urg"], base=p.target||100;
   for(var d=0; d<5; d++){
     var target=Math.round(NORM*(base+Math.round((r()-.5)*26))/100);
     var used=0, guard=0;
@@ -1340,7 +1445,7 @@ document.getElementById("themeBtn").onclick=function(){
 };
 
 /* ── разделы: рабочий экран, люди, проекты ── */
-var view="work";
+var view="work", openProj=null, projDay=null, projGantt=false;
 
 function weekOf(pid){ var a=[]; for(var d=0;d<5;d++) a.push(pctOf(pid,d)); return a; }
 function miniBars(vals){
@@ -1404,56 +1509,145 @@ function renderPeople(){
   }).join("")+'</div>';
 }
 
+/* ── карточка кабинета ── */
+function cabCard(pr, mine, open){
+  var all=tasksOf(function(t){ return t.project===pr.id && (!mine || t.person===meId); });
+  var td=all.filter(function(t){ return t.dow===today; });
+  var cabs=S.cabs.filter(function(c){ return c.project===pr.id; });
+  var team=peopleOfProject(pr.id);
+  var noOwner=all.filter(function(t){ return !t.person; }).length;
+  var wait=all.filter(function(t){ return t.status==="wait"; }).length;
+  var wk=[0,1,2,3,4].map(function(d){
+    return minutesOf(all.filter(function(t){ return t.dow===d; })); });
+  var mx=Math.max.apply(null,wk)||1;
+  return '<section class="gl pc'+(open?" open":"")+'" data-openpr="'+esc(pr.id)+'">'+
+    '<div class="pch"><div class="av" style="background:'+pr.color+'">'+esc(pr.av||"")+'</div>'+
+      '<div class="pcn"><div class="n">'+esc(pr.name)+'</div>'+
+      '<div class="r">'+cabs.length+' каб'+(pr.articles?' · '+pr.articles+' арт':'')+'</div></div>'+
+      '<div class="pcp u">'+pctDone(all)+'%</div></div>'+
+    '<div class="pcs">'+
+      '<div><b>'+hrs(minutesOf(all))+' ч</b><span>за неделю</span></div>'+
+      '<div><b>'+td.length+'</b><span>задач сегодня</span></div>'+
+      '<div><b'+(noOwner?' style="color:var(--crit)"':'')+'>'+noOwner+'</b><span>без ответственного</span></div>'+
+    '</div>'+
+    '<div class="mb days-hit">'+wk.map(function(v,i){
+      return '<button class="mbc hit'+(projDay===i&&open?" on":"")+'" data-prday="'+i+
+        '" data-pr="'+esc(pr.id)+'" title="'+DOWS[i]+' · '+hrs(v)+' ч">'+
+        '<span class="mbb" data-h="'+Math.round(v/mx*100)+'"></span>'+
+        '<span class="lb">'+DOWS[i]+'</span></button>'; }).join("")+'</div>'+
+    '<div class="pcl">'+(team.length
+      ? team.map(function(x){ return '<div class="pcr"><span class="av2" style="background:'+x.p.color+'">'+
+          esc(x.p.av)+'</span><span class="k">'+esc(x.p.name)+'</span><span class="v">'+hrs(x.min)+' ч</span></div>'; }).join("")
+      : '<div class="empty">Никто не назначен</div>')+
+      (wait?'<div class="pcr"><span class="k" style="color:var(--warn)">Ждут согласования</span><span class="v">'+wait+'</span></div>':'')+
+    '</div>'+
+    '<div class="pcbs">'+
+      '<button class="bt gh2 pcb" data-prgantt="'+esc(pr.id)+'">'+
+        (open&&projGantt?'Скрыть гант':'Показать в ганте')+'</button>'+
+      '<button class="bt gh2 pcb" data-prcab="'+esc(pr.id)+'">Кабинеты</button></div>'+
+    '<div class="pccabs" id="cabs_'+esc(pr.id)+'" hidden>'+(cabs.length
+      ? cabs.map(function(c){
+          var ct=all.filter(function(t){ return t.cab===c.id; });
+          return '<div class="pcr"><span class="k">'+esc(c.name)+'</span><span class="v">'+
+            ct.length+' зад · '+hrs(minutesOf(ct))+' ч</span></div>'; }).join("")
+      : '<div class="empty">Кабинетов нет</div>')+'</div>'+
+  '</section>';
+}
+
+/* ── правая панель: обзор кабинета или его день ── */
+function cabDetail(pr){
+  var all=tasksOf(function(t){ return t.project===pr.id; });
+  var tabs='<div class="seg sm dtabs">'+
+    '<button data-prday="-1" data-pr="'+esc(pr.id)+'" aria-pressed="'+(projDay===null)+'">Обзор недели</button>'+
+    DOWS.map(function(d,i){
+      return '<button data-prday="'+i+'" data-pr="'+esc(pr.id)+'" aria-pressed="'+
+        (projDay===i)+'">'+d+'</button>'; }).join("")+'</div>';
+
+  if(projDay===null){
+    var byCab=S.cabs.filter(function(c){ return c.project===pr.id; }).map(function(c){
+      var ct=all.filter(function(t){ return t.cab===c.id; });
+      return {n:c.name, t:ct.length, m:minutesOf(ct), d:pctDone(ct)}; });
+    var wait=all.filter(function(t){ return t.status==="wait"; });
+    var noOwn=all.filter(function(t){ return !t.person; });
+    var body=
+      '<div class="dgrid">'+[0,1,2,3,4].map(function(d){
+        var dt=all.filter(function(t){ return t.dow===d; });
+        return '<button class="dday'+(d===today?" today":"")+'" data-prday="'+d+
+          '" data-pr="'+esc(pr.id)+'"><div class="dd">'+DOW[d]+'</div>'+
+          '<div class="dh u">'+hrs(minutesOf(dt))+' ч</div>'+
+          '<div class="dt">'+dt.length+' задач · '+pctDone(dt)+'%</div></button>'; }).join("")+'</div>'+
+      '<div class="dsec"><h4>Кабинеты</h4>'+(byCab.length
+        ? byCab.map(function(c){ return '<div class="pcr"><span class="k">'+esc(c.n)+
+            '</span><span class="v">'+c.t+' зад · '+hrs(c.m)+' ч · '+c.d+'%</span></div>'; }).join("")
+        : '<div class="empty">Кабинетов нет</div>')+'</div>'+
+      (noOwn.length?'<div class="dsec"><h4>Без ответственного</h4>'+noOwn.slice(0,6).map(function(t){
+        return '<div class="pcr"><span class="k">'+esc(t.title)+'</span><span class="v">'+
+          t.minutes+' мин</span></div>'; }).join("")+'</div>':'')+
+      (wait.length?'<div class="dsec"><h4>Ждут согласования</h4>'+wait.slice(0,6).map(function(t){
+        var m=person(t.person);
+        return '<div class="pcr"><span class="k">'+esc(t.title)+'</span><span class="v">'+
+          (m?esc(m.name):"—")+'</span></div>'; }).join("")+'</div>':'');
+    return tabs+body;
+  }
+
+  var dt=all.filter(function(t){ return t.dow===projDay; });
+  var units=S.people.filter(function(p){
+    return dt.some(function(t){ return t.person===p.id; }); });
+  var head=["10","11","12","13","14","15","16","17","18","19"];
+  var rows=units.map(function(u){
+    var list=dt.filter(function(t){ return t.person===u.id; })
+      .sort(function(a,b){ return a.start-b.start; });
+    var cells=head.map(function(_,k){
+      return '<div class="cl" style="left:'+(k/10*100)+'%"></div>'; }).join("");
+    var bars=list.map(function(t,k){
+      var c = t.kind==="urg"?"var(--crit)" : t.kind==="fix"?"var(--warn)" : null;
+      return '<div class="gb'+(c?"":" n")+'" style="left:'+((t.start-10)/10*100).toFixed(2)+
+        '%;width:calc('+(t.minutes/60/10*100).toFixed(2)+'% - 4px);top:'+(5+(k%2)*23)+'px'+
+        (c?";background:"+c:"")+(t.done?";opacity:.42":"")+'" title="'+esc(t.title)+'">'+
+        esc(t.title)+'</div>'; }).join("");
+    return '<div class="gr"><div class="gn">'+
+      '<div class="av" style="background:'+u.color+';width:26px;height:26px;font-size:10px;border-radius:9px">'+
+      esc(u.av)+'</div><div class="t"><div class="n">'+esc(u.name)+'</div><div class="h">'+
+      hrs(minutesOf(list))+' ч · '+list.length+' зад</div></div></div>'+
+      '<div class="ln">'+cells+bars+'</div></div>'; }).join("");
+  return tabs+
+    '<div class="dhead"><b>'+DOW[projDay]+'</b> · '+hrs(minutesOf(dt))+' ч · '+
+      dt.length+' задач · выполнено '+pctDone(dt)+'%</div>'+
+    (units.length
+      ? '<div class="gh"><div class="sp2">кто</div><div class="tk">'+
+        head.map(function(t){ return '<span>'+t+'</span>'; }).join("")+'</div></div>'+rows
+      : '<div class="empty">В этот день по кабинету задач нет</div>');
+}
+
 function renderProjects(){
   var host=document.getElementById("sect");
-  if(!S.projects.length){ host.innerHTML='<div class="gl"><div class="empty">Проектов пока нет. '+
+  if(!S.projects.length){ host.innerHTML='<div class="gl"><div class="empty">Кабинетов пока нет. '+
     'Заведите их в разделе «Состав».</div></div>'; return; }
   var mine = role==="mgr";
   var list=S.projects.filter(function(pr){
     if(!mine) return true;
     return S.tasks.some(function(t){ return t.project===pr.id && t.person===meId; });
   });
-  if(!list.length){ host.innerHTML='<div class="gl"><div class="empty">На этой неделе у вас нет задач по проектам.</div></div>'; return; }
-  host.innerHTML='<div class="cards">'+list.map(function(pr){
-    var all=tasksOf(function(t){ return t.project===pr.id && (!mine || t.person===meId); });
-    var td=all.filter(function(t){ return t.dow===today; });
-    var cabs=S.cabs.filter(function(c){ return c.project===pr.id; });
-    var team=peopleOfProject(pr.id);
-    var noOwner=all.filter(function(t){ return !t.person; }).length;
-    var wait=all.filter(function(t){ return t.status==="wait"; }).length;
-    var wk=[0,1,2,3,4].map(function(d){
-      return minutesOf(all.filter(function(t){ return t.dow===d; })); });
-    var mx=Math.max.apply(null,wk)||1;
-    return '<section class="gl pc">'+
-      '<div class="pch"><div class="av" style="background:'+pr.color+'">'+esc(pr.av||"")+'</div>'+
-        '<div class="pcn"><div class="n">'+esc(pr.name)+'</div>'+
-        '<div class="r">'+cabs.length+' каб'+(pr.articles?' · '+pr.articles+' арт':'')+'</div></div>'+
-        '<div class="pcp u">'+pctDone(all)+'%</div></div>'+
-      '<div class="pcs">'+
-        '<div><b>'+hrs(minutesOf(all))+' ч</b><span>за неделю</span></div>'+
-        '<div><b>'+td.length+'</b><span>задач сегодня</span></div>'+
-        '<div><b'+(noOwner?' style="color:var(--crit)"':'')+'>'+noOwner+'</b><span>без ответственного</span></div>'+
-      '</div>'+
-      '<div class="mb">'+wk.map(function(v,i){
-        return '<div class="mbc"><div class="mbb" data-h="'+Math.round(v/mx*100)+
-          '" title="'+DOWS[i]+' · '+hrs(v)+' ч"></div><span>'+DOWS[i]+'</span></div>'; }).join("")+'</div>'+
-      '<div class="pcl">'+(team.length
-        ? team.map(function(x){ return '<div class="pcr"><span class="av2" style="background:'+x.p.color+'">'+
-            esc(x.p.av)+'</span><span class="k">'+esc(x.p.name)+'</span><span class="v">'+hrs(x.min)+' ч</span></div>'; }).join("")
-        : '<div class="empty">Никто не назначен</div>')+
-        (wait?'<div class="pcr"><span class="k" style="color:var(--warn)">Ждут согласования</span><span class="v">'+wait+'</span></div>':'')+
-      '</div>'+
-      '<div class="pcbs">'+
-        '<button class="bt gh2 pcb" data-gantt-proj="'+esc(pr.id)+'">Показать в ганте</button>'+
-        '<button class="bt gh2 pcb" data-cabs="'+esc(pr.id)+'">Кабинеты</button></div>'+
-      '<div class="pccabs" id="cabs_'+esc(pr.id)+'" hidden>'+(cabs.length
-        ? cabs.map(function(c){
-            var ct=all.filter(function(t){ return t.cab===c.id; });
-            return '<div class="pcr"><span class="k">'+esc(c.name)+'</span><span class="v">'+
-              ct.length+' зад · '+hrs(minutesOf(ct))+' ч</span></div>'; }).join("")
-        : '<div class="empty">Кабинетов нет</div>')+'</div>'+
-    '</section>';
-  }).join("")+'</div>';
+  if(!list.length){ host.innerHTML='<div class="gl"><div class="empty">На этой неделе у вас нет задач по кабинетам.</div></div>'; return; }
+
+  var open = openProj ? project(openProj) : null;
+  if(!open){
+    host.innerHTML='<div class="cards">'+list.map(function(pr){
+      return cabCard(pr, mine, false); }).join("")+'</div>';
+    return;
+  }
+  var rest=list.filter(function(pr){ return pr.id!==open.id; });
+  host.innerHTML=
+    '<button class="bt gh2 backall" id="backAll">← Вернуться ко всем кабинетам</button>'+
+    '<div class="split">'+cabCard(open, mine, true)+
+      '<section class="gl detail">'+cabDetail(open)+'</section></div>'+
+    (projGantt ? '<section class="gl tall gantwrap" data-b="gantt"></section>' : '')+
+    (rest.length ? '<div class="restlbl">Остальные кабинеты</div><div class="cards">'+
+      rest.map(function(pr){ return cabCard(pr, mine, false); }).join("")+'</div>' : '');
+  if(projGantt){
+    var g=host.querySelector('.gantwrap');
+    var keep=proj; proj=open.id; B.gantt(g); proj=keep;
+  }
 }
 
 function paintBars(root){
@@ -1468,8 +1662,8 @@ function setView(v){
   q(".rail .ri[data-v]").forEach(function(b){
     b.setAttribute("aria-current", String(b.getAttribute("data-v")===v)); });
   var scr=document.getElementById("screen"), sec=document.getElementById("sect");
-  var titles={work:["Рабочий экран",""],people:["Люди","Кто чем занят на этой неделе"],
-    projects:["Проекты","Что происходит по каждому проекту"]};
+  var titles={work:["Рабочий экран",""],people:["Моя команда","Кто чем занят на этой неделе"],
+    projects:["Мои клиенты","Что происходит по каждому кабинету"]};
   if(v==="work"){ sec.hidden=true; scr.hidden=false; render(); return; }
   scr.hidden=true; sec.hidden=false;
   document.getElementById("today").textContent=titles[v][0];
@@ -1479,10 +1673,19 @@ function setView(v){
 }
 
 /* ── вход и старт ── */
-function gateShow(n){ ["st1","st2","st3"].forEach(function(s,i){
-  document.getElementById(s).hidden = (i!==n-1); });
-  ["gErr","gErr2","gErr3"].forEach(function(id){ document.getElementById(id).textContent=""; }); }
-function gErr(id,m){ document.getElementById(id).textContent=m; }
+function gShow(id){
+  ["stIn","stCode","stCode2","stUp1","stUp2","stWs","stUp3"].forEach(function(s){
+    document.getElementById(s).hidden = (s!==id); });
+  ["errIn","errCd","errCd2","errUp1","errUp2","errWs","errUp3"].forEach(function(e){
+    var el=document.getElementById(e); if(el) el.textContent=""; });
+  var ok=document.getElementById("okUp2"); if(ok) ok.textContent="";
+}
+function gTab(t){
+  q("#gTabs button").forEach(function(b){
+    b.setAttribute("aria-pressed", String(b.getAttribute("data-t")===t)); });
+  gShow(t==="in" ? "stIn" : "stUp1");
+}
+function gErr(id,m){ var el=document.getElementById(id); if(el) el.textContent=m||""; }
 function busy(b,on,label){ b.disabled=on; b.textContent = on? "Минуту…" : label; }
 
 /* ── состав: команда, проекты, кабинеты (демо и живой режим) ── */
@@ -1555,7 +1758,6 @@ function showSetup(){
   var boot=document.getElementById("boot");
   boot.hidden=false; boot.classList.add("wide"); boot.innerHTML=setupHTML();
   document.getElementById("screen").hidden=true;
-  document.getElementById("sect").hidden=true;
   document.getElementById("demoban").hidden=true;
   document.getElementById("today").textContent="Состав";
   document.getElementById("sub").textContent="Команда, проекты и кабинеты";
@@ -1660,8 +1862,8 @@ async function goLive(){
   try{ await loadLive(); }
   catch(e){
     if(String(e.message).indexOf("токен")>=0 || String(e.message).indexOf("401")>=0){
-      dropAuth(); boot.hidden=true; document.getElementById("gate").hidden=false; gateShow(1);
-      gErr("gErr","Сессия истекла — войдите заново"); return; }
+      dropAuth(); boot.hidden=true; document.getElementById("gate").hidden=false; gTab("in");
+      gErr("errIn","Сессия истекла — войдите заново"); return; }
     boot.innerHTML='<div style="font-size:13px;color:var(--ink-2)">Не удалось прочитать данные: '+
       esc(e.message)+'</div>'; return;
   }
@@ -1669,55 +1871,121 @@ async function goLive(){
   startScreen();
 }
 
-document.getElementById("gDemo").onclick=function(){ MODE="demo"; buildDemo(); startScreen(); };
-document.getElementById("gHavePwd").onclick=function(){ gateShow(3);
-  document.getElementById("gEmail2").value=document.getElementById("gEmail").value; };
-document.getElementById("gBack").onclick=function(){ gateShow(1); };
-document.getElementById("gBack2").onclick=function(){ gateShow(1); };
+function saveSession(r, email){
+  A.token=r.access; A.refresh=r.refresh; A.role=r.role; A.level=r.level;
+  if(email) A.email=email;
+  saveAuth();
+}
 
-document.getElementById("gStart").onclick=async function(){
-  var b=this, em=document.getElementById("gEmail").value.trim();
-  if(!em){ gErr("gErr","Напишите почту"); return; }
+document.getElementById("gDemo").onclick=function(){ MODE="demo"; buildDemo(); startScreen(); };
+document.getElementById("gTabs").addEventListener("click", function(e){
+  var b=e.target.closest("button"); if(b) gTab(b.getAttribute("data-t"));
+});
+document.getElementById("toCode").onclick=function(){
+  document.getElementById("cdMail").value=document.getElementById("inMail").value;
+  gShow("stCode");
+};
+document.getElementById("cdBack").onclick=function(){ gShow("stIn"); };
+document.getElementById("cd2Back").onclick=function(){ gShow("stCode"); };
+document.getElementById("toWs").onclick=function(){ gShow("stWs"); };
+document.getElementById("wsBack").onclick=function(){ gShow("stUp2"); };
+
+/* вход по паролю */
+document.getElementById("btnIn").onclick=async function(){
+  var b=this, em=document.getElementById("inMail").value.trim(),
+      pw=document.getElementById("inPwd").value;
+  if(!em||!pw){ gErr("errIn","Заполните почту и пароль"); return; }
+  busy(b,true);
+  try{ var r=await api("/auth/login",{method:"POST",body:{email:em,password:pw}});
+    saveSession(r, em); await goLive();
+  }catch(e){ busy(b,false,"Войти"); gErr("errIn",e.message); }
+};
+
+/* вход по коду из письма */
+document.getElementById("btnCdSend").onclick=async function(){
+  var b=this, em=document.getElementById("cdMail").value.trim();
+  if(!em){ gErr("errCd","Напишите почту"); return; }
   busy(b,true);
   try{ await api("/auth/start",{method:"POST",body:{email:em}});
-    A.email=em; gateShow(2); busy(b,false,"Выслать код на почту");
-    document.getElementById("gCode").focus();
-  }catch(e){ busy(b,false,"Выслать код на почту"); gErr("gErr",e.message); }
+    A.email=em; document.getElementById("cdWho").textContent=em;
+    gShow("stCode2"); busy(b,false,"Выслать код на почту");
+    document.getElementById("cdCode").focus();
+  }catch(e){ busy(b,false,"Выслать код на почту"); gErr("errCd",e.message); }
 };
-document.getElementById("gVerify").onclick=async function(){
-  var b=this, code=document.getElementById("gCode").value.trim(),
-      pwd=document.getElementById("gPwd").value;
-  if(code.length!==6){ gErr("gErr2","Код — шесть цифр"); return; }
+document.getElementById("btnCdIn").onclick=async function(){
+  var b=this, c=document.getElementById("cdCode").value.trim();
+  if(c.length!==6){ gErr("errCd2","Код — шесть цифр"); return; }
   busy(b,true);
-  var body={email:A.email, code:code};
-  if(pwd) body.new_password=pwd;
-  try{ var r=await api("/auth/verify",{method:"POST",body:body});
-    A.token=r.access; A.refresh=r.refresh; A.role=r.role; A.level=r.level; saveAuth();
-    await goLive();
-  }catch(e){ busy(b,false,"Войти"); gErr("gErr2",e.message); }
+  try{ var r=await api("/auth/verify",{method:"POST",body:{email:A.email, code:c}});
+    saveSession(r); await goLive();
+  }catch(e){ busy(b,false,"Войти"); gErr("errCd2",e.message); }
 };
-document.getElementById("gLogin").onclick=async function(){
-  var b=this, em=document.getElementById("gEmail2").value.trim(),
-      pwd=document.getElementById("gPwd2").value;
-  if(!em||!pwd){ gErr("gErr3","Почта и пароль"); return; }
+
+/* регистрация: почта → код проекта → код из письма и пароль */
+document.getElementById("btnUp1").onclick=function(){
+  var em=document.getElementById("upMail").value.trim();
+  if(!em || em.indexOf("@")<0){ gErr("errUp1","Напишите рабочую почту"); return; }
+  A.email=em; gShow("stUp2"); document.getElementById("upCode").focus();
+};
+document.getElementById("upCode").addEventListener("input", async function(){
+  var v=this.value.trim().toUpperCase(); this.value=v;
+  gErr("errUp2",""); document.getElementById("okUp2").textContent="";
+  if(v.length<6) return;
+  try{ var r=await api("/auth/invite/"+encodeURIComponent(v));
+    document.getElementById("okUp2").textContent =
+      "Пространство: "+r.workspace+(r.project?" · кабинет "+r.project:"");
+  }catch(e){ gErr("errUp2","Такого кода нет — проверьте у руководителя"); }
+});
+document.getElementById("btnUp2").onclick=async function(){
+  var b=this, c=document.getElementById("upCode").value.trim();
+  if(c.length<4){ gErr("errUp2","Введите код проекта"); return; }
   busy(b,true);
-  try{ var r=await api("/auth/login",{method:"POST",body:{email:em,password:pwd}});
-    A.token=r.access; A.refresh=r.refresh; A.role=r.role; A.level=r.level; A.email=em; saveAuth();
-    await goLive();
-  }catch(e){ busy(b,false,"Войти"); gErr("gErr3",e.message); }
+  try{ var r=await api("/auth/register",{method:"POST",
+        body:{email:A.email, invite_code:c}});
+    document.getElementById("upWho").innerHTML =
+      "Вы вступаете в <b>"+esc(r.workspace)+"</b>. Код отправлен на <b>"+esc(A.email)+
+      "</b> — проверьте входящие и папку «Спам».";
+    gShow("stUp3"); busy(b,false,"Продолжить");
+    document.getElementById("upCode2").focus();
+  }catch(e){ busy(b,false,"Продолжить"); gErr("errUp2",e.message); }
 };
+document.getElementById("btnWs").onclick=async function(){
+  var b=this, n=document.getElementById("wsName").value.trim();
+  if(n.length<2){ gErr("errWs","Напишите название организации"); return; }
+  busy(b,true);
+  try{ var r=await api("/auth/workspace",{method:"POST",
+        body:{email:A.email, org_name:n}});
+    document.getElementById("upWho").innerHTML =
+      "Пространство <b>"+esc(r.workspace)+"</b> создано. Код для приглашений: <b>"+
+      esc(r.invite_code)+"</b>. Код входа отправлен на <b>"+esc(A.email)+"</b>.";
+    gShow("stUp3"); busy(b,false,"Создать пространство");
+    document.getElementById("upCode2").focus();
+  }catch(e){ busy(b,false,"Создать пространство"); gErr("errWs",e.message); }
+};
+document.getElementById("btnUp3").onclick=async function(){
+  var b=this, c=document.getElementById("upCode2").value.trim(),
+      pw=document.getElementById("upPwd").value;
+  if(c.length!==6){ gErr("errUp3","Код — шесть цифр"); return; }
+  if(pw.length<10){ gErr("errUp3","Пароль — минимум 10 символов"); return; }
+  busy(b,true);
+  try{ var r=await api("/auth/verify",{method:"POST",
+        body:{email:A.email, code:c, new_password:pw}});
+    saveSession(r); await goLive();
+  }catch(e){ busy(b,false,"Завершить регистрацию"); gErr("errUp3",e.message); }
+};
+
 document.addEventListener("keydown",function(e){
   if(e.key!=="Enter") return;
-  var id=e.target.id;
-  if(id==="gEmail") document.getElementById("gStart").click();
-  if(id==="gCode"||id==="gPwd") document.getElementById("gVerify").click();
-  if(id==="gEmail2"||id==="gPwd2") document.getElementById("gLogin").click();
+  var m={inMail:"btnIn", inPwd:"btnIn", cdMail:"btnCdSend", cdCode:"btnCdIn",
+         upMail:"btnUp1", upCode:"btnUp2", wsName:"btnWs",
+         upCode2:"btnUp3", upPwd:"btnUp3"};
+  var id=m[e.target.id]; if(id) document.getElementById(id).click();
 });
 document.getElementById("exitBtn").onclick=function(){
   dropAuth(); booted=false; MODE="demo";
   document.getElementById("screen").hidden=true;
   document.getElementById("boot").hidden=true;
-  document.getElementById("gate").hidden=false; gateShow(1);
+  document.getElementById("gate").hidden=false; gTab("in");
 };
 document.getElementById("resetDemo").onclick=resetDemo;
 document.getElementById("setupBtn").onclick=function(){ if(booted||S.people.length) showSetup(); };
@@ -1730,17 +1998,40 @@ document.addEventListener("click", function(e){
     selPerson=t.getAttribute("data-gantt-person"); proj=null; setView("work"); return; }
   if((t=e.target.closest("[data-gantt-proj]"))){
     proj=t.getAttribute("data-gantt-proj"); selPerson=null; setView("work"); return; }
-  if((t=e.target.closest("[data-cabs]"))){
-    var el=document.getElementById("cabs_"+t.getAttribute("data-cabs"));
+  if((t=e.target.closest("[data-prcab]"))){
+    e.stopPropagation();
+    var el=document.getElementById("cabs_"+t.getAttribute("data-prcab"));
     if(el){ el.hidden=!el.hidden; t.textContent = el.hidden?"Кабинеты":"Скрыть кабинеты"; }
     return; }
+  if((t=e.target.closest("[data-prday]"))){
+    e.stopPropagation();
+    var d=+t.getAttribute("data-prday");
+    var pid=t.getAttribute("data-pr");
+    if(pid && pid!==openProj){ openProj=pid; projGantt=false; }
+    projDay = d<0 ? null : d;
+    renderProjects(); paintBars(document.getElementById("sect")); return; }
+  if((t=e.target.closest("[data-prgantt]"))){
+    e.stopPropagation();
+    var gp=t.getAttribute("data-prgantt");
+    if(gp!==openProj){ openProj=gp; projDay=null; projGantt=true; }
+    else projGantt=!projGantt;
+    renderProjects(); paintBars(document.getElementById("sect")); return; }
+  if(e.target.closest("#backAll")){
+    openProj=null; projDay=null; projGantt=false;
+    renderProjects(); paintBars(document.getElementById("sect")); return; }
+  if((t=e.target.closest("[data-openpr]"))){
+    var op=t.getAttribute("data-openpr");
+    if(op!==openProj){ openProj=op; projDay=null; projGantt=false;
+      renderProjects(); paintBars(document.getElementById("sect")); }
+    return; }
 });
-document.getElementById("banSetup").onclick=function(){ showSetup(); };
 
 (function(){
   if(loadAuth()){ goLive(); return; }
   document.getElementById("gate").hidden=false;
-  gateShow(1);
+  gTab("in");
+  var pre=(location.search.match(/[?&]invite=([A-Za-z0-9]+)/)||[])[1];
+  if(pre){ gTab("up"); document.getElementById("upCode").value=pre.toUpperCase(); }
 })();
 
 })();
