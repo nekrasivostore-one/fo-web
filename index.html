@@ -955,6 +955,23 @@ body::before{content:""; position:fixed; inset:0; z-index:-1; pointer-events:non
 .whw .rttime{width:112px; flex:none}
 .rttime.off2{visibility:hidden}
 .ckb.lock{opacity:.55; cursor:not-allowed}
+
+/* карточка сотрудника: раскрытие */
+.pcbs{display:flex; gap:8px; margin-top:12px}
+.pcbs .pcb{flex:1}
+.dlist{margin-top:6px}
+.dli{display:flex; align-items:center; gap:12px; padding:10px 12px; border-radius:11px;
+  border:1px solid var(--stroke-2); background:var(--panel-2); margin-bottom:7px; font-size:12.5px}
+.dli.done{opacity:.55}
+.dli.done .dtt{text-decoration:line-through}
+.dtime{font-variant-numeric:tabular-nums; font-weight:700; color:var(--ink-3); flex:none; width:44px}
+.dtt{flex:1; min-width:0; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.dpr{flex:none; display:flex; align-items:center; gap:6px; color:var(--ink-3); max-width:150px;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.dpr .dot{width:8px;height:8px;border-radius:3px;flex:none;display:inline-block}
+.dmin{flex:none; width:64px; text-align:right; color:var(--ink-3); font-variant-numeric:tabular-nums}
+.dst{flex:none; width:104px; text-align:right; font-size:11px; color:var(--ink-3)}
+@media (max-width:900px){ .dpr, .dst{display:none} }
 </style>
 </head>
 <body>
@@ -1855,6 +1872,7 @@ function isClient(){ return role==="client"; }
 
 /* ── разделы: рабочий экран, люди, проекты ── */
 var view="work", openProj=null, projDay=null, projGantt=false;
+var openPerson=null, peDay=null, peGantt=false;
 
 function weekOf(pid){ var a=[]; for(var d=0;d<5;d++) a.push(pctOf(pid,d)); return a; }
 function miniBars(vals){
@@ -1886,37 +1904,121 @@ function peopleOfProject(prid){
     .sort(function(a,b){ return b.min-a.min; });
 }
 
+function personCard(m, open){
+  var wk=weekOf(m.id);
+  var td=tasksOf(function(t){ return t.person===m.id && t.dow===today; });
+  var all=tasksOf(function(t){ return t.person===m.id; });
+  var p=pctOf(m.id,dow);
+  var prs=projectsOfPerson(m.id);
+  var left=minutesOf(td.filter(function(t){ return !t.done; }));
+  return '<section class="gl pc'+(open?" open":"")+'" data-openperson="'+esc(m.id)+'">'+
+    '<div class="pch"><div class="av" style="background:'+m.color+'">'+esc(m.av)+'</div>'+
+      '<div class="pcn"><div class="n">'+esc(m.name)+'</div>'+
+      '<div class="r">'+esc(m.role||"Сотрудник")+'</div></div>'+
+      '<div class="pcp u" style="color:'+tone(p)+'">'+p+'%</div></div>'+
+    '<div class="pcs">'+
+      '<div><b>'+td.filter(function(t){return t.done;}).length+' / '+td.length+'</b><span>сделано сегодня</span></div>'+
+      '<div><b>'+hrs(left)+' ч</b><span>осталось</span></div>'+
+      '<div><b>'+pctDone(all)+'%</b><span>за неделю</span></div>'+
+    '</div>'+
+    miniBars(wk)+
+    '<div class="pcl">'+(prs.length
+      ? prs.map(function(x){ return '<div class="pcr"><span class="dot" style="background:'+x.p.color+'"></span>'+
+          '<span class="k">'+esc(x.p.name)+'</span><span class="v">'+hrs(x.min)+' ч</span></div>'; }).join("")
+      : '<div class="empty">Задач на неделе нет</div>')+'</div>'+
+    (open
+      ? '<div class="pcbs"><button class="bt gh2 pcb" data-pegantt="'+esc(m.id)+'">'+
+          (peGantt?"Свернуть гант":"Показать гант")+'</button></div>'
+      : '<button class="bt gh2 pcb" data-peopengantt="'+esc(m.id)+'">Показать гант</button>')+
+  '</section>';
+}
+
+function personDetail(m){
+  var all=tasksOf(function(t){ return t.person===m.id; });
+  var tabs='<div class="seg sm dtabs">'+
+    '<button data-peday="-1" aria-pressed="'+(peDay===null)+'">Обзор недели</button>'+
+    DOWS.map(function(d,i){
+      return '<button data-peday="'+i+'" aria-pressed="'+(peDay===i)+'">'+d+'</button>'; }).join("")+'</div>';
+
+  if(peDay===null){
+    var wait=all.filter(function(t){ return t.status==="wait"; });
+    var late=all.filter(function(t){ return t.due!=null && !t.done && t.dow<=today; });
+    var pick=all.filter(function(t){ return t.from && t.from!==m.id; });
+    var prs=projectsOfPerson(m.id);
+    return tabs+
+      '<div class="dgrid">'+[0,1,2,3,4].map(function(d){
+        var dt=all.filter(function(t){ return t.dow===d; });
+        var pc=Math.round(minutesOf(dt)/NORM*100);
+        return '<button class="dday'+(d===today?" today":"")+'" data-peday="'+d+'">'+
+          '<div class="dd">'+DOW[d]+'</div>'+
+          '<div class="dh u" style="color:'+tone(pc)+'">'+hrs(minutesOf(dt))+' ч</div>'+
+          '<div class="dt">'+dt.length+' задач · '+pc+'%</div></button>'; }).join("")+'</div>'+
+      '<div class="dsec"><h4>По кабинетам</h4>'+(prs.length
+        ? prs.map(function(x){ return '<div class="pcr"><span class="dot" style="background:'+x.p.color+'"></span>'+
+            '<span class="k">'+esc(x.p.name)+'</span><span class="v">'+hrs(x.min)+' ч</span></div>'; }).join("")
+        : '<div class="empty">Задач нет</div>')+'</div>'+
+      (pick.length?'<div class="dsec"><h4>Подхватил у других</h4>'+pick.slice(0,6).map(function(t){
+        var f=person(t.from);
+        return '<div class="pcr"><span class="k">'+esc(t.title)+'</span><span class="v">'+
+          (f?esc(f.name):"—")+' · '+t.minutes+' мин</span></div>'; }).join("")+'</div>':'')+
+      (late.length?'<div class="dsec"><h4>Просрочено</h4>'+late.slice(0,6).map(function(t){
+        return '<div class="pcr"><span class="k">'+esc(t.title)+'</span><span class="v" style="color:var(--crit)">'+
+          DOW[t.dow]+' · '+t.minutes+' мин</span></div>'; }).join("")+'</div>':'')+
+      (wait.length?'<div class="dsec"><h4>Ждут согласования</h4>'+wait.slice(0,6).map(function(t){
+        var pr=project(t.project);
+        return '<div class="pcr"><span class="k">'+esc(t.title)+'</span><span class="v">'+
+          (pr?esc(pr.name):"—")+'</span></div>'; }).join("")+'</div>':'')+
+      (!pick.length && !late.length && !wait.length
+        ? '<div class="dsec"><h4>Замечаний нет</h4><div class="empty">Ничего не просрочено и не ждёт согласования</div></div>' : '');
+  }
+
+  var dt=all.filter(function(t){ return t.dow===peDay; }).sort(function(a,b){ return a.start-b.start; });
+  return tabs+
+    '<div class="dhead"><b>'+DOW[peDay]+'</b> · '+hrs(minutesOf(dt))+' ч · '+
+      dt.length+' задач · выполнено '+pctDone(dt)+'%</div>'+
+    (dt.length
+      ? '<div class="dlist">'+dt.map(function(t){
+          var pr=project(t.project);
+          var h=Math.floor(t.start), mm=Math.round((t.start-h)*60);
+          return '<div class="dli'+(t.done?" done":"")+'">'+
+            '<span class="dtime">'+(h<10?"0":"")+h+":"+(mm<10?"0":"")+mm+'</span>'+
+            '<span class="dtt">'+esc(t.title)+'</span>'+
+            '<span class="dpr">'+(pr?'<i class="dot" style="background:'+pr.color+'"></i>'+esc(pr.name):"")+'</span>'+
+            '<span class="dmin">'+t.minutes+' мин</span>'+
+            '<span class="dst">'+(t.done?"готово":t.status==="wait"?"согласование":"в работе")+'</span>'+
+          '</div>'; }).join("")+'</div>'
+      : '<div class="empty">В этот день задач нет</div>');
+}
+
 function renderPeople(){
   var host=document.getElementById("sect");
   var pl=visiblePeople();
   if(!pl.length){ host.innerHTML='<div class="gl"><div class="empty">Команда пока пустая. '+
-    'Заведите людей в разделе «Состав».</div></div>'; return; }
-  host.innerHTML='<div class="cards">'+pl.map(function(m){
-    var wk=weekOf(m.id);
-    var td=tasksOf(function(t){ return t.person===m.id && t.dow===today; });
-    var all=tasksOf(function(t){ return t.person===m.id; });
-    var p=pctOf(m.id,dow);
-    var prs=projectsOfPerson(m.id);
-    var left=minutesOf(td.filter(function(t){ return !t.done; }));
-    return '<section class="gl pc">'+
-      '<div class="pch"><div class="av" style="background:'+m.color+'">'+esc(m.av)+'</div>'+
-        '<div class="pcn"><div class="n">'+esc(m.name)+'</div>'+
-        '<div class="r">'+esc(m.role||"Сотрудник")+'</div></div>'+
-        '<div class="pcp u" style="color:'+tone(p)+'">'+p+'%</div></div>'+
-      '<div class="pcs">'+
-        '<div><b>'+td.filter(function(t){return t.done;}).length+' / '+td.length+'</b><span>сделано сегодня</span></div>'+
-        '<div><b>'+hrs(left)+' ч</b><span>осталось</span></div>'+
-        '<div><b>'+pctDone(all)+'%</b><span>за неделю</span></div>'+
-      '</div>'+
-      miniBars(wk)+
-      '<div class="pcl">'+(prs.length
-        ? prs.map(function(x){ return '<div class="pcr"><span class="dot" style="background:'+x.p.color+'"></span>'+
-            '<span class="k">'+esc(x.p.name)+'</span><span class="v">'+hrs(x.min)+' ч</span></div>'; }).join("")
-        : '<div class="empty">Задач на неделе нет</div>')+'</div>'+
-      '<button class="bt gh2 pcb" data-gantt-person="'+esc(m.id)+'">Показать в ганте</button>'+
-    '</section>';
-  }).join("")+'</div>';
+    'Заведите людей в разделе «Команда и кабинеты».</div></div>'; return; }
+
+  var open = openPerson ? pl.filter(function(m){ return m.id===openPerson; })[0] : null;
+  if(!open){
+    host.innerHTML='<div class="cards">'+pl.map(function(m){ return personCard(m,false); }).join("")+'</div>';
+    return;
+  }
+  var rest=pl.filter(function(m){ return m.id!==open.id; });
+  host.innerHTML=
+    '<button class="bt gh2 backall" id="backTeam">← Вернуться ко всей команде</button>'+
+    '<div class="split">'+personCard(open,true)+
+      '<section class="gl detail">'+personDetail(open)+'</section></div>'+
+    (peGantt ? '<section class="gl tall gantwrap" data-b="gantt"></section>' : '')+
+    (rest.length ? '<div class="restlbl">Остальная команда</div><div class="cards">'+
+      rest.map(function(m){ return personCard(m,false); }).join("")+'</div>' : '');
+
+  if(peGantt){
+    var g=host.querySelector('.gantwrap');
+    var keepP=selPerson, keepJ=proj;
+    selPerson=open.id; proj=null;
+    B.gantt(g);
+    selPerson=keepP; proj=keepJ;
+  }
 }
+
 
 /* ── карточка кабинета ── */
 function cabCard(pr, mine, open){
@@ -3472,6 +3574,31 @@ document.addEventListener("click", function(e){
   if(e.target.closest("#backAll")){
     openProj=null; projDay=null; projGantt=false;
     renderProjects(); paintBars(document.getElementById("sect")); return; }
+  /* ── карточка сотрудника раскрывается ── */
+  if((t=e.target.closest("[data-peopengantt]"))){
+    e.stopPropagation();
+    openPerson=t.getAttribute("data-peopengantt"); peDay=null; peGantt=true;
+    renderPeople(); paintBars(document.getElementById("sect"));
+    var w=document.querySelector(".gantwrap"); if(w) w.scrollIntoView({behavior:"smooth", block:"center"});
+    return; }
+  if((t=e.target.closest("[data-peday]"))){
+    e.stopPropagation();
+    var dnum=+t.getAttribute("data-peday");
+    peDay = dnum<0 ? null : dnum;
+    renderPeople(); paintBars(document.getElementById("sect")); return; }
+  if((t=e.target.closest("[data-pegantt]"))){
+    e.stopPropagation();
+    peGantt=!peGantt;
+    renderPeople(); paintBars(document.getElementById("sect")); return; }
+  if(e.target.closest("#backTeam")){
+    openPerson=null; peDay=null; peGantt=false;
+    renderPeople(); paintBars(document.getElementById("sect")); return; }
+  if((t=e.target.closest("[data-openperson]"))){
+    var op2=t.getAttribute("data-openperson");
+    if(op2!==openPerson){ openPerson=op2; peDay=null; peGantt=false;
+      renderPeople(); paintBars(document.getElementById("sect")); }
+    return; }
+
   /* ── куда сообщать ── */
   if((t=e.target.closest("[data-rtc]"))){
     if(!canRoute()){ toast("Менять может собственник, РМ или главный менеджер"); return; }
