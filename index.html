@@ -1588,6 +1588,618 @@ select.gshidden{ position:absolute!important; width:1px!important; height:1px!im
   .paytw{ margin:0 }
   #sect, #screen{ overflow-x:clip }
 }
+
+/* ═══════════ АОД ═══════════ */
+.aodgrid{display:grid; grid-template-columns:1fr 300px; gap:14px; align-items:start}
+@media (max-width:1100px){ .aodgrid{grid-template-columns:1fr} }
+.aodt th.cA, .aodt td.cA{background:rgba(34,176,125,.07)}
+.aodt th.cB, .aodt td.cB{background:rgba(208,138,21,.07)}
+.aodt th.cC, .aodt td.cC{background:rgba(219,74,95,.07)}
+.aodt .totr td{font-weight:700; border-top:1.5px solid var(--stroke)}
+.aodt .sku{font-family:ui-monospace,monospace; font-size:11.5px}
+.clet{display:inline-grid; place-items:center; width:24px; height:24px; border-radius:8px;
+  font-family:Unbounded,sans-serif; font-size:12px; font-weight:500; color:#fff}
+.clet.sm{width:20px; height:20px; font-size:10px; border-radius:6px}
+.clet.lA{background:linear-gradient(140deg,#22B07D,#7CD44F)}
+.clet.lB{background:linear-gradient(140deg,#D08A15,#FFB020)}
+.clet.lC{background:linear-gradient(140deg,#DB4A5F,#FF8A65)}
+.clet.lx{background:var(--panel-2); color:var(--ink-3)}
+.catdays{background:var(--panel-2); border:1px solid var(--stroke-2); border-radius:16px; padding:14px 15px}
+.cdh{font-size:11px; font-weight:700; letter-spacing:.05em; text-transform:uppercase;
+  color:var(--ink-3); margin-bottom:10px}
+.cdr{display:flex; align-items:center; gap:9px; margin-bottom:8px}
+.cdr .cdl{width:26px; height:26px; border-radius:8px; display:grid; place-items:center;
+  font-family:Unbounded,sans-serif; font-size:12px; color:#fff}
+.cdr.cA .cdl{background:linear-gradient(140deg,#22B07D,#7CD44F)}
+.cdr.cB .cdl{background:linear-gradient(140deg,#D08A15,#FFB020)}
+.cdr.cC .cdl{background:linear-gradient(140deg,#DB4A5F,#FF8A65)}
+.cdr .fi.xs{width:58px}
+.cdr i{font-style:normal; font-size:11px; color:var(--ink-3)}
+.aodfilters{display:flex; gap:11px; align-items:flex-end; flex-wrap:wrap; margin-bottom:14px}
+.aodfilters label{display:flex; flex-direction:column; gap:5px; min-width:150px}
+.aodfilters label>span{font-size:10px; font-weight:700; letter-spacing:.06em;
+  text-transform:uppercase; color:var(--ink-3)}
+.aodsend{display:flex; gap:8px; align-items:center; flex-wrap:wrap}
+.aodsend .bt{width:auto}
+.aodauto{display:flex; align-items:center; gap:7px}
+.aodauto .fi.xs{width:96px}
+.aodauto .ck{display:inline-flex; align-items:center; gap:7px; cursor:pointer; font-size:12px;
+  font-weight:600; color:var(--ink-3); white-space:nowrap}
+.aodauto .ck i{width:15px;height:15px;border-radius:5px; border:1.5px solid var(--neu-b);
+  background:var(--panel-2); position:relative; transition:.14s}
+.aodauto .ck.on{color:var(--ink)}
+.aodauto .ck.on i{background:#7C5CFF; border-color:#7C5CFF}
+.aodauto .ck.on i:after{content:""; position:absolute; left:4px; top:1px; width:3.5px; height:7px;
+  border:solid #fff; border-width:0 2px 2px 0; transform:rotate(43deg)}
+.aodsch{margin-top:16px; display:flex; flex-direction:column; gap:8px}
+.aodp{border:1px solid var(--stroke-2); border-radius:15px; overflow:hidden; background:var(--panel-2)}
+.aodph{display:flex; align-items:center; gap:10px; width:100%; font-family:inherit; cursor:pointer;
+  background:none; border:none; padding:11px 13px; text-align:left; color:inherit; transition:.14s}
+.aodph:hover{background:var(--panel)}
+.aodph .av{width:26px;height:26px;border-radius:9px; font-size:10px}
+.aodph b{font-size:13px; color:var(--ink)}
+.aodph i{margin-left:auto; font-style:normal; font-size:11.5px; color:var(--ink-3)}
+.aodp .gcx{transition:transform .26s var(--ease)}
+.aodp .aoddays{padding:0 13px 12px}
+.aodd{border-top:1px solid var(--stroke-2)}
+.aoddh{display:flex; align-items:center; gap:9px; width:100%; font-family:inherit; cursor:pointer;
+  background:none; border:none; padding:9px 2px; text-align:left; color:inherit}
+.aoddh:hover b{color:#7C5CFF}
+.aoddh b{font-size:12.5px; font-weight:600; color:var(--ink-2); min-width:96px}
+.aoddh .kinds{font-family:ui-monospace,monospace; font-size:11px; color:var(--ink-3)}
+.aoddh i{margin-left:auto; font-style:normal; font-size:11px; color:var(--ink-3)}
+.aodarts{display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:5px;
+  padding:4px 0 10px}
+.aoda{display:flex; align-items:center; gap:8px; font-size:11.5px; background:var(--panel);
+  border:1px solid var(--stroke-2); border-radius:9px; padding:6px 9px}
+.aoda .sku{font-family:ui-monospace,monospace; color:var(--ink-2)}
+.aoda .cab{flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  color:var(--ink-3)}
+.aoda .min{color:var(--ink-3); font-size:10.5px}
+.aodcabs{display:flex; gap:7px; flex-wrap:wrap; margin-bottom:12px}
+.aodcab{display:inline-flex; align-items:center; gap:7px; font-family:inherit; font-size:12px;
+  font-weight:600; color:var(--ink-3); background:var(--panel-2); border:1px solid var(--stroke-2);
+  border-radius:11px; padding:6px 10px; cursor:pointer; transition:.15s}
+.aodcab:hover{color:var(--ink-2)}
+.aodcab.on{color:var(--ink); background:var(--panel); border-color:transparent;
+  box-shadow:0 0 0 1.4px rgba(124,92,255,.5)}
+.aodcab .av2{width:19px;height:19px;border-radius:6px; display:grid; place-items:center;
+  color:#fff; font-size:8px; font-weight:700}
+.aodcab b{font-family:"IBM Plex Mono",ui-monospace,monospace; font-size:11px; color:var(--ink-3)}
+.aodcab.clr{border-style:dashed}
+.aodmore{width:100%; margin-top:10px}
+.aodform{margin-bottom:14px; background:var(--panel-2); border:1px solid var(--stroke-2);
+  border-radius:16px; padding:14px 15px}
+.aoddrop{border:1.5px dashed var(--stroke); border-radius:14px; padding:16px; text-align:center;
+  background:var(--panel-2); transition:.15s}
+.aoddrop.on{border-color:#7C5CFF; background:var(--panel)}
+.aoddrop b{display:block; font-size:13px; color:var(--ink)}
+.aoddrop i{display:block; font-style:normal; font-size:11.5px; color:var(--ink-3); margin:4px 0 10px}
+.aoddrop .bt{width:auto}
+
+/* ═══════════ постановка задачи, версия 2 ═══════════ */
+.hotbar{display:flex; justify-content:flex-end; align-items:center; gap:10px}
+.hotc{display:inline-flex; align-items:center; gap:10px; font-family:inherit; cursor:pointer;
+  border:1px solid var(--stroke); border-radius:16px; padding:9px 14px 9px 10px;
+  background:var(--panel); backdrop-filter:var(--blur); -webkit-backdrop-filter:var(--blur);
+  box-shadow:var(--sh); transition:transform .16s var(--ease), box-shadow .16s var(--ease)}
+.hotc:hover{transform:translateY(-1px); box-shadow:0 18px 40px -20px rgba(124,92,255,.6), var(--sh)}
+.hotc .hi3{width:30px;height:30px;border-radius:11px; display:grid; place-items:center; flex:none;
+  background:linear-gradient(140deg,#7C5CFF,#00B39A)}
+.hotc .hi3 svg{width:16px;height:16px; stroke:#fff; fill:none; stroke-width:2.4; stroke-linecap:round}
+.hotc b{font-size:13.5px; font-weight:700; color:var(--ink); white-space:nowrap}
+.hotc .hdr{font-size:11px; font-weight:600; color:var(--warn); background:rgba(208,138,21,.12);
+  border-radius:7px; padding:3px 7px; white-space:nowrap}
+.hotc .hk{font-size:10.5px; font-weight:700; color:var(--ink-3); background:var(--panel-2);
+  border:1px solid var(--stroke-2); border-radius:7px; padding:3px 7px}
+.gl.nthot{padding:0; background:none; border:none; box-shadow:none; backdrop-filter:none;
+  margin-bottom:-6px}
+.sel.narrow, .ntrow .gsl.narrow{max-width:180px}
+.fncombo{position:relative; flex:1.4; min-width:220px; display:flex; align-items:center}
+.fncombo .fnq2{width:100%; padding-right:52px}
+.fncombo .gsc{position:absolute; right:11px; width:13px;height:13px; stroke:var(--ink-3);
+  fill:none; stroke-width:2; stroke-linecap:round; pointer-events:none}
+.fncombo .fnx{position:absolute; right:28px; width:20px;height:20px; border-radius:6px; border:none;
+  background:var(--panel-2); color:var(--ink-3); cursor:pointer; font-size:14px; line-height:1}
+.fncombo .fnx:hover{color:var(--crit)}
+.fnpop .gsi{align-items:flex-start}
+.fnpop .fnc2{font-family:ui-monospace,monospace; font-size:10px; color:var(--ink-3);
+  background:var(--panel-2); border-radius:6px; padding:2px 5px; flex:none; margin-top:1px}
+.fnpop .gk b{display:block; font-size:12.5px; font-weight:600; color:var(--ink)}
+.fnpop .gk i{display:block; font-style:normal; font-size:10.5px; color:var(--ink-3); margin-top:2px}
+.fnpop .none2{font-size:12px; color:var(--ink-3); padding:12px}
+.advw{margin-top:11px; background:var(--panel-2); border:1px solid var(--stroke-2);
+  border-radius:16px; padding:11px 12px}
+.advl{font-size:10px; font-weight:700; letter-spacing:.06em; text-transform:uppercase;
+  color:var(--ink-3); margin-bottom:8px}
+.advg{display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:7px}
+.advw.one .advg{grid-template-columns:1fr}
+.advp{display:flex; align-items:center; gap:9px; font-family:inherit; cursor:pointer; text-align:left;
+  background:var(--panel); border:1px solid var(--stroke-2); border-radius:13px; padding:8px 10px;
+  transition:.15s; color:inherit}
+.advp:hover{border-color:var(--stroke)}
+.advp.on{border-color:transparent; box-shadow:0 0 0 1.6px rgba(0,179,154,.55)}
+.advp .av{width:28px;height:28px;border-radius:10px; font-size:10px; flex:none}
+.advp .advt{flex:1; min-width:0}
+.advp .advt b{display:block; font-size:12.5px; font-weight:700; color:var(--ink)}
+.advp .advt i{display:block; font-style:normal; font-size:10.5px; color:var(--ink-3); margin-top:2px;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.advp .advok{color:#00B39A; font-size:14px; flex:none}
+.ntdone{margin-top:11px; border:1px solid rgba(0,179,154,.4); border-radius:15px;
+  background:linear-gradient(140deg,rgba(0,179,154,.09),rgba(124,92,255,.06)); overflow:hidden}
+.ntdh{display:flex; align-items:center; gap:9px; width:100%; font-family:inherit; cursor:pointer;
+  background:none; border:none; padding:11px 13px; text-align:left; color:inherit}
+.ntdh .okdot{width:20px;height:20px;border-radius:50%; background:#00B39A; color:#fff;
+  display:grid; place-items:center; font-size:12px; flex:none}
+.ntdh b{flex:1; font-size:13px; color:var(--ink)}
+.ntdh .gcx{width:15px;height:15px; stroke:var(--ink-3); fill:none; stroke-width:2;
+  stroke-linecap:round; transition:transform .26s var(--ease)}
+.ntdh[aria-expanded="true"] .gcx{transform:rotate(180deg)}
+.ntdl{display:flex; gap:8px; flex-wrap:wrap; padding:0 13px 12px}
+.ntdl .bt{width:auto}
+.tdock.hist{top:8%; height:min(34vh,380px)}
+.tdock.hist .tdin{width:322px}
+.cc2.liftable{cursor:pointer}
+
+/* ═══════════ «Требует решения» ═══════════ */
+.needl{display:flex; flex-direction:column; gap:1px; background:var(--stroke-2);
+  border:1px solid var(--stroke-2); border-radius:14px; overflow:hidden}
+.needr{display:flex; align-items:center; gap:12px; width:100%; font-family:inherit; cursor:pointer;
+  background:var(--panel); border:none; padding:11px 13px; text-align:left; color:inherit; transition:.14s}
+.needr:hover{background:var(--panel-2)}
+.needr:hover .nar{opacity:1; transform:translateX(2px)}
+.needr .nk{flex:1; min-width:0; font-size:12.5px; font-weight:600; color:var(--ink-2); line-height:1.3}
+.needr .nk i{display:block; font-style:normal; font-size:10.5px; color:var(--ink-3); margin-top:3px;
+  font-weight:500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.needr .nv{font-family:Unbounded,sans-serif; font-size:17px; font-weight:500; letter-spacing:-.03em;
+  color:var(--ink); flex:none}
+.needr .nv.crit{color:var(--crit)} .needr .nv.warn{color:var(--warn)} .needr .nv.ok{color:var(--ok)}
+.needr .nar{width:14px;height:14px; stroke:var(--ink-3); fill:none; stroke-width:2; stroke-linecap:round;
+  flex:none; opacity:.45; transition:.15s}
+.needh{font-size:10.5px; color:var(--ink-3); margin-top:9px; line-height:1.4}
+.needtop{display:flex; align-items:center; gap:14px; flex-wrap:wrap; padding:14px 18px}
+.needtabs{display:flex; gap:6px; flex-wrap:wrap}
+.ntb{display:inline-flex; align-items:center; gap:7px; font-family:inherit; font-size:12px;
+  font-weight:600; color:var(--ink-3); background:var(--panel-2); border:1px solid var(--stroke-2);
+  border-radius:11px; padding:7px 11px; cursor:pointer; transition:.15s}
+.ntb:hover{color:var(--ink-2)}
+.ntb.on{color:var(--ink); background:var(--panel); border-color:transparent;
+  box-shadow:0 0 0 1.5px rgba(124,92,255,.5)}
+.ntb b{font-family:Unbounded,sans-serif; font-weight:500; font-size:12px}
+.ntb b.crit{color:var(--crit)} .ntb b.warn{color:var(--warn)} .ntb b.ok{color:var(--ok)}
+.ndl{display:flex; flex-direction:column}
+.ndrow{display:flex; align-items:center; gap:11px; padding:10px 0;
+  border-bottom:1px solid var(--stroke-2)}
+.ndrow:last-child{border-bottom:none}
+.ndrow .av{width:30px;height:30px;border-radius:10px; font-size:11px; flex:none}
+.ndrow .av.none{background:var(--panel-2); color:var(--ink-3); display:grid; place-items:center}
+.ndrow .ndk{flex:1; min-width:0}
+.ndrow .ndk b{display:block; font-size:13px; font-weight:600; color:var(--ink);
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.ndrow .ndk i{display:block; font-style:normal; font-size:11px; color:var(--ink-3); margin-top:2px}
+.ndrow .ndv{font-size:12.5px; font-weight:700; color:var(--ink-2); flex:none;
+  font-variant-numeric:tabular-nums}
+.ndrow .ndx{font-size:11.5px; color:var(--ink-3); flex:none; min-width:150px; text-align:right}
+.ndrow .bt.sm{width:auto; padding:6px 11px; font-size:11.5px; flex:none}
+@media (max-width:820px){ .ndrow .ndx{display:none} }
+.nd2 .grsum.plain{background:none; border:none; padding:0; box-shadow:none; backdrop-filter:none;
+  margin-bottom:14px}
+.ndsub{font-size:11px; font-weight:700; letter-spacing:.05em; text-transform:uppercase;
+  color:var(--ink-3); margin:16px 0 10px}
+.needrest{display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:9px}
+.needr.card{border:1px solid var(--stroke-2); border-radius:14px; background:var(--panel)}
+.needr.card:hover{box-shadow:var(--sh)}
+
+/* ═══════════ новые кабинет и менеджер ═══════════ */
+.newone{padding:18px 20px 20px}
+.nchead{display:grid; grid-template-columns:1.6fr 1fr 1fr 1.3fr 76px 30px; gap:8px;
+  font-size:9.5px; font-weight:700; letter-spacing:.06em; text-transform:uppercase;
+  color:var(--ink-3); padding:0 2px 6px}
+@media (max-width:900px){ .nchead{display:none} }
+.ncl{display:flex; flex-direction:column; gap:7px}
+.ncrow{display:grid; grid-template-columns:1.6fr 1fr 1fr 1.3fr 76px 30px; gap:8px; align-items:center}
+@media (max-width:900px){ .ncrow{grid-template-columns:1fr 1fr; gap:6px} }
+.ncrow .plx{border:none; background:none; color:var(--ink-3); cursor:pointer; font-size:16px;
+  border-radius:7px; transition:.14s}
+.ncrow .plx:hover{color:var(--crit); background:var(--panel-2)}
+.ncbtns{display:flex; gap:9px; align-items:center; margin-top:11px; flex-wrap:wrap}
+.ncbtns .bt{width:auto}
+.nmflags{display:flex; gap:8px; flex-wrap:wrap}
+.nmflags .ck{display:inline-flex; align-items:center; gap:8px; cursor:pointer; font-family:inherit;
+  font-size:12.5px; font-weight:600; color:var(--ink-3); padding:8px 13px 8px 10px; border-radius:12px;
+  border:1px solid var(--stroke-2); background:var(--panel); transition:.15s}
+.nmflags .ck i{width:16px;height:16px;border-radius:5px; flex:none; position:relative;
+  border:1.5px solid var(--neu-b); background:var(--panel-2); transition:.15s}
+.nmflags .ck.on{color:var(--ink); border-color:transparent; box-shadow:0 0 0 1.5px rgba(124,92,255,.45)}
+.nmflags .ck.on i{background:#7C5CFF; border-color:#7C5CFF}
+.nmflags .ck.on i:after{content:""; position:absolute; left:4.5px; top:1px; width:4px; height:8px;
+  border:solid #fff; border-width:0 2px 2px 0; transform:rotate(43deg)}
+.nmcomp{display:grid; grid-template-columns:1fr 1.2fr; gap:14px; align-items:start}
+@media (max-width:900px){ .nmcomp{grid-template-columns:1fr} }
+.nmmax{display:flex; flex-direction:column; gap:7px}
+.nmmax>span{font-size:10px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-3)}
+.rng{width:100%; accent-color:#7C5CFF}
+.nmcats{display:flex; align-items:center; gap:10px; flex-wrap:wrap}
+.nmcat{display:inline-flex; align-items:center; gap:7px}
+.nmcat .cdl{width:24px;height:24px;border-radius:8px; display:grid; place-items:center; color:#fff;
+  font-family:Unbounded,sans-serif; font-size:11px}
+.nmcat.cA .cdl{background:linear-gradient(140deg,#22B07D,#7CD44F)}
+.nmcat.cB .cdl{background:linear-gradient(140deg,#D08A15,#FFB020)}
+.nmcat.cC .cdl{background:linear-gradient(140deg,#DB4A5F,#FF8A65)}
+.nmcat .fi.xs{width:62px}
+.nmcat i{font-style:normal; font-size:11px; color:var(--ink-3)}
+.nmsum{font-size:12px; font-weight:700}
+.nmlet{display:inline-flex; align-items:center; gap:7px}
+.nmlet i{font-style:normal; font-size:11px; color:var(--ink-3)}
+.nmtake{font-size:11.5px; color:var(--ink-3)}
+.nmlist{display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:5px; margin-top:10px}
+.nmextra{margin-top:14px; background:var(--panel-2); border:1px solid var(--stroke-2);
+  border-radius:16px; padding:13px 14px}
+.nxh{font-size:11px; font-weight:700; letter-spacing:.05em; text-transform:uppercase;
+  color:var(--ink-3); margin-bottom:9px}
+.nmcand{display:flex; flex-direction:column; gap:5px; margin-top:10px; max-height:280px; overflow-y:auto}
+.nmc{display:flex; align-items:center; gap:9px; background:var(--panel); border:1px solid var(--stroke-2);
+  border-radius:11px; padding:8px 10px; cursor:pointer}
+.nmc .ck{flex:none}
+.nmc .ck i{width:16px;height:16px;border-radius:5px; display:block; position:relative;
+  border:1.5px solid var(--neu-b); background:var(--panel-2); transition:.15s}
+.nmc .ck.on i{background:#7C5CFF; border-color:#7C5CFF}
+.nmc .ck.on i:after{content:""; position:absolute; left:4.5px; top:1px; width:4px; height:8px;
+  border:solid #fff; border-width:0 2px 2px 0; transform:rotate(43deg)}
+.nmc .nck{flex:1; min-width:0}
+.nmc .nck b{display:block; font-size:12.5px; font-weight:600; color:var(--ink);
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.nmc .nck i{display:block; font-style:normal; font-size:10.5px; color:var(--ink-3); margin-top:2px}
+
+/* ═══ Справочник функций v2: группы, строки, форма отправки ═══ */
+.fng{ border:1px solid var(--stroke-2); border-radius:var(--r2); background:var(--panel-2);
+  margin-bottom:10px; overflow:hidden; transition:border-color .18s var(--ease) }
+.fng.on{ border-color:var(--neu-b) }
+.fngh{ display:flex; align-items:center; gap:11px; width:100%; padding:13px 15px;
+  border:none; background:none; cursor:pointer; font-family:inherit; text-align:left;
+  transition:background .16s var(--ease) }
+.fngh:hover{ background:var(--neu) }
+.fngh .gcx{ transition:transform .26s var(--ease); flex:none }
+.fng.on .fngh .gcx{ transform:rotate(180deg) }
+.fngh b{ font-size:13.5px; font-weight:600; color:var(--ink); letter-spacing:-.01em }
+.fngn{ font-size:11px; font-weight:700; color:var(--ink-3); background:var(--neu);
+  border:1px solid var(--stroke-2); border-radius:999px; padding:2px 8px; flex:none }
+.fngh i{ margin-left:auto; font-style:normal; font-size:11.5px; color:var(--ink-3); white-space:nowrap }
+.fngl{ border-top:1px solid var(--stroke-2); animation:fngIn .24s var(--ease) }
+@keyframes fngIn{ from{ opacity:0; transform:translateY(-4px) } to{ opacity:1; transform:none } }
+
+.fnr{ border-bottom:1px solid var(--stroke-2); transition:background .15s var(--ease) }
+.fnr:last-child{ border-bottom:none }
+.fnr:hover{ background:var(--neu) }
+.fnr.open{ background:var(--neu) }
+.fnrh{ display:flex; align-items:center; gap:12px; padding:11px 15px }
+.fnc2{ font-family:ui-monospace,SFMono-Regular,monospace; font-size:10.5px; color:var(--ink-3);
+  white-space:nowrap; flex:none; width:52px }
+.fnn2{ font-size:13px; font-weight:600; color:var(--ink); flex:1; min-width:0;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
+.fnm{ font-size:11.5px; color:var(--ink-3); white-space:nowrap; flex:none; width:60px; text-align:right }
+.fnw{ font-size:11.5px; color:var(--ink-2); white-space:nowrap; flex:none; width:92px; text-align:right }
+.fnrh .fnp{ font-size:11.5px; color:var(--ink-2); white-space:nowrap; flex:none; width:120px;
+  overflow:hidden; text-overflow:ellipsis }
+.fnrh .bt{ width:auto; flex:0 0 auto; padding:7px 13px; font-size:12px }
+.fnrh .bt.okb{ color:var(--ok); border-color:rgba(0,179,154,.4) }
+
+.fnform{ padding:2px 15px 16px; display:flex; flex-direction:column; gap:11px;
+  border-top:1px dashed var(--stroke-2); margin-top:2px; animation:fngIn .24s var(--ease) }
+.fnform .tgr{ display:flex; align-items:center; border:1px solid var(--stroke);
+  border-radius:11px; background:var(--panel-2); overflow:hidden }
+.fnform .tgr .at{ padding:0 2px 0 11px; font-size:13px; font-weight:600; color:var(--ink-3) }
+.fnform .tgr .fi{ border:none; background:none; border-radius:0; flex:1; min-width:0; padding-left:3px }
+.fnform .tgr:focus-within{ border-color:var(--neu-b) }
+.fnform textarea.fi{ resize:vertical; min-height:64px; line-height:1.45 }
+.fnfb{ display:flex; align-items:center; gap:9px; flex-wrap:wrap }
+.fnfb .grow{ flex:1; min-width:0 }
+.fnfb .bt{ width:auto; flex:0 0 auto; padding:8px 15px }
+.fnfb .ck{ display:inline-flex; align-items:center; gap:8px; cursor:pointer;
+  font-family:inherit; font-size:12.5px; font-weight:600; color:var(--ink-3);
+  padding:7px 12px 7px 9px; border-radius:11px; border:1px solid var(--stroke-2);
+  background:var(--panel); transition:.15s; white-space:nowrap }
+.fnfb .ck:hover{ color:var(--ink); border-color:var(--neu-b) }
+.fnfb .ck i{ width:16px; height:16px; border-radius:5px; flex:none; position:relative;
+  border:1.5px solid var(--neu-b); background:var(--panel-2); transition:.15s }
+.fnfb .ck.on{ color:var(--ink); border-color:transparent; box-shadow:0 0 0 1.4px rgba(124,92,255,.45) }
+.fnfb .ck.on i{ background:#7C5CFF; border-color:#7C5CFF }
+.fnfb .ck.on i:after{ content:""; position:absolute; left:4.5px; top:1.5px; width:4px; height:8px;
+  border:solid #fff; border-width:0 2px 2px 0; transform:rotate(43deg) }
+.fnprev{ white-space:pre-wrap; font-size:12.5px; line-height:1.5; color:var(--ink-2);
+  background:linear-gradient(180deg,rgba(124,92,255,.07),rgba(124,92,255,.02));
+  border:1px solid rgba(124,92,255,.22); border-left:3px solid #7C5CFF;
+  border-radius:0 12px 12px 0; padding:12px 14px; min-height:44px }
+.fnprev:empty:before{ content:"Заполните форму — здесь появится предпросмотр"; color:var(--ink-3) }
+
+@media(max-width:760px){
+  .fnrh{ flex-wrap:wrap; gap:7px 10px }
+  .fnn2{ flex:1 1 100%; order:-1; white-space:normal }
+  .fnc2{ width:auto }
+  .fnm,.fnw,.fnrh .fnp{ width:auto; text-align:left }
+  .fnrh .bt{ margin-left:auto }
+  .fnfb .grow{ display:none }
+  .fnfb .bt{ flex:1 1 auto }
+  .fngh i{ display:none }
+}
+
+/* ═══ Грейды и гипотеза выручки в модели найма (C20, C22, sim.12) ═══ */
+.simgr{ display:flex; align-items:center; gap:11px; flex-wrap:wrap; margin:2px 0 12px }
+.simgl{ font-size:11px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-3) }
+.simgv{ font-size:12px; color:var(--ink-2); font-weight:600; white-space:nowrap }
+.simgv i{ font-style:normal; font-weight:500; color:var(--ink-3) }
+.simrev{ margin-top:14px; padding-top:14px; border-top:1px solid var(--stroke-2) }
+.simrev.empty2{ font-size:12.5px; color:var(--ink-3) }
+.srh{ display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; margin-bottom:11px }
+.srh b{ font-size:13.5px; font-weight:600; color:var(--ink) }
+.srh i{ font-style:normal; font-size:11.5px; color:var(--ink-3) }
+.srg{ display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:10px }
+.src{ border:1px solid var(--stroke-2); border-radius:var(--r2); background:var(--panel); padding:12px 13px }
+.src .l{ font-size:10.5px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-3) }
+.src .v{ font-family:Unbounded,sans-serif; font-size:19px; font-weight:500; letter-spacing:-.03em;
+  margin:5px 0 3px; color:var(--ink) }
+.src .d{ font-size:11px; color:var(--ink-3); line-height:1.4 }
+.src.big{ background:linear-gradient(135deg,rgba(124,92,255,.09),rgba(0,179,154,.06));
+  border-color:rgba(124,92,255,.25) }
+.srn{ margin-top:10px; font-size:11.5px; color:var(--ink-3); line-height:1.5 }
+
+/* ═══ Развёрнутая карточка менеджера (C18) ═══ */
+.mcard{ display:flex; flex-direction:column; gap:14px; animation:fngIn .24s var(--ease) }
+.mcardw{ margin-top:14px }
+.mch{ display:flex; align-items:center; gap:11px }
+.mch .av{ width:34px; height:34px; border-radius:11px; flex:none; display:flex;
+  align-items:center; justify-content:center; color:#fff; font-size:12px; font-weight:700 }
+.mcn{ min-width:0; flex:1 }
+.mcn b{ display:block; font-size:14px; font-weight:600; color:var(--ink) }
+.mcn i{ display:block; font-style:normal; font-size:11.5px; color:var(--ink-3); margin-top:1px }
+.mch .bt{ width:auto; flex:0 0 auto; padding:7px 13px; font-size:12px }
+.mcg{ display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:9px }
+.mcc{ border:1px solid var(--stroke-2); border-radius:var(--r2); background:var(--panel); padding:11px 12px }
+.mcc .l{ font-size:10px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-3) }
+.mcc .v{ font-family:Unbounded,sans-serif; font-size:17px; font-weight:500; letter-spacing:-.03em;
+  margin:4px 0 2px; color:var(--ink) }
+.mcc .d{ font-size:10.5px; color:var(--ink-3); line-height:1.35 }
+.mcs{ display:flex; flex-direction:column; gap:9px }
+.mcsl{ font-size:10.5px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-3) }
+.mcfl{ display:flex; gap:8px; flex-wrap:wrap }
+.mcfl .ck{ display:inline-flex; align-items:center; gap:8px; cursor:pointer;
+  font-family:inherit; font-size:12px; font-weight:600; color:var(--ink-3);
+  padding:7px 12px 7px 9px; border-radius:11px; border:1px solid var(--stroke-2);
+  background:var(--panel); transition:.15s; white-space:nowrap }
+.mcfl .ck:hover{ color:var(--ink); border-color:var(--neu-b) }
+.mcfl .ck i{ width:16px; height:16px; border-radius:5px; flex:none; position:relative;
+  border:1.5px solid var(--neu-b); background:var(--panel-2); transition:.15s }
+.mcfl .ck.on{ color:var(--ink); border-color:transparent; box-shadow:0 0 0 1.4px rgba(124,92,255,.45) }
+.mcfl .ck.on i{ background:#7C5CFF; border-color:#7C5CFF }
+.mcfl .ck.on i:after{ content:""; position:absolute; left:4.5px; top:1.5px; width:4px; height:8px;
+  border:solid #fff; border-width:0 2px 2px 0; transform:rotate(43deg) }
+.mccomp{ display:flex; gap:10px; align-items:flex-end; flex-wrap:wrap }
+.mccl{ display:flex; flex-direction:column; gap:5px; flex:1; min-width:96px }
+.mccl span{ font-size:10px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-3) }
+.mcletter{ flex:0 0 auto; min-width:130px; border:1px solid rgba(0,179,154,.35); border-radius:var(--r2);
+  background:linear-gradient(135deg,rgba(0,179,154,.1),rgba(0,179,154,.03)); padding:8px 13px }
+.mcletter b{ font-family:Unbounded,sans-serif; font-size:20px; font-weight:500; color:var(--ok) }
+.mcletter i{ display:block; font-style:normal; font-size:10.5px; color:var(--ink-3); margin-top:1px }
+.mcletter.bad{ border-color:rgba(255,138,0,.4);
+  background:linear-gradient(135deg,rgba(255,138,0,.1),rgba(255,138,0,.03)) }
+.mcletter.bad b{ color:var(--warn) }
+.mcmax{ display:flex; align-items:center; gap:11px; flex-wrap:wrap }
+.mcmax span{ font-size:11.5px; color:var(--ink-3); font-weight:600 }
+.mcmax input[type=range]{ flex:1; min-width:140px; accent-color:#7C5CFF }
+.mcmax b{ font-family:Unbounded,sans-serif; font-size:15px; font-weight:500; min-width:38px; text-align:right }
+.mcnote{ font-size:12px; color:var(--ink-3); line-height:1.5 }
+.mcdays{ display:grid; grid-template-columns:repeat(5,1fr); gap:8px }
+.mcd{ border:1px solid var(--stroke-2); border-radius:var(--r2); background:var(--panel);
+  padding:9px 10px; min-width:0 }
+.mcd.now{ border-color:rgba(124,92,255,.4); box-shadow:0 0 0 1px rgba(124,92,255,.14) }
+.mcdh{ display:flex; align-items:baseline; justify-content:space-between; gap:6px;
+  font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.05em;
+  color:var(--ink-2); margin-bottom:7px }
+.mcdh span{ font-weight:600; letter-spacing:0; text-transform:none; color:var(--ink-3) }
+.mcdt{ display:flex; align-items:center; gap:6px; font-size:11px; color:var(--ink-2);
+  padding:3px 0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
+.mcdt .dot{ width:6px; height:6px; border-radius:50%; flex:none }
+.mcdt.done{ color:var(--ink-3); text-decoration:line-through }
+.mcdm{ font-size:10.5px; color:var(--ink-3); padding-top:3px }
+@media(max-width:900px){ .mcdays{ grid-template-columns:repeat(2,1fr) } }
+
+/* ═══ Шапка «Моя команда» (C10 + team.11) ═══ */
+.teamh{ display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin-bottom:14px }
+.teamhl{ flex:1; min-width:220px }
+.teamhl b{ display:block; font-family:Unbounded,sans-serif; font-size:15px; font-weight:500;
+  letter-spacing:-.02em; color:var(--ink) }
+.teamhl i{ display:block; font-style:normal; font-size:12px; color:var(--ink-3); margin-top:3px }
+.teamhl u{ text-decoration:none; font-weight:700; color:var(--ink-2) }
+.pcbs .bt.onb{ color:#fff; background:linear-gradient(140deg,#7C5CFF,#00B39A); border-color:transparent }
+
+/* ═══ Гант внутри раздела: панель не должна «плыть» (people.04) ═══ */
+.gantwrap .gl-t{ flex-wrap:wrap; row-gap:9px }
+.gantwrap .gsortw{ flex-wrap:wrap }
+.gt .gr .ln{ overflow:hidden }
+
+/* ═══ Доступы (C26) ═══ */
+.accf{ display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:11px }
+.accf label{ display:flex; flex-direction:column; gap:5px; min-width:0 }
+.accf label span{ font-size:10px; font-weight:700; letter-spacing:.06em; text-transform:uppercase;
+  color:var(--ink-3) }
+.accf .accvia .seg{ width:100% }
+.accfb{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-top:13px }
+.accfb .bt{ width:auto; flex:0 0 auto }
+.accfb .bt[disabled]{ opacity:.45; pointer-events:none }
+.accw{ font-size:12px; color:var(--warn); font-weight:600 }
+.accw.ok{ color:var(--ink-3); font-weight:500 }
+
+.acccode{ background:linear-gradient(135deg,rgba(124,92,255,.08),rgba(0,179,154,.05)) }
+.acch{ display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; margin-bottom:11px }
+.acch b{ font-family:Unbounded,sans-serif; font-size:14px; font-weight:500; letter-spacing:-.02em }
+.acch i{ font-style:normal; font-size:11.5px; color:var(--ink-3) }
+.accrow2{ display:flex; align-items:center; gap:10px; flex-wrap:wrap }
+.accc{ font-family:ui-monospace,SFMono-Regular,monospace; font-size:16px; font-weight:600;
+  letter-spacing:.08em; color:var(--ink); background:var(--panel); padding:9px 15px;
+  border:1px solid var(--stroke); border-radius:11px }
+.accrow2 .bt{ width:auto; flex:0 0 auto }
+.accn{ margin-top:10px; font-size:11.5px; color:var(--ink-3); line-height:1.55 }
+.accn b{ color:var(--ink-2); font-weight:600 }
+
+.accgl{ display:flex; flex-direction:column; gap:8px }
+.accgr{ display:flex; align-items:center; gap:11px; padding:9px 11px;
+  border:1px solid var(--stroke-2); border-radius:var(--r2); background:var(--panel) }
+.accgr.fixed{ background:linear-gradient(135deg,rgba(124,92,255,.07),rgba(0,179,154,.04));
+  border-color:rgba(124,92,255,.22) }
+.accgr .av{ width:30px; height:30px; border-radius:10px; flex:none; display:flex;
+  align-items:center; justify-content:center; color:#fff; font-size:11px; font-weight:700 }
+.accgn{ flex:1; min-width:0 }
+.accgn b{ display:block; font-size:13px; font-weight:600; color:var(--ink) }
+.accgn i{ display:block; font-style:normal; font-size:11px; color:var(--ink-3); margin-top:1px }
+.accgt{ font-size:11px; font-weight:700; color:var(--ok); white-space:nowrap;
+  background:rgba(0,179,154,.12); border-radius:999px; padding:4px 11px }
+.accgr .ck{ display:inline-flex; align-items:center; gap:8px; cursor:pointer; flex:none;
+  font-family:inherit; font-size:12px; font-weight:600; color:var(--ink-3);
+  padding:7px 12px 7px 9px; border-radius:11px; border:1px solid var(--stroke-2);
+  background:var(--panel-2); transition:.15s; white-space:nowrap }
+.accgr .ck:hover{ color:var(--ink); border-color:var(--neu-b) }
+.accgr .ck[disabled]{ opacity:.45; pointer-events:none }
+.accgr .ck i{ width:16px; height:16px; border-radius:5px; flex:none; position:relative;
+  border:1.5px solid var(--neu-b); background:var(--panel); transition:.15s }
+.accgr .ck.on{ color:var(--ink); border-color:transparent; box-shadow:0 0 0 1.4px rgba(124,92,255,.45) }
+.accgr .ck.on i{ background:#7C5CFF; border-color:#7C5CFF }
+.accgr .ck.on i:after{ content:""; position:absolute; left:4.5px; top:1.5px; width:4px; height:8px;
+  border:solid #fff; border-width:0 2px 2px 0; transform:rotate(43deg) }
+
+.acct{ border:1px solid var(--stroke-2); border-radius:var(--r2); overflow:hidden }
+.accth,.acctr{ display:grid; grid-template-columns:1.1fr .9fr 1.5fr .8fr auto;
+  gap:12px; align-items:center; padding:10px 13px }
+.accth{ background:var(--panel-2); border-bottom:1px solid var(--stroke-2);
+  font-size:10px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-3) }
+.acctr{ border-bottom:1px solid var(--stroke-2); font-size:12.5px }
+.acctr:last-child{ border-bottom:none }
+.acctr.off{ opacity:.55 }
+.acctn{ font-weight:600; color:var(--ink) }
+.acctr2{ color:var(--ink-2) }
+.acctv{ color:var(--ink-2); min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
+.accvi{ display:inline-block; font-style:normal; font-size:9.5px; font-weight:700;
+  letter-spacing:.05em; text-transform:uppercase; color:var(--ink-3);
+  background:var(--neu); border-radius:6px; padding:2px 6px; margin-right:7px }
+.accst{ font-size:11px; font-weight:700; white-space:nowrap }
+.accst.active{ color:var(--ok) }
+.accst.blocked{ color:var(--warn) }
+.accst.revoked{ color:var(--crit) }
+.acctb{ display:flex; gap:7px; justify-content:flex-end; flex-wrap:wrap }
+.acctb .bt{ width:auto; flex:0 0 auto; padding:6px 11px; font-size:11.5px }
+.acctb .bt.warnb{ color:var(--crit); border-color:rgba(255,59,92,.32) }
+@media(max-width:900px){
+  .accth{ display:none }
+  .acctr{ grid-template-columns:1fr; gap:5px; padding:12px 13px }
+  .acctb{ justify-content:flex-start; margin-top:5px }
+}
+
+.accrl{ border:1px solid var(--stroke-2); border-radius:var(--r2); background:var(--panel-2);
+  margin-bottom:9px; overflow:hidden; transition:border-color .18s var(--ease) }
+.accrl.on{ border-color:var(--neu-b) }
+.accrh{ display:flex; align-items:center; gap:11px; width:100%; padding:12px 14px;
+  border:none; background:none; cursor:pointer; font-family:inherit; text-align:left;
+  transition:background .16s var(--ease) }
+.accrh:hover{ background:var(--neu) }
+.accrh .gcx{ flex:none; transition:transform .26s var(--ease) }
+.accrl.on .accrh .gcx{ transform:rotate(180deg) }
+.accrh b{ font-size:13.5px; font-weight:600; color:var(--ink) }
+.accrb{ margin-left:auto; font-size:11.5px; color:var(--ink-3); white-space:nowrap }
+.accrc{ border-top:1px solid var(--stroke-2); padding:13px 14px;
+  display:grid; grid-template-columns:1fr 1fr; gap:16px; animation:fngIn .24s var(--ease) }
+@media(max-width:820px){ .accrc{ grid-template-columns:1fr } }
+.accrg{ display:flex; flex-direction:column; gap:7px; align-items:flex-start }
+.accrgl{ font-size:10px; font-weight:700; letter-spacing:.06em; text-transform:uppercase;
+  color:var(--ink-3); margin-bottom:2px }
+.accrg .ck{ display:inline-flex; align-items:center; gap:8px; cursor:pointer; width:100%;
+  font-family:inherit; font-size:12px; font-weight:600; color:var(--ink-3); text-align:left;
+  padding:7px 12px 7px 9px; border-radius:11px; border:1px solid var(--stroke-2);
+  background:var(--panel); transition:.15s }
+.accrg .ck:hover{ color:var(--ink); border-color:var(--neu-b) }
+.accrg .ck i{ width:16px; height:16px; border-radius:5px; flex:none; position:relative;
+  border:1.5px solid var(--neu-b); background:var(--panel-2); transition:.15s }
+.accrg .ck.on{ color:var(--ink); border-color:transparent; box-shadow:0 0 0 1.4px rgba(124,92,255,.45) }
+.accrg .ck.on i{ background:#7C5CFF; border-color:#7C5CFF }
+.accrg .ck.on.lim{ box-shadow:0 0 0 1.4px rgba(255,59,92,.45) }
+.accrg .ck.on.lim i{ background:var(--crit); border-color:var(--crit) }
+.accrg .ck.on i:after{ content:""; position:absolute; left:4.5px; top:1.5px; width:4px; height:8px;
+  border:solid #fff; border-width:0 2px 2px 0; transform:rotate(43deg) }
+
+/* ═══ Рейтинг: премии, часы в сервисе, награды (rail.07) ═══ */
+.bnr{ display:flex; flex-direction:column; gap:8px }
+.bnrr{ display:flex; align-items:center; gap:14px; flex-wrap:wrap; padding:11px 13px;
+  border:1px solid var(--stroke-2); border-radius:var(--r2); background:var(--panel) }
+.bnrr.on{ border-color:rgba(0,179,154,.3);
+  background:linear-gradient(135deg,rgba(0,179,154,.07),transparent) }
+.bnrt{ flex:1; min-width:190px }
+.bnrt b{ display:block; font-size:13px; font-weight:600; color:var(--ink) }
+.bnrt i{ display:block; font-style:normal; font-size:11.5px; color:var(--ink-3); margin-top:1px }
+.bnrw{ display:flex; gap:7px; flex-wrap:wrap; align-items:center }
+.bnp{ display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:600;
+  color:var(--ink-2); background:var(--panel-2); border:1px solid var(--stroke-2);
+  border-radius:999px; padding:3px 11px 3px 3px }
+.bnp .av2{ width:21px; height:21px; border-radius:50%; display:flex; align-items:center;
+  justify-content:center; color:#fff; font-size:9px; font-weight:700; flex:none }
+.bntot{ margin-top:12px; border:1px solid var(--stroke-2); border-radius:var(--r2); overflow:hidden }
+.bntr{ display:flex; align-items:center; gap:11px; padding:9px 13px;
+  border-bottom:1px solid var(--stroke-2); font-size:12.5px }
+.bntr:last-child{ border-bottom:none }
+.bntr .av2{ width:24px; height:24px; border-radius:8px; display:flex; align-items:center;
+  justify-content:center; color:#fff; font-size:10px; font-weight:700; flex:none }
+.bntn{ font-weight:600; color:var(--ink); min-width:96px }
+.bntw{ flex:1; min-width:0; color:var(--ink-3); font-size:11.5px;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
+.bntv{ font-family:Unbounded,sans-serif; font-size:14px; font-weight:500; color:var(--ok); white-space:nowrap }
+.bntr.sum{ background:var(--panel-2) }
+.bntr.sum .bntn{ min-width:0; flex:1 }
+
+.awl{ display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:10px; margin-bottom:14px }
+.awc{ border:1px solid var(--stroke-2); border-radius:var(--r2); background:var(--panel);
+  padding:12px 13px; opacity:.62; transition:.18s }
+.awc.on{ opacity:1; border-color:rgba(124,92,255,.3);
+  background:linear-gradient(140deg,rgba(124,92,255,.09),rgba(0,179,154,.04)) }
+.awn{ font-family:Unbounded,sans-serif; font-size:14px; font-weight:500; letter-spacing:-.02em; color:var(--ink) }
+.awh{ font-size:11px; font-weight:700; color:var(--ink-3); margin-top:3px }
+.awd{ font-size:11.5px; color:var(--ink-3); line-height:1.45; margin-top:6px; min-height:32px }
+.aww{ display:flex; gap:5px; margin-top:9px; align-items:center; flex-wrap:wrap }
+.aww .av2{ width:24px; height:24px; border-radius:8px; display:flex; align-items:center;
+  justify-content:center; color:#fff; font-size:9.5px; font-weight:700 }
+.svcl{ display:flex; flex-direction:column; gap:7px }
+.svcr{ display:flex; align-items:center; gap:11px; padding:8px 12px;
+  border:1px solid var(--stroke-2); border-radius:var(--r2); background:var(--panel); flex-wrap:wrap }
+.svcr .av2{ width:26px; height:26px; border-radius:9px; display:flex; align-items:center;
+  justify-content:center; color:#fff; font-size:10px; font-weight:700; flex:none }
+.svcn{ min-width:120px }
+.svcn b{ display:block; font-size:12.5px; font-weight:600; color:var(--ink) }
+.svcn i{ display:block; font-style:normal; font-size:10.5px; color:var(--ink-3) }
+.svcb{ flex:1; min-width:90px; height:7px; border-radius:99px; background:var(--neu); overflow:hidden }
+.svcbf{ display:block; height:100%; width:0; border-radius:99px;
+  background:linear-gradient(90deg,#7C5CFF,#00B39A); transition:width .7s var(--ease) }
+.svch{ font-family:Unbounded,sans-serif; font-size:13px; font-weight:500; white-space:nowrap;
+  min-width:74px; text-align:right }
+.svcx{ font-size:11px; color:var(--ink-3); white-space:nowrap; min-width:170px; text-align:right }
+@media(max-width:760px){
+  .svcx{ min-width:0; text-align:left; width:100% }
+  .bntw{ display:none }
+}
+
+/* ═══ Шаблон заполнения в новой карточке клиента (cards.03–05) ═══ */
+.ccn1.tpl{ background:linear-gradient(135deg,rgba(124,92,255,.07),transparent);
+  border-radius:12px; outline:1px dashed rgba(124,92,255,.32); outline-offset:-1px }
+.ccn1.tpl .fi.xs{ width:100%; padding:5px 8px; font-size:14px; font-weight:600;
+  font-family:Unbounded,sans-serif; letter-spacing:-.02em; text-align:center;
+  border-radius:8px; margin-bottom:2px }
+.ccn1.tpl .tplb{ display:block; width:100%; font-family:inherit; font-size:12px; font-weight:700;
+  color:#fff; background:linear-gradient(140deg,#7C5CFF,#00B39A); border:none;
+  border-radius:8px; padding:6px 8px; cursor:pointer; margin-bottom:3px; transition:.15s }
+.ccn1.tpl .tplb:hover{ filter:brightness(1.07) }
+.ccn1.tpl span{ color:var(--ink-3) }
+.cctpl{ font-size:11.5px; color:var(--ink-3); line-height:1.5; margin:9px 0 2px;
+  padding:9px 11px; border-radius:12px; background:var(--panel-2);
+  border-left:3px solid rgba(124,92,255,.5) }
+
+/* нативный select под стеклянным — не должен растягивать страницу на телефоне */
+.rolesel{ position:relative; overflow:hidden }
+select.gshidden{ left:0!important; top:0!important; max-width:1px!important; overflow:hidden!important }
 </style>
 </head>
 <body>
@@ -1682,6 +2294,8 @@ select.gshidden{ position:absolute!important; width:1px!important; height:1px!im
     <div class="rw"><button class="ri" data-v="projects" title="Мои клиенты"><svg viewBox="0 0 24 24"><path d="M3 7.5A2.5 2.5 0 0 1 5.5 5h3.2l1.8 2.3h8A2.5 2.5 0 0 1 21 9.8v7.7A2.5 2.5 0 0 1 18.5 20h-13A2.5 2.5 0 0 1 3 17.5z"/></svg><span class="rl">Мои клиенты</span></button><div class="gl cabmenu" id="cabMenu"></div></div>
     <button class="ri" data-v="cards" title="Карточки клиентов"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="3"/><circle cx="8.5" cy="11" r="2"/><path d="M5.5 16.4c.5-1.5 1.7-2.4 3-2.4s2.5.9 3 2.4"/><path d="M14.5 10h4M14.5 13.5h4"/></svg><span class="rl">Карточки клиентов</span></button>
     <button class="ri" data-v="staff" title="Карточки команды"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="4"/><circle cx="12" cy="10" r="2.4"/><path d="M8 17c.6-1.9 2.2-3 4-3s3.4 1.1 4 3"/></svg><span class="rl">Карточки команды</span></button>
+    <button class="ri" data-v="aod" title="АОД"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M3 9h18M9 9v11"/><path d="M12 13h6M12 16h4"/></svg><span class="rl">АОД</span></button>
+    <button class="ri" data-v="acc" title="Доступы"><svg viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="10" rx="3"/><path d="M8 10V7.5a4 4 0 0 1 8 0V10"/><circle cx="12" cy="15" r="1.4"/></svg><span class="rl">Доступы</span></button>
     <button class="ri" data-v="fns" title="Функции"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h10M4 18h13"/><circle cx="18.5" cy="12" r="2"/></svg><span class="rl">Функции</span></button>
     <button class="ri" data-v="meet" title="Планёрка"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M8 3v4M16 3v4M3 10h18M8 14h4"/></svg><span class="rl">Планёрка</span></button>
     <button class="ri" data-v="office" title="Онлайн-офис"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><circle cx="5" cy="6" r="2"/><circle cx="19" cy="6" r="2"/><circle cx="5" cy="18" r="2"/><circle cx="19" cy="18" r="2"/><path d="M6.6 7.4 10 10.4M17.4 7.4 14 10.4M6.6 16.6 10 13.6M17.4 16.6 14 13.6"/></svg><span class="rl">Онлайн-офис</span></button>
@@ -1728,8 +2342,8 @@ select.gshidden{ position:absolute!important; width:1px!important; height:1px!im
     <div id="sect" hidden></div>
 
     <div class="grid" id="screen" hidden>
-      <div class="gl s12" style="padding:16px 22px" data-b="kpistrip"></div>
       <section class="gl s12" data-b="newtask"></section>
+      <div class="gl s12" style="padding:16px 22px" data-b="kpistrip"></div>
       <section class="gl s12 tall" data-b="gantt"></section>
       <section class="gl s12" id="payPanel" data-b="bonus"></section>
       <section class="gl s5"><div class="gl-t"><h2 id="tasksTitle">Задачи дня</h2><span class="m" id="tasksMeta"></span></div>
@@ -4726,6 +5340,594 @@ document.addEventListener("input", function(e){
   if(pre){ gTab("up"); document.getElementById("upCode").value=pre.toUpperCase(); }
 })();
 
+/* ══════════ АОД: артикулы, компетенции, график работы ══════════ */
+
+/* ── справочники ── */
+var CATS = ["A","B","C"];
+var CAT_MIN = {A:10, B:6, C:3};        /* минут на один артикул за одно касание */
+function catDays(){
+  if(!S.catDays) S.catDays = {A:3, B:2, C:1};   /* сколько дней в неделю категория в работе */
+  return S.catDays;
+}
+var GRADES = [
+  ["assist","Ассистент",            25000, 30000],
+  ["jun",   "Младший менеджер",     25000, 30000],
+  ["mid",   "Менеджер",             40000, 60000],
+  ["head",  "Главный менеджер",     70000, 120000],
+  ["pm",    "Проджект",             70000, 150000]
+];
+function grades(){
+  if(!S.grades) S.grades = GRADES.map(function(g){
+    return {id:g[0], name:g[1], min:g[2], max:g[3]}; });
+  return S.grades;
+}
+function gradeOf(m){
+  if(m.grade) return grades().filter(function(g){ return g.id===m.grade; })[0] || grades()[2];
+  var r = String(m.role||"").toLowerCase();
+  var id = /ассист/.test(r) ? "assist"
+         : /младш/.test(r)  ? "jun"
+         : /главн|руковод/.test(r) ? "head"
+         : /проджект|pm/.test(r) ? "pm" : "mid";
+  return grades().filter(function(g){ return g.id===id; })[0];
+}
+function gradeCost(m){
+  var g = gradeOf(m);
+  return Math.round((g.min + g.max) / 2);          /* месячный гонорар по вилке */
+}
+
+/* ── компетенция по артикулам ── */
+function comp(m){
+  if(!m.cat) m.cat = {A:0, B:0, C:0};
+  return m.cat;
+}
+function compSum(m){
+  var c = comp(m);
+  return (+c.A||0) + (+c.B||0) + (+c.C||0);
+}
+function compLetter(m){
+  var c = comp(m);
+  if(!compSum(m)) return "";
+  var score = ((+c.A||0)*3 + (+c.B||0)*2 + (+c.C||0)*1) / 100;
+  return score >= 2.4 ? "A" : score >= 1.6 ? "B" : "C";
+}
+function compScore(m){
+  var c = comp(m);
+  if(!compSum(m)) return 0;
+  return (((+c.A||0)*3 + (+c.B||0)*2 + (+c.C||0)*1) / 100);
+}
+function worksRK(m){ return m.rk !== false && (m.rk === true || compSum(m) > 0 || !!m.maxArt); }
+
+/* ── артикулы ── */
+function artsAll(){ if(!S.arts) S.arts = []; return S.arts; }
+function artsOf(f){ return artsAll().filter(f); }
+function artMinutes(a){
+  var per = CAT_MIN[a.cat] || 5;
+  return per * (catDays()[a.cat] || 1);            /* минут в неделю на этот артикул */
+}
+function artLoad(pid){
+  var mine = artsOf(function(a){ return a.person === pid; });
+  return {n: mine.length, mins: mine.reduce(function(s,a){ return s + artMinutes(a); }, 0)};
+}
+function artStats(){
+  var pl = (S.people||[]).filter(worksRK);
+  var rows = pl.map(function(m){
+    var mine = artsOf(function(a){ return a.person === m.id; });
+    var byCat = {A:0, B:0, C:0};
+    mine.forEach(function(a){ byCat[a.cat] = (byCat[a.cat]||0) + 1; });
+    var max = +m.maxArt || 0;
+    var n = mine.length;
+    var kinds = CATS.filter(function(k){ return byCat[k]; });
+    return {m:m, n:n, max:max, byCat:byCat, kinds:kinds,
+      gap: max ? (max - n) : 0,
+      pct: max ? Math.round(n / max * 100) : 0,
+      pctCat: {
+        A: n ? Math.round(byCat.A / n * 100) : 0,
+        B: n ? Math.round(byCat.B / n * 100) : 0,
+        C: n ? Math.round(byCat.C / n * 100) : 0
+      },
+      mins: mine.reduce(function(s,a){ return s + artMinutes(a); }, 0)};
+  });
+  var tot = rows.reduce(function(a,r){
+    return {n:a.n + r.n, max:a.max + r.max, mins:a.mins + r.mins,
+      A:a.A + r.byCat.A, B:a.B + r.byCat.B, C:a.C + r.byCat.C}; },
+    {n:0, max:0, mins:0, A:0, B:0, C:0});
+  tot.pct = tot.max ? Math.round(tot.n / tot.max * 100) : 0;
+  tot.gap = tot.max - tot.n;
+  tot.pctCat = {
+    A: tot.n ? Math.round(tot.A / tot.n * 100) : 0,
+    B: tot.n ? Math.round(tot.B / tot.n * 100) : 0,
+    C: tot.n ? Math.round(tot.C / tot.n * 100) : 0
+  };
+  return {rows:rows, tot:tot};
+}
+
+/* какие дни недели у категории в работе: A = первые 3 дня, B = 2, C = 1 */
+function catDow(cat){
+  var d = catDays()[cat] || 1;
+  var out = [];
+  for(var i=0; i<5 && out.length<d; i++) out.push(i);
+  return out;
+}
+function artSchedule(pid){
+  var mine = artsOf(function(a){ return a.person === pid; });
+  var byDay = [[],[],[],[],[]];
+  mine.forEach(function(a){
+    catDow(a.cat).forEach(function(d){ byDay[d].push(a); });
+  });
+  return byDay;
+}
+
+/* ── демо-артикулы: раскладываем по кабинетам и менеджерам ── */
+function seedArts(){
+  if(artsAll().length) return;
+  var r = rng(20260911);
+  var pool = (S.people||[]).filter(function(m){ return m.rk !== false; });
+  if(!pool.length) pool = (S.people||[]).slice(0, 4);
+  /* базовые условия команды, если их ещё не заводили */
+  var DEF = {"Вероника":[150,60,40,0], "Виктория":[55,0,0,100], "Игорь":[130,20,50,30],
+             "Светлана":[100,20,50,30], "Елизавета":[55,0,20,80]};
+  (S.people||[]).forEach(function(m){
+    var d = DEF[m.name];
+    if(d){
+      if(!m.maxArt) m.maxArt = d[0];
+      if(!compSum(m)){ m.cat = {A:d[1], B:d[2], C:d[3]}; }
+      if(m.rk == null) m.rk = true;
+      if(m.fnWork == null) m.fnWork = true;
+      if(m.orgWork == null) m.orgWork = /руковод|главн/i.test(m.role||"");
+      if(m.assist == null) m.assist = /ассист|младш/i.test(m.role||"");
+    }
+  });
+  /* очередь распределения: у кого какая доля какой категории */
+  var slots = [];
+  pool.forEach(function(m){
+    var c = comp(m), max = +m.maxArt || 60;
+    CATS.forEach(function(k){
+      var n = Math.round(max * (+c[k]||0) / 100);
+      for(var i=0;i<n;i++) slots.push({p:m.id, cat:k});
+    });
+  });
+  for(var i=slots.length-1; i>0; i--){ var j=Math.floor(r()*(i+1)); var t=slots[i]; slots[i]=slots[j]; slots[j]=t; }
+
+  var si = 0;
+  (S.projects||[]).forEach(function(pr){
+    var n = Math.max(12, +pr.articles || 60);
+    for(var k=0; k<n; k++){
+      var s = slots[si++];
+      var cat = s ? s.cat : CATS[Math.floor(r()*3)];
+      artsAll().push({
+        id: nextId("a"),
+        sku: String(100000000 + Math.floor(r()*899999999)),
+        cat: cat,
+        cab: pr.id,
+        person: s ? s.p : (pool[Math.floor(r()*pool.length)]||{}).id || ""
+      });
+    }
+  });
+  saveState();
+}
+
+/* ── фильтры экрана ── */
+var aodCab = "", aodMan = "", aodDow = "", aodCat = "", aodOpen = {};
+var aodSendTime = "08:00";
+
+function aodVisible(a){
+  if(aodCab && a.cab !== aodCab) return false;
+  if(aodMan && a.person !== aodMan) return false;
+  if(aodCat && a.cat !== aodCat) return false;
+  return true;
+}
+function aodPeople(){
+  var pl = (S.people||[]).filter(worksRK);
+  if(isMgr()) pl = pl.filter(function(m){ return m.id === meId; });
+  if(aodMan) pl = pl.filter(function(m){ return m.id === aodMan; });
+  return pl;
+}
+function aodFull(){ return role==="owner" || role==="dir" || role==="pm"; }
+
+function selHTML(id, cur, list, ph){
+  return '<select class="fi sm" id="'+id+'"><option value="">'+esc(ph)+'</option>'+
+    list.map(function(x){
+      return '<option value="'+esc(x[0])+'"'+(cur===x[0]?' selected':'')+'>'+esc(x[1])+'</option>';
+    }).join("")+'</select>';
+}
+
+/* ── блок 1: компетенции и график категорий ── */
+function aodComp(){
+  var pl = (S.people||[]).filter(function(m){ return m.rk !== false; });
+  var cd = catDays();
+  return '<div class="gl aodc"><div class="gl-t"><h2>Ответственные за РК и компетенции</h2>'+
+      '<span class="m">процент по категориям складывается в 100 — сервис сам присвоит букву</span></div>'+
+    '<div class="aodgrid">'+
+      '<div class="paytw"><table class="payt aodt"><thead><tr>'+
+        '<th>Ответственный</th><th>Макс артикулов</th>'+
+        '<th class="cA">Категория A</th><th class="cB">Категория B</th><th class="cC">Категория C</th>'+
+        '<th>Итого</th><th>Компетенция</th></tr></thead><tbody>'+
+      (pl.length ? pl.map(function(m){
+        var c = comp(m), sum = compSum(m), L = compLetter(m);
+        return '<tr data-compp="'+esc(m.id)+'">'+
+          '<td class="who"><span class="av" style="background:'+m.color+'">'+esc(m.av||"")+'</span>'+
+            '<span class="wn">'+esc(m.name)+'<i>'+esc(m.role||"")+'</i></span></td>'+
+          '<td><input class="fi xs" type="number" min="0" max="600" step="5" data-compk="maxArt" value="'+(+m.maxArt||0)+'"></td>'+
+          CATS.map(function(k){
+            return '<td class="c'+k+'"><input class="fi xs" type="number" min="0" max="100" step="5" '+
+              'data-compc="'+k+'" value="'+(+c[k]||0)+'"></td>'; }).join("")+
+          '<td class="'+(sum===100?'okc':'critc')+'">'+sum+'%</td>'+
+          '<td><span class="clet l'+(L||'x')+'">'+(L||'—')+'</span>'+
+            (L?'<i class="sub2">вес '+compScore(m).toFixed(1)+'</i>':'')+'</td>'+
+        '</tr>'; }).join("")
+        : '<tr><td colspan="7" class="dim">Никто не отмечен как работающий с РК</td></tr>')+
+      '</tbody></table></div>'+
+      '<div class="catdays"><div class="cdh">График работы категории артикулов</div>'+
+        CATS.map(function(k){
+          return '<label class="cdr c'+k+'"><span class="cdl">'+k+'</span>'+
+            '<input class="fi xs" type="number" min="1" max="5" data-catday="'+k+'" value="'+(cd[k]||1)+'">'+
+            '<i>дней в неделю · '+CAT_MIN[k]+' мин за касание</i></label>'; }).join("")+
+        '<div class="hint2">Отсюда считается нагрузка: минуты за касание × дней в неделю × число артикулов.</div>'+
+      '</div>'+
+    '</div></div>';
+}
+
+/* ── блок 2: график работы с артикулами ── */
+function aodStatsTable(){
+  var st = artStats();
+  var rows = st.rows.filter(function(r){ return !aodMan || r.m.id === aodMan; });
+  return '<div class="paytw"><table class="payt aodt"><thead><tr>'+
+      '<th>Ответственный</th><th>Категория</th><th>Макс</th><th>Уникальных</th>'+
+      '<th>Запас</th><th>Загрузка %</th>'+
+      '<th class="cA">Кат. A</th><th class="cB">Кат. B</th><th class="cC">Кат. C</th>'+
+      '<th>Часов в неделю</th></tr></thead><tbody>'+
+    (rows.length ? rows.map(function(r){
+      return '<tr>'+
+        '<td class="who"><span class="av" style="background:'+r.m.color+'">'+esc(r.m.av||"")+'</span>'+
+          '<span class="wn">'+esc(r.m.name)+'</span></td>'+
+        '<td>'+(r.kinds.join(", ")||'—')+'</td>'+
+        '<td>'+(r.max||'—')+'</td>'+
+        '<td>'+r.n+'</td>'+
+        '<td class="'+(r.gap<0?'critc':'okc')+'">'+(r.gap>0?'+':'')+r.gap+'</td>'+
+        '<td class="'+(r.pct>110?'critc':r.pct>90?'warnc':'')+'">'+r.pct+'%</td>'+
+        '<td class="cA">'+(r.pctCat.A||'')+(r.pctCat.A?'%':'')+'</td>'+
+        '<td class="cB">'+(r.pctCat.B||'')+(r.pctCat.B?'%':'')+'</td>'+
+        '<td class="cC">'+(r.pctCat.C||'')+(r.pctCat.C?'%':'')+'</td>'+
+        '<td>'+hrs(r.mins)+' ч</td>'+
+      '</tr>'; }).join("")
+      : '<tr><td colspan="10" class="dim">Артикулов пока нет</td></tr>')+
+    (rows.length>1 ? '<tr class="totr"><td>Итого</td><td>'+CATS.join(", ")+'</td>'+
+      '<td>'+st.tot.max+'</td><td>'+st.tot.n+'</td>'+
+      '<td class="'+(st.tot.gap<0?'critc':'okc')+'">'+(st.tot.gap>0?'+':'')+st.tot.gap+'</td>'+
+      '<td class="'+(st.tot.pct>110?'critc':'')+'">'+st.tot.pct+'%</td>'+
+      '<td class="cA">'+st.tot.pctCat.A+'%</td><td class="cB">'+st.tot.pctCat.B+'%</td>'+
+      '<td class="cC">'+st.tot.pctCat.C+'%</td>'+
+      '<td>'+hrs(st.tot.mins)+' ч</td></tr>' : '')+
+    '</tbody></table></div>';
+}
+
+function aodSchedule(){
+  var pl = aodPeople();
+  return '<div class="aodsch">'+ (pl.length ? pl.map(function(m){
+    var byDay = artSchedule(m.id);
+    var total = artsOf(function(a){ return a.person===m.id && aodVisible(a); }).length;
+    return '<div class="aodp">'+
+      '<button class="aodph" data-aodp="'+esc(m.id)+'">'+
+        '<svg class="gcx" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>'+
+        '<span class="av" style="background:'+m.color+'">'+esc(m.av||"")+'</span>'+
+        '<b>'+esc(m.name)+'</b>'+
+        '<span class="clet l'+(compLetter(m)||'x')+'">'+(compLetter(m)||'—')+'</span>'+
+        '<i>'+total+' артикулов · '+hrs(artLoad(m.id).mins)+' ч в неделю</i></button>'+
+      (aodOpen[m.id] ? '<div class="aoddays">'+byDay.map(function(list, d){
+        var vis = list.filter(aodVisible);
+        if(aodDow !== "" && +aodDow !== d) return "";
+        var kinds = [];
+        vis.forEach(function(a){ if(kinds.indexOf(a.cat)<0) kinds.push(a.cat); });
+        var key = m.id + "_" + d;
+        return '<div class="aodd">'+
+          '<button class="aoddh" data-aodd="'+esc(key)+'">'+
+            '<svg class="gcx" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>'+
+            '<b>'+DOW[d]+'</b>'+
+            '<span class="kinds">'+(kinds.sort().join(", ")||'—')+'</span>'+
+            '<i>'+vis.length+' арт · '+hrs(vis.reduce(function(s,a){ return s+(CAT_MIN[a.cat]||5); },0))+' ч</i>'+
+          '</button>'+
+          (aodOpen[key] ? '<div class="aodarts">'+ (vis.length ? vis.slice(0,60).map(function(a){
+            var pr = project(a.cab);
+            return '<div class="aoda"><span class="sku">'+esc(a.sku)+'</span>'+
+              '<span class="clet sm l'+a.cat+'">'+a.cat+'</span>'+
+              '<span class="cab">'+(pr?esc(pr.name):'—')+'</span>'+
+              '<span class="min">'+(CAT_MIN[a.cat]||5)+' мин</span></div>'; }).join("")+
+            (vis.length>60 ? '<div class="gclm">и ещё '+(vis.length-60)+'</div>' : '')
+            : '<div class="empty">В этот день артикулов нет</div>')+'</div>' : '')+
+        '</div>'; }).join("")+'</div>' : '')+
+    '</div>'; }).join("") : '<div class="empty">Нет менеджеров, работающих с РК</div>')+'</div>';
+}
+
+function aodGraph(){
+  var cabs = (S.projects||[]).map(function(p){ return [p.id, p.name]; });
+  var mans = (S.people||[]).filter(worksRK).map(function(m){ return [m.id, m.name]; });
+  var dows = DOW.map(function(d,i){ return [String(i), d]; });
+  var cats = CATS.map(function(c){ return [c, "Категория "+c]; });
+  return '<div class="gl"><div class="gl-t"><h2>График работы с артикулами</h2>'+
+      '<span class="m">кто, в какой день и с какими артикулами работает</span></div>'+
+    '<div class="aodfilters">'+
+      '<label><span>Кабинет</span>'+selHTML("aodCab", aodCab, cabs, "Все кабинеты")+'</label>'+
+      (isMgr() ? '' : '<label><span>Ответственный</span>'+selHTML("aodMan", aodMan, mans, "Все")+'</label>')+
+      '<label><span>День недели</span>'+selHTML("aodDow", aodDow, dows, "Все дни")+'</label>'+
+      '<label><span>Категория</span>'+selHTML("aodCat", aodCat, cats, "Все")+'</label>'+
+      '<div class="grow"></div>'+
+      '<div class="aodsend">'+
+        '<button class="bt" id="aodDay">Отправить план на день</button>'+
+        '<button class="bt gh2" id="aodWeek">Отправить недельный план</button>'+
+        '<label class="aodauto"><span class="ck'+(S.aodAuto?' on':'')+'" id="aodAuto"><i></i>Автоотправка</span>'+
+          '<input class="fi xs" type="time" id="aodTime" value="'+esc(S.aodTime||aodSendTime)+'"></label>'+
+      '</div>'+
+    '</div>'+
+    aodStatsTable()+
+    aodSchedule()+
+    '</div>';
+}
+
+/* ── блок 3: артикулы в управлении ── */
+var aodAddCab = "", aodAddOpen = false, aodPage = 0;
+var AOD_PAGE = 60;
+
+function aodArtsBlock(){
+  var list = artsOf(aodVisible);
+  if(isMgr()) list = list.filter(function(a){ return a.person === meId; });
+  var total = list.length;
+  var shown = list.slice(0, (aodPage+1) * AOD_PAGE);
+  var byCab = {};
+  (S.projects||[]).forEach(function(pr){
+    byCab[pr.id] = list.filter(function(a){ return a.cab === pr.id; }).length; });
+  return '<div class="gl"><div class="gl-t"><h2>Артикулы в управлении</h2>'+
+      '<span class="m">'+total+' артикулов · разбивка по кабинетам</span>'+
+      (isMgr()
+        ? '<button class="bt gh2" id="aodMine">Взять артикулы себе</button>'
+        : '<button class="bt" id="aodAdd">+ Добавить кабинет и артикулы</button>')+
+      '</div>'+
+    (aodAddOpen ? aodAddForm() : '')+
+    '<div class="aodcabs">'+(S.projects||[]).map(function(pr){
+      return '<button class="aodcab'+(aodCab===pr.id?' on':'')+'" data-aodcab="'+esc(pr.id)+'">'+
+        '<span class="av2" style="background:'+pr.color+'">'+esc(pr.av||"")+'</span>'+
+        esc(pr.name)+'<b>'+(byCab[pr.id]||0)+'</b></button>'; }).join("")+
+      (aodCab ? '<button class="aodcab clr" data-aodcab="">Показать все</button>' : '')+
+    '</div>'+
+    '<div class="paytw"><table class="payt aodt"><thead><tr>'+
+      '<th>Артикул</th><th>Категория</th><th>Кабинет</th><th>Ответственный</th>'+
+      '<th>Мин за касание</th><th>Дней в неделю</th><th>Мин в неделю</th></tr></thead><tbody>'+
+    (shown.length ? shown.map(function(a){
+      var pr = project(a.cab), m = a.person ? person(a.person) : null;
+      return '<tr data-art="'+esc(a.id)+'">'+
+        '<td class="sku">'+esc(a.sku)+'</td>'+
+        '<td><span class="clet sm l'+a.cat+'">'+a.cat+'</span></td>'+
+        '<td>'+(pr?esc(pr.name):'—')+'</td>'+
+        '<td>'+(m
+          ? '<span class="who"><span class="av" style="background:'+m.color+'">'+esc(m.av||"")+'</span>'+
+            '<span class="wn">'+esc(m.name)+'</span></span>'
+          : '<span class="critc">не назначен</span>')+'</td>'+
+        '<td>'+(CAT_MIN[a.cat]||5)+'</td>'+
+        '<td>'+(catDays()[a.cat]||1)+'</td>'+
+        '<td>'+artMinutes(a)+'</td>'+
+      '</tr>'; }).join("")
+      : '<tr><td colspan="7" class="dim">Артикулов нет</td></tr>')+
+    '</tbody></table></div>'+
+    (shown.length < total
+      ? '<button class="bt gh2 aodmore" id="aodMore">Показать ещё '+
+        Math.min(AOD_PAGE, total-shown.length)+' из '+(total-shown.length)+'</button>' : '')+
+  '</div>';
+}
+
+function aodAddForm(){
+  var cabs = (S.projects||[]).map(function(p){ return [p.id, p.name]; });
+  return '<div class="setform aodform">'+
+    '<div class="sfr"><label><span>Кабинет</span>'+
+      selHTML("aodNewCab", aodAddCab, cabs, "Новый кабинет")+'</label>'+
+      '<label><span>Или название нового кабинета</span>'+
+      '<input class="fi" id="aodCabName" placeholder="ИП Иванова · FBO"></label></div>'+
+    '<div class="sfh">Артикулы</div>'+
+    '<div class="sfr"><label><span>Вписать вручную — по одному в строке, можно «артикул A»</span>'+
+      '<textarea class="fi" id="aodSkus" rows="5" placeholder="305403466 C&#10;366749495 A&#10;374605133 B"></textarea></label></div>'+
+    '<div class="aoddrop" id="aodDrop">'+
+      '<b>Или перетащите файл сюда</b>'+
+      '<i>Excel, CSV, Word или скриншот — вытащу артикулы и категории</i>'+
+      '<button class="bt gh2 sm" id="aodPick">Выбрать файл</button>'+
+    '</div>'+
+    '<div class="sfb"><button class="bt" id="aodSave">Добавить артикулы</button>'+
+      '<button class="bt gh2" id="aodCancel">Отмена</button></div>'+
+  '</div>';
+}
+
+/* ── блок 4: добавить менеджера ── */
+function aodAddMan(){
+  return '<div class="gl"><div class="gl-t"><h2>Новый ответственный за РК</h2>'+
+      '<span class="m">заводится здесь же, сразу с компетенциями</span>'+
+      '<button class="secadd" data-addmode="emp">+ Добавить нового менеджера</button></div>'+
+    '<div class="hint2">После добавления человек появится в таблице компетенций выше — '+
+      'проставьте ему максимум артикулов и проценты по категориям, и сервис включит его в график.</div>'+
+  '</div>';
+}
+
+function renderAod(){
+  seedArts();
+  var host = document.getElementById("sect");
+  if(isMgr()){
+    var l = artLoad(meId);
+    host.innerHTML =
+      '<div class="gl grsum">'+
+        '<div class="pss"><div class="l">Мои артикулы</div><div class="v">'+l.n+'</div>'+
+          '<div class="d">из '+(+person(meId).maxArt||0)+' максимума</div></div>'+
+        '<div class="pss"><div class="l">Нагрузка по артикулам</div><div class="v">'+hrs(l.mins)+' ч</div>'+
+          '<div class="d">в неделю, по нормативам категорий</div></div>'+
+        '<div class="pss"><div class="l">Компетенция</div>'+
+          '<div class="v"><span class="clet l'+(compLetter(person(meId))||'x')+'">'+
+            (compLetter(person(meId))||'—')+'</span></div>'+
+          '<div class="d">по долям категорий</div></div>'+
+      '</div>'+
+      aodGraph()+
+      aodArtsBlock();
+    return;
+  }
+  host.innerHTML = aodComp() + aodGraph() + aodArtsBlock() + aodAddMan();
+}
+
+/* ── разбор вставленных артикулов ── */
+function parseSkus(text){
+  var out = [];
+  String(text||"").split(/[\r\n]+/).forEach(function(line){
+    line = line.trim(); if(!line) return;
+    var parts = line.split(/[\s,;\t]+/).filter(Boolean);
+    var sku = "", cat = "";
+    parts.forEach(function(p){
+      if(/^\d{6,}$/.test(p) && !sku) sku = p;
+      else if(/^[ABCabc]$/.test(p)) cat = p.toUpperCase();
+    });
+    if(sku) out.push({sku:sku, cat:cat || "C"});
+  });
+  return out;
+}
+function aodAddArts(cabId, list){
+  var n = 0;
+  list.forEach(function(x){
+    if(artsAll().some(function(a){ return a.sku === x.sku && a.cab === cabId; })) return;
+    artsAll().push({id:nextId("a"), sku:x.sku, cat:x.cat, cab:cabId, person:""});
+    n++;
+  });
+  saveState();
+  return n;
+}
+
+/* ── тексты планов ── */
+function aodDayText(m, d){
+  var arts = artSchedule(m.id)[d].filter(aodVisible);
+  var byCab = {};
+  arts.forEach(function(a){ (byCab[a.cab] = byCab[a.cab] || []).push(a); });
+  var out = [DOW[d] + " — работа с артикулами", m.name, ""];
+  Object.keys(byCab).forEach(function(cid){
+    var pr = project(cid);
+    out.push((pr ? pr.name : "Кабинет") + " — " + byCab[cid].length + " артикулов");
+    byCab[cid].slice(0, 40).forEach(function(a){ out.push("  " + a.sku + " · " + a.cat); });
+  });
+  out.push("");
+  out.push("Всего " + arts.length + " артикулов, примерно " +
+    hrs(arts.reduce(function(s,a){ return s + (CAT_MIN[a.cat]||5); }, 0)) + " ч");
+  return out.join("\n");
+}
+function aodWeekText(m){
+  var byDay = artSchedule(m.id);
+  var out = ["План работы с артикулами на неделю", m.name, ""];
+  byDay.forEach(function(list, d){
+    var vis = list.filter(aodVisible);
+    var kinds = [];
+    vis.forEach(function(a){ if(kinds.indexOf(a.cat)<0) kinds.push(a.cat); });
+    out.push(DOW[d] + " — " + vis.length + " артикулов" +
+      (kinds.length ? " (" + kinds.sort().join(", ") + ")" : "") +
+      " · " + hrs(vis.reduce(function(s,a){ return s + (CAT_MIN[a.cat]||5); }, 0)) + " ч");
+  });
+  out.push("");
+  out.push("Итого за неделю: " + hrs(artLoad(m.id).mins) + " ч");
+  return out.join("\n");
+}
+function aodSend(kind){
+  var pl = aodPeople();
+  if(!pl.length){ toast("Некому отправлять"); return; }
+  var d = (aodDow !== "") ? +aodDow : dow;
+  pl.forEach(function(m){
+    var text = kind === "week" ? aodWeekText(m) : aodDayText(m, d);
+    (S.projects||[]).forEach(function(pr){
+      if(aodCab && pr.id !== aodCab) return;
+    });
+    logAdd(aodCab || ((S.projects||[])[0]||{}).id,
+      (kind === "week" ? "Недельный план по артикулам" : "План на день по артикулам") +
+      " отправлен: " + m.name, "chat");
+    if(MODE === "live"){
+      api("/routing/send", {method:"POST", body:{tg:m.tg||"", text:text}}).catch(function(){});
+    }
+  });
+  toast((kind === "week" ? "Недельный план" : "План на день") + " ушёл " +
+    (pl.length === 1 ? pl[0].name : pl.length + " менеджерам") + " — в Telegram и в их кабинет");
+}
+
+/* ── обработчики ── */
+document.addEventListener("click", function(e){
+  var t;
+  if((t = e.target.closest("[data-aodp]"))){
+    var pid = t.getAttribute("data-aodp");
+    aodOpen[pid] = !aodOpen[pid]; renderAod(); return; }
+  if((t = e.target.closest("[data-aodd]"))){
+    var key = t.getAttribute("data-aodd");
+    aodOpen[key] = !aodOpen[key]; renderAod(); return; }
+  if((t = e.target.closest("[data-aodcab]"))){
+    aodCab = t.getAttribute("data-aodcab"); aodPage = 0; renderAod(); return; }
+  if(e.target.closest("#aodMore")){ aodPage++; renderAod(); return; }
+  if(e.target.closest("#aodAdd")){ aodAddOpen = true; renderAod(); return; }
+  if(e.target.closest("#aodCancel")){ aodAddOpen = false; renderAod(); return; }
+  if(e.target.closest("#aodDay")){ aodSend("day"); return; }
+  if(e.target.closest("#aodWeek")){ aodSend("week"); return; }
+  if(e.target.closest("#aodAuto")){
+    S.aodAuto = !S.aodAuto; saveState();
+    toast(S.aodAuto ? "План будет уходить каждый день в " + (S.aodTime||aodSendTime)
+                    : "Автоотправка выключена");
+    renderAod(); return; }
+  if(e.target.closest("#aodMine")){
+    var free = artsOf(function(a){ return !a.person; });
+    if(!free.length){ toast("Свободных артикулов нет"); return; }
+    var me = person(meId), lim = Math.max(0, (+me.maxArt||0) - artLoad(meId).n);
+    if(!lim){ toast("Вы уже на максимуме артикулов"); return; }
+    free.slice(0, lim).forEach(function(a){ a.person = meId; });
+    saveState(); renderAod();
+    toast("Взяли " + Math.min(lim, free.length) + " артикулов — теперь они видны за вами");
+    return; }
+  if(e.target.closest("#aodPick")){
+    var inp = document.createElement("input");
+    inp.type = "file"; inp.accept = ".csv,.tsv,.txt,.xlsx,.xls,.docx,image/*";
+    inp.onchange = function(){ aodFile(inp.files[0]); };
+    inp.click(); return; }
+  if(e.target.closest("#aodSave")){
+    var cabSel = document.getElementById("aodNewCab");
+    var nameEl = document.getElementById("aodCabName");
+    var cid = cabSel ? cabSel.value : "";
+    var nm = nameEl ? nameEl.value.trim() : "";
+    if(!cid && nm){ var pr = addCabinet(nm, {}); cid = pr.id; }
+    if(!cid){ toast("Выберите кабинет или впишите название нового"); return; }
+    var txt = (document.getElementById("aodSkus")||{}).value || "";
+    var list = parseSkus(txt);
+    if(!list.length){ toast("Не нашёл ни одного артикула — нужны номера из 6+ цифр"); return; }
+    var n = aodAddArts(cid, list);
+    aodAddOpen = false; aodCab = cid; aodPage = 0; renderAod();
+    toast("Добавлено " + n + " артикулов" + (n < list.length ? ", остальные уже были" : ""));
+    return; }
+});
+
+function aodFile(f){
+  if(!f) return;
+  if(/\.(csv|tsv|txt)$/i.test(f.name)){
+    var fr = new FileReader();
+    fr.onload = function(){
+      var el = document.getElementById("aodSkus");
+      if(el){ el.value = (el.value ? el.value + "\n" : "") + fr.result; }
+      toast("Файл прочитан — проверьте список и нажмите «Добавить артикулы»");
+    };
+    fr.readAsText(f, "utf-8");
+    return;
+  }
+  toast("Excel, Word и скриншоты пока не разбираю прямо в браузере. " +
+    "Сохраните лист как CSV — или скопируйте столбец с артикулами в поле выше");
+}
+
+document.addEventListener("change", function(e){
+  var t = e.target;
+  if(t.id === "aodCab"){ aodCab = t.value; aodPage = 0; renderAod(); return; }
+  if(t.id === "aodMan"){ aodMan = t.value; renderAod(); return; }
+  if(t.id === "aodDow"){ aodDow = t.value; renderAod(); return; }
+  if(t.id === "aodCat"){ aodCat = t.value; aodPage = 0; renderAod(); return; }
+  if(t.id === "aodTime"){ S.aodTime = t.value; saveState(); return; }
+  if(t.matches && t.matches("[data-catday]")){
+    catDays()[t.getAttribute("data-catday")] = Math.max(1, Math.min(5, +t.value||1));
+    saveState(); renderAod(); return; }
+  if(t.matches && (t.matches("[data-compk]") || t.matches("[data-compc]"))){
+    var tr = t.closest("[data-compp]"); if(!tr) return;
+    var m = person(tr.getAttribute("data-compp")); if(!m) return;
+    if(t.matches("[data-compk]")) m.maxArt = Math.max(0, +t.value||0);
+    else comp(m)[t.getAttribute("data-compc")] = Math.max(0, Math.min(100, +t.value||0));
+    saveState(); renderAod(); return; }
+});
+
 /* ══════════════════════════════════════════════════════════════
    Ночные доработки. Всё, что ниже, переопределяет ранее объявленное.
    ══════════════════════════════════════════════════════════════ */
@@ -5608,8 +6810,9 @@ function staffCard(m){
       '<div class="av" style="background:'+m.color+'">'+esc(m.av||"")+'</div>'+
       '<div class="cct"><div class="n">'+esc(m.name)+'</div>'+
         '<div class="r">'+esc(m.role||"без должности")+'</div></div>'+
-      '<button class="bt gh2 ccopen" data-acc="'+esc(m.id)+'" title="Скопировать в формате для клиента">'+
-        'Скопировать</button>'+
+      '<button class="bt gh2 ccopen" data-acc="'+esc(m.id)+'" '+
+        'title="Скопировать логин, пароль и ссылки в формате для клиента">'+
+        'Скопировать доступы</button>'+
     '</div>'+
     '<div class="ccf">'+
       '<label><span>Должность</span>'+
@@ -6245,7 +7448,7 @@ document.addEventListener("click", function(e){
 
   /* модель найма */
   if((t=e.target.closest("[data-simadd]"))){
-    simAdd=Math.max(0, Math.min(9, simAdd + (+t.getAttribute("data-simadd"))));
+    simAdd=Math.max(0, Math.min(20, simAdd + (+t.getAttribute("data-simadd"))));
     simRepaint(); return; }
   if((t=e.target.closest("[data-simmode]"))){
     simMode=t.getAttribute("data-simmode");
@@ -6821,6 +8024,2276 @@ document.addEventListener("input", function(e){
     return _patch.apply(this, arguments);
   };
 })();
+
+/* ── 30. АОД в рельсе и в правах ─────────────────────────── */
+NAV_TITLES.aod = ["АОД","Артикулы, компетенции и график работы с рекламой"];
+SEC_RENDER.aod = renderAod;
+(function(){
+  var _ar = applyRoleRail;
+  applyRoleRail = function(){
+    _ar.apply(this, arguments);
+    var b = document.querySelector('.rail .ri[data-v="aod"]');
+    /* АОД: собственник, директор и проджект видят целиком, менеджер — только себя */
+    var see = !isClient() && role !== "asst";
+    if(b) b.style.display = see ? "" : "none";
+    if(view === "aod" && !see) setView("work");
+  };
+})();
+
+/* ══════════ Правки по брифу и чату, 10 сентября ══════════ */
+
+/* ── 1. Постановка задачи: компактная кнопка и полный сценарий ── */
+var NT_CYCLES2 = [
+  ["once_urg",  "Разовая срочная"],
+  ["once",      "Разовая не срочная"],
+  ["daily",     "Каждый день"],
+  ["several",   "Несколько раз в неделю"],
+  ["weekly",    "Раз в неделю"],
+  ["biweekly",  "Раз в 2 недели"],
+  ["monthly",   "Раз в месяц"]
+];
+var NT_WHERE2 = [
+  ["tg",   "Личный Telegram"],
+  ["chat", "Чат с клиентом · уведомим в чат ИП"],
+  ["mpv",  "Чат проекта с командой · отправка в МПВ"],
+  ["mail", "Почта"]
+];
+var ntDays = 2;            /* сколько раз в неделю, если выбрано «несколько раз» */
+var ntFnQ = "", ntFnOpen = false;
+var ntAskOpen = false;     /* раскрыт ли список «где посмотреть» */
+var ntHist = "done";       /* вкладка истории: done | draft */
+var histOpen = false;
+
+function drafts(){ if(!S.drafts) S.drafts = []; return S.drafts; }
+function placed(){ if(!S.placed) S.placed = []; return S.placed; }
+
+function ntFnList(){
+  var q = ntFnQ.toLowerCase().trim();
+  var all = S.fns || [];
+  if(!q) return all;
+  return all.filter(function(f){
+    return f.name.toLowerCase().indexOf(q) >= 0 || String(f.code).toLowerCase().indexOf(q) >= 0;
+  });
+}
+function ntFnName(){
+  if(!ntState.fn) return "";
+  var f = fnById(ntState.fn);
+  return f ? f.name + " · " + f.minutes + " мин" : "";
+}
+
+/* кого посоветовать: кто эффективнее в этом кабинете и кто свободнее */
+function ntAdvise(){
+  var prId = ntState.project || (S.projects[0] && S.projects[0].id);
+  var fnId = ntState.fn;
+  var d = (ntState.dow != null && ntState.dow !== "") ? +ntState.dow : dow;
+  var pool = (S.people||[]).filter(function(m){ return !m.hidden; });
+  if(!pool.length) return [];
+  var scored = pool.map(function(m){
+    var inCab = (S.tasks||[]).filter(function(t){ return t.person===m.id && t.project===prId; });
+    var doneCab = inCab.filter(function(t){ return t.done; }).length;
+    var byFn = fnId ? (S.tasks||[]).filter(function(t){ return t.person===m.id && t.fn===fnId; }) : [];
+    var fast = byFn.filter(function(t){ return t.done && t.spentSec>0 && t.spentSec < (t.minutes||0)*60; }).length;
+    var load = loadOf(m.id, d);
+    var free = Math.max(0, NORM - load);
+    /* эффективность в кабинете + опыт по функции − текущая загрузка дня */
+    var score = doneCab*3 + inCab.length + fast*5 + byFn.length*2 + free/60*4;
+    return {m:m, inCab:inCab.length, doneCab:doneCab, byFn:byFn.length, fast:fast,
+      load:load, free:free, score:score,
+      why: (byFn.length ? "делал эту функцию " + byFn.length + " раз" :
+            inCab.length ? "работает в кабинете, " + inCab.length + " задач" : "свободен по кабинету")
+           + " · день занят на " + Math.round(load/NORM*100) + "%"};
+  }).sort(function(a,b){ return b.score - a.score; });
+  var top = scored.slice(0, 3).filter(function(x, i){ return i === 0 || x.score > 0; });
+  return top;
+}
+
+function ntAdviseHTML(){
+  var list = ntAdvise();
+  if(!list.length) return "";
+  var one = list.length === 1;
+  return '<div class="advw'+(one?' one':'')+'">'+
+    '<div class="advl">Кого поставить ответственным</div>'+
+    '<div class="advg">'+list.map(function(x){
+      var sel = ntState.person === x.m.id;
+      return '<button class="advp'+(sel?' on':'')+'" data-ntpick="'+esc(x.m.id)+'">'+
+        '<span class="av" style="background:'+x.m.color+'">'+esc(x.m.av||"")+'</span>'+
+        '<span class="advt"><b>'+esc(x.m.name)+'</b><i>'+esc(x.why)+'</i></span>'+
+        (sel?'<span class="advok">✓</span>':'')+'</button>'; }).join("")+'</div></div>';
+}
+
+function ntHotBar(){
+  var d = drafts().length;
+  return '<div class="hotbar">'+
+    '<button class="hotc'+(ntOpen?' on':'')+'" id="ntHot">'+
+      '<span class="hi3"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></span>'+
+      '<b>Поставить задачу</b>'+
+      (d ? '<span class="hdr">'+d+' начатых</span>' : '')+
+      '<span class="hk">Enter</span>'+
+    '</button>'+
+  '</div>';
+}
+
+B.newtask = function(el){
+  if(!ntOpen){
+    el.classList.add("nthot");
+    el.innerHTML = ntHotBar();
+    return;
+  }
+  el.classList.remove("nthot");
+  var opts = function(arr, sel, f){ return arr.map(function(x){
+    return '<option value="'+esc(x.id)+'"'+(x.id===sel?" selected":"")+'>'+esc(f(x))+'</option>'; }).join(""); };
+  var adv = ntAdvice();
+  var cyc = ntState.cycle || "once";
+
+  el.innerHTML =
+    '<div class="gl-t"><h2>Поставить задачу</h2>'+
+      '<span class="m">кабинет · ответственный · день · время</span>'+
+      '<div class="grow"></div>'+
+      '<button class="bt gh2 sm" id="ntFold">Свернуть</button></div>'+
+
+    '<div class="ntrow">'+
+      '<select class="sel" id="ntProject">'+
+        opts(S.projects, ntState.project || proj || (S.projects[0] && S.projects[0].id),
+             function(x){ return x.name; })+'</select>'+
+      '<div class="fncombo" id="fnCombo">'+
+        '<input class="fi fnq2" id="ntFnQ" autocomplete="off" placeholder="Функция — начните печатать" '+
+          'value="'+esc(ntFnOpen ? ntFnQ : ntFnName())+'">'+
+        '<svg class="gsc" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>'+
+        (ntState.fn ? '<button class="fnx" id="ntFnClr" title="Сбросить функцию">×</button>' : '')+
+      '</div>'+
+      '<select class="sel" id="ntPerson"><option value=""'+(ntState.person?'':' selected')+'>Без ответственного</option>'+
+        opts(S.people, ntState.person || (isMgr()?meId:""), function(x){ return x.name; })+'</select>'+
+      '<select class="sel" id="ntCycle">'+NT_CYCLES2.map(function(c){
+        return '<option value="'+c[0]+'"'+(cyc===c[0]?' selected':'')+'>'+c[1]+'</option>'; }).join("")+'</select>'+
+      (cyc === "several"
+        ? '<select class="sel narrow" id="ntDays">'+[1,2,3,4,5].map(function(n){
+            return '<option value="'+n+'"'+(ntDays===n?' selected':'')+'>'+n+' раз'+
+              (n===1?'':n<5?'а':'')+' в неделю</option>'; }).join("")+'</select>'
+        : '')+
+      '<select class="sel" id="ntDow">'+DOWS.map(function(_, i){
+        var cd = (ntState.dow != null && ntState.dow !== "") ? +ntState.dow : dow;
+        return '<option value="'+i+'"'+(i===cd?' selected':'')+'>'+DOW[i]+'</option>'; }).join("")+'</select>'+
+      '<select class="sel" id="ntMin"><option value="">Время по нормативу</option>'+
+        [15,30,45,60,90,120,180].map(function(m){
+          return '<option value="'+m+'"'+(String(ntState.min)===String(m)?' selected':'')+'>'+m+' мин</option>'; }).join("")+
+      '</select>'+
+    '</div>'+
+
+    ntAdviseHTML()+
+
+    ((adv.day || adv.cyc)
+      ? '<div class="ntadv">'+
+          (adv.day ? '<button class="advb" data-ntday="'+adv.bestDay+'">'+
+            '<b>'+esc(adv.day)+'</b><i>'+esc(adv.dayWhy||'нагрузка ляжет ровнее')+'</i></button>' : '')+
+          (adv.cyc ? '<button class="advb warn3" data-ntcyc="'+
+            esc(adv.cyc==="еженедельно"?"weekly":"biweekly")+'">'+
+            '<b>Сделать '+esc(adv.cyc)+'</b><i>'+esc(adv.cycWhy)+'</i></button>' : '')+
+        '</div>' : '')+
+
+    '<div class="ntwhere"><span class="nwl">Где ещё уведомить ответственного</span>'+
+      NT_WHERE2.map(function(w){
+        return '<button class="ck sm'+(ntWhere[w[0]]?' on':'')+'" data-ntw="'+w[0]+'"><i></i>'+w[1]+'</button>';
+      }).join("")+
+    '</div>'+
+
+    '<div class="ntrow" style="margin-top:10px">'+
+      '<input class="fld" id="ntTitle" placeholder="Что сделать. Одной строкой — сервис сам оформит по форме." '+
+        'value="'+esc(ntState.title||"")+'">'+
+      '<button class="btn pri" id="ntAdd"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Поставить</button>'+
+    '</div>'+
+
+    (ntAsk
+      ? '<div class="ntdone">'+
+          '<button class="ntdh" id="ntAskTog" aria-expanded="'+ntAskOpen+'">'+
+            '<span class="okdot">✓</span><b>Задача создана. Где посмотреть?</b>'+
+            '<svg class="gcx" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>'+
+          '</button>'+
+          (ntAskOpen
+            ? '<div class="ntdl">'+
+                '<button class="bt gh2" data-ntgo="gantt">В ганте</button>'+
+                '<button class="bt gh2" data-ntgo="person">По сотруднику</button>'+
+                '<button class="bt gh2" data-ntgo="project">Внутри кабинета</button>'+
+                '<button class="bt gh2 dimb" data-ntgo="">Свернуть варианты просмотра задачи</button>'+
+              '</div>' : '')+
+        '</div>' : '')+
+
+    '<div class="hint"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/>'+
+      '<path d="M12 8h.01M11 12h1v4h1"/></svg>'+
+      '<span>Задача уйдёт в чат проекта, менеджер будет отмечен. '+
+      'Начатая и не поставленная задача сохранится в «Начатых» — она не потеряется.</span></div>';
+
+  enhanceSelects(el);
+  if(ntFnOpen) ntFnPop();
+};
+
+/* выпадающий список функций с поиском */
+function ntFnPop(){
+  gsClose();
+  var box = document.getElementById("fnCombo");
+  var inp = document.getElementById("ntFnQ");
+  if(!box || !inp) return;
+  var list = ntFnList();
+  var pop = document.createElement("div");
+  pop.className = "gspop fnpop"; pop.id = "gsPop";
+  pop.innerHTML = '<div class="gsin">'+
+    '<button class="gsi'+(ntState.fn?'':' on')+'" data-ntfn="">Без функции — своя задача</button>'+
+    (list.length ? list.map(function(f){
+      return '<button class="gsi'+(ntState.fn===f.id?' on':'')+'" data-ntfn="'+esc(f.id)+'">'+
+        '<span class="fnc2">'+esc(f.code)+'</span>'+
+        '<span class="gk"><b>'+esc(f.name)+'</b><i>'+f.minutes+' мин</i></span></button>'; }).join("")
+      : '<div class="none2">Ничего не нашёл</div>')+'</div>';
+  document.body.appendChild(pop);
+  var r = box.getBoundingClientRect(), vw = window.innerWidth, vh = window.innerHeight;
+  var w = Math.max(r.width, 320);
+  pop.style.width = w + "px";
+  var ph = pop.offsetHeight;
+  var toRight = (r.left + r.width/2) < vw/2;
+  var left = toRight ? r.left : (r.right - w);
+  pop.style.left = Math.round(Math.max(10, Math.min(left, vw - w - 10))) + "px";
+  var below = (r.bottom + ph + 12) < vh;
+  pop.style.top = Math.round(below ? r.bottom + 6 : Math.max(10, r.top - ph - 6)) + "px";
+  pop.setAttribute("data-dir", below ? "down" : "up");
+  requestAnimationFrame(function(){ pop.classList.add("on"); });
+}
+
+/* ── постановка: очистка формы, черновики, история ── */
+function ntCollect(){
+  ["project","person","dow","cycle","min"].forEach(function(k){
+    var el = document.getElementById("nt" + k.charAt(0).toUpperCase() + k.slice(1));
+    if(el) ntState[k] = el.value;
+  });
+  var ti = document.getElementById("ntTitle");
+  if(ti) ntState.title = ti.value;
+  var dd = document.getElementById("ntDays");
+  if(dd) ntDays = +dd.value || 2;
+}
+function ntReset(keep){
+  ntState = {person: keep ? ntState.person : (isMgr()?meId:null),
+             dow: keep ? ntState.dow : String(dow),
+             cycle: keep ? ntState.cycle : "once",
+             project: keep ? ntState.project : (proj||null),
+             fn:"", min:"", title:""};
+  ntFnQ = ""; ntFnOpen = false;
+}
+function ntSaveDraft(){
+  ntCollect();
+  if(!String(ntState.title||"").trim()) return;
+  drafts().unshift({
+    id: nextId("dr"), title: ntState.title, project: ntState.project,
+    person: ntState.person, dow: ntState.dow, cycle: ntState.cycle,
+    fn: ntState.fn, min: ntState.min, ts: Date.now()
+  });
+  if(drafts().length > 50) drafts().length = 50;
+  saveState();
+}
+
+function ntPlace(){
+  ntCollect();
+  var title = String(ntState.title||"").trim();
+  if(!title){ toast("Напишите, что сделать"); return; }
+  var prId = ntState.project || (S.projects[0] && S.projects[0].id);
+  var f = ntState.fn ? fnById(ntState.fn) : null;
+  var cyc = ntState.cycle || "once";
+  var d = (ntState.dow != null && ntState.dow !== "") ? +ntState.dow : dow;
+  var mins = +ntState.min || (f ? f.minutes : 30);
+  var kind = cyc === "once_urg" ? "urg" : (cyc === "once" ? "fix" : "cyc");
+  /* «несколько раз в неделю» — раскладываем на выбранные дни */
+  var days = cyc === "several" ? spreadDays(d, ntDays)
+           : cyc === "daily"   ? [0,1,2,3,4] : [d];
+  var made = [];
+  days.forEach(function(dd){
+    var t = {id: uid(), title: title, project: prId, person: ntState.person || "",
+      cab: "", fn: ntState.fn || "", minutes: mins, kind: kind, dow: dd,
+      start: nextFree(ntState.person, dd, mins), done: false, spentSec: 0,
+      comment: "", link: "", approver: "Без согласования", status: "",
+      cycle: cyc, createdAt: Date.now()};
+    S.tasks.push(t);
+    made.push(t);
+  });
+  placed().unshift({id: nextId("pl2"), title: title, project: prId, person: ntState.person||"",
+    n: made.length, cycle: cyc, ts: Date.now(), taskId: made[0].id});
+  if(placed().length > 200) placed().length = 200;
+  ntLastPerson = ntState.person || null;
+  ntLastProject = prId;
+  saveState();
+  logAdd(prId, "Поставлена задача «" + title + "»" +
+    (made.length > 1 ? " — " + made.length + " повторов за неделю" : ""), "task");
+  var names = NT_WHERE2.filter(function(w){ return ntWhere[w[0]]; })
+    .map(function(w){ return w[1].split(" · ")[0]; });
+  ntReset(true);
+  ntAsk = {t: Date.now()}; ntAskOpen = false;
+  render();
+  toast("Задача поставлена" + (made.length>1 ? " ×"+made.length : "") +
+    (names.length ? " · уведомим: " + names.join(", ") : ""));
+}
+function spreadDays(start, n){
+  var out = [start];
+  var step = Math.max(1, Math.round(5 / Math.max(1, n)));
+  for(var i = 1; i < n; i++){ out.push((start + i*step) % 5); }
+  return out.filter(function(v, i, a){ return a.indexOf(v) === i; }).sort();
+}
+function nextFree(pid, d, mins){
+  if(!pid) return 10;
+  var mine = (S.tasks||[]).filter(function(t){ return t.person===pid && t.dow===d; })
+    .sort(function(a,b){ return a.start - b.start; });
+  var t = 10;
+  mine.forEach(function(x){ if(x.start + (x.minutes||0)/60 > t) t = x.start + (x.minutes||0)/60; });
+  return Math.min(19, Math.round(t*4)/4);
+}
+
+/* ── история постановок: верхний слайдер ── */
+function histRender(){
+  var w = document.getElementById("histDock"); if(!w) return;
+  var list = ntHist === "draft" ? drafts() : placed();
+  w.querySelector(".tdin").innerHTML =
+    '<div class="tdh"><b>История задач</b></div>'+
+    '<div class="tdays">'+
+      '<button class="tdd'+(ntHist==="done"?" on":"")+'" data-hist="done">Поставленные '+placed().length+'</button>'+
+      '<button class="tdd'+(ntHist==="draft"?" on":"")+'" data-hist="draft">Начатые '+drafts().length+'</button>'+
+    '</div>'+
+    '<div class="tdlist">'+(list.length ? list.slice(0, 40).map(function(x){
+      var pr = project(x.project), m = x.person ? person(x.person) : null;
+      return '<div class="tdt" data-histid="'+esc(x.id)+'" data-histk="'+ntHist+'">'+
+        '<span class="tdtt">'+esc(x.title)+'</span>'+
+        '<span class="tdw">'+
+          (m ? '<i class="av2" style="background:'+m.color+'">'+esc(m.av)+'</i>' : '')+
+          (pr ? '<i class="dot" style="background:'+pr.color+'"></i>' : '')+
+          '<b>'+agoText(x.ts)+'</b></span>'+
+      '</div>'; }).join("")
+      : '<div class="empty">'+(ntHist==="draft"
+          ? 'Начатых задач нет. Если начнёте ставить и не закончите — задача сохранится здесь.'
+          : 'Пока ничего не поставили')+'</div>')+'</div>';
+}
+(function buildHist(){
+  var d = document.createElement("aside");
+  d.className = "tdock hist"; d.id = "histDock"; d.hidden = true;
+  d.innerHTML = '<div class="tdedge"><span class="tdlab">История</span>'+
+      '<span class="tdcnt" id="histCnt">0</span></div><div class="tdin"></div>';
+  document.body.appendChild(d);
+  var tm = null;
+  d.addEventListener("mouseenter", function(){ clearTimeout(tm); d.classList.add("on"); histRender(); });
+  d.addEventListener("mouseleave", function(){ tm = setTimeout(function(){ d.classList.remove("on"); }, 260); });
+})();
+function histSync(){
+  var d = document.getElementById("histDock"); if(!d) return;
+  d.hidden = !(booted && !isClient());
+  var c = document.getElementById("histCnt");
+  if(c) c.textContent = placed().length + drafts().length;
+  if(d.classList.contains("on")) histRender();
+}
+
+/* ── обработчики постановки ── */
+document.addEventListener("click", function(e){
+  var t;
+  if(e.target.closest("#ntHot")){
+    ntOpen = true; ntAsk = null; ntAskOpen = false;
+    ntReset(false);
+    var el = document.querySelector('[data-b="newtask"]');
+    if(el){ B.newtask(el); var ti = document.getElementById("ntTitle"); if(ti) ti.focus(); }
+    e.stopImmediatePropagation(); return; }
+  if(e.target.closest("#ntFold")){
+    ntSaveDraft(); ntOpen = false; ntAsk = null;
+    var el2 = document.querySelector('[data-b="newtask"]'); if(el2) B.newtask(el2);
+    histSync(); e.stopImmediatePropagation(); return; }
+  if(e.target.closest("#ntAdd")){ ntPlace(); e.stopImmediatePropagation(); return; }
+  if(e.target.closest("#ntAskTog")){
+    ntAskOpen = !ntAskOpen;
+    var el3 = document.querySelector('[data-b="newtask"]'); if(el3) B.newtask(el3);
+    e.stopImmediatePropagation(); return; }
+  if((t = e.target.closest("[data-ntpick]"))){
+    ntCollect(); ntState.person = t.getAttribute("data-ntpick");
+    var el4 = document.querySelector('[data-b="newtask"]'); if(el4) B.newtask(el4);
+    e.stopImmediatePropagation(); return; }
+  if((t = e.target.closest("[data-ntfn]"))){
+    ntCollect();
+    ntState.fn = t.getAttribute("data-ntfn");
+    var f = ntState.fn ? fnById(ntState.fn) : null;
+    if(f && !ntState.title) ntState.title = f.name;
+    ntFnOpen = false; ntFnQ = ""; gsClose();
+    var el5 = document.querySelector('[data-b="newtask"]'); if(el5) B.newtask(el5);
+    e.stopImmediatePropagation(); return; }
+  if(e.target.closest("#ntFnClr")){
+    ntCollect(); ntState.fn = ""; ntFnQ = ""; ntFnOpen = false;
+    var el6 = document.querySelector('[data-b="newtask"]'); if(el6) B.newtask(el6);
+    e.stopImmediatePropagation(); return; }
+  if(e.target.closest("#ntFnQ")){
+    ntFnOpen = true; ntFnQ = ""; ntFnPop();
+    e.stopImmediatePropagation(); return; }
+  if((t = e.target.closest("[data-hist]"))){
+    ntHist = t.getAttribute("data-hist"); histRender(); return; }
+  if((t = e.target.closest("[data-histid]"))){
+    var id = t.getAttribute("data-histid"), k = t.getAttribute("data-histk");
+    if(k === "draft"){
+      var dr = drafts().filter(function(x){ return x.id === id; })[0];
+      if(dr){
+        S.drafts = drafts().filter(function(x){ return x.id !== id; });
+        ntOpen = true; ntAsk = null;
+        ntState = {project:dr.project, person:dr.person, dow:dr.dow, cycle:dr.cycle,
+                   fn:dr.fn, min:dr.min, title:dr.title};
+        saveState(); setView("work");
+        setTimeout(function(){
+          var el = document.querySelector('[data-b="newtask"]');
+          if(el){ B.newtask(el); el.scrollIntoView({behavior:"smooth", block:"center"}); }
+        }, 60);
+      }
+    } else {
+      var pl = placed().filter(function(x){ return x.id === id; })[0];
+      if(pl && pl.taskId){ dow = 0; openTask = pl.taskId; setView("work");
+        setTimeout(function(){
+          var n = document.querySelector('[data-t="'+pl.taskId+'"]');
+          if(n) n.scrollIntoView({behavior:"smooth", block:"center"}); }, 120); }
+    }
+    return; }
+}, true);
+
+document.addEventListener("input", function(e){
+  if(e.target && e.target.id === "ntFnQ"){
+    ntFnQ = e.target.value; ntFnOpen = true; ntFnPop();
+  }
+});
+document.addEventListener("change", function(e){
+  var t = e.target;
+  if(t.id === "ntDays"){ ntDays = +t.value || 2; return; }
+  if(t.id === "ntCycle" || t.id === "ntPerson" || t.id === "ntDow" || t.id === "ntProject"){
+    ntCollect();
+    var el = document.querySelector('[data-b="newtask"]');
+    if(el && ntOpen) B.newtask(el);
+  }
+}, true);
+document.addEventListener("keydown", function(e){
+  if(e.key === "Enter" && e.target && e.target.id === "ntTitle"){ e.preventDefault(); ntPlace(); }
+  if(e.key === "Enter" && !ntOpen && booted && view === "work" &&
+     !/INPUT|TEXTAREA|SELECT/.test((e.target||{}).tagName||"")){
+    var h = document.getElementById("ntHot"); if(h){ e.preventDefault(); h.click(); }
+  }
+});
+
+/* ── 2. Гант: штриховка «за пределами нормы» на неделе и месяце ── */
+(function(){
+  var _g = B.gantt;
+  B.gantt = function(el){
+    _g.call(B, el);
+    if(scale === "день") return;
+    var rows = el.querySelectorAll(".gt .gr");
+    Array.prototype.forEach.call(rows, function(r){
+      var ln = r.querySelector(".ln"); if(!ln || ln.querySelector(".ov")) return;
+      var h = r.querySelector(".gn .h");
+      var pct = h ? (parseInt((h.textContent.split("·")[1]||"0"), 10) || 0) : 0;
+      if(pct <= 100) return;
+      /* сколько процентов ширины полосы — сверх нормы */
+      var over = Math.min(60, (pct - 100) / pct * 100);
+      var d = document.createElement("div");
+      d.className = "ov";
+      d.style.left = (100 - over) + "%";
+      d.style.right = "0";
+      ln.appendChild(d);
+    });
+  };
+})();
+
+/* ── синхронизация верхнего слайдера ── */
+(function(){
+  var _r = render;
+  render = function(){ var v = _r.apply(this, arguments); histSync(); return v; };
+  var _a = applyRoleRail;
+  applyRoleRail = function(){ var v = _a.apply(this, arguments); histSync(); return v; };
+})();
+
+/* ── 3. Карточки клиентов: подъём при наведении ── */
+(function(){
+  var _rc = renderCards;
+  renderCards = function(){
+    _rc.apply(this, arguments);
+    q(".ccgrid .cc2").forEach(function(c){ c.classList.add("liftable"); });
+  };
+})();
+
+/* ── 4. «Требует решения»: шире, читаемее, со вторым уровнем ── */
+var needOpen = null;           /* какой пункт раскрыт на втором экране */
+
+function needMetrics(){
+  var sim = simTeam();
+  var noOwner = (S.tasks||[]).filter(function(t){ return !t.person; });
+  var over    = (S.people||[]).filter(function(p){ return pctOf(p.id, dow) > 125; });
+  /* «ждут согласования» видит тот, с кем согласовывают:
+     собственнику и директору — все, остальным — только свои */
+  var me = person(meId);
+  var wait = (S.tasks||[]).filter(function(t){
+    if(t.status !== "wait") return false;
+    if(role === "owner" || role === "dir") return true;
+    var ap = String(t.approver||"");
+    if(!ap || /без соглас/i.test(ap)) return false;
+    return !!(me && (ap === me.name || ap === me.id || ap.indexOf(me.name) >= 0));
+  });
+  var undone  = (S.tasks||[]).filter(function(t){ return !t.done && t.dow < dow; });
+  var money   = seesMoney();
+  return [
+    {k:"noowner", n:"Задач без ответственного", v:noOwner.length,
+     c: noOwner.length ? "crit" : "", hint: noOwner.length ? "их некому делать" : "все задачи розданы",
+     list: noOwner},
+    {k:"over", n:"Людей выше 125%", v:over.length,
+     c: over.length ? "crit" : "", hint: over.length
+        ? over.map(function(p){ return p.name; }).join(", ") : "перегруженных нет",
+     people: over},
+    {k:"wait", n:"Ждут согласования", v:wait.length,
+     c: wait.length ? "warn" : "",
+     hint: wait.length
+        ? ((role === "owner" || role === "dir") ? "висят до ответа согласующего"
+                                                : "ждут именно вашего ответа")
+        : ((role === "owner" || role === "dir") ? "ничего не ждёт" : "на вас ничего не висит"),
+     list: wait},
+    {k:"undone", n:"Не закрыто за прошлые дни", v:undone.length,
+     c: undone.length ? "warn" : "", hint: undone.length ? "переносится на сегодня" : "хвостов нет",
+     list: undone},
+    {k:"hire", n:"Нужен новый сотрудник", v: sim.hire ? "+" + sim.hire : "нет",
+     c: sim.hire ? "crit" : "ok",
+     hint: sim.hire ? "команда перерабатывает на " + sim.needH.toFixed(0) + " ч в неделю"
+                    : "мощности хватает", sim: sim},
+    {k:"pay", n:"Индекс оплаты",
+     v: !money ? "скрыто" : !sim.fot ? "—" : (sim.idxPct > 0 ? "+" : "") + sim.idxPct + "%",
+     /* переплата — красным, недоплата — зелёным */
+     c: !money || !sim.fot ? "" : sim.idxPct > 0 ? "crit" : sim.idxPct < 0 ? "ok" : "",
+     hint: !money ? "доступно собственнику и директору"
+         : !sim.fot ? "оклады не заполнены"
+         : sim.idxPct > 0 ? "переплачиваем " + rub(sim.idxRub) + " в неделю"
+         : sim.idxPct < 0 ? "недоплачиваем " + rub(-sim.idxRub) + " в неделю"
+         : "оклады сходятся с нагрузкой", sim: sim}
+  ];
+}
+
+function needRole(k){
+  /* менеджеры и клиенты блок не видят вовсе.
+     РМ и проджект — только первые четыре строки.
+     Деньги (индекс оплаты) и найм — собственник и директор. */
+  if(isMgr() || isClient()) return false;
+  if((role === "head" || role === "pm") && (k === "hire" || k === "pay")) return false;
+  if(k === "pay" && !(role === "owner" || role === "dir")) return false;
+  if(k === "hire" && !(role === "owner" || role === "dir")) return false;
+  return true;
+}
+
+B.need = function(el){
+  var panel = document.getElementById("needPanel");
+  if(isMgr() || isClient()){
+    if(panel) panel.hidden = true;
+    el.innerHTML = "";
+    return;
+  }
+  if(panel) panel.hidden = false;
+  document.querySelector("#needPanel h2").textContent = "Требует решения";
+  var rows = needMetrics().filter(function(m){ return needRole(m.k); });
+  el.innerHTML = '<div class="needl">'+rows.map(function(m){
+    return '<button class="needr" data-need="'+m.k+'">'+
+      '<span class="nk">'+esc(m.n)+'<i>'+esc(m.hint)+'</i></span>'+
+      '<span class="nv '+(m.c||"")+'">'+m.v+'</span>'+
+      '<svg class="nar" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>'+
+    '</button>'; }).join("")+'</div>'+
+    '<div class="needh">Нажмите на строку — раскроется отдельный экран по этому пункту.</div>';
+};
+
+/* ── второй уровень: экран одного пункта ── */
+function needDetail(m){
+  if(m.k === "pay") return payDetail(m.sim);
+  if(m.k === "hire") return hireDetail(m.sim);
+  if(m.k === "over"){
+    return '<div class="ndl">'+(m.people.length ? m.people.map(function(p){
+      var s = simPerson(p);
+      return '<div class="ndrow"><span class="av" style="background:'+p.color+'">'+esc(p.av||"")+'</span>'+
+        '<span class="ndk"><b>'+esc(p.name)+'</b><i>'+esc(p.role||"")+'</i></span>'+
+        '<span class="ndv critc">'+pctOf(p.id, dow)+'%</span>'+
+        '<span class="ndx">'+hrs(loadOf(p.id, dow))+' ч в этот день · '+s.h.toFixed(1)+' ч за неделю</span>'+
+        '<button class="bt gh2 sm" data-gantt-person="'+esc(p.id)+'">В гант</button></div>'; }).join("")
+      : '<div class="empty">Перегруженных нет</div>')+'</div>';
+  }
+  var list = m.list || [];
+  return '<div class="ndl">'+(list.length ? list.slice(0, 40).map(function(t){
+    var pr = project(t.project), p = t.person ? person(t.person) : null;
+    return '<div class="ndrow">'+
+      (p ? '<span class="av" style="background:'+p.color+'">'+esc(p.av||"")+'</span>'
+         : '<span class="av none">?</span>')+
+      '<span class="ndk"><b>'+esc(t.title)+'</b><i>'+(pr?esc(pr.name):'—')+' · '+DOW[t.dow]+'</i></span>'+
+      '<span class="ndv">'+t.minutes+' мин</span>'+
+      '<span class="ndx">'+(p ? esc(p.name) : 'ответственного нет')+'</span>'+
+      (pr ? '<button class="bt gh2 sm" data-opencab="'+esc(pr.id)+'">Кабинет</button>' : '')+
+    '</div>'; }).join("") + (list.length > 40 ? '<div class="gclm">и ещё '+(list.length-40)+'</div>' : '')
+    : '<div class="empty">Пусто — здесь всё в порядке</div>')+'</div>';
+}
+
+function hireDetail(sim){
+  return '<div class="nd2">'+
+    '<div class="grsum plain">'+
+      '<div class="pss"><div class="l">Не хватает часов</div><div class="v">'+sim.needH.toFixed(0)+' ч</div>'+
+        '<div class="d">в неделю сверх мощности команды</div></div>'+
+      '<div class="pss"><div class="l">Сколько брать</div><div class="v'+(sim.hire?' warnv':' okv')+'">'+
+        (sim.hire ? '+'+sim.hire : 'никого')+'</div><div class="d">чтобы закрыть перегруз</div></div>'+
+      '<div class="pss"><div class="l">Перегружены</div><div class="v'+(sim.over.length?' warnv':'')+'">'+
+        sim.over.length+' из '+sim.n+'</div><div class="d">выше 110% нормы</div></div>'+
+    '</div>'+
+    '<div class="ndsub">Модель найма</div>'+ simWidget({noHead:true}) +
+  '</div>';
+}
+
+function payDetail(sim){
+  var money = seesMoney();
+  if(!money) return '<div class="empty">Суммы видит собственник и директор</div>';
+  var rows = payRows();
+  var per = sim.per.slice().sort(function(a,b){ return a.gapRub - b.gapRub; });
+  var byId = {};
+  rows.forEach(function(r){ byId[r.m.id] = r; });
+  return '<div class="nd2">'+
+    '<div class="grsum plain">'+
+      '<div class="pss"><div class="l">Переплата</div><div class="v critv">'+rub(sim.overpay)+'</div>'+
+        '<div class="d">'+sim.overH.toFixed(0)+' ч оплачено, но не занято работой</div></div>'+
+      '<div class="pss"><div class="l">Недоплата</div><div class="v okv">'+rub(sim.underpay)+'</div>'+
+        '<div class="d">'+sim.underH.toFixed(0)+' ч отработано сверх оклада</div></div>'+
+      '<div class="pss"><div class="l">Итог по команде</div>'+
+        '<div class="v'+(sim.idxPct>0?' critv':' okv')+'">'+(sim.idxPct>0?'+':'')+sim.idxPct+'%</div>'+
+        '<div class="d">'+(sim.idxRub>0?'переплачиваем ':'недоплачиваем ')+rub(Math.abs(sim.idxRub))+' в неделю</div></div>'+
+      '<div class="pss"><div class="l">Фонд оплаты</div><div class="v">'+rub(sim.fot)+'</div>'+
+        '<div class="d">в неделю по окладам</div></div>'+
+    '</div>'+
+    '<div class="ndsub">Скоринг по сотрудникам</div>'+
+    '<div class="paytw"><table class="payt"><thead><tr>'+
+      '<th>Сотрудник</th><th>Оклад в неделю</th><th>Отработал</th><th>Разница, ч</th>'+
+      '<th>Пере / недоплата</th><th>Переработка</th><th>Премия</th><th>Штраф</th><th>К выплате</th>'+
+    '</tr></thead><tbody>'+
+    per.map(function(x){
+      var r = byId[x.p.id] || {};
+      var gap = x.gapRub;
+      return '<tr>'+
+        '<td class="who"><span class="av" style="background:'+x.p.color+'">'+esc(x.p.av||"")+'</span>'+
+          '<span class="wn">'+esc(x.p.name)+'<i>'+esc(x.p.role||"")+'</i></span></td>'+
+        '<td>'+rub(x.week)+'</td>'+
+        '<td>'+x.h.toFixed(1)+' ч</td>'+
+        '<td class="'+(x.gapH<0?'okc':'critc')+'">'+(x.gapH>0?'+':'')+x.gapH.toFixed(1)+'</td>'+
+        '<td class="'+(gap>0?'critc':'okc')+'">'+(gap>0?'переплата ':'недоплата ')+rub(Math.abs(gap))+'</td>'+
+        '<td>'+(r.overH>0 ? '+'+r.overH.toFixed(1)+' ч' : '—')+'</td>'+
+        '<td class="'+(r.bonus>0?'okc':'')+'">'+(r.bonus>0?rub(r.bonus):'—')+'</td>'+
+        '<td class="'+(r.fine>0?'critc':'')+'">'+(r.fine>0?rub(r.fine):'—')+'</td>'+
+        '<td class="tot">'+rub(r.fact||x.week)+'</td>'+
+      '</tr>'; }).join("")+
+    '</tbody></table></div>'+
+    '<div class="payh">Зелёное — недоплата: человек отработал больше, чем стоит его оклад. '+
+      'Красное — переплата: оплаченное время не занято работой. '+
+      'Премии и штрафы считаются от ставки за час, проценты — в «Премиях и штрафах».</div>'+
+  '</div>';
+}
+
+function renderNeed(){
+  var host = document.getElementById("sect");
+  var all = needMetrics().filter(function(m){ return needRole(m.k); });
+  var cur = all.filter(function(m){ return m.k === needOpen; })[0] || all[0];
+  if(!cur){ setView("work"); return; }
+  var rest = all.filter(function(m){ return m.k !== cur.k; });
+  host.innerHTML =
+    '<div class="gl needtop">'+
+      '<button class="bt gh2 cbback" id="needBack">← Вернуться на рабочий экран</button>'+
+      '<div class="needtabs">'+all.map(function(m){
+        return '<button class="ntb'+(m.k===cur.k?' on':'')+'" data-need2="'+m.k+'">'+
+          esc(m.n)+'<b class="'+(m.c||"")+'">'+m.v+'</b></button>'; }).join("")+'</div>'+
+    '</div>'+
+    '<div class="gl"><div class="gl-t"><h2>'+esc(cur.n)+'</h2>'+
+      '<span class="m">'+esc(cur.hint)+'</span></div>'+
+      needDetail(cur)+'</div>'+
+    (rest.length
+      ? '<div class="restlbl">Остальное, что требует решения</div>'+
+        '<div class="needrest">'+rest.map(function(m){
+          return '<button class="needr card" data-need2="'+m.k+'">'+
+            '<span class="nk">'+esc(m.n)+'<i>'+esc(m.hint)+'</i></span>'+
+            '<span class="nv '+(m.c||"")+'">'+m.v+'</span></button>'; }).join("")+'</div>'
+      : '');
+}
+NAV_TITLES.need = ["Требует решения","Разбираем по одному пункту"];
+SEC_RENDER.need = renderNeed;
+
+document.addEventListener("click", function(e){
+  var t;
+  if((t = e.target.closest("[data-need]"))){
+    needOpen = t.getAttribute("data-need");
+    navPush("work"); setView("need", true); return; }
+  if((t = e.target.closest("[data-need2]"))){
+    needOpen = t.getAttribute("data-need2"); renderNeed(); paintBars(document.getElementById("sect"));
+    window.scrollTo({top:0, behavior:"smooth"}); return; }
+  if(e.target.closest("#needBack")){ setView("work"); return; }
+});
+
+/* ── 5. Рельса: списки людей и кабинетов, каждый со своим входом ── */
+var railPeopleOpen = false;
+
+function railPeopleItems(){
+  var pl = visiblePeople();
+  return '<button class="racci add" id="raccAddMan"><span class="pl">+</span>'+
+      '<span class="k">Добавить менеджера</span></button>'+
+    (pl.length ? pl.map(function(m){
+      var p = pctOf(m.id, dow);
+      return '<button class="racci'+(openPerson===m.id?" on":"")+'" data-openman="'+esc(m.id)+'">'+
+        '<span class="av2" style="background:'+m.color+'">'+esc(m.av||"")+'</span>'+
+        '<span class="k">'+esc(m.name)+'</span>'+
+        '<span class="n2" style="color:'+tone(p)+'">'+p+'%</span></button>'; }).join("")
+      : '<div class="raccn">Команда пустая</div>');
+}
+function railAccPeople(open){
+  var acc = document.getElementById("railAccP"); if(!acc) return;
+  if(open === undefined) open = !railPeopleOpen;
+  railPeopleOpen = !!open;
+  if(railPeopleOpen){
+    acc.innerHTML = railPeopleItems();
+    acc.hidden = false; acc.style.maxHeight = "0px";
+    requestAnimationFrame(function(){
+      acc.style.maxHeight = Math.min(acc.scrollHeight, 340) + "px";
+      acc.classList.add("on"); });
+  } else {
+    acc.style.maxHeight = "0px"; acc.classList.remove("on");
+    setTimeout(function(){ if(!railPeopleOpen) acc.hidden = true; }, 420);
+  }
+}
+(function(){
+  var btn = document.querySelector('.rail .ri[data-v="people"]');
+  if(!btn) return;
+  var wrap = document.createElement("div");
+  wrap.className = "rw";
+  btn.parentNode.insertBefore(wrap, btn);
+  wrap.appendChild(btn);
+  var acc = document.createElement("div");
+  acc.className = "racc"; acc.id = "railAccP"; acc.hidden = true; acc.style.maxHeight = "0px";
+  wrap.parentNode.insertBefore(acc, wrap.nextSibling);
+})();
+/* рельса свернулась — списки тоже сворачиваются, каждое открытие начинается со свёрнутого */
+(function(){
+  var rail = document.querySelector(".rail");
+  if(!rail) return;
+  rail.addEventListener("mouseleave", function(){
+    railAcc(false); railAccPeople(false);
+  });
+})();
+
+/* ── 6. Экран «новый кабинет»: только карточка и её задачи ── */
+var ncTasks = [], ncErr = "";
+function ncRow(r, i){
+  return '<div class="ncrow" data-nc="'+i+'">'+
+    '<input class="fi sm" data-nck="title" placeholder="Что делаем" value="'+esc(r.title||"")+'">'+
+    '<select class="fi sm" data-nck="kind">'+
+      [["cyc","Цикличная"],["org","Организационная"],["urg","Срочная"]].map(function(k){
+        return '<option value="'+k[0]+'"'+(r.kind===k[0]?' selected':'')+'>'+k[1]+'</option>'; }).join("")+
+    '</select>'+
+    '<select class="fi sm" data-nck="cycle">'+CYCLES.map(function(c){
+      return '<option value="'+c[0]+'"'+(r.cycle===c[0]?' selected':'')+'>'+c[1]+'</option>'; }).join("")+
+    '</select>'+
+    '<select class="fi sm'+(r.person?'':' warn')+'" data-nck="person">'+
+      '<option value="">Ответственный не выбран</option>'+
+      (S.people||[]).map(function(m){
+        return '<option value="'+esc(m.id)+'"'+(r.person===m.id?' selected':'')+'>'+esc(m.name)+'</option>'; }).join("")+
+    '</select>'+
+    '<input class="fi sm nmin" type="number" min="5" max="480" step="5" data-nck="minutes" value="'+(r.minutes||30)+'">'+
+    '<button class="plx" data-ncdel="'+i+'" title="Убрать">×</button>'+
+  '</div>';
+}
+function renderNewCab(){
+  var host = document.getElementById("sect");
+  if(!ncTasks.length) ncTasks = [{title:"", kind:"cyc", cycle:"weekly", person:"", minutes:30}];
+  host.innerHTML =
+    '<div class="gl newone"><div class="gl-t"><h2>Новый кабинет</h2>'+
+      '<span class="m">заводим один кабинет — другие сейчас не показываются</span>'+
+      '<button class="bt gh2 sm" id="ncBack">Отмена</button></div>'+
+      '<div class="ccf wide4">'+
+        '<label><span>Название кабинета</span><input class="fi sm" id="ncName" placeholder="ИП Иванова · FBO"></label>'+
+        '<label><span>Собственник</span><input class="fi sm" id="ncOwner" placeholder="Имя и фамилия"></label>'+
+        '<label><span>Telegram собственника</span><div class="tgr"><span class="at">@</span>'+
+          '<input class="fi sm" id="ncTg" placeholder="nickname"></div></label>'+
+        '<label><span>Телефон</span><input class="fi sm" id="ncPhone" type="tel" placeholder="+7 900 000-00-00"></label>'+
+        '<label><span>Сумма в месяц, ₽</span><input class="fi sm" id="ncAmt" type="number" min="0" step="1000" placeholder="0"></label>'+
+        '<label><span>Дата платежа</span><input class="fi sm" id="ncPay" type="date"></label>'+
+        '<label><span>Артикулов</span><input class="fi sm" id="ncArt" type="number" min="0" placeholder="0"></label>'+
+        '<label><span>Рабочее пространство · Google-таблица</span><input class="fi sm" id="ncSheet" placeholder="https://docs.google.com/..."></label>'+
+      '</div>'+
+      '<div class="sfh">Задачи кабинета — сразу с ответственными</div>'+
+      '<div class="nchead"><span>Что делаем</span><span>Тип</span><span>Цикличность</span>'+
+        '<span>Ответственный</span><span>Мин</span><span></span></div>'+
+      '<div class="ncl">'+ncTasks.map(ncRow).join("")+'</div>'+
+      '<div class="ncbtns">'+
+        '<button class="bt gh2 sm" id="ncAddRow">+ Ещё задача</button>'+
+        '<button class="bt gh2 sm" id="ncFromFns">Взять из списка функций</button>'+
+      '</div>'+
+      (ncErr ? '<div class="gerr on">'+esc(ncErr)+'</div>' : '')+
+      '<div class="sfb"><button class="bt" id="ncSave">Завести кабинет</button>'+
+        '<button class="bt gh2" id="ncCancel">Отмена</button></div>'+
+    '</div>';
+  enhanceSelects(host);
+}
+NAV_TITLES.newcab = ["Новый кабинет","Карточка кабинета и его задачи"];
+SEC_RENDER.newcab = renderNewCab;
+
+/* ── 7. Экран «новый менеджер»: компетенции, галочки, перераспределение ── */
+var nmErr = "", nmRedist = null;
+var NM_FLAGS = [
+  ["fnWork",  "Работает с функциями"],
+  ["rk",      "Работает с рекламными кампаниями"],
+  ["orgWork", "Работает с организационными задачами"],
+  ["assist",  "Ассистирует"]
+];
+var nmState = {};
+
+function nmDefaults(){
+  if(nmState.ready) return;
+  nmState = {ready:true, name:"", role:"Менеджер", tg:"", pay:"", load:100, grade:"mid",
+    maxArt:80, cat:{A:20, B:50, C:30}, fnWork:true, rk:true, orgWork:false, assist:false,
+    mode: simMode};
+}
+function nmComp(){
+  var c = nmState.cat;
+  var score = ((+c.A||0)*3 + (+c.B||0)*2 + (+c.C||0)*1) / 100;
+  return {sum:(+c.A||0)+(+c.B||0)+(+c.C||0),
+    letter: score >= 2.4 ? "A" : score >= 1.6 ? "B" : "C", score:score};
+}
+function nmRedistPreview(){
+  /* какие артикулы уйдут новому: берём у самых перегруженных, по его категориям */
+  var lim = +nmState.maxArt || 0;
+  if(!lim) return [];
+  var st = artStats();
+  var over = st.rows.filter(function(r){ return r.pct > 100; })
+    .sort(function(a,b){ return b.pct - a.pct; });
+  var want = {A: Math.round(lim*(+nmState.cat.A||0)/100),
+              B: Math.round(lim*(+nmState.cat.B||0)/100),
+              C: Math.round(lim*(+nmState.cat.C||0)/100)};
+  var take = [];
+  over.forEach(function(r){
+    CATS.forEach(function(k){
+      var mine = artsOf(function(a){ return a.person === r.m.id && a.cat === k; });
+      var excess = Math.max(0, r.n - r.max);
+      var n = Math.min(want[k] - take.filter(function(x){ return x.cat === k; }).length,
+                       Math.min(mine.length, Math.ceil(excess / 2)));
+      for(var i = 0; i < n; i++) take.push(mine[i]);
+    });
+  });
+  return take;
+}
+function renderNewMan(){
+  nmDefaults();
+  var host = document.getElementById("sect");
+  var c = nmComp();
+  var g = grades().filter(function(x){ return x.id === nmState.grade; })[0] || grades()[2];
+  var take = nmRedist ? nmRedist : [];
+  host.innerHTML =
+    '<div class="gl newone"><div class="gl-t"><h2>Новый менеджер</h2>'+
+      '<span class="m">заводим одного человека — остальная команда сейчас не показывается</span>'+
+      '<button class="bt gh2 sm" id="nmBack">Отмена</button></div>'+
+
+      '<div class="ccf wide4">'+
+        '<label><span>Имя</span><input class="fi sm" id="nmName" placeholder="Как зовут" value="'+esc(nmState.name)+'"></label>'+
+        '<label><span>Должность</span><input class="fi sm" id="nmRole" placeholder="Менеджер" value="'+esc(nmState.role)+'"></label>'+
+        '<label><span>Telegram</span><div class="tgr"><span class="at">@</span>'+
+          '<input class="fi sm" id="nmTg" placeholder="nickname" value="'+esc(nmState.tg)+'"></div></label>'+
+        '<label><span>Грейд</span><select class="fi sm" id="nmGrade">'+grades().map(function(x){
+          return '<option value="'+x.id+'"'+(nmState.grade===x.id?' selected':'')+'>'+esc(x.name)+
+            ' · '+money0(x.min)+'–'+money0(x.max)+'</option>'; }).join("")+'</select></label>'+
+        '<label><span>Оклад, ₽ в месяц</span><input class="fi sm" id="nmPay" type="number" min="0" step="1000" '+
+          'placeholder="'+Math.round((g.min+g.max)/2)+'" value="'+esc(nmState.pay)+'"></label>'+
+        '<label><span>Плановая загрузка, %</span><input class="fi sm" id="nmLoad" type="number" min="10" max="200" value="'+(nmState.load||100)+'"></label>'+
+      '</div>'+
+
+      '<div class="sfh">Что человек делает</div>'+
+      '<div class="nmflags">'+NM_FLAGS.map(function(f){
+        return '<button class="ck'+(nmState[f[0]]?' on':'')+'" data-nmf="'+f[0]+'"><i></i>'+f[1]+'</button>';
+      }).join("")+'</div>'+
+      '<div class="hint2">От галочек зависит, попадёт ли человек в АОД и будем ли предлагать ему '+
+        'распределение артикулов по категориям.</div>'+
+
+      (nmState.rk
+        ? '<div class="sfh">Компетенция по артикулам</div>'+
+          '<div class="nmcomp">'+
+            '<label class="nmmax"><span>Максимум артикулов в управлении</span>'+
+              '<input class="fi" id="nmMax" type="number" min="0" max="600" step="5" value="'+(+nmState.maxArt||0)+'">'+
+              '<input class="rng" id="nmMaxR" type="range" min="0" max="400" step="5" value="'+(+nmState.maxArt||0)+'">'+
+            '</label>'+
+            '<div class="nmcats">'+CATS.map(function(k){
+              return '<label class="nmcat c'+k+'"><span class="cdl">'+k+'</span>'+
+                '<input class="fi xs" type="number" min="0" max="100" step="5" data-nmc="'+k+'" value="'+(+nmState.cat[k]||0)+'">'+
+                '<i>%</i></label>'; }).join("")+
+              '<div class="nmsum '+(c.sum===100?'okc':'critc')+'">Итого '+c.sum+'%</div>'+
+              '<div class="nmlet"><span class="clet l'+c.letter+'">'+c.letter+'</span>'+
+                '<i>компетенция · вес '+c.score.toFixed(1)+'</i></div>'+
+            '</div>'+
+          '</div>'+
+          '<div class="ncbtns"><button class="bt gh2 sm" id="nmRedist">Перераспределить артикулы</button>'+
+            (take.length ? '<span class="nmtake">заберём '+take.length+' артикулов у перегруженных</span>' : '')+
+          '</div>'+
+          (take.length ? '<div class="nmlist">'+take.slice(0,24).map(function(a){
+            var m = a.person ? person(a.person) : null, pr = project(a.cab);
+            return '<div class="aoda"><span class="sku">'+esc(a.sku)+'</span>'+
+              '<span class="clet sm l'+a.cat+'">'+a.cat+'</span>'+
+              '<span class="cab">'+(pr?esc(pr.name):'—')+'</span>'+
+              '<span class="min">от '+(m?esc(m.name):'—')+'</span></div>'; }).join("")+
+            (take.length>24?'<div class="gclm">и ещё '+(take.length-24)+'</div>':'')+'</div>' : '')
+        : '')+
+
+      '<div class="sfh">Как загрузим нового человека</div>'+
+      '<div class="simmodes wide">'+SIM_MODES.map(function(m){
+        return '<button class="smb'+(simMode===m[0]?' on':'')+'" data-simmode="'+m[0]+'">'+
+          '<b>'+m[1]+'</b><i>'+m[2]+'</i></button>'; }).join("")+'</div>'+
+      '<div id="simHost">'+simWidget({compact:true, noModes:true, noHead:true})+'</div>'+
+      nmModeExtra()+
+      (nmErr ? '<div class="gerr on">'+esc(nmErr)+'</div>' : '')+
+      '<div class="sfb"><button class="bt" id="nmSave">Добавить в команду</button>'+
+        '<button class="bt gh2" id="nmCancel">Отмена</button></div>'+
+    '</div>';
+  enhanceSelects(host);
+}
+
+/* что показываем под моделью в зависимости от стратегии */
+var nmPicked = {};
+function nmModeExtra(){
+  if(simMode === "new"){
+    return '<div class="nmextra"><div class="nxh">Задачи для нового человека</div>'+
+      '<div class="hint2">Поставьте задачи прямо здесь — они лягут на новичка, '+
+      'и вы увидите их в его карточке, разложенными по дням.</div>'+
+      '<button class="bt gh2 sm" id="nmNewTask">+ Поставить задачу новому человеку</button>'+
+      (nmState.tasks && nmState.tasks.length
+        ? '<div class="nmlist">'+nmState.tasks.map(function(t, i){
+            return '<div class="aoda"><span class="cab">'+esc(t.title)+'</span>'+
+              '<span class="min">'+DOW[t.dow]+' · '+t.minutes+' мин</span>'+
+              '<button class="plx" data-nmtdel="'+i+'">×</button></div>'; }).join("")+'</div>'
+        : '')+'</div>';
+  }
+  if(simMode === "hybrid" || simMode === "relief"){
+    var cand = nmCandidates();
+    return '<div class="nmextra"><div class="nxh">Задачи, которые заберём у команды</div>'+
+      '<button class="bt gh2 sm" id="nmAuto">Сформировать автоматически</button>'+
+      (cand.length
+        ? '<div class="nmcand">'+cand.map(function(t){
+            var m = t.person ? person(t.person) : null, pr = project(t.project);
+            var on = nmPicked[t.id] !== false;
+            return '<label class="nmc"><span class="ck'+(on?' on':'')+'" data-nmpick="'+esc(t.id)+'"><i></i></span>'+
+              '<span class="nck"><b>'+esc(t.title)+'</b>'+
+                '<i>'+(pr?esc(pr.name):'—')+' · '+DOW[t.dow]+' · '+t.minutes+' мин · от '+(m?esc(m.name):'—')+'</i></span></label>';
+          }).join("")+'</div>'+
+          '<div class="ncbtns"><button class="bt sm" id="nmApprove">Утвердить перенос</button>'+
+            '<span class="nmtake">'+cand.filter(function(t){ return nmPicked[t.id] !== false; }).length+
+            ' из '+cand.length+' отмечено</span></div>'
+        : '<div class="hint2">Нажмите «Сформировать автоматически» — подберу задачи '+
+          'у самых загруженных людей.</div>')+'</div>';
+  }
+  return '';
+}
+function nmCandidates(){ return (nmState.cand || []); }
+function nmAutoPick(){
+  var t = simTeam();
+  var over = t.per.filter(function(x){ return x.pct > 100; })
+    .sort(function(a,b){ return b.pct - a.pct; });
+  var need = simMode === "relief" ? WEEK_H : WEEK_H / 2;
+  var out = [], got = 0;
+  over.forEach(function(x){
+    if(got >= need*60) return;
+    var mine = (S.tasks||[]).filter(function(tk){ return tk.person === x.p.id && !tk.done; })
+      .sort(function(a,b){ return b.minutes - a.minutes; });
+    mine.forEach(function(tk){
+      if(got >= need*60) return;
+      out.push(tk); got += tk.minutes || 0;
+    });
+  });
+  nmState.cand = out.slice(0, 40);
+  nmPicked = {};
+  saveState();
+}
+NAV_TITLES.newman = ["Новый менеджер","Компетенции, загрузка и перенос задач"];
+SEC_RENDER.newman = renderNewMan;
+
+/* ── обработчики новых экранов ── */
+document.addEventListener("click", function(e){
+  var t;
+  /* рельса */
+  if(e.target.closest('.rail .ri[data-v="people"]')){
+    if(!booted) return;
+    railAccPeople(true); railAcc(false);
+    setView("people"); e.stopImmediatePropagation(); return; }
+  if(e.target.closest("#raccAddMan")){ railAccPeople(false); nmState = {}; navPush("people"); setView("newman", true); return; }
+  if(e.target.closest("#raccAdd")){ railAcc(false); ncTasks = []; ncErr = ""; navPush("projects"); setView("newcab", true); return; }
+  if((t = e.target.closest("[data-openman]"))){
+    railAccPeople(false);
+    openPerson = t.getAttribute("data-openman"); peDay = null; peGantt = false;
+    setView("people"); return; }
+
+  /* новый кабинет */
+  if(e.target.closest("#ncBack") || e.target.closest("#ncCancel")){ navBack(); return; }
+  if(e.target.closest("#ncAddRow")){
+    ncTasks.push({title:"", kind:"cyc", cycle:"weekly", person:"", minutes:30});
+    renderNewCab(); return; }
+  if(e.target.closest("#ncFromFns")){
+    (S.fns||[]).slice(0, 8).forEach(function(f){
+      ncTasks.push({title:f.name, kind:"cyc", cycle:"weekly", person:"", minutes:f.minutes, fn:f.id}); });
+    renderNewCab(); toast("Добавил первые восемь функций — поправьте и назначьте ответственных"); return; }
+  if((t = e.target.closest("[data-ncdel]"))){
+    ncTasks.splice(+t.getAttribute("data-ncdel"), 1); renderNewCab(); return; }
+  if(e.target.closest("#ncSave")){
+    var nm = (document.getElementById("ncName")||{}).value || "";
+    nm = nm.trim();
+    if(!nm){ ncErr = "Впишите название кабинета"; renderNewCab(); return; }
+    var pr = addCabinet(nm, {
+      owner:(document.getElementById("ncOwner")||{}).value.trim(),
+      tg:((document.getElementById("ncTg")||{}).value||"").replace(/^@+/,"").trim(),
+      phone:(document.getElementById("ncPhone")||{}).value.trim(),
+      amount:+(document.getElementById("ncAmt")||{}).value||0,
+      payDate:(document.getElementById("ncPay")||{}).value,
+      articles:+(document.getElementById("ncArt")||{}).value||0,
+      sheet:(document.getElementById("ncSheet")||{}).value.trim()
+    });
+    var n = 0;
+    ncTasks.forEach(function(r){
+      if(!String(r.title||"").trim()) return;
+      var row = planAdd(pr.id, r.fn ? fnById(r.fn) : null, r.title);
+      row.cycle = r.kind === "urg" ? "none" : (r.cycle || "weekly");
+      row.person = r.person || "";
+      row.minutes = +r.minutes || 30;
+      row.block = r.kind === "org" ? 2 : r.kind === "urg" ? 3 : 1;
+      n++;
+    });
+    saveState();
+    logAdd(pr.id, "Кабинет заведён, сразу с " + n + " задачами", "edit");
+    ncTasks = []; ncErr = "";
+    cabOpen = pr.id; NAV = []; navPush("projects"); setView("cab", true);
+    toast("Кабинет «" + nm + "» заведён" + (n ? " · " + n + " задач" : ""));
+    return; }
+
+  /* новый менеджер */
+  if(e.target.closest("#nmBack") || e.target.closest("#nmCancel")){ nmState = {}; navBack(); return; }
+  if((t = e.target.closest("[data-nmf]"))){
+    nmDefaults(); var k = t.getAttribute("data-nmf");
+    nmState[k] = !nmState[k]; renderNewMan(); return; }
+  if(e.target.closest("#nmRedist")){
+    nmCollect(); nmRedist = nmRedistPreview(); renderNewMan();
+    toast(nmRedist.length ? "Подобрал " + nmRedist.length + " артикулов у перегруженных"
+                          : "Перегруженных по артикулам нет — забирать нечего");
+    return; }
+  if(e.target.closest("#nmAuto")){ nmCollect(); nmAutoPick(); renderNewMan(); return; }
+  if((t = e.target.closest("[data-nmpick]"))){
+    var id = t.getAttribute("data-nmpick");
+    nmPicked[id] = nmPicked[id] === false ? true : false;
+    renderNewMan(); return; }
+  if(e.target.closest("#nmApprove")){
+    var cand = nmCandidates().filter(function(x){ return nmPicked[x.id] !== false; });
+    nmState.moved = cand.map(function(x){ return x.id; });
+    toast("Отмечено " + cand.length + " задач — перенесу их на нового человека при сохранении");
+    return; }
+  if(e.target.closest("#nmNewTask")){
+    nmDefaults();
+    nmState.tasks = nmState.tasks || [];
+    nmState.tasks.push({title:"Новая задача " + (nmState.tasks.length+1), dow: nmState.tasks.length % 5, minutes:60});
+    renderNewMan(); return; }
+  if((t = e.target.closest("[data-nmtdel]"))){
+    nmState.tasks.splice(+t.getAttribute("data-nmtdel"), 1); renderNewMan(); return; }
+  if(e.target.closest("#nmSave")){
+    nmCollect();
+    if(!String(nmState.name||"").trim()){ nmErr = "Впишите имя"; renderNewMan(); return; }
+    var p = demoAddEmp(nmState.name.trim(), nmState.role || "Менеджер", +nmState.load || 100);
+    p.tg = String(nmState.tg||"").replace(/^@+/,"").trim();
+    p.pay = +nmState.pay || Math.round((grades().filter(function(x){ return x.id===nmState.grade; })[0]||{min:40000,max:60000}).min);
+    p.grade = nmState.grade;
+    p.maxArt = +nmState.maxArt || 0;
+    p.cat = {A:+nmState.cat.A||0, B:+nmState.cat.B||0, C:+nmState.cat.C||0};
+    NM_FLAGS.forEach(function(f){ p[f[0]] = !!nmState[f[0]]; });
+    p.mode = simMode;
+    /* переносим отмеченные задачи и артикулы */
+    var moved = 0;
+    (nmState.moved || []).forEach(function(id){
+      var tk = (S.tasks||[]).filter(function(x){ return x.id === id; })[0];
+      if(tk){ tk.from = tk.person; tk.person = p.id; moved++; }
+    });
+    var arts = 0;
+    (nmRedist || []).forEach(function(a){ a.person = p.id; arts++; });
+    (nmState.tasks || []).forEach(function(x){
+      S.tasks.push({id:uid(), title:x.title, project:(S.projects[0]||{}).id, person:p.id,
+        cab:"", fn:"", minutes:x.minutes, kind:"cyc", dow:x.dow, start:10, done:false,
+        spentSec:0, comment:"", link:"", approver:"Без согласования", status:"", createdAt:Date.now()});
+    });
+    saveState();
+    var name = nmState.name;
+    nmState = {}; nmRedist = null; nmPicked = {};
+    openPerson = p.id; peDay = null; peGantt = false;
+    NAV = []; setView("people", true);
+    toast(name + " в команде" + (moved ? " · перенесли " + moved + " задач" : "") +
+      (arts ? " · " + arts + " артикулов" : ""));
+    return; }
+});
+
+function nmCollect(){
+  nmDefaults();
+  [["nmName","name"],["nmRole","role"],["nmTg","tg"],["nmPay","pay"],
+   ["nmLoad","load"],["nmGrade","grade"],["nmMax","maxArt"]].forEach(function(x){
+    var el = document.getElementById(x[0]);
+    if(el) nmState[x[1]] = el.value;
+  });
+  q("[data-nmc]").forEach(function(el){
+    nmState.cat[el.getAttribute("data-nmc")] = Math.max(0, Math.min(100, +el.value||0));
+  });
+}
+document.addEventListener("input", function(e){
+  var t = e.target;
+  if(t.id === "nmMaxR"){ nmDefaults(); nmState.maxArt = +t.value||0;
+    var f = document.getElementById("nmMax"); if(f) f.value = nmState.maxArt; return; }
+  if(t.id === "nmMax"){ nmDefaults(); nmState.maxArt = +t.value||0;
+    var r2 = document.getElementById("nmMaxR"); if(r2) r2.value = nmState.maxArt; return; }
+  if(t.matches && t.matches("[data-nmc]")){ nmCollect(); renderNewMan(); return; }
+  if(t.matches && t.matches("[data-nck]")){
+    var row = t.closest("[data-nc]"); if(!row) return;
+    ncTasks[+row.getAttribute("data-nc")][t.getAttribute("data-nck")] = t.value;
+    return; }
+});
+document.addEventListener("change", function(e){
+  var t = e.target;
+  if(t.matches && t.matches("[data-nck]")){
+    var row = t.closest("[data-nc]"); if(!row) return;
+    ncTasks[+row.getAttribute("data-nc")][t.getAttribute("data-nck")] = t.value;
+    if(t.getAttribute("data-nck") === "kind") renderNewCab();
+    return; }
+  if(t.id === "nmGrade"){ nmCollect(); renderNewMan(); return; }
+});
+
+/* артикулы нужны сразу — иначе перераспределение и АОД пустые */
+(function(){
+  var _bd = buildDemo;
+  buildDemo = function(){
+    var r = _bd.apply(this, arguments);
+    try{ seedArts(); }catch(e){}
+    return r;
+  };
+})();
+
+/* ── 8. Справочник функций: все функции, блоки, форма отправки ── */
+var FN_EXTRA = [
+  ["S1-01","Разработка ТЗ фотоворонка",120],
+  ["S1-02","Разработка SEO",60],
+  ["S1-03","Разработка ТЗ обложки",60],
+  ["S1-04","Разработка ТЗ А/В-тестирование",45],
+  ["S1-05","Курирование процесса разработки дизайна",60],
+  ["S1-06","Разработка ТЗ самовыкупы",30],
+  ["S1-07","Курирование процесса самовыкупов",40],
+  ["S1-08","Руководитель для внутренних менеджеров",90],
+  ["S1-09","Ведение дизайнера или подрядчика до результата",45],
+  ["S1-10","Сбор семантики и оптимизация карточек под поиск WB",90]
+];
+var FN_GROUPS = [
+  ["ads",   "Реклама и трафик",        /реклам|рк|трафик|ставк|кластер|полк|ctr|запуск рк|бюджет|откручив/i],
+  ["unit",  "Юнит-экономика и цена",   /юнит|цен|спп|акци|p&l|маржин|скидк/i],
+  ["analyt","Аналитика и отчётность",  /отчёт|отчет|статист|аналитик|монитор|конверс|динамик|лайтстат|сводн|план продаж/i],
+  ["card",  "Карточка и контент",      /seo|фото|обложк|карточк|тз |а\/в|ab|тест|размер|дизайн|семантик/i],
+  ["supply","Поставки и остатки",      /поставк|остатк|склад|пополнен|прогноз|новинк|out of stock/i],
+  ["buyout","Самовыкупы",              /самовыкуп/i],
+  ["org",   "Организационные",         /регламент|совещан|планёрк|планерк|задач|урок|клиент|вопрос|график|внештат|подключен|заполнение/i],
+  ["tech",  "Технические",             /F3|техничес|api|интеграц/i],
+  ["sale",  "Продажа услуг клиенту",   /курирован|руководител/i]
+];
+function fnGroup(f){
+  var s = (f.name || "") + " " + (f.code || "");
+  for(var i = 0; i < FN_GROUPS.length; i++){
+    if(FN_GROUPS[i][2].test(s)) return FN_GROUPS[i][0];
+  }
+  return "org";
+}
+function fnsSeed(){
+  if(S.fnsExtra) return;
+  var base = (S.fns||[]).length;
+  FN_EXTRA.forEach(function(x, i){
+    if((S.fns||[]).some(function(f){ return f.name === x[1]; })) return;
+    S.fns.push({id:"fx"+i, code:x[0], name:x[1], minutes:x[2]});
+  });
+  S.fnsExtra = true; saveState();
+}
+function fnForm(id){
+  if(!S.fnForm) S.fnForm = {};
+  if(!S.fnForm[id]) S.fnForm[id] = {h:"", sub:"", body:"", link:"", appr:false, tg:""};
+  return S.fnForm[id];
+}
+var fnOpenGrp = {}, fnFormOpen = null;
+
+function renderFns(){
+  fnsSeed();
+  var host = document.getElementById("sect");
+  var st = fnStats();
+  var all = (S.fns||[]).map(function(f){ return st[f.id] || {f:f, n:0, done:0, mins:0, cabs:{}, people:{}}; });
+  var qq = fnQ.toLowerCase().trim();
+  var byGrp = {};
+  FN_GROUPS.forEach(function(g){ byGrp[g[0]] = []; });
+  all.forEach(function(r){
+    if(qq && r.f.name.toLowerCase().indexOf(qq) < 0 && String(r.f.code).toLowerCase().indexOf(qq) < 0) return;
+    byGrp[fnGroup(r.f)].push(r);
+  });
+  var totalShown = FN_GROUPS.reduce(function(a,g){ return a + byGrp[g[0]].length; }, 0);
+
+  host.innerHTML =
+    '<div class="gl grsum">'+
+      '<div class="pss"><div class="l">Всего функций</div><div class="v">'+(S.fns||[]).length+'</div>'+
+        '<div class="d">в справочнике</div></div>'+
+      '<div class="pss"><div class="l">Групп</div><div class="v">'+FN_GROUPS.filter(function(g){ return byGrp[g[0]].length; }).length+'</div>'+
+        '<div class="d">сворачиваются, чтобы искать быстрее</div></div>'+
+      '<div class="pss"><div class="l">Задач за неделю</div><div class="v">'+
+        all.reduce(function(a,r){ return a + r.n; }, 0)+'</div>'+
+        '<div class="d">по функциям из справочника</div></div>'+
+      '<div class="pss"><div class="l">С формой для Telegram</div>'+
+        '<div class="v">'+Object.keys(S.fnForm||{}).filter(function(k){
+          var x = S.fnForm[k]; return x.h || x.body; }).length+'</div>'+
+        '<div class="d">заполнено шаблонов отправки</div></div>'+
+    '</div>'+
+    '<div class="gl"><div class="gl-t"><h2>Справочник функций</h2>'+
+      '<span class="m">'+(qq ? 'нашлось '+totalShown : 'сгруппированы по смыслу')+'</span>'+
+      '<div class="fnbar"><input class="fi sm fnq" id="fnQ" placeholder="Найти функцию" value="'+esc(fnQ)+'">'+
+        '<button class="bt gh2 sm" id="fnAdd">+ Своя функция</button></div></div>'+
+      FN_GROUPS.map(function(g){
+        var list = byGrp[g[0]];
+        if(!list.length) return "";
+        var open = qq ? true : !!fnOpenGrp[g[0]];
+        var mins = list.reduce(function(a,r){ return a + (r.f.minutes||0); }, 0);
+        return '<div class="fng'+(open?' on':'')+'">'+
+          '<button class="fngh" data-fng="'+g[0]+'">'+
+            '<svg class="gcx" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>'+
+            '<b>'+g[1]+'</b><span class="fngn">'+list.length+'</span>'+
+            '<i>норматив '+hrs(mins)+' ч суммарно</i></button>'+
+          (open ? '<div class="fngl">'+list.map(function(r){
+            var fm = fnForm(r.f.id);
+            var filled = !!(fm.h || fm.body);
+            var top = Object.keys(r.people).sort(function(a,b){ return r.people[b]-r.people[a]; })[0];
+            var m = top ? person(top) : null;
+            return '<div class="fnr'+(fnFormOpen===r.f.id?' open':'')+'" data-fnr="'+esc(r.f.id)+'">'+
+              '<div class="fnrh">'+
+                '<span class="fnc2">'+esc(r.f.code)+'</span>'+
+                '<span class="fnn2">'+esc(r.f.name)+'</span>'+
+                '<span class="fnm">'+r.f.minutes+' мин</span>'+
+                '<span class="fnw">'+(r.n ? r.n+' за неделю' : '—')+'</span>'+
+                '<span class="fnp">'+(m ? esc(m.name) : '<i class="dim">никто</i>')+'</span>'+
+                '<button class="bt gh2 sm'+(filled?' okb':'')+'" data-fnform="'+esc(r.f.id)+'">'+
+                  (filled ? 'Форма готова' : 'Форма для Telegram')+'</button>'+
+              '</div>'+
+              (fnFormOpen === r.f.id ? fnFormHTML(r.f, fm) : '')+
+            '</div>'; }).join("")+'</div>' : '')+
+        '</div>'; }).join("")+
+      (totalShown ? '' : '<div class="empty">Ничего не найдено</div>')+
+    '</div>';
+}
+
+function fnFormHTML(f, fm){
+  var own = /^F0-/.test(f.code||"");
+  return '<div class="fnform">'+
+    (own ? '<div class="sfr">'+
+      '<label><span>Название функции</span><input class="fi sm" data-fnname="'+esc(f.id)+'" value="'+esc(f.name)+'"></label>'+
+      '<label class="nar"><span>Норматив, мин</span><input class="fi sm" type="number" min="5" step="5" data-fnmin="'+esc(f.id)+'" value="'+(f.minutes||30)+'"></label>'+
+    '</div>' : '')+
+    '<div class="sfr">'+
+      '<label><span>Заголовок</span><input class="fi sm" data-fnk="h" placeholder="Доброе утро" value="'+esc(fm.h)+'"></label>'+
+      '<label><span>Подзаголовок</span><input class="fi sm" data-fnk="sub" placeholder="ИП Кунгурская · отчёт по остаткам FBS" value="'+esc(fm.sub)+'"></label>'+
+    '</div>'+
+    '<div class="sfr"><label><span>Текст сообщения</span>'+
+      '<textarea class="fi" data-fnk="body" rows="3" placeholder="Суть в двух строках — что сделано и на что смотреть">'+esc(fm.body)+'</textarea></label></div>'+
+    '<div class="sfr">'+
+      '<label><span>Ссылка на Google-таблицу</span><input class="fi sm" data-fnk="link" placeholder="https://docs.google.com/..." value="'+esc(fm.link)+'"></label>'+
+      '<label class="nar"><span>Кого отметить</span><div class="tgr"><span class="at">@</span>'+
+        '<input class="fi sm" data-fnk="tg" placeholder="nickname" value="'+esc(fm.tg)+'"></div></label>'+
+    '</div>'+
+    '<div class="fnfb">'+
+      '<button class="ck'+(fm.appr?' on':'')+'" data-fnappr="'+esc(f.id)+'"><i></i>Согласовываем перед отправкой</button>'+
+      '<div class="grow"></div>'+
+      '<button class="bt gh2 sm" data-fnprev="'+esc(f.id)+'">Показать, как уйдёт</button>'+
+      '<button class="bt sm" id="fnFormClose">Готово</button>'+
+    '</div>'+
+    '<div class="fnprev">'+esc(fnPreview(f, fm))+'</div>'+
+  '</div>';
+}
+function fnPreview(f, fm){
+  var out = [];
+  if(fm.h) out.push(fm.h);
+  out.push(fm.sub || f.name);
+  if(fm.body) out.push("", fm.body);
+  if(fm.link) out.push("", fm.link);
+  if(fm.tg) out.push("", "@" + String(fm.tg).replace(/^@+/,""));
+  if(fm.appr) out.push("", "— уйдёт только после согласования");
+  return out.join("\n");
+}
+
+document.addEventListener("click", function(e){
+  var t;
+  if((t = e.target.closest("[data-fng]"))){
+    var g = t.getAttribute("data-fng"); fnOpenGrp[g] = !fnOpenGrp[g]; renderFns(); return; }
+  if((t = e.target.closest("[data-fnform]"))){
+    var id = t.getAttribute("data-fnform");
+    fnFormOpen = fnFormOpen === id ? null : id; renderFns(); return; }
+  if(e.target.closest("#fnFormClose")){ fnFormOpen = null; renderFns(); return; }
+  if((t = e.target.closest("[data-fnappr]"))){
+    var fm = fnForm(t.getAttribute("data-fnappr"));
+    fm.appr = !fm.appr; saveState(); renderFns(); return; }
+  if((t = e.target.closest("[data-fnprev]"))){
+    var f = fnById(t.getAttribute("data-fnprev"));
+    toast("Так сообщение уйдёт в чат — текст ниже"); return; }
+  if(e.target.closest("#fnAdd")){
+    var k = (S.fns||[]).filter(function(f){ return /^F0-/.test(f.code||""); }).length + 1;
+    var nf = {id:nextId("fn"), code:"F0-" + k, name:"Своя функция " + k, minutes:30};
+    S.fns.push(nf); fnFormOpen = nf.id; fnOpenGrp.org = true; fnQ = "";
+    saveState(); renderFns();
+    var inp = document.querySelector('[data-fnr="' + nf.id + '"] [data-fnk="sub"]');
+    if(inp) inp.focus();
+    toast("Функция добавлена — заполните форму отправки"); return; }
+});
+document.addEventListener("input", function(e){
+  var t = e.target;
+  if(t.matches && t.matches("[data-fnname]")){
+    var f1 = fnById(t.getAttribute("data-fnname")); if(f1){ f1.name = t.value; saveState(); }
+    var rw = t.closest("[data-fnr]"); var nm = rw && rw.querySelector(".fnn2");
+    if(nm) nm.textContent = t.value; return; }
+  if(t.matches && t.matches("[data-fnmin]")){
+    var f2 = fnById(t.getAttribute("data-fnmin")); if(f2){ f2.minutes = Math.max(5, +t.value||30); saveState(); }
+    return; }
+  if(t.matches && t.matches("[data-fnk]")){
+    var row = t.closest("[data-fnr]"); if(!row) return;
+    var fm = fnForm(row.getAttribute("data-fnr"));
+    fm[t.getAttribute("data-fnk")] = t.value; saveState();
+    var pv = row.querySelector(".fnprev");
+    if(pv) pv.textContent = fnPreview(fnById(row.getAttribute("data-fnr")), fm);
+    return; }
+});
+
+/* ── 9. Род в подсказках (C6) ─────────────────────────────── */
+var MALE_A = /^(никита|илья|фома|савва|лука|данила|гаврила|кузьма|сила|добрыня|серёга|серега|миша|саша|женя|валя)$/i;
+function isFem(m){
+  if(!m) return false;
+  if(m.sex) return m.sex === "f";
+  var n = String(m.name||"").trim().split(/\s+/)[0];
+  if(MALE_A.test(n)) return false;
+  return /[ая]$/i.test(n);
+}
+function gnd(m, male, female){ return isFem(m) ? female : male; }
+
+/* пересобираем ночную подсказку по дню/цикличности — с согласованием рода */
+function ntAdvice(){
+  var pid = ntPersonId();
+  if(!pid) return {day:"", cyc:"", load:0};
+  var d = (ntState.dow != null && ntState.dow !== "") ? +ntState.dow : dow;
+  var fr = dayFree(pid);
+  var best = fr.slice().sort(function(a,b){ return a.load - b.load; })[0];
+  var cur = fr[d], m = person(pid);
+  var wk = fr.reduce(function(a,x){ return a + x.load; }, 0);
+  var loadPct = Math.round(wk / (NORM*5) * 100);
+  var out = {day:"", cyc:"", load:loadPct, best:best, cur:cur, m:m};
+  if(best && cur && best.d !== d && (cur.load - best.load) > 20){
+    out.day = DOW[best.d] + ' свободнее на ' + hrs(cur.load - best.load) + ' ч';
+    out.bestDay = best.d;
+    out.dayWhy = 'в ' + DOW[d].toLowerCase() + ' у ' + (m ? m.name : gnd(m,'него','неё')) + ' уже ' +
+      hrs(cur.load) + ' ч, в ' + DOW[best.d].toLowerCase() + ' — ' + hrs(best.load) + ' ч';
+  }
+  var cyc = ntState.cycle || "none";
+  if(loadPct > 110 && cyc === "daily"){
+    out.cyc = "еженедельно";
+    out.cycWhy = m.name + " " + gnd(m,"загружен","загружена") + " на " + loadPct + "% — каждый день будет перебор"; }
+  else if(loadPct > 125 && cyc === "weekly"){
+    out.cyc = "раз в 2 недели";
+    out.cycWhy = m.name + " " + gnd(m,"загружен","загружена") + " на " + loadPct + "%"; }
+  return out;
+}
+
+/* ── 10. Грейды и месячный гонорар в модели найма (C20 + sim.12) ── */
+var simGrade = "mid";
+function gradeById(id){ return grades().filter(function(g){ return g.id === id; })[0] || grades()[2]; }
+function simHireCost(add){ var g = gradeById(simGrade); return add * Math.round((g.min + g.max) / 2); }
+
+/* средний чек кабинета относительно его загрузки */
+function simRevenue(e){
+  var prs = (S.projects||[]).filter(function(p){ return +p.amount > 0; });
+  if(!prs.length) return null;
+  var avgCheck = Math.round(prs.reduce(function(a,p){ return a + (+p.amount||0); }, 0) / prs.length);
+  var add = e.canTake || 0;
+  var gain = add * avgCheck;                     /* выручка в месяц с новых кабинетов */
+  var cost = simHireCost(e.add);                 /* гонорар новых людей в месяц */
+  return {avgCheck:avgCheck, n:prs.length, add:add, gain:gain, cost:cost,
+    net: gain - cost, projH:e.projH};
+}
+
+function simGradeRow(){
+  return '<div class="simgr"><span class="simgl">Кого берём</span>'+
+    '<div class="seg sm">'+grades().map(function(g){
+      return '<button data-simgrade="'+esc(g.id)+'" aria-pressed="'+(simGrade===g.id)+'">'+
+        esc(g.name)+'</button>'; }).join("")+'</div>'+
+    '<span class="simgv">'+rub(gradeById(simGrade).min)+' – '+rub(gradeById(simGrade).max)+
+      ' <i>в месяц по нормативу</i></span></div>';
+}
+
+function simRevHTML(e){
+  var r = simRevenue(e);
+  if(!r) return '';
+  if(!r.add) return '<div class="simrev empty2">Свободных часов пока не хватает даже на один кабинет — '+
+    'гипотезу по выручке считать не на чем.</div>';
+  var pos = r.net > 0;
+  return '<div class="simrev">'+
+    '<div class="srh"><b>Гипотеза по выручке</b>'+
+      '<i>средний чек '+rub(r.avgCheck)+' по '+r.n+' кабинетам · берём '+r.add+' новых</i></div>'+
+    '<div class="srg">'+
+      '<div class="src"><div class="l">Выручка вырастет</div><div class="v okv">+'+rub(r.gain)+'</div>'+
+        '<div class="d">в месяц, при том же среднем чеке</div></div>'+
+      '<div class="src"><div class="l">Гонорар новых</div><div class="v">−'+rub(r.cost)+'</div>'+
+        '<div class="d">'+e.add+' × «'+esc(gradeById(simGrade).name)+'» по середине вилки</div></div>'+
+      '<div class="src big"><div class="l">Чистый прирост</div>'+
+        '<div class="v '+(pos?'okv':'critv')+'">'+(pos?'+':'')+rub(r.net)+'</div>'+
+        '<div class="d">'+(pos
+          ? 'окупается с первого месяца, если кабинеты найдутся'
+          : 'пока в минус — либо берём дешевле грейдом, либо продаём дороже')+'</div></div>'+
+    '</div>'+
+    '<div class="srn">Считаем прямо: средний чек текущих кабинетов × сколько ещё потянем '+
+      'минус месячный гонорар новых людей по грейду. Расходы на рекламу и налоги сюда не входят.</div>'+
+  '</div>';
+}
+
+(function(){
+  var _sw = simWidget;
+  simWidget = function(opts){
+    opts = opts || {};
+    var html = _sw.call(this, opts);
+    var e = simEffect(simAdd, simMode);
+    /* sim.12: недельная стоимость → месячный гонорар по грейду */
+    html = html.replace(
+      /<div class="simc"><div class="l">Стоит в неделю<\/div>[\s\S]*?<div class="d">по средней ставке команды<\/div><\/div>/,
+      '<div class="simc"><div class="l">Месячный гонорар</div>'+
+        '<div class="v"><b>'+rub(simHireCost(e.add))+'</b></div>'+
+        '<div class="d">'+e.add+' × «'+esc(gradeById(simGrade).name)+'» · вилка '+
+          rub(gradeById(simGrade).min)+'–'+rub(gradeById(simGrade).max)+'</div></div>');
+    /* грейд — сразу под счётчиком */
+    html = html.replace('<div class="simg">', simGradeRow() + '<div class="simg">');
+    /* C22: гипотеза по выручке — ниже «сколько ещё потянем» */
+    if(seesMoney()) html = html.replace(/<\/div>\s*$/, simRevHTML(e) + '</div>');
+    return html;
+  };
+})();
+
+/* ── 11. Моя команда: заголовок, уникальные/всего задач (C10 + team.11) ── */
+/* уникальная задача — одно определение: кто · кабинет · функция.
+   цикличная задача повторяется по дням, но определение у неё одно */
+function taskUniq(list){
+  var seen = {};
+  (list||[]).forEach(function(t){
+    seen[(t.person||"-") + "|" + (t.cab||t.project||"-") + "|" + (t.fn||t.title||"-")] = 1; });
+  return Object.keys(seen).length;
+}
+var manCardOpen = null;
+
+function teamHead(){
+  var pl = visiblePeople();
+  var tot = tasksOf(function(t){ return true; });
+  var uniq = taskUniq(tot);
+  return '<div class="teamh">'+
+    '<div class="teamhl"><b>Кто чем занят на этой неделе</b>'+
+      '<i>'+pl.length+' человек · уникальных задач <u>'+uniq+'</u>'+
+      ' · всего за неделю <u>'+tot.length+'</u> — разница это повторы цикличных</i></div>'+
+    '<button class="secadd" id="teamAddMan">+ Добавить менеджера</button></div>';
+}
+
+(function(){
+  var _rp = renderPeople;
+  renderPeople = function(){
+    _rp.apply(this, arguments);
+    var host = document.getElementById("sect");
+    if(!host) return;
+    if(!host.querySelector(".teamh")) host.insertAdjacentHTML("afterbegin", teamHead());
+    var m = manCardOpen ? person(manCardOpen) : null;
+    if(m && !host.querySelector(".mcardw"))
+      host.insertAdjacentHTML("beforeend",
+        '<section class="gl mcardw">'+manCardHTML(m)+'</section>');
+  };
+})();
+
+/* ── 12. Развернуть карточку менеджера (C18) ────────────────── */
+function manFlags(m){
+  return [["fnWork","работает с функциями", m.fnWork !== false],
+          ["rk","работает с рекламными кампаниями", worksRK(m)],
+          ["orgWork","работает с организационными задачами", !!m.orgWork],
+          ["assist","ассистирует", !!m.assist]];
+}
+function manCardHTML(m){
+  var g = gradeOf(m);
+  var al = artLoad(m.id);
+  var c = comp(m), letter = compLetter(m);
+  var max = +m.maxArt || 0;
+  var all = tasksOf(function(t){ return t.person === m.id; });
+  var byDay = [0,1,2,3,4].map(function(d){
+    return all.filter(function(t){ return t.dow === d; }); });
+  var money = seesMoney();
+  return '<div class="mcard">'+
+    '<div class="mch"><span class="av" style="background:'+m.color+'">'+esc(m.av||"")+'</span>'+
+      '<div class="mcn"><b>'+esc(m.name)+'</b>'+
+        '<i>'+esc(g.name)+(letter ? ' · компетенция '+letter : '')+'</i></div>'+
+      '<button class="bt gh2 sm" data-mclose="'+esc(m.id)+'">Свернуть карточку</button></div>'+
+
+    '<div class="mcg">'+
+      (money ? '<div class="mcc"><div class="l">Оклад по грейду</div>'+
+        '<div class="v">'+rub(gradeCost(m))+'</div>'+
+        '<div class="d">вилка '+rub(g.min)+'–'+rub(g.max)+' в месяц</div></div>' : '')+
+      '<div class="mcc"><div class="l">Артикулов в управлении</div>'+
+        '<div class="v">'+al.n+(max ? ' / '+max : '')+'</div>'+
+        '<div class="d">'+(max ? (max - al.n > 0 ? 'свободно ещё '+(max-al.n) : 'предел выбран')
+                              : 'предел не задан')+'</div></div>'+
+      '<div class="mcc"><div class="l">Часов на артикулы</div>'+
+        '<div class="v">'+hrs(al.mins)+' ч</div>'+
+        '<div class="d">в неделю, по нормативам категорий</div></div>'+
+      '<div class="mcc"><div class="l">Задач на неделе</div>'+
+        '<div class="v">'+all.length+'</div>'+
+        '<div class="d">'+all.filter(function(t){ return t.done; }).length+' закрыто</div></div>'+
+    '</div>'+
+
+    '<div class="mcs"><div class="mcsl">Что делает</div>'+
+      '<div class="mcfl">'+manFlags(m).map(function(f){
+        return '<button class="ck sm'+(f[2]?' on':'')+'" data-mcf="'+f[0]+'" data-mcm="'+esc(m.id)+'">'+
+          '<i></i>'+f[1]+'</button>'; }).join("")+'</div></div>'+
+
+    (worksRK(m)
+      ? '<div class="mcs"><div class="mcsl">Компетенция по артикулам</div>'+
+        '<div class="mccomp">'+["A","B","C"].map(function(k){
+          return '<label class="mccl"><span>Категория '+k+'</span>'+
+            '<input class="fi sm" type="number" min="0" max="100" step="5" '+
+              'data-mccat="'+k+'" data-mcm="'+esc(m.id)+'" value="'+(+c[k]||0)+'"></label>'; }).join("")+
+          '<div class="mcletter'+(compSum(m)===100?'':' bad')+'">'+
+            (compSum(m)===100
+              ? '<b>'+letter+'</b><i>компетенция присвоена сервисом</i>'
+              : '<b>'+compSum(m)+'%</b><i>сумма по категориям должна быть 100%</i>')+'</div>'+
+        '</div>'+
+        '<label class="mcmax"><span>Максимум артикулов в управлении</span>'+
+          '<input type="range" min="0" max="300" step="10" data-mcmax="'+esc(m.id)+'" value="'+max+'">'+
+          '<b>'+max+'</b></label></div>'
+      : '<div class="mcs"><div class="mcsl">Компетенция по артикулам</div>'+
+        '<div class="mcnote">Не работает с рекламными кампаниями — категорийность и АОД к нему не применяются. '+
+        'Включите галочку выше, чтобы настроить.</div></div>')+
+
+    '<div class="mcs"><div class="mcsl">Задачи по дням</div>'+
+      '<div class="mcdays">'+byDay.map(function(list, d){
+        return '<div class="mcd'+(d===dow?' now':'')+'">'+
+          '<div class="mcdh">'+DOWS[d]+'<span>'+hrs(minutesOf(list))+' ч</span></div>'+
+          (list.length ? list.slice(0,6).map(function(t){
+            var f = t.fn ? fnById(t.fn) : null;
+            var pr = t.project ? project(t.project) : null;
+            return '<div class="mcdt'+(t.done?' done':'')+'">'+
+              '<span class="dot" style="background:'+(pr?pr.color:'var(--stroke)')+'"></span>'+
+              esc(t.title || (f ? f.name : "Задача"))+'</div>'; }).join("")+
+            (list.length > 6 ? '<div class="mcdm">и ещё '+(list.length-6)+'</div>' : '')
+          : '<div class="mcdm">свободно</div>')+
+        '</div>'; }).join("")+'</div></div>'+
+  '</div>';
+}
+
+(function(){
+  var _pc = personCard;
+  personCard = function(m, open){
+    var html = _pc.call(this, m, open);
+    var on = manCardOpen === m.id;
+    var btn = '<button class="bt gh2 pcb'+(on?' onb':'')+'" data-mcopen="'+esc(m.id)+'">'+
+      (on ? 'Свернуть карточку' : 'Карточка менеджера')+'</button>';
+    if(/<div class="pcbs">/.test(html))
+      html = html.replace(/<div class="pcbs">([\s\S]*?)<\/div>/, '<div class="pcbs">$1'+btn+'</div>');
+    else
+      html = html.replace(/(<button class="bt gh2 pcb" data-peopengantt="[^"]*">[^<]*<\/button>)/,
+        '<div class="pcbs">$1'+btn+'</div>');
+    return html;
+  };
+})();
+
+document.addEventListener("click", function(e){
+  var t;
+  if(e.target.closest("#teamAddMan")){ e.stopPropagation(); navTo("newman"); return; }
+  if((t = e.target.closest("[data-mcopen]"))){
+    e.stopPropagation();
+    var id = t.getAttribute("data-mcopen");
+    manCardOpen = manCardOpen === id ? null : id;
+    render(); return; }
+  if((t = e.target.closest("[data-mclose]"))){ e.stopPropagation(); manCardOpen = null; render(); return; }
+  if((t = e.target.closest("[data-mcf]"))){
+    e.stopPropagation();
+    var m = person(t.getAttribute("data-mcm")); if(!m) return;
+    var k = t.getAttribute("data-mcf");
+    m[k] = k === "rk" ? !worksRK(m) : !m[k];
+    if(k === "fnWork" && m.fnWork === undefined) m.fnWork = false;
+    saveState(); render(); return; }
+  if((t = e.target.closest("[data-simgrade]"))){
+    simGrade = t.getAttribute("data-simgrade"); render(); return; }
+}, true);
+
+document.addEventListener("input", function(e){
+  var t = e.target;
+  if(t.matches && t.matches("[data-mccat]")){
+    var m = person(t.getAttribute("data-mcm")); if(!m) return;
+    comp(m)[t.getAttribute("data-mccat")] = Math.max(0, Math.min(100, +t.value||0));
+    saveState();
+    var box = t.closest(".mccomp"), lt = box && box.querySelector(".mcletter");
+    if(lt){ var ok = compSum(m) === 100;
+      lt.className = "mcletter" + (ok ? "" : " bad");
+      lt.innerHTML = ok ? '<b>'+compLetter(m)+'</b><i>компетенция присвоена сервисом</i>'
+                        : '<b>'+compSum(m)+'%</b><i>сумма по категориям должна быть 100%</i>'; }
+    return; }
+  if(t.matches && t.matches("[data-mcmax]")){
+    var mm = person(t.getAttribute("data-mcmax")); if(!mm) return;
+    mm.maxArt = +t.value || 0; saveState();
+    var lb = t.parentNode.querySelector("b"); if(lb) lb.textContent = mm.maxArt;
+    return; }
+});
+
+/* ── 13. Демо: настоящая цикличность (team.11) ──────────────
+   раньше каждая задача была случайной — «уникальных» и «всего» совпадали.
+   теперь у человека есть НАБОР ОПРЕДЕЛЕНИЙ (кабинет + функция + ритм),
+   а на неделе они разворачиваются в повторы. */
+function genWeekFor(p, r){
+  if(!S.cabs.length) return [];
+  var base = p.target || 100;
+  var pool = S.cabs.slice();
+  /* 2–3 кабинета на человека */
+  var myCabs = [];
+  var nCab = 2 + Math.floor(r() * 2);
+  for(var i = 0; i < nCab && pool.length; i++)
+    myCabs.push(pool.splice(Math.floor(r() * pool.length), 1)[0]);
+  if(!myCabs.length) myCabs = [S.cabs[0]];
+
+  /* определения: 60% цикличных (2–5 дней), 25% недельных, 15% разовых */
+  var defs = [], nDef = 7 + Math.floor(r() * 5);
+  for(var k = 0; k < nDef; k++){
+    var f = S.fns[Math.floor(r() * S.fns.length)];
+    var cab = myCabs[Math.floor(r() * myCabs.length)];
+    var roll = r();
+    var days = roll < 0.6 ? (2 + Math.floor(r() * 4))       /* цикличная: 2–5 дней */
+             : roll < 0.85 ? 1                              /* раз в неделю */
+             : 1;                                           /* разовая */
+    defs.push({f:f, cab:cab, days:days,
+      kind: roll < 0.6 ? "cyc" : roll < 0.85 ? "fix" : "urg",
+      mins: f.minutes * (1 + Math.floor(r() * 2))});
+  }
+
+  var out = [], used = [0,0,0,0,0];
+  defs.forEach(function(D){
+    /* какие дни занимает это определение */
+    var ds = [], all = [0,1,2,3,4];
+    for(var j = 0; j < D.days && all.length; j++)
+      ds.push(all.splice(Math.floor(r() * all.length), 1)[0]);
+    ds.sort(function(a,b){ return a-b; });
+    ds.forEach(function(d){
+      var target = Math.round(NORM * (base + Math.round((r()-.5)*26)) / 100);
+      if(used[d] > target) return;
+      var mins = D.mins;
+      var done = d < today || (d === today && r() < .42);
+      out.push({id:nextId("t"), title:D.f.name, project:D.cab.project, person:p.id, cab:D.cab.id,
+        fn:D.f.id, minutes:mins, kind:D.kind, dow:d,
+        start:Math.min(19.4, 10 + used[d]/60), done:done,
+        spentSec: done && r() < .55 ? Math.round(mins*60*(.6 + r()*.7)) : 0,
+        comment:"", link:"", approver:"Без согласования",
+        from:(r() < .10 && S.people.length > 1) ? "OTHER" : "",
+        due:(r() < .16) ? (10 + Math.floor(r()*8)) : null,
+        status:(!done && r() < .08) ? "wait" : "", createdAt:Date.now()});
+      used[d] += mins;
+    });
+  });
+  /* добить день до нормы разовыми, если сильно пусто */
+  for(var d2 = 0; d2 < 5; d2++){
+    var tg = Math.round(NORM * base / 100), guard = 0;
+    while(used[d2] < tg - 45 && guard++ < 12){
+      /* добираем ТЕМИ ЖЕ определениями — так растёт «всего», а не «уникальных» */
+      var DD = defs[Math.floor(r() * defs.length)];
+      var ff = DD.f, cc = DD.cab;
+      var mm = Math.min(DD.mins, tg - used[d2]);
+      if(mm < 10) break;
+      var dn = d2 < today || (d2 === today && r() < .42);
+      out.push({id:nextId("t"), title:ff.name, project:cc.project, person:p.id, cab:cc.id,
+        fn:ff.id, minutes:mm, kind:DD.kind, dow:d2,
+        start:Math.min(19.4, 10 + used[d2]/60), done:dn,
+        spentSec: dn && r() < .55 ? Math.round(mm*60*(.6 + r()*.7)) : 0,
+        comment:"", link:"", approver:"Без согласования", from:"",
+        due:(r() < .16) ? (10 + Math.floor(r()*8)) : null,
+        status:"", createdAt:Date.now()});
+      used[d2] += mm;
+    }
+  }
+  return out;
+}
+
+/* ══ 14. ДОСТУПЫ (C26) ═══════════════════════════════════════
+   Собственник и директор выдают доступы всей команде — по почте
+   или по телефону. Право выдачи можно передать конкретному человеку.
+   Доступы можно забрать, аккаунт — заблокировать.
+   Роли настраиваются: ограничения и дополнения галочками.
+   Отдельно: код проекта — по нему в проект попадает любая роль. */
+
+var ROLE_LIST = [
+  ["owner",  "Собственник"],
+  ["dir",    "Директор"],
+  ["head",   "Руководитель"],
+  ["pm",     "Проджект"],
+  ["mgr",    "Менеджер главный"],
+  ["jun",    "Менеджер младший"],
+  ["asst",   "Ассистент"],
+  ["client", "Клиент агентства"]
+];
+function roleName(id){
+  var r = ROLE_LIST.filter(function(x){ return x[0] === id; })[0];
+  return r ? r[1] : id;
+}
+
+/* что можно ОТНЯТЬ у роли */
+var ROLE_LIMITS = [
+  ["money",  "Не видит деньги, оклады и платежи"],
+  ["others", "Не видит чужую загрузку — только свою"],
+  ["cards",  "Не видит карточки клиентов"],
+  ["staff",  "Не видит карточки команды"],
+  ["growth", "Не видит «Рост» и модель найма"],
+  ["rate",   "Не видит рейтинг команды"],
+  ["del",    "Не может удалять задачи"],
+  ["export", "Не может выгружать данные"]
+];
+/* что можно ДОБАВИТЬ роли сверх обычного */
+var ROLE_EXTRA = [
+  ["grant",   "Может выдавать доступы"],
+  ["block",   "Может блокировать аккаунты"],
+  ["setTask", "Может ставить задачи другим"],
+  ["approve", "Может согласовывать задачи"],
+  ["editFns", "Может править справочник функций"],
+  ["aodAll",  "Видит АОД целиком, а не только свой"],
+  ["fin",     "Видит платежи по кабинетам"],
+  ["cab",     "Может заводить кабинеты"]
+];
+
+function roleCfg(id){
+  if(!S.roleCfg) S.roleCfg = {};
+  if(!S.roleCfg[id]) S.roleCfg[id] = {lim:{}, ext:{}};
+  return S.roleCfg[id];
+}
+function accList(){ if(!S.access) S.access = []; return S.access; }
+function projectCode(){
+  if(!S.projectCode) S.projectCode = ("FO-" + Math.random().toString(36).slice(2,7) +
+    "-" + Math.random().toString(36).slice(2,6)).toUpperCase();
+  return S.projectCode;
+}
+/* кто прямо сейчас имеет право выдавать доступы */
+function canGrant(){
+  if(role === "owner" || role === "dir") return true;
+  if(roleCfg(role).ext.grant) return true;
+  var me = person(meId);
+  return !!(me && me.canGrant);
+}
+function granters(){
+  return (S.people||[]).filter(function(m){ return m.canGrant; });
+}
+
+var accState = {via:"mail", val:"", name:"", role:"mgr"};
+var accRoleOpen = null;
+
+function accSeed(){
+  if(S.accSeeded) return;
+  var pl = (S.people||[]).slice(0, 3);
+  var roles = ["mgr","jun","asst"];
+  pl.forEach(function(m, i){
+    accList().push({id:nextId("ac"), name:m.name, pid:m.id, role:roles[i] || "mgr",
+      via: i === 1 ? "phone" : "mail",
+      val: i === 1 ? "+7 999 000-0" + (10+i) : translit(m.name) + "@flater.pro",
+      status:"active", at: Date.now() - (i+1)*86400000, by:"Виталий"});
+  });
+  S.accSeeded = true; saveState();
+}
+function translit(s){
+  var M = {а:"a",б:"b",в:"v",г:"g",д:"d",е:"e",ё:"e",ж:"zh",з:"z",и:"i",й:"y",к:"k",л:"l",
+    м:"m",н:"n",о:"o",п:"p",р:"r",с:"s",т:"t",у:"u",ф:"f",х:"h",ц:"c",ч:"ch",ш:"sh",
+    щ:"sch",ъ:"",ы:"y",ь:"",э:"e",ю:"yu",я:"ya"};
+  return String(s||"").toLowerCase().split("").map(function(c){
+    return M[c] !== undefined ? M[c] : (/[a-z0-9]/.test(c) ? c : ""); }).join("");
+}
+
+/* ── валидация: почта или телефон ── */
+function accValid(){
+  var v = String(accState.val||"").trim();
+  if(!v) return {ok:false, why:"Впишите почту или телефон"};
+  if(accState.via === "mail")
+    return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v)
+      ? {ok:true} : {ok:false, why:"Почта не похожа на почту — нужен вид имя@домен.ру"};
+  var d = v.replace(/\D/g, "");
+  return d.length >= 10
+    ? {ok:true} : {ok:false, why:"В телефоне должно быть минимум 10 цифр"};
+}
+
+function accGrantForm(){
+  var v = accValid();
+  return '<div class="gl"><div class="gl-t"><h2>Выдать доступ</h2>'+
+      '<span class="m">по почте или по телефону — что удобнее человеку</span></div>'+
+    '<div class="accf">'+
+      '<label><span>Кому</span><input class="fi sm" id="accName" placeholder="Имя и фамилия" '+
+        'value="'+esc(accState.name)+'"></label>'+
+      '<label><span>Роль в сервисе</span><select class="sel" id="accRole">'+
+        ROLE_LIST.map(function(r){
+          return '<option value="'+r[0]+'"'+(accState.role===r[0]?' selected':'')+'>'+r[1]+'</option>';
+        }).join("")+'</select></label>'+
+      '<label class="accvia"><span>Куда выдаём</span>'+
+        '<div class="seg sm">'+
+          '<button data-accvia="mail" aria-pressed="'+(accState.via==="mail")+'">На почту</button>'+
+          '<button data-accvia="phone" aria-pressed="'+(accState.via==="phone")+'">На телефон</button>'+
+        '</div></label>'+
+      '<label class="accval"><span>'+(accState.via==="mail"?"Почта":"Телефон")+'</span>'+
+        '<input class="fi sm" id="accVal" '+
+          (accState.via==="mail" ? 'type="email" placeholder="manager@flater.pro"'
+                                 : 'type="tel" placeholder="+7 999 000-00-00"')+
+          ' value="'+esc(accState.val)+'"></label>'+
+    '</div>'+
+    '<div class="accfb">'+
+      '<button class="bt pri" id="accGrant"'+(v.ok?'':' disabled')+'>Выдать доступ</button>'+
+      '<span class="accw'+(v.ok?' ok':'')+'">'+
+        (v.ok ? 'Приглашение уйдёт на '+esc(accState.val)+' · роль «'+esc(roleName(accState.role))+'»'
+              : esc(v.why))+'</span>'+
+    '</div></div>';
+}
+
+function accCodeBlock(){
+  return '<div class="gl acccode">'+
+    '<div class="acch"><b>Код проекта</b>'+
+      '<i>по нему в проект попадает любая роль — даже без вашего приглашения</i></div>'+
+    '<div class="accrow2">'+
+      '<code class="accc">'+esc(projectCode())+'</code>'+
+      '<button class="bt gh2 sm" data-copy="'+esc(projectCode())+'">Скопировать код проекта</button>'+
+      '<button class="bt gh2 sm" id="accNewCode">Сменить код</button>'+
+    '</div>'+
+    '<div class="accn">Смена кода не выкидывает тех, кто уже внутри — она закрывает вход по старому коду. '+
+      'Забрать доступ конкретному человеку можно в списке ниже.</div></div>';
+}
+
+function accGrantersBlock(){
+  var pl = (S.people||[]).filter(function(m){ return !m.hidden; });
+  var boss = (role === "owner" || role === "dir");
+  return '<div class="gl"><div class="gl-t"><h2>Кто может выдавать доступы</h2>'+
+      '<span class="m">'+(boss ? 'вы и те, кому вы это поручили'
+                               : 'настраивает собственник или директор')+'</span></div>'+
+    '<div class="accgl">'+
+      '<div class="accgr fixed"><span class="av" style="background:linear-gradient(140deg,#7C5CFF,#00B39A)">ВЫ</span>'+
+        '<span class="accgn"><b>Собственник и директор</b><i>всегда, право снять нельзя</i></span>'+
+        '<span class="accgt on">включено</span></div>'+
+      pl.map(function(m){
+        return '<div class="accgr">'+
+          '<span class="av" style="background:'+m.color+'">'+esc(m.av||"")+'</span>'+
+          '<span class="accgn"><b>'+esc(m.name)+'</b><i>'+esc(m.role||"Сотрудник")+'</i></span>'+
+          '<button class="ck sm'+(m.canGrant?' on':'')+'" data-accg="'+esc(m.id)+'"'+
+            (boss?'':' disabled')+'><i></i>может выдавать доступы</button>'+
+        '</div>'; }).join("")+
+    '</div>'+
+    (granters().length
+      ? '<div class="accn">Право выдачи есть у '+
+        granters().map(function(m){ return esc(m.name); }).join(", ")+
+        ' — '+(granters().length===1
+          ? gnd(granters()[0],'он выдаёт','она выдаёт')
+          : 'они выдают')+
+        ' доступы от вашего имени. Снять право можно тут же.</div>'
+      : '<div class="accn">Пока выдавать доступы можете только вы. '+
+        'Поставьте галочку тому, кому доверяете эту задачу.</div>')+
+  '</div>';
+}
+
+function accTable(){
+  var rows = accList();
+  var boss = (role === "owner" || role === "dir") || roleCfg(role).ext.block;
+  return '<div class="gl"><div class="gl-t"><h2>Выданные доступы</h2>'+
+      '<span class="m">'+rows.length+' всего · '+
+        rows.filter(function(r){ return r.status === "active"; }).length+' активных</span></div>'+
+    (rows.length
+      ? '<div class="acct"><div class="accth">'+
+          '<span>Кто</span><span>Роль</span><span>Куда выдан</span><span>Статус</span><span></span></div>'+
+        rows.map(function(r){
+          return '<div class="acctr'+(r.status!=="active"?' off':'')+'">'+
+            '<span class="acctn">'+esc(r.name)+'</span>'+
+            '<span class="acctr2">'+esc(roleName(r.role))+'</span>'+
+            '<span class="acctv"><i class="accvi">'+(r.via==="mail"?"почта":"телефон")+'</i>'+
+              esc(r.val)+'</span>'+
+            '<span class="accst '+r.status+'">'+
+              (r.status==="active"?"активен":r.status==="blocked"?"заблокирован":"доступ забран")+'</span>'+
+            '<span class="acctb">'+(boss
+              ? (r.status === "revoked"
+                  ? '<button class="bt gh2 sm" data-accre="'+esc(r.id)+'">Вернуть доступ</button>'
+                  : '<button class="bt gh2 sm" data-accblock="'+esc(r.id)+'">'+
+                      (r.status==="blocked"?"Разблокировать":"Заблокировать")+'</button>'+
+                    '<button class="bt gh2 sm warnb" data-accrev="'+esc(r.id)+'">Забрать доступ</button>')
+              : '<i class="dim">только собственник</i>')+'</span>'+
+          '</div>'; }).join("")+
+        '</div>'
+      : '<div class="empty">Доступы ещё никому не выданы</div>')+
+    '<div class="accn"><b>Заблокировать</b> — человек остаётся в проекте, но не может войти: '+
+      'история и задачи сохраняются. <b>Забрать доступ</b> — вход закрыт совсем, '+
+      'задачи остаются на кабинете и их надо переназначить.</div>'+
+  '</div>';
+}
+
+function accRolesBlock(){
+  return '<div class="gl"><div class="gl-t"><h2>Роли: что убрать и что добавить</h2>'+
+      '<span class="m">роль — это заготовка, галочками её можно сузить или расширить</span></div>'+
+    ROLE_LIST.map(function(r){
+      var cfg = roleCfg(r[0]);
+      var nl = Object.keys(cfg.lim).filter(function(k){ return cfg.lim[k]; }).length;
+      var ne = Object.keys(cfg.ext).filter(function(k){ return cfg.ext[k]; }).length;
+      var open = accRoleOpen === r[0];
+      return '<div class="accrl'+(open?' on':'')+'">'+
+        '<button class="accrh" data-accrole="'+r[0]+'">'+
+          '<svg class="gcx" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>'+
+          '<b>'+r[1]+'</b>'+
+          '<span class="accrb">'+(nl?'−'+nl+' ограничение'+(nl>1?'й':''):'')+
+            (nl&&ne?' · ':'')+(ne?'+'+ne+' дополнени'+(ne>1?'й':'е'):'')+
+            (!nl&&!ne?'по умолчанию':'')+'</span></button>'+
+        (open ? '<div class="accrc">'+
+          '<div class="accrg"><div class="accrgl">Ограничения — что убрать</div>'+
+            ROLE_LIMITS.map(function(l){
+              return '<button class="ck sm'+(cfg.lim[l[0]]?' on lim':'')+'" '+
+                'data-accl="'+l[0]+'" data-accr="'+r[0]+'"><i></i>'+l[1]+'</button>'; }).join("")+
+          '</div>'+
+          '<div class="accrg"><div class="accrgl">Дополнения — что разрешить сверх роли</div>'+
+            ROLE_EXTRA.map(function(x){
+              return '<button class="ck sm'+(cfg.ext[x[0]]?' on':'')+'" '+
+                'data-acce="'+x[0]+'" data-accr="'+r[0]+'"><i></i>'+x[1]+'</button>'; }).join("")+
+          '</div></div>' : '')+
+      '</div>'; }).join("")+
+  '</div>';
+}
+
+function renderAcc(){
+  accSeed();
+  var host = document.getElementById("sect");
+  if(!canGrant()){
+    host.innerHTML = '<div class="gl"><div class="empty">'+
+      'Доступами управляют собственник и директор — и те, кому они это поручили. '+
+      'Если вам нужно завести человека, попросите их или получите право выдачи.'+
+      '</div></div>' + accCodeBlock();
+    return;
+  }
+  host.innerHTML = accGrantForm() + accCodeBlock() + accGrantersBlock() + accTable() + accRolesBlock();
+}
+
+NAV_TITLES.acc = ["Доступы", "Кто в проекте, что видит и кто может пускать других"];
+SEC_RENDER.acc = renderAcc;
+
+document.addEventListener("click", function(e){
+  var t;
+  if((t = e.target.closest("[data-accvia]"))){
+    accState.via = t.getAttribute("data-accvia"); accState.val = ""; renderAcc(); return; }
+  if(e.target.closest("#accGrant")){
+    var v = accValid(); if(!v.ok){ toast(v.why); return; }
+    var nm = (accState.name || "").trim() ||
+      (accState.via === "mail" ? accState.val.split("@")[0] : "Без имени");
+    accList().unshift({id:nextId("ac"), name:nm, role:accState.role, via:accState.via,
+      val:accState.val.trim(), status:"active", at:Date.now(), by:"вы"});
+    logAdd("Выдан доступ: " + nm + " · " + roleName(accState.role));
+    accState.name = ""; accState.val = "";
+    saveState(); renderAcc();
+    toast("Доступ выдан — приглашение ушло на " + (accState.via === "mail" ? "почту" : "телефон"));
+    return; }
+  if((t = e.target.closest("[data-accg]"))){
+    if(t.disabled) return;
+    var m = person(t.getAttribute("data-accg")); if(!m) return;
+    m.canGrant = !m.canGrant; saveState(); renderAcc();
+    toast(m.canGrant ? m.name + " теперь " + gnd(m,"может","может") + " выдавать доступы"
+                     : "Право выдачи снято с " + m.name);
+    return; }
+  if((t = e.target.closest("[data-accblock]"))){
+    var r1 = accList().filter(function(x){ return x.id === t.getAttribute("data-accblock"); })[0];
+    if(!r1) return;
+    r1.status = r1.status === "blocked" ? "active" : "blocked";
+    logAdd((r1.status === "blocked" ? "Заблокирован аккаунт: " : "Разблокирован аккаунт: ") + r1.name);
+    saveState(); renderAcc();
+    toast(r1.status === "blocked" ? "Аккаунт заблокирован — вход закрыт, история цела"
+                                  : "Аккаунт разблокирован");
+    return; }
+  if((t = e.target.closest("[data-accrev]"))){
+    var r2 = accList().filter(function(x){ return x.id === t.getAttribute("data-accrev"); })[0];
+    if(!r2) return;
+    r2.status = "revoked";
+    logAdd("Забран доступ: " + r2.name);
+    saveState(); renderAcc(); toast("Доступ забран. Задачи остались на кабинете — переназначьте их");
+    return; }
+  if((t = e.target.closest("[data-accre]"))){
+    var r3 = accList().filter(function(x){ return x.id === t.getAttribute("data-accre"); })[0];
+    if(!r3) return;
+    r3.status = "active"; saveState(); renderAcc(); toast("Доступ вернули");
+    return; }
+  if(e.target.closest("#accNewCode")){
+    S.projectCode = ("FO-" + Math.random().toString(36).slice(2,7) +
+      "-" + Math.random().toString(36).slice(2,6)).toUpperCase();
+    saveState(); renderAcc(); toast("Код сменили — старый больше не пускает");
+    return; }
+  if((t = e.target.closest("[data-accrole]"))){
+    var k = t.getAttribute("data-accrole");
+    accRoleOpen = accRoleOpen === k ? null : k; renderAcc(); return; }
+  if((t = e.target.closest("[data-accl]"))){
+    var c1 = roleCfg(t.getAttribute("data-accr"));
+    var k1 = t.getAttribute("data-accl");
+    c1.lim[k1] = !c1.lim[k1]; saveState(); renderAcc(); return; }
+  if((t = e.target.closest("[data-acce]"))){
+    var c2 = roleCfg(t.getAttribute("data-accr"));
+    var k2 = t.getAttribute("data-acce");
+    c2.ext[k2] = !c2.ext[k2]; saveState(); renderAcc(); return; }
+});
+
+document.addEventListener("input", function(e){
+  var t = e.target;
+  if(t.id === "accName"){ accState.name = t.value; return; }
+  if(t.id === "accVal"){
+    accState.val = t.value;
+    var v = accValid();
+    var b = document.getElementById("accGrant"), w = document.querySelector(".accw");
+    if(b) b.disabled = !v.ok;
+    if(w){ w.className = "accw" + (v.ok ? " ok" : "");
+      w.textContent = v.ok
+        ? 'Приглашение уйдёт на ' + accState.val + ' · роль «' + roleName(accState.role) + '»'
+        : v.why; }
+    return; }
+});
+document.addEventListener("change", function(e){
+  if(e.target.id === "accRole"){ accState.role = e.target.value; renderAcc(); }
+});
+
+/* доступ к самой кнопке «Доступы» на рельсе */
+(function(){
+  var _ar = applyRoleRail;
+  applyRoleRail = function(){
+    var v = _ar.apply(this, arguments);
+    var b = document.querySelector('.rail .ri[data-v="acc"]');
+    if(b) b.style.display = canGrant() ? "" : "none";
+    return v;
+  };
+})();
+
+/* ── 15. Рельса: список не режется в свёрнутом виде (rail.03) ──
+   в узкой рельсе строки выше, чем в широкой, а maxHeight остаётся
+   от прошлого замера — список обрезался на трёх кабинетах.
+   Держим maxHeight:none, пока список открыт. */
+(function(){
+  function freeHeight(id){
+    var acc = document.getElementById(id);
+    if(!acc || acc.hidden) return;
+    if(acc.style.maxHeight === "0px") return;
+    acc.style.maxHeight = "none";
+    acc.style.overflowY = "auto";
+  }
+  var _ra = railAcc, _rp = railAccPeople;
+  railAcc = function(open){
+    var v = _ra.apply(this, arguments);
+    setTimeout(function(){ freeHeight("railAcc"); }, 430);
+    return v;
+  };
+  railAccPeople = function(open){
+    var v = _rp.apply(this, arguments);
+    setTimeout(function(){ freeHeight("railAccP"); }, 430);
+    return v;
+  };
+  var rail = document.querySelector(".rail");
+  if(rail) rail.addEventListener("mouseenter", function(){
+    freeHeight("railAcc"); freeHeight("railAccP"); });
+})();
+
+/* ══ 16. Рейтинг: премирование, часы в сервисе, награды (rail.07) ══ */
+
+/* награды за время, проведённое в сервисе */
+var AWARDS = [
+  [1000,  "Красавчик",      "первая тысяча часов в сервисе"],
+  [5000,  "Гид сервиса",    "показывает новичкам, где что лежит"],
+  [10000, "Мастер сервиса", "работает в сервисе быстрее всех"],
+  [20000, "Ментор сервиса", "учит команду и правит регламенты"]
+];
+function awardOf(h){
+  var got = null;
+  AWARDS.forEach(function(a){ if(h >= a[0]) got = a; });
+  return got;
+}
+function nextAward(h){
+  for(var i = 0; i < AWARDS.length; i++) if(h < AWARDS[i][0]) return AWARDS[i];
+  return null;
+}
+
+/* часы в сервисе: считаем активность — движение мыши и ввод текста.
+   тикаем раз в 30 секунд, только если за эти 30 секунд что-то было. */
+function svcHours(){
+  if(!S.svc) S.svc = {};
+  return S.svc;
+}
+function svcOf(pid){
+  var v = svcHours()[pid];
+  return typeof v === "number" ? v : 0;
+}
+(function svcTicker(){
+  var live = false;
+  var mark = function(){ live = true; };
+  document.addEventListener("mousemove", mark, {passive:true});
+  document.addEventListener("keydown", mark, {passive:true});
+  document.addEventListener("input", mark, {passive:true});
+  setInterval(function(){
+    if(!live) return;
+    live = false;
+    var id = meId || "me";
+    var h = svcHours();
+    h[id] = (h[id] || 0) + 30/3600;      /* полминуты активности */
+    try{ saveState(); }catch(e){}
+  }, 30000);
+})();
+/* демо: осмысленные часы, чтобы награды было видно */
+function svcSeed(){
+  if(S.svcSeeded) return;
+  var base = [12400, 6100, 3200, 1450, 640];
+  (S.people||[]).forEach(function(m, i){
+    if(svcHours()[m.id] === undefined) svcHours()[m.id] = base[i] !== undefined ? base[i] : 300;
+  });
+  S.svcSeeded = true; saveState();
+}
+
+/* ── премирование ── */
+var BONUS_RULES = [
+  ["done",  "Закрыл всё, что стояло на неделю", 3000, function(r){ return r.doneP >= 100; }],
+  ["fast",  "Три и больше задач быстрее норматива", 2000, function(r){ return r.fast >= 3; }],
+  ["pick",  "Подхватил задачи у коллег", 1500, function(r){ return r.pick >= 2; }],
+  ["clean", "Ни одной просрочки", 1500, function(r){ return !r.late; }],
+  ["top",   "Первое место в рейтинге недели", 5000, function(r, i){ return i === 0; }]
+];
+function bonusOf(r, i){
+  var got = BONUS_RULES.filter(function(b){ return b[3](r, i); });
+  return {list:got, sum: got.reduce(function(a,b){ return a + b[2]; }, 0)};
+}
+function bonusBlock(rows){
+  var money = seesMoney();
+  var tot = rows.reduce(function(a, r, i){ return a + bonusOf(r, i).sum; }, 0);
+  return '<div class="gl"><div class="gl-t"><h2>Премирование за неделю</h2>'+
+      '<span class="m">'+(money ? 'к выплате '+rub(tot)+' сверх окладов'
+                                : 'суммы видит собственник и директор')+'</span></div>'+
+    '<div class="bnr">'+BONUS_RULES.map(function(b){
+      var who = rows.filter(function(r, i){ return b[3](r, i); });
+      return '<div class="bnrr'+(who.length?' on':'')+'">'+
+        '<div class="bnrt"><b>'+esc(b[1])+'</b>'+
+          '<i>'+(money ? rub(b[2])+' за человека' : 'премия')+'</i></div>'+
+        '<div class="bnrw">'+(who.length
+          ? who.map(function(r){
+              return '<span class="bnp"><span class="av2" style="background:'+r.m.color+'">'+
+                esc(r.m.av||"")+'</span>'+esc(r.m.name)+'</span>'; }).join("")
+          : '<i class="dim">на этой неделе никто</i>')+'</div>'+
+      '</div>'; }).join("")+'</div>'+
+    (money
+      ? '<div class="bntot">'+rows.filter(function(r,i){ return bonusOf(r,i).sum; })
+          .map(function(r, i0){
+            var ri = rows.indexOf(r);
+            var bb = bonusOf(r, ri);
+            return '<div class="bntr"><span class="av2" style="background:'+r.m.color+'">'+
+              esc(r.m.av||"")+'</span><span class="bntn">'+esc(r.m.name)+'</span>'+
+              '<span class="bntw">'+bb.list.map(function(x){ return esc(x[1]); }).join(" · ")+'</span>'+
+              '<span class="bntv">'+rub(bb.sum)+'</span></div>'; }).join("")+
+        (tot ? '<div class="bntr sum"><span class="bntn">Итого за неделю</span>'+
+               '<span class="bntv">'+rub(tot)+'</span></div>' : '')+
+        '</div>'
+      : '')+
+    '<div class="payh">Премия считается по фактам недели, не по ощущению. '+
+      'Правила можно менять — цифры пересчитаются на всей команде сразу.</div></div>';
+}
+
+/* ── вовлечённость: часы в сервисе и награды ── */
+function svcBlock(rows){
+  svcSeed();
+  var mine = rows.map(function(r){ return {m:r.m, h: svcOf(r.m.id)}; })
+    .sort(function(a,b){ return b.h - a.h; });
+  var mx = Math.max.apply(null, mine.map(function(x){ return x.h; }).concat([1]));
+  return '<div class="gl"><div class="gl-t"><h2>Часы в сервисе</h2>'+
+      '<span class="m">активность считается по движению мыши и вводу текста</span></div>'+
+    '<div class="awl">'+AWARDS.map(function(a){
+      var got = mine.filter(function(x){ return x.h >= a[0]; });
+      return '<div class="awc'+(got.length?' on':'')+'">'+
+        '<div class="awn">'+esc(a[1])+'</div>'+
+        '<div class="awh">от '+a[0].toLocaleString("ru-RU")+' часов</div>'+
+        '<div class="awd">'+esc(a[2])+'</div>'+
+        '<div class="aww">'+(got.length
+          ? got.map(function(x){ return '<span class="av2" title="'+esc(x.m.name)+'" style="background:'+
+              x.m.color+'">'+esc(x.m.av||"")+'</span>'; }).join("")
+          : '<i class="dim">пока никто</i>')+'</div>'+
+      '</div>'; }).join("")+'</div>'+
+    '<div class="svcl">'+mine.map(function(x){
+      var a = awardOf(x.h), nx = nextAward(x.h);
+      return '<div class="svcr">'+
+        '<span class="av2" style="background:'+x.m.color+'">'+esc(x.m.av||"")+'</span>'+
+        '<span class="svcn"><b>'+esc(x.m.name)+'</b>'+
+          '<i>'+(a ? esc(a[1]) : "пока без награды")+'</i></span>'+
+        '<span class="svcb"><span class="svcbf" data-w="'+Math.round(x.h/mx*100)+'"></span></span>'+
+        '<span class="svch">'+Math.round(x.h).toLocaleString("ru-RU")+' ч</span>'+
+        '<span class="svcx">'+(nx
+          ? 'до «'+esc(nx[1])+'» — '+Math.round(nx[0]-x.h).toLocaleString("ru-RU")+' ч'
+          : 'выше уровня нет')+'</span>'+
+      '</div>'; }).join("")+'</div>'+
+    '<div class="payh">Часы копятся только когда человек реально работает в сервисе: '+
+      'открытая вкладка без действий часы не набивает.</div></div>';
+}
+
+(function(){
+  var _rr = renderRate;
+  renderRate = function(){
+    _rr.apply(this, arguments);
+    var host = document.getElementById("sect");
+    if(!host || host.querySelector(".bnr")) return;
+    var rows = rateRows();
+    host.insertAdjacentHTML("beforeend", bonusBlock(rows) + svcBlock(rows));
+    q(".svcbf").forEach(function(b){
+      var w = b.getAttribute("data-w");
+      requestAnimationFrame(function(){ b.style.width = w + "%"; });
+    });
+  };
+})();
+SEC_RENDER.rate = renderRate;   /* карта разделов собралась раньше — переподвязываем */
+
+/* ══ 17. Новая карточка клиента — шаблон для заполнения (cards.03–05) ══
+   в заполненных карточках цифры есть, в новых стоял прочерк.
+   теперь пустая цифра — это поле ввода или кнопка «внести». */
+(function(){
+  var _cc = clientCard;
+  clientCard = function(pr){
+    var html = _cc.call(this, pr);
+    var n = cabNumbers(pr);
+
+    if(!n.art){
+      html = html.replace(
+        '<div class="ccn1"><b>—</b><span>артикулов</span></div>',
+        '<div class="ccn1 tpl"><input class="fi xs" type="number" min="0" step="10" '+
+          'placeholder="0" data-cart="'+esc(pr.id)+'" value="">'+
+          '<span>артикулов — впишите</span></div>');
+    }
+    if(!n.fns){
+      html = html.replace(
+        '<div class="ccn1"><b>0</b><span>функций в кабинете</span></div>',
+        '<div class="ccn1 tpl"><button class="tplb" data-cfns="'+esc(pr.id)+'">Внести</button>'+
+          '<span>функций в кабинете</span></div>');
+    }
+    if(!n.cyc){
+      html = html.replace(
+        '<div class="ccn1"><b>0</b><span>цикличных</span></div>',
+        '<div class="ccn1 tpl"><button class="tplb" data-cfns="'+esc(pr.id)+'">Отметить</button>'+
+          '<span>цикличных — из функций</span></div>');
+    }
+    if(!n.amount && seesMoney()){
+      html = html.replace(
+        '<div class="ccn1"><b>—</b><span>платёж в месяц</span></div>',
+        '<div class="ccn1 tpl"><input class="fi xs" type="number" min="0" step="5000" '+
+          'placeholder="0 ₽" data-camt="'+esc(pr.id)+'" value="">'+
+          '<span>платёж в месяц — впишите</span></div>');
+    }
+    /* пустая карточка целиком — объясняем, с чего начать */
+    if(!n.art && !n.fns && !n.amount){
+      html = html.replace('<button class="bt gh2 ccgo"',
+        '<div class="cctpl">Карточка новая. Впишите артикулы и платёж прямо здесь, '+
+        'а функции кабинета внесите внутри — сервис сам посчитает часы, задачи и загрузку.</div>'+
+        '<button class="bt gh2 ccgo"');
+    }
+    return html;
+  };
+})();
+
+document.addEventListener("click", function(e){
+  var t = e.target.closest("[data-cfns]");
+  if(!t) return;
+  e.stopPropagation();
+  cabOpen = t.getAttribute("data-cfns");
+  pickOpen = true;
+  navPush("cards"); setView("cab", true);
+}, true);
+
+document.addEventListener("click", function(e){
+  /* клик по полю внутри карточки не должен открывать кабинет */
+  if(e.target.closest(".ccn1.tpl input")) e.stopPropagation();
+}, true);
+
+document.addEventListener("change", function(e){
+  var t = e.target, pr;
+  if(t.matches && t.matches("[data-cart]")){
+    pr = project(t.getAttribute("data-cart")); if(!pr) return;
+    pr.articles = Math.max(0, +t.value || 0); saveState(); renderCards();
+    toast("Артикулы записаны — карточка пересчиталась"); return; }
+  if(t.matches && t.matches("[data-camt]")){
+    pr = project(t.getAttribute("data-camt")); if(!pr) return;
+    pr.amount = Math.max(0, +t.value || 0); saveState(); renderCards();
+    toast("Платёж записан"); return; }
+});
 
 })();
 </script>
