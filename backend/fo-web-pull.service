@@ -1,0 +1,7 @@
+[Unit]
+Description=FO: забрать свежий index.html из GitHub
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/fo/bin/fo-web-pull.sh
