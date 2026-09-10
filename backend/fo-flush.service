@@ -1,0 +1,8 @@
+[Unit]
+Description=FO: разослать отложенные сообщения в Telegram
+After=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=/opt/fo/.env
+ExecStart=/usr/bin/curl -sS -m 30 -X POST -H "X-Flush-Key: ${FLUSH_KEY}" http://127.0.0.1:8000/routing/cron/flush
