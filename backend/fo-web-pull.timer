@@ -1,0 +1,11 @@
+[Unit]
+Description=FO: проверять GitHub каждые 2 минуты
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=2min
+AccuracySec=20s
+Unit=fo-web-pull.service
+
+[Install]
+WantedBy=timers.target
