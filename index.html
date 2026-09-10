@@ -972,6 +972,622 @@ body::before{content:""; position:fixed; inset:0; z-index:-1; pointer-events:non
 .dmin{flex:none; width:64px; text-align:right; color:var(--ink-3); font-variant-numeric:tabular-nums}
 .dst{flex:none; width:104px; text-align:right; font-size:11px; color:var(--ink-3)}
 @media (max-width:900px){ .dpr, .dst{display:none} }
+
+/* ── тексты сообщений ── */
+.tplw{margin-top:14px}
+.tplev{display:flex; flex-wrap:wrap; gap:7px; margin-bottom:16px}
+.tpb{font-family:inherit; font-size:12px; font-weight:600; padding:8px 13px; border-radius:10px;
+  cursor:pointer; border:1px solid var(--stroke-2); background:var(--panel-2); color:var(--ink-3); transition:.14s}
+.tpb:hover{color:var(--ink); border-color:var(--neu-b)}
+.tpb.on{background:#7C5CFF; border-color:#7C5CFF; color:#fff}
+.tplg{display:grid; gap:14px; grid-template-columns:1fr 1fr}
+@media (max-width:900px){ .tplg{grid-template-columns:1fr} }
+.tplc{min-width:0}
+.tplh{display:flex; align-items:center; gap:9px; font-size:10.5px; font-weight:700; color:var(--ink-3);
+  text-transform:uppercase; letter-spacing:.05em; margin-bottom:8px}
+.tpm{font-size:9.5px; padding:2px 6px; border-radius:6px; background:rgba(124,92,255,.14); color:#7C5CFF;
+  text-transform:none; letter-spacing:0; font-weight:700}
+.tprs{margin-left:auto; text-transform:none; letter-spacing:0; font-size:11px; font-weight:500; padding:0}
+.tpta{width:100%; resize:vertical; font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+  font-size:12px; line-height:1.6; padding:13px 15px}
+.tplv{margin-top:16px; padding-top:14px; border-top:1px solid var(--stroke-2)}
+.tplvh{font-size:10.5px; font-weight:700; color:var(--ink-3); text-transform:uppercase;
+  letter-spacing:.05em; margin-bottom:9px}
+.tplvl{display:flex; flex-wrap:wrap; gap:6px}
+.tvar{font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:11.5px; padding:5px 9px;
+  border-radius:8px; cursor:pointer; border:1px solid var(--stroke-2); background:var(--panel-2);
+  color:var(--ink-2); transition:.14s}
+.tvar:hover{background:var(--neu); border-color:var(--neu-b); color:var(--ink)}
+
+/* ═══════════ ночные доработки ═══════════ */
+
+/* ── 1. Спокойные, медленные измерители ── */
+:root{ --ease:cubic-bezier(.22,.72,.26,1); --slow:1.15s; --slower:1.5s; }
+.mbb, .bx, [data-h]{ transition:height var(--slow) var(--ease) !important; }
+.pjbar i, [data-w]{ transition:width var(--slow) var(--ease) !important; }
+.arc .ar{ transition:stroke-dashoffset var(--slower) var(--ease) !important; }
+.mb .mbb{ transition:height var(--slow) var(--ease) !important; }
+#sect, #screen{ animation:secIn .5s var(--ease) both; }
+@keyframes secIn{ from{ opacity:0; transform:translateY(8px) } to{ opacity:1; transform:none } }
+.pss .v, .simc .v, .incv{ transition:color .5s var(--ease) }
+
+/* ── 2. «Требует решения»: две новых строки ── */
+.mrow.two{ align-items:flex-start }
+.mrow .mh{ display:block; font-style:normal; font-size:10.5px; color:var(--ink-3);
+  margin-top:2px; line-height:1.35; font-weight:500 }
+
+/* ── 3. Крошки: у каждого «вглубь» есть «назад» ── */
+.crumbs{ display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin:0 0 14px }
+.crumbs .crb{ font-family:inherit; font-size:12px; font-weight:600; color:var(--ink-3);
+  background:none; border:none; padding:4px 2px; cursor:pointer; border-radius:8px; transition:.14s }
+.crumbs .crb:hover{ color:var(--ink) }
+.crumbs .crs{ color:var(--ink-3); opacity:.6; font-size:12px }
+.crumbs .crn{ font-size:12px; font-weight:700; color:var(--ink) }
+.crumbs .crback{ margin-left:auto; font-family:inherit; font-size:12px; font-weight:600;
+  color:var(--ink-2); background:var(--panel); border:1px solid var(--stroke);
+  border-radius:11px; padding:6px 12px; cursor:pointer; transition:.15s;
+  backdrop-filter:var(--blur); -webkit-backdrop-filter:var(--blur) }
+.crumbs .crback:hover{ color:var(--ink); box-shadow:var(--sh) }
+
+/* ── 4. Рельса: список выезжает вниз между кнопок ── */
+.racc{ width:100%; overflow:hidden; max-height:0;
+  transition:max-height .42s var(--ease), opacity .3s var(--ease); opacity:0;
+  padding:0; margin:0 }
+.racc.on{ opacity:1; margin:3px 0 5px; overflow-y:auto }
+.racc::-webkit-scrollbar{ width:0 }
+.racci{ display:flex; align-items:center; gap:9px; width:188px; margin:0 auto 3px;
+  font-family:inherit; font-size:12px; font-weight:600; color:var(--ink-2);
+  background:var(--panel-2); border:1px solid transparent; border-radius:11px;
+  padding:7px 10px; cursor:pointer; text-align:left; transition:.16s }
+.rail:not(:hover) .racci{ width:40px; justify-content:center; padding:7px 0 }
+.rail:not(:hover) .racci .k, .rail:not(:hover) .racci .n2{ display:none }
+.racci:hover{ background:var(--panel); color:var(--ink); border-color:var(--stroke-2) }
+.racci.on{ background:var(--panel); color:var(--ink); box-shadow:0 1px 0 var(--hi) inset }
+.racci .av2{ width:21px; height:21px; border-radius:7px; flex:none; display:grid;
+  place-items:center; color:#fff; font-size:9px; font-weight:700 }
+.racci .k{ flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis }
+.racci .n2{ font-size:10px; color:var(--ink-3); flex:none }
+.racci.add{ border:1px dashed var(--stroke); background:none; color:var(--ink-3) }
+.racci.add:hover{ color:var(--ink); border-color:var(--ink-3) }
+.racci .pl{ font-size:15px; line-height:1; width:21px; text-align:center; flex:none }
+.raccn{ font-size:11px; color:var(--ink-3); padding:6px 12px; text-align:center }
+@media (max-width:920px){ .racc{ display:none } }
+
+/* ── 5. Экран «Команда и кабинеты»: ровно два блока ── */
+.setg2{ display:grid; grid-template-columns:1fr 1fr; gap:16px; align-items:start }
+@media (max-width:1080px){ .setg2{ grid-template-columns:1fr } }
+.setc2{ padding:18px 20px 20px }
+.setc2.adding{ box-shadow:0 0 0 1.5px rgba(124,92,255,.35), var(--sh) }
+.sech{ display:flex; align-items:center; gap:9px; margin-bottom:2px }
+.sech h2{ font-family:Unbounded,sans-serif; font-size:15px; font-weight:500; margin:0; letter-spacing:-.02em }
+.sech .secn{ font-size:12px; font-weight:700; color:var(--ink-3); background:var(--panel-2);
+  border-radius:8px; padding:2px 8px }
+.secadd{ font-family:inherit; font-size:12px; font-weight:700; color:#fff;
+  background:linear-gradient(140deg,#7C5CFF,#00B39A); border:none; border-radius:11px;
+  padding:8px 13px; cursor:pointer; transition:.16s; white-space:nowrap;
+  box-shadow:0 6px 18px -8px rgba(124,92,255,.8) }
+.secadd:hover{ transform:translateY(-1px); box-shadow:0 10px 22px -8px rgba(124,92,255,.9) }
+.secsub{ font-size:11.5px; color:var(--ink-3); margin:0 0 14px; line-height:1.45 }
+.setl2{ display:flex; flex-direction:column; gap:6px }
+.setrow{ display:flex; align-items:center; gap:10px; padding:9px 11px; border-radius:13px;
+  background:var(--panel-2); border:1px solid var(--stroke-2) }
+.setrow .av2{ width:26px;height:26px;border-radius:9px; flex:none; display:grid; place-items:center;
+  color:#fff; font-size:10px; font-weight:700 }
+.setrow .k{ flex:1; min-width:0; font-size:12.5px; font-weight:600; color:var(--ink) }
+.setrow .k i{ display:block; font-style:normal; font-size:10.5px; color:var(--ink-3); font-weight:500 }
+.setrow .v{ font-size:12px; font-weight:700; color:var(--ink-2); font-variant-numeric:tabular-nums }
+.setrow .x{ border:none; background:none; color:var(--ink-3); cursor:pointer; font-size:15px;
+  line-height:1; padding:2px 4px; border-radius:7px; transition:.14s }
+.setrow .x:hover{ color:var(--crit); background:var(--panel) }
+
+.setform{ display:flex; flex-direction:column; gap:11px }
+.sfr{ display:flex; gap:10px; flex-wrap:wrap }
+.sfr label{ flex:1; min-width:150px; display:flex; flex-direction:column; gap:5px }
+.sfr label.nar{ flex:0 0 104px; min-width:104px }
+.sfr label span{ font-size:10px; font-weight:700; letter-spacing:.06em; text-transform:uppercase;
+  color:var(--ink-3) }
+.sfh{ font-size:11px; font-weight:700; letter-spacing:.05em; text-transform:uppercase;
+  color:var(--ink-3); margin-top:4px }
+.sfb{ display:flex; gap:9px; margin-top:4px }
+.setfoot2{ display:flex; align-items:center; gap:11px; margin-top:16px; flex-wrap:wrap }
+.sethint{ font-size:11.5px; color:var(--ink-3) }
+.gerr.on{ font-size:12px; color:var(--crit); font-weight:600 }
+
+/* ── 6. Модель найма ── */
+.simw{ border:1px solid var(--stroke-2); border-radius:18px; background:var(--panel-2); padding:15px 16px }
+.simh h3{ font-family:Unbounded,sans-serif; font-size:13.5px; font-weight:500; margin:0 0 12px; letter-spacing:-.02em }
+.simctl{ display:flex; gap:14px; align-items:flex-start; flex-wrap:wrap; margin-bottom:14px }
+.simadd{ display:flex; flex-direction:column; gap:6px }
+.simadd>span{ font-size:10px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-3) }
+.stp{ display:flex; align-items:center; gap:2px; background:var(--panel); border:1px solid var(--stroke-2);
+  border-radius:12px; padding:3px }
+.stp .sb{ width:28px;height:28px; border:none; background:none; color:var(--ink-2); cursor:pointer;
+  font-size:16px; border-radius:9px; transition:.14s; font-family:inherit }
+.stp .sb:hover{ background:var(--panel-2); color:var(--ink) }
+.stp b{ min-width:26px; text-align:center; font-size:14px; font-variant-numeric:tabular-nums }
+.simmodes{ display:flex; gap:7px; flex:1; flex-wrap:wrap }
+.simmodes.wide{ margin-bottom:2px }
+.smb{ flex:1; min-width:150px; text-align:left; font-family:inherit; cursor:pointer;
+  background:var(--panel); border:1px solid var(--stroke-2); border-radius:13px; padding:9px 11px;
+  transition:.16s; color:var(--ink-2) }
+.smb b{ display:block; font-size:12px; font-weight:700; color:var(--ink) }
+.smb i{ display:block; font-style:normal; font-size:10.5px; color:var(--ink-3); margin-top:3px; line-height:1.35 }
+.smb:hover{ border-color:var(--stroke) }
+.smb.on{ border-color:transparent; box-shadow:0 0 0 1.6px rgba(124,92,255,.55), 0 10px 24px -14px rgba(124,92,255,.7) }
+.simg{ display:grid; grid-template-columns:repeat(auto-fit,minmax(158px,1fr)); gap:9px }
+.simc{ background:var(--panel); border:1px solid var(--stroke-2); border-radius:14px; padding:11px 12px }
+.simc.wide{ grid-column:span 2 }
+@media (max-width:760px){ .simc.wide{ grid-column:span 1 } }
+.simc .l{ font-size:10px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:var(--ink-3) }
+.simc .v{ font-family:Unbounded,sans-serif; font-size:17px; font-weight:500; margin-top:5px;
+  letter-spacing:-.03em; color:var(--ink-2) }
+.simc .v b{ font-weight:500 }
+.simc .v .ar{ color:var(--ink-3); font-size:13px; margin:0 3px }
+.simc .v .sub2{ font-size:11px; color:var(--ink-3); font-style:normal; font-family:inherit }
+.simc .d{ font-size:10.5px; color:var(--ink-3); margin-top:5px; line-height:1.35 }
+.simn{ font-size:11.5px; color:var(--ink-3); margin-top:12px; line-height:1.5 }
+.simn b{ color:var(--ink-2) }
+.okv{ color:var(--ok) } .warnv{ color:var(--warn) } .critv{ color:var(--crit) }
+.simwrap{ margin-top:0 }
+
+/* ── 7. Карточки клиентов: тезисные цифры ── */
+.cc2{ padding:16px 18px 18px; cursor:pointer; transition:transform .18s var(--ease), box-shadow .18s var(--ease) }
+.cc2:hover{ transform:translateY(-2px); box-shadow:0 26px 60px -26px rgba(16,24,48,.4), var(--sh) }
+.ccfill{ margin-left:auto; text-align:right; flex:none }
+.ccfill b{ display:block; font-family:Unbounded,sans-serif; font-size:17px; font-weight:500;
+  letter-spacing:-.03em; color:var(--warn) }
+.ccfill.full b{ color:var(--ok) }
+.ccfill i{ font-style:normal; font-size:10px; color:var(--ink-3) }
+.ccnums{ display:grid; grid-template-columns:repeat(4,1fr); gap:1px; margin:14px 0 12px;
+  background:var(--stroke-2); border:1px solid var(--stroke-2); border-radius:14px; overflow:hidden }
+@media (max-width:620px){ .ccnums{ grid-template-columns:repeat(2,1fr) } }
+.ccn1{ background:var(--panel); padding:9px 10px }
+.ccn1 b{ display:block; font-family:Unbounded,sans-serif; font-size:14.5px; font-weight:500;
+  letter-spacing:-.03em; color:var(--ink) }
+.ccn1 span{ display:block; font-size:10px; color:var(--ink-3); margin-top:3px; line-height:1.3 }
+.ccbar2{ display:flex; align-items:center; gap:10px; margin-bottom:10px }
+.ccp{ flex:1; height:5px; border-radius:3px; background:var(--panel-2);
+  border:1px solid var(--stroke-2); overflow:hidden }
+.ccp i{ display:block; height:100%; width:0; border-radius:3px;
+  background:linear-gradient(90deg,#7C5CFF,#00B39A); transition:width var(--slow) var(--ease) }
+.ccst{ font-size:10.5px; font-weight:700; padding:3px 9px; border-radius:8px;
+  background:var(--panel-2); color:var(--ink-3) }
+.ccst.ok{ color:var(--ok) } .ccst.no{ color:var(--crit) }
+.ccdt{ font-size:10.5px; color:var(--ink-3) }
+.ccgo{ width:100%; margin-top:2px }
+.ccn.ok2{ color:var(--ok) }
+
+/* ── 8. Экран кабинета ── */
+.cabh2{ padding:18px 20px 16px }
+.cabhr{ display:flex; align-items:center; gap:13px; margin:12px 0 4px }
+.av.big{ width:46px;height:46px;border-radius:15px; font-size:14px }
+.fillring{ margin-left:auto; text-align:right; min-width:168px }
+.fillring .frv{ font-family:Unbounded,sans-serif; font-size:22px; font-weight:500;
+  letter-spacing:-.04em; color:var(--warn); line-height:1 }
+.fillring.full .frv{ color:var(--ok) }
+.fillring .frl{ font-size:10px; color:var(--ink-3); margin-top:2px }
+.fillring .frb{ height:4px; border-radius:3px; background:var(--panel-2);
+  border:1px solid var(--stroke-2); overflow:hidden; margin-top:6px }
+.fillring .frb i{ display:block; height:100%; width:0; border-radius:3px;
+  background:linear-gradient(90deg,#7C5CFF,#00B39A); transition:width var(--slow) var(--ease) }
+.fillring .frb.d2 i{ background:linear-gradient(90deg,#00B39A,#7CD44F) }
+.fillring .frh{ font-size:10px; color:var(--ink-3); margin-top:5px }
+.cabnums{ display:grid; grid-template-columns:repeat(4,1fr); gap:1px; margin:16px 0 4px;
+  background:var(--stroke-2); border:1px solid var(--stroke-2); border-radius:16px; overflow:hidden }
+@media (max-width:820px){ .cabnums{ grid-template-columns:repeat(2,1fr) } }
+.cabnums .ccn1{ padding:11px 12px }
+.fillw .fillg{ display:grid; grid-template-columns:1fr 1fr; gap:12px }
+@media (max-width:760px){ .fillw .fillg{ grid-template-columns:1fr } }
+.fillc{ background:var(--panel-2); border:1px solid var(--stroke-2); border-radius:15px; padding:12px 14px }
+.fillc .fh{ font-size:10.5px; font-weight:700; letter-spacing:.05em; text-transform:uppercase;
+  color:var(--ink-3); margin-bottom:8px }
+.fli{ font-size:12px; padding:5px 0; border-bottom:1px solid var(--stroke-2); color:var(--ink-2) }
+.fli:last-child{ border-bottom:none }
+.fli.miss::before{ content:"○"; color:var(--warn); margin-right:7px }
+.fli.ok{ color:var(--ok) }
+.fli.ok::before{ content:"✓"; margin-right:7px }
+.ccf.wide4{ display:grid; grid-template-columns:repeat(4,1fr); gap:11px }
+@media (max-width:1100px){ .ccf.wide4{ grid-template-columns:repeat(2,1fr) } }
+@media (max-width:620px){ .ccf.wide4{ grid-template-columns:1fr } }
+.wsp{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-top:13px;
+  padding-top:12px; border-top:1px solid var(--stroke-2) }
+.wsl{ font-size:12px; font-weight:600; color:#7C5CFF; text-decoration:none;
+  background:var(--panel-2); border:1px solid var(--stroke-2); border-radius:11px; padding:7px 12px;
+  transition:.15s }
+.wsl:hover{ background:var(--panel) }
+.wsl.off{ color:var(--ink-3) }
+.wsteam{ margin-left:auto; display:flex; align-items:center; gap:5px; font-size:11px; color:var(--ink-3) }
+.wsteam .av2{ width:22px;height:22px;border-radius:7px; display:grid; place-items:center;
+  color:#fff; font-size:9px; font-weight:700; font-style:normal }
+.histw .hist{ display:flex; flex-direction:column }
+.hrow{ display:flex; align-items:center; gap:11px; padding:9px 0;
+  border-bottom:1px solid var(--stroke-2); font-size:12.5px }
+.hrow:last-child{ border-bottom:none }
+.hrow .hd{ width:8px;height:8px;border-radius:50%; flex:none; background:var(--ink-3) }
+.hrow.k-done .hd{ background:var(--ok) }
+.hrow.k-chat .hd{ background:#7C5CFF }
+.hrow.k-task .hd{ background:var(--warn) }
+.hrow .ht{ flex:1; min-width:0; color:var(--ink-2) }
+.hrow .hg{ font-size:11px; color:var(--ink-3); flex:none }
+
+/* ── 9. Карточки команды: доступы в чат ── */
+.ccsend{ margin-top:13px; padding-top:12px; border-top:1px solid var(--stroke-2) }
+.sendbox{ margin-top:11px; display:flex; flex-direction:column; gap:10px }
+.sbl{ display:flex; flex-direction:column; gap:5px }
+.sbl>span{ font-size:10px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-3) }
+.sbp .sbt{ display:block; font-size:10px; font-weight:700; letter-spacing:.06em;
+  text-transform:uppercase; color:var(--ink-3); margin-bottom:6px }
+.sbch{ display:flex; gap:6px; flex-wrap:wrap }
+.pchip{ display:inline-flex; align-items:center; gap:6px; font-family:inherit; font-size:11.5px;
+  font-weight:600; color:var(--ink-3); background:var(--panel-2); border:1px solid var(--stroke-2);
+  border-radius:10px; padding:5px 9px; cursor:pointer; transition:.15s }
+.pchip .av2{ width:18px;height:18px;border-radius:6px; display:grid; place-items:center;
+  color:#fff; font-size:8px; font-weight:700 }
+.pchip:hover{ color:var(--ink-2) }
+.pchip.on{ color:var(--ink); background:var(--panel); border-color:transparent;
+  box-shadow:0 0 0 1.4px rgba(0,179,154,.5) }
+.sbgo{ align-self:flex-start }
+.sendall{ margin-bottom:14px }
+
+/* ── 10. Рост: раскрывающиеся функции ── */
+.gctog{ display:flex; align-items:center; gap:8px; width:100%; font-family:inherit;
+  background:none; border:none; padding:0; cursor:pointer; color:inherit; text-align:left }
+.gctog .gcn{ flex:1; font-size:12.5px; font-weight:700; color:var(--ink) }
+.gcx{ width:15px;height:15px; stroke:var(--ink-3); fill:none; stroke-width:2; stroke-linecap:round;
+  transition:transform .3s var(--ease); flex:none }
+.grc.opened .gcx{ transform:rotate(180deg) }
+.gcl{ margin-top:11px; padding-top:11px; border-top:1px solid var(--stroke-2);
+  animation:secIn .35s var(--ease) both }
+.gclh{ font-size:10px; font-weight:700; letter-spacing:.05em; text-transform:uppercase;
+  color:var(--ink-3); margin-bottom:7px }
+.gcli{ display:flex; align-items:center; gap:8px; padding:5px 0; font-size:11.5px;
+  border-bottom:1px solid var(--stroke-2) }
+.gcli:last-child{ border-bottom:none }
+.gcli .c{ font-family:ui-monospace,monospace; font-size:10px; color:var(--ink-3);
+  background:var(--panel-2); border-radius:6px; padding:2px 5px; flex:none }
+.gcli .k{ flex:1; min-width:0; color:var(--ink-2); overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
+.gcli .v{ color:var(--ink-3); flex:none; font-variant-numeric:tabular-nums }
+.gcli .w{ color:var(--ink-3); flex:none; font-size:10.5px; min-width:64px; text-align:right }
+.gclm{ font-size:11px; color:var(--ink-3); padding-top:6px }
+
+/* ── 11. Финансы: поступления и лента календаря ── */
+.incw .incg{ display:grid; grid-template-columns:repeat(4,1fr); gap:11px }
+@media (max-width:1100px){ .incw .incg{ grid-template-columns:repeat(2,1fr) } }
+@media (max-width:620px){ .incw .incg{ grid-template-columns:1fr } }
+.incc{ background:var(--panel-2); border:1px solid var(--stroke-2); border-radius:16px; padding:13px 14px }
+.incl{ font-size:10px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:var(--ink-3) }
+.incv{ font-family:Unbounded,sans-serif; font-size:20px; font-weight:500; letter-spacing:-.04em;
+  margin-top:6px; color:var(--ink) }
+.incd{ font-size:10.5px; color:var(--ink-3); margin-top:5px; line-height:1.4 }
+.incl2{ display:flex; flex-direction:column; gap:4px; margin-top:10px;
+  padding-top:9px; border-top:1px solid var(--stroke-2) }
+.incp{ display:flex; align-items:center; gap:7px; font-size:11px; color:var(--ink-2) }
+.incp .av2{ width:17px;height:17px;border-radius:6px; display:grid; place-items:center;
+  color:#fff; font-size:8px; font-weight:700; font-style:normal; flex:none }
+.incp b{ margin-left:auto; font-variant-numeric:tabular-nums; color:var(--ink-3); font-weight:600 }
+.incp.ok{ color:var(--ok) } .incp.no{ color:var(--crit) }
+.incm{ font-size:10.5px; color:var(--ink-3) }
+.fsseg{ margin-left:auto }
+.fsw{ margin-top:4px }
+.fsg{ display:grid; grid-template-columns:repeat(7,1fr); gap:7px }
+@media (max-width:820px){ .fsg{ grid-template-columns:repeat(4,1fr) } }
+@media (max-width:520px){ .fsg{ grid-template-columns:repeat(2,1fr) } }
+.fsd{ min-height:74px; border-radius:13px; background:var(--panel-2);
+  border:1px solid var(--stroke-2); padding:8px 9px }
+.fsd.we{ opacity:.62 }
+.fsd.has{ background:var(--panel); border-color:var(--stroke) }
+.fsd.today2{ box-shadow:0 0 0 1.6px rgba(124,92,255,.5) }
+.fsdh{ display:flex; align-items:baseline; gap:5px; margin-bottom:6px }
+.fsdh b{ font-family:Unbounded,sans-serif; font-size:14px; font-weight:500; letter-spacing:-.03em }
+.fsdh span{ font-size:10px; color:var(--ink-3) }
+.fsf{ margin-top:12px; font-size:12px; color:var(--ink-3) }
+.fsf b{ color:var(--ink); font-family:Unbounded,sans-serif; font-weight:500 }
+
+/* ── 12. Справочник функций ── */
+.fnbar{ display:flex; align-items:center; gap:9px; margin-left:auto; flex-wrap:wrap }
+.fnq{ width:190px }
+.fnt .fnc{ font-family:ui-monospace,monospace; font-size:11px; color:var(--ink-3); white-space:nowrap }
+.fnt .fnn{ font-weight:600; color:var(--ink) }
+
+/* ── 13. Рейтинг ── */
+.podw{ display:flex; align-items:flex-end; justify-content:center; gap:14px; padding:8px 0 4px }
+.pod{ flex:1; max-width:200px; text-align:center; display:flex; flex-direction:column; align-items:center;
+  gap:5px; background:var(--panel-2); border:1px solid var(--stroke-2); border-radius:18px;
+  padding:14px 12px 0; overflow:hidden }
+.pod .podn{ font-family:Unbounded,sans-serif; font-size:12px; font-weight:500; color:var(--ink-3) }
+.pod .av{ width:44px;height:44px;border-radius:15px; font-size:14px }
+.pod .podt{ font-size:13px; font-weight:700; color:var(--ink) }
+.pod .podr{ font-size:10.5px; color:var(--ink-3) }
+.pod .podp{ font-family:Unbounded,sans-serif; font-size:19px; font-weight:500; letter-spacing:-.04em }
+.pod .podbar{ width:100%; height:0; border-radius:10px 10px 0 0; margin-top:6px;
+  background:linear-gradient(180deg,#7C5CFF,#00B39A); max-height:78px;
+  transition:height var(--slower) var(--ease) }
+.pod.p1{ box-shadow:0 0 0 1.6px rgba(255,176,32,.55) }
+.pod.p1 .podp{ color:var(--warn) }
+.pod.p2 .podbar{ background:linear-gradient(180deg,#8FA0C0,#C7CFE0); max-height:60px }
+.pod.p3 .podbar{ background:linear-gradient(180deg,#C08A5C,#E0BFA0); max-height:48px }
+.rpl{ font-family:Unbounded,sans-serif; font-weight:500; color:var(--ink-3) }
+.rpl.top{ color:var(--warn) }
+
+/* ── 14. Стеклянные выпадающие списки ── */
+select.gshidden{ position:absolute!important; width:1px!important; height:1px!important;
+  opacity:0!important; pointer-events:none!important; margin:0!important; padding:0!important;
+  border:0!important; clip:rect(0 0 0 0) }
+.gsl{ display:inline-flex; align-items:center; gap:8px; font-family:inherit; font-size:12.5px;
+  font-weight:600; color:var(--ink); background:var(--panel); border:1px solid var(--stroke);
+  border-radius:12px; padding:9px 11px; cursor:pointer; transition:.16s; max-width:100%;
+  backdrop-filter:var(--blur); -webkit-backdrop-filter:var(--blur) }
+.gsl.sm{ padding:7px 10px; font-size:11.5px; border-radius:10px }
+.gsl:hover{ box-shadow:var(--sh) }
+.gsl.open{ box-shadow:0 0 0 1.6px rgba(124,92,255,.45), var(--sh) }
+.gsl.warn{ box-shadow:0 0 0 1.4px rgba(219,74,95,.4) }
+.gsl .gst{ flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-align:left }
+.gsl .gsc{ width:13px;height:13px; stroke:var(--ink-3); fill:none; stroke-width:2; stroke-linecap:round;
+  flex:none; transition:transform .26s var(--ease) }
+.gsl.open .gsc{ transform:rotate(180deg) }
+.gsl:disabled{ opacity:.5; cursor:default }
+.gspop{ position:fixed; z-index:400; background:var(--panel); border:1px solid var(--stroke);
+  border-radius:16px; box-shadow:var(--sh); backdrop-filter:var(--blur); -webkit-backdrop-filter:var(--blur);
+  padding:6px; opacity:0; transform:translateY(-5px) scale(.985); transform-origin:top center;
+  transition:opacity .18s var(--ease), transform .22s var(--ease); overflow:hidden }
+.gspop[data-dir="up"]{ transform-origin:bottom center; transform:translateY(5px) scale(.985) }
+.gspop.on{ opacity:1; transform:none }
+.gspop .gsin{ max-height:min(340px, 52vh); overflow-y:auto; overscroll-behavior:contain }
+.gspop .gsin::-webkit-scrollbar{ width:8px }
+.gspop .gsin::-webkit-scrollbar-thumb{ background:var(--stroke); border-radius:4px }
+.gsg{ font-size:9.5px; font-weight:700; letter-spacing:.07em; text-transform:uppercase;
+  color:var(--ink-3); padding:9px 11px 5px }
+.gsi{ display:flex; align-items:center; gap:9px; width:100%; font-family:inherit; font-size:12.5px;
+  font-weight:600; color:var(--ink-2); background:none; border:none; border-radius:11px;
+  padding:9px 11px; cursor:pointer; text-align:left; transition:.12s }
+.gsi:hover{ background:var(--panel-2); color:var(--ink) }
+.gsi.on{ background:var(--panel-2); color:var(--ink) }
+.gsi.dis{ opacity:.4; cursor:default }
+.gsi .gschk{ margin-left:auto; color:#00B39A; font-size:13px; flex:none }
+.gsi.rich .av2{ width:26px;height:26px;border-radius:9px; display:grid; place-items:center;
+  color:#fff; font-size:10px; font-weight:700; flex:none }
+.gsi.rich .gk{ flex:1; min-width:0 }
+.gsi.rich .gk b{ display:block; font-size:12.5px; font-weight:700; color:var(--ink) }
+.gsi.rich .gk i{ display:block; font-style:normal; font-size:10.5px; color:var(--ink-3); margin-top:2px }
+.gspop.wide2{ padding:7px }
+
+/* ── 15. Горячая кнопка «Поставить задачу» ── */
+.gl.nthot{ padding:0; overflow:hidden; background:none; border:none; box-shadow:none; backdrop-filter:none }
+.hotbtn{ display:flex; align-items:center; gap:14px; width:100%; font-family:inherit; cursor:pointer;
+  border:1px solid var(--stroke); border-radius:var(--r); padding:16px 20px; text-align:left;
+  background:var(--panel); backdrop-filter:var(--blur); -webkit-backdrop-filter:var(--blur);
+  box-shadow:var(--sh); transition:transform .18s var(--ease), box-shadow .18s var(--ease) }
+.hotbtn:hover{ transform:translateY(-2px); box-shadow:0 26px 60px -24px rgba(124,92,255,.55), var(--sh) }
+.hotbtn .hi2{ width:44px;height:44px;border-radius:15px; display:grid; place-items:center; flex:none;
+  background:linear-gradient(140deg,#7C5CFF,#00B39A); box-shadow:0 10px 22px -10px rgba(124,92,255,.9) }
+.hotbtn .hi2 svg{ width:21px;height:21px; stroke:#fff; fill:none; stroke-width:2.2; stroke-linecap:round }
+.hotbtn .ht2{ flex:1; min-width:0 }
+.hotbtn .ht2 b{ display:block; font-family:Unbounded,sans-serif; font-size:16px; font-weight:500;
+  letter-spacing:-.03em; color:var(--ink) }
+.hotbtn .ht2 i{ display:block; font-style:normal; font-size:12px; color:var(--ink-3); margin-top:3px }
+.hotbtn .hk{ font-size:10.5px; font-weight:700; color:var(--ink-3); background:var(--panel-2);
+  border:1px solid var(--stroke-2); border-radius:8px; padding:4px 9px; flex:none }
+.ntask{ margin-top:10px; background:var(--panel); border:1px solid var(--stroke); border-radius:18px;
+  padding:13px 16px; box-shadow:var(--sh); animation:secIn .3s var(--ease) both;
+  backdrop-filter:var(--blur); -webkit-backdrop-filter:var(--blur) }
+.ntask .nal{ font-size:13px; font-weight:700; color:var(--ink); margin-bottom:9px }
+.ntask .nab{ display:flex; gap:8px; flex-wrap:wrap }
+.ntask .dimb{ opacity:.6 }
+.ntadv{ display:flex; gap:9px; flex-wrap:wrap; margin-top:10px }
+.advb{ display:block; text-align:left; font-family:inherit; cursor:pointer; flex:1; min-width:210px;
+  background:linear-gradient(140deg,rgba(0,179,154,.13),rgba(124,92,255,.1));
+  border:1px solid rgba(0,179,154,.35); border-radius:14px; padding:10px 13px; transition:.16s }
+.advb:hover{ border-color:rgba(0,179,154,.7); transform:translateY(-1px) }
+.advb b{ display:block; font-size:12.5px; font-weight:700; color:var(--ink) }
+.advb i{ display:block; font-style:normal; font-size:11px; color:var(--ink-3); margin-top:3px }
+.advb.warn3{ background:linear-gradient(140deg,rgba(219,74,95,.13),rgba(255,176,32,.1));
+  border-color:rgba(219,74,95,.35) }
+.advb.warn3:hover{ border-color:rgba(219,74,95,.7) }
+.ntwhere{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:11px }
+.ntwhere .nwl{ font-size:10px; font-weight:700; letter-spacing:.06em; text-transform:uppercase;
+  color:var(--ink-3); margin-right:2px }
+.ck.sm{ font-size:11.5px; padding:5px 9px }
+
+/* ── 16. Узкий виджет задач справа ── */
+.tdock{ position:fixed; right:0; top:46%; z-index:120; display:flex; align-items:stretch;
+  height:min(52vh, 560px); transition:transform .38s var(--ease); transform:translateX(calc(100% - 40px)) }
+.tdock.on{ transform:translateX(0) }
+.tdock .tdedge{ width:40px; flex:none; border-radius:18px 0 0 18px; cursor:pointer;
+  background:var(--panel); border:1px solid var(--stroke); border-right:none;
+  backdrop-filter:var(--blur); -webkit-backdrop-filter:var(--blur); box-shadow:var(--sh);
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px }
+.tdock .tdlab{ writing-mode:vertical-rl; transform:rotate(180deg); font-size:11px; font-weight:700;
+  letter-spacing:.14em; text-transform:uppercase; color:var(--ink-3) }
+.tdock .tdcnt{ font-family:Unbounded,sans-serif; font-size:13px; font-weight:500; color:var(--ink);
+  background:var(--panel-2); border-radius:9px; padding:3px 6px }
+.tdock .tdin{ width:308px; flex:none; overflow-y:auto; overscroll-behavior:contain;
+  background:var(--panel); border:1px solid var(--stroke); border-right:none;
+  border-radius:18px 0 0 18px; margin-left:-18px; padding:14px 15px 16px;
+  backdrop-filter:var(--blur); -webkit-backdrop-filter:var(--blur); box-shadow:var(--sh) }
+.tdock .tdin::-webkit-scrollbar{ width:7px }
+.tdock .tdin::-webkit-scrollbar-thumb{ background:var(--stroke); border-radius:4px }
+.tdh{ display:flex; align-items:center; margin-bottom:10px }
+.tdh b{ font-family:Unbounded,sans-serif; font-size:14px; font-weight:500; letter-spacing:-.03em; flex:1 }
+.tdpin{ width:26px;height:26px;border-radius:9px; border:1px solid var(--stroke-2);
+  background:var(--panel-2); cursor:pointer; display:grid; place-items:center; transition:.15s }
+.tdpin svg{ width:14px;height:14px; stroke:var(--ink-3); fill:none; stroke-width:1.8; stroke-linecap:round }
+.tdpin.on{ background:var(--panel) } .tdpin.on svg{ stroke:#7C5CFF }
+.tdays{ display:flex; gap:3px; flex-wrap:wrap; margin-bottom:12px }
+.tdd{ font-family:inherit; font-size:11px; font-weight:600; color:var(--ink-3);
+  background:var(--panel-2); border:1px solid transparent; border-radius:9px; padding:5px 8px;
+  cursor:pointer; transition:.14s }
+.tdd:hover{ color:var(--ink-2) }
+.tdd.on{ background:var(--panel); color:var(--ink); border-color:var(--stroke-2) }
+.tdd.now{ margin-left:auto; color:#7C5CFF }
+.tdlead{ background:var(--panel-2); border:1px solid var(--stroke-2); border-radius:14px;
+  padding:10px 11px; margin-bottom:12px }
+.tdl2{ font-size:9.5px; font-weight:700; letter-spacing:.07em; text-transform:uppercase;
+  color:var(--ink-3); margin-bottom:7px }
+.tdli{ display:flex; align-items:center; gap:7px; padding:3px 0; font-size:11.5px }
+.tdli .tdn{ width:13px; font-family:Unbounded,sans-serif; font-size:10px; color:var(--ink-3) }
+.tdli .av2{ width:20px;height:20px;border-radius:7px; display:grid; place-items:center;
+  color:#fff; font-size:8px; font-weight:700; flex:none }
+.tdli .tdk{ flex:none; width:64px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  color:var(--ink-2); font-weight:600 }
+.tdli .tdb{ flex:1; height:5px; border-radius:3px; background:var(--panel);
+  border:1px solid var(--stroke-2); overflow:hidden }
+.tdli .tdb i{ display:block; height:100%; width:0; border-radius:3px;
+  background:linear-gradient(90deg,#7C5CFF,#00B39A); transition:width var(--slower) var(--ease) }
+.tdli .tdp{ font-size:10.5px; color:var(--ink-3); font-variant-numeric:tabular-nums; min-width:22px;
+  text-align:right }
+.tdmeta{ font-size:10.5px; color:var(--ink-3); margin-bottom:8px }
+.tdlist{ display:flex; flex-direction:column; gap:4px }
+.tdt{ display:flex; align-items:center; gap:7px; padding:7px 9px; border-radius:11px;
+  background:var(--panel-2); border:1px solid var(--stroke-2); cursor:pointer; transition:.14s;
+  font-size:11.5px }
+.tdt:hover{ background:var(--panel) }
+.tdt.done{ opacity:.5 }
+.tdt.urg{ border-color:rgba(219,74,95,.4) }
+.tdt .tdtime{ font-size:10px; color:var(--ink-3); font-variant-numeric:tabular-nums; flex:none }
+.tdt .tdtt{ flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  color:var(--ink-2); font-weight:600 }
+.tdt .tdw{ display:flex; align-items:center; gap:4px; flex:none }
+.tdt .tdw .av2{ width:17px;height:17px;border-radius:6px; display:grid; place-items:center;
+  color:#fff; font-size:7.5px; font-weight:700; font-style:normal }
+.tdt .tdw .dot{ width:7px;height:7px;border-radius:50%; display:block }
+.tdt .tdw b{ font-size:10px; color:var(--ink-3); font-weight:600 }
+@media (max-width:1240px){ .tdock{ display:none } }
+
+/* ── 17. Гант: сортировка ── */
+.gsortw{ display:flex; align-items:center; gap:7px; margin-left:8px }
+.gsl2{ font-size:10px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-3) }
+@media (max-width:1000px){ .gsortw .gsl2{ display:none } }
+
+/* виджет задач не перекрывает контент */
+@media (min-width:1241px){ body.hasdock .app{ padding-right:58px } }
+
+/* мелкие доводки */
+.setfoot2 .bt{ width:auto }
+.sfb .bt{ width:auto }
+.whw .gsl{ min-width:132px }
+.rtt .whc .whw{ display:flex; align-items:center; gap:6px }
+.cabt .plf .gsl{ width:100% }
+.ccf .gsl, .sbl .gsl{ width:100% }
+.ntrow .gsl{ flex:1; min-width:130px }
+.fnbar .gsl{ min-width:120px }
+.sech .bt{ width:auto; flex:none }
+.simw.cmp{ margin-top:2px }
+
+/* доводка 2 */
+.gl-t .bt{ width:auto; flex:none }
+.tdock.on .tdedge .tdlab, .tdock.on .tdedge .tdcnt{ opacity:0; transition:opacity .2s }
+.tdock .tdedge .tdlab, .tdock .tdedge .tdcnt{ transition:opacity .25s }
+.tdock .tdin{ background:linear-gradient(var(--panel),var(--panel)), var(--ground) }
+.tdock .tdedge{ background:linear-gradient(var(--panel),var(--panel)), var(--ground) }
+.gspop{ background:linear-gradient(var(--panel),var(--panel)), var(--ground) }
+.tplw .tplg{ display:grid; grid-template-columns:1fr 1fr; gap:12px }
+@media (max-width:820px){ .tplw .tplg{ grid-template-columns:1fr } }
+.tplc{ background:var(--panel-2); border:1px solid var(--stroke-2); border-radius:15px; padding:12px 13px }
+.tplh{ display:flex; align-items:center; gap:8px; font-size:10.5px; font-weight:700;
+  letter-spacing:.05em; text-transform:uppercase; color:var(--ink-3); margin-bottom:8px }
+.tplh .tpm{ color:#7C5CFF; text-transform:none; letter-spacing:0; font-size:10px }
+.tplh .tprs{ margin-left:auto; text-transform:none; letter-spacing:0; font-size:10.5px }
+.tpta{ width:100%; resize:vertical; font-family:inherit; font-size:12.5px; line-height:1.5 }
+.tplev{ display:flex; gap:6px; flex-wrap:wrap; margin-bottom:12px }
+.tpb{ font-family:inherit; font-size:11.5px; font-weight:600; color:var(--ink-3);
+  background:var(--panel-2); border:1px solid var(--stroke-2); border-radius:10px;
+  padding:6px 10px; cursor:pointer; transition:.14s }
+.tpb:hover{ color:var(--ink-2) }
+.tpb.on{ background:var(--panel); color:var(--ink); border-color:transparent;
+  box-shadow:0 0 0 1.4px rgba(124,92,255,.45) }
+.tplv{ margin-top:12px; padding-top:11px; border-top:1px solid var(--stroke-2) }
+.tplvh{ font-size:10px; font-weight:700; letter-spacing:.06em; text-transform:uppercase;
+  color:var(--ink-3); margin-bottom:7px }
+.tplvl{ display:flex; gap:5px; flex-wrap:wrap; margin-bottom:9px }
+.tvar{ font-family:ui-monospace,monospace; font-size:11px; color:var(--ink-2);
+  background:var(--panel-2); border:1px solid var(--stroke-2); border-radius:8px;
+  padding:4px 8px; cursor:pointer; transition:.14s }
+.tvar:hover{ background:var(--panel); color:#7C5CFF }
+
+/* общий вид галочки */
+.ccsend .ck, .ntwhere .ck{ display:inline-flex; align-items:center; gap:8px; cursor:pointer;
+  font-family:inherit; font-size:12.5px; font-weight:600; color:var(--ink-3);
+  padding:7px 12px 7px 9px; border-radius:11px; border:1px solid var(--stroke-2);
+  background:var(--panel); transition:.15s; white-space:nowrap }
+.ccsend .ck:hover, .ntwhere .ck:hover{ color:var(--ink); border-color:var(--neu-b) }
+.ccsend .ck i, .ntwhere .ck i{ width:16px; height:16px; border-radius:5px; flex:none; position:relative;
+  border:1.5px solid var(--neu-b); background:var(--panel-2); transition:.15s }
+.ccsend .ck.on, .ntwhere .ck.on{ color:var(--ink); border-color:transparent;
+  box-shadow:0 0 0 1.4px rgba(124,92,255,.45) }
+.ccsend .ck.on i, .ntwhere .ck.on i{ background:#7C5CFF; border-color:#7C5CFF }
+.ccsend .ck.on i:after, .ntwhere .ck.on i:after{ content:""; position:absolute; left:4.5px; top:1px;
+  width:4px; height:8px; border:solid #fff; border-width:0 2px 2px 0; transform:rotate(43deg) }
+.ntwhere .ck.sm i{ width:14px; height:14px }
+.ntwhere .ck.sm.on i:after{ left:4px; top:1px; width:3.5px; height:7px }
+
+/* карточка человека явно нажимается */
+.pc[data-openperson]{ cursor:pointer; transition:transform .18s var(--ease), box-shadow .18s var(--ease) }
+.pc[data-openperson]:not(.open):hover{ transform:translateY(-2px);
+  box-shadow:0 26px 60px -26px rgba(16,24,48,.4), var(--sh) }
+.pchint{ position:absolute; top:10px; right:14px; font-size:9.5px; font-weight:700;
+  letter-spacing:.05em; text-transform:uppercase; color:var(--ink-3); opacity:0;
+  transition:opacity .2s var(--ease); pointer-events:none }
+.pc[data-openperson]{ position:relative }
+.pc[data-openperson]:hover .pchint{ opacity:.85 }
+.gb:hover{ z-index:60 }
+.pod .podbw{ width:100%; height:96px; display:flex; align-items:flex-end; margin-top:8px }
+.pod .podbar{ width:100%; height:0; max-height:none; border-radius:12px 12px 0 0;
+  background:linear-gradient(180deg,#7C5CFF,#00B39A); transition:height var(--slower) var(--ease) }
+.pod.p2 .podbar{ background:linear-gradient(180deg,#8FA0C0,#C7CFE0) }
+.pod.p3 .podbar{ background:linear-gradient(180deg,#C08A5C,#E0BFA0) }
+.pod.p1{ padding-top:18px }
+.pod{ min-height:300px; justify-content:flex-start }
+.pod .podbw{ margin-top:auto }
+.podw{ align-items:stretch }
+
+/* ── телефон: ничего не должно вылезать за экран ── */
+@media (max-width:920px){
+  html, body{ max-width:100%; overflow-x:hidden }
+  .app{ min-width:0 }
+  .grid, .gl, section.gl, #sect, #screen{ min-width:0; max-width:100% }
+  .gwrap, .paytw, .rtt, .fcw{ overflow-x:auto; max-width:100% }
+  .paytw table, .rtt{ min-width:640px }
+  .grsum, .finsum, .paysum{ display:grid; grid-template-columns:1fr 1fr; gap:9px }
+  .ccnums, .cabnums{ grid-template-columns:1fr 1fr }
+  .ccgrid, .cards{ grid-template-columns:1fr }
+  .incw .incg, .fillw .fillg, .grg, .tplw .tplg{ grid-template-columns:1fr }
+  .fsg{ grid-template-columns:repeat(2,1fr) }
+  .simg{ grid-template-columns:1fr 1fr }
+  .simc.wide{ grid-column:span 2 }
+  .podw{ gap:8px }
+  .pod{ min-height:230px; padding:10px 6px 0 }
+  .pod .av{ width:34px;height:34px;font-size:11px }
+  .pod .podt{ font-size:11.5px }
+  .crumbs{ font-size:11px }
+  .tdock{ display:none }
+  .ntrow{ flex-wrap:wrap }
+  .ntrow .gsl{ min-width:calc(50% - 6px) }
+  .gsortw{ margin-left:0 }
+  .fnbar{ margin-left:0; width:100% }
+  .fnq{ width:100% }
+}
+@media (max-width:520px){
+  .grsum, .finsum, .paysum, .ccnums, .cabnums, .simg, .fsg{ grid-template-columns:1fr }
+  .simc.wide{ grid-column:span 1 }
+}
+@media (max-width:920px){
+  .lostg{ grid-template-columns:1fr }
+  .fsw, .fsg{ max-width:100% }
+  .grw{ grid-template-columns:1fr }
+  .grec, .grc{ min-width:0 }
+  .simmodes{ flex-direction:column }
+  .smb{ min-width:0; width:100% }
+  .seg{ flex-wrap:wrap }
+  .fsseg{ margin-left:0 }
+}
+@media (max-width:920px){
+  .app > *, main, .app main{ min-width:0 }
+  main > *{ min-width:0; max-width:100% }
+}
+@media (max-width:920px){
+  .paytw{ margin:0 }
+  #sect, #screen{ overflow-x:clip }
+}
 </style>
 </head>
 <body>
@@ -1066,12 +1682,12 @@ body::before{content:""; position:fixed; inset:0; z-index:-1; pointer-events:non
     <div class="rw"><button class="ri" data-v="projects" title="Мои клиенты"><svg viewBox="0 0 24 24"><path d="M3 7.5A2.5 2.5 0 0 1 5.5 5h3.2l1.8 2.3h8A2.5 2.5 0 0 1 21 9.8v7.7A2.5 2.5 0 0 1 18.5 20h-13A2.5 2.5 0 0 1 3 17.5z"/></svg><span class="rl">Мои клиенты</span></button><div class="gl cabmenu" id="cabMenu"></div></div>
     <button class="ri" data-v="cards" title="Карточки клиентов"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="3"/><circle cx="8.5" cy="11" r="2"/><path d="M5.5 16.4c.5-1.5 1.7-2.4 3-2.4s2.5.9 3 2.4"/><path d="M14.5 10h4M14.5 13.5h4"/></svg><span class="rl">Карточки клиентов</span></button>
     <button class="ri" data-v="staff" title="Карточки команды"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="4"/><circle cx="12" cy="10" r="2.4"/><path d="M8 17c.6-1.9 2.2-3 4-3s3.4 1.1 4 3"/></svg><span class="rl">Карточки команды</span></button>
-    <button class="ri" title="Функции"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h10M4 18h13"/><circle cx="18.5" cy="12" r="2"/></svg><span class="rl">Функции</span></button>
+    <button class="ri" data-v="fns" title="Функции"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h10M4 18h13"/><circle cx="18.5" cy="12" r="2"/></svg><span class="rl">Функции</span></button>
     <button class="ri" data-v="meet" title="Планёрка"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M8 3v4M16 3v4M3 10h18M8 14h4"/></svg><span class="rl">Планёрка</span></button>
     <button class="ri" data-v="office" title="Онлайн-офис"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><circle cx="5" cy="6" r="2"/><circle cx="19" cy="6" r="2"/><circle cx="5" cy="18" r="2"/><circle cx="19" cy="18" r="2"/><path d="M6.6 7.4 10 10.4M17.4 7.4 14 10.4M6.6 16.6 10 13.6M17.4 16.6 14 13.6"/></svg><span class="rl">Онлайн-офис</span></button>
     <button class="ri" data-v="growth" title="Рост"><svg viewBox="0 0 24 24"><path d="M4 19V9M10 19V5M16 19v-7M22 19H2"/><path d="M14 8l2.5-2.5L19 8"/></svg><span class="rl">Рост</span></button>
     <button class="ri" id="moneyIc" data-v="fin" title="Финансы"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="3"/><circle cx="12" cy="12" r="2.6"/></svg><span class="rl">Деньги</span></button>
-    <button class="ri" title="Рейтинг"><svg viewBox="0 0 24 24"><path d="M5 20V11M12 20V5M19 20v-6"/></svg><span class="rl">Рейтинг</span></button>
+    <button class="ri" data-v="rate" title="Рейтинг"><svg viewBox="0 0 24 24"><path d="M5 20V11M12 20V5M19 20v-6"/></svg><span class="rl">Рейтинг</span></button>
     <div class="sp"></div>
     <button class="ri" id="setupBtn" title="Команда и кабинеты"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6 7 7M17 17l1.4 1.4M18.4 5.6 17 7M7 17l-1.4 1.4"/></svg><span class="rl">Команда и кабинеты</span></button>
   </nav>
@@ -1113,9 +1729,9 @@ body::before{content:""; position:fixed; inset:0; z-index:-1; pointer-events:non
 
     <div class="grid" id="screen" hidden>
       <div class="gl s12" style="padding:16px 22px" data-b="kpistrip"></div>
+      <section class="gl s12" data-b="newtask"></section>
       <section class="gl s12 tall" data-b="gantt"></section>
       <section class="gl s12" id="payPanel" data-b="bonus"></section>
-      <section class="gl s12" data-b="newtask"></section>
       <section class="gl s5"><div class="gl-t"><h2 id="tasksTitle">Задачи дня</h2><span class="m" id="tasksMeta"></span></div>
         <div data-b="tasks" data-scroll="1"></div></section>
       <section class="gl s3"><div class="gl-t"><h2>Загрузка людей</h2></div><div data-b="people"></div></section>
@@ -1482,6 +2098,8 @@ B.tasks=function(el){
 function render(){
   if(view!=="work"){
     if(view==="cab"){ renderCab(); return; }
+    if(typeof SEC_RENDER!=="undefined" && SEC_RENDER[view]){
+      SEC_RENDER[view](); paintBars(document.getElementById("sect")); return; }
     if(view==="people") renderPeople(); else renderProjects();
     paintBars(document.getElementById("sect")); return; }
   var sc=document.getElementById("screen");
@@ -2794,6 +3412,119 @@ function routeHTML(pr){
       '</div></div>';
 }
 
+/* ── тексты сообщений: свой для клиента, свой для команды ── */
+var tplEvent="approve_req", tplOpen=false;
+
+var TPL_VARS=[
+  ["{кабинет}","название кабинета"],
+  ["{задача}","название задачи"],
+  ["{ответственный}","имя исполнителя"],
+  ["{согласующий}","кто согласует"],
+  ["{ник}","ник владельца кабинета в Telegram"],
+  ["{срок}","дедлайн"],
+  ["{время}","время на задачу"],
+  ["{день}","день недели"],
+  ["{часы}","часы за день"],
+  ["{сделано}","сколько закрыто"],
+  ["{всего}","сколько всего задач"],
+  ["{ссылка}","ссылка на Google Таблицу"]
+];
+
+var TPL_DEFAULT={
+  plan_day:{
+    client:"{кабинет} — план на {день}.\nВ работе {всего} задач, ориентировочно {часы} ч.",
+    mpv:"План на {день} · {кабинет}\n{всего} задач, {часы} ч.\nРазбивка по ответственным ниже."},
+  fact_day:{
+    client:"{кабинет} — итоги {день}.\nСделано {сделано} из {всего}.",
+    mpv:"Итоги {день} · {кабинет}\nЗакрыто {сделано} из {всего}, отработано {часы} ч.\nЧто не успели — переносим на завтра."},
+  task_new:{
+    client:"Взяли в работу: {задача}.",
+    mpv:"Новая задача · {кабинет}\n{задача}\nОтветственный: {ответственный}, срок {срок}, {время}."},
+  task_form:{
+    client:"{задача} — готово.\nОтчёт: {ссылка}",
+    mpv:"Сдано по форме · {кабинет}\n{задача} — {ответственный}\nОтчёт: {ссылка}"},
+  approve_req:{
+    client:"{ник}, нужно согласование.\n{задача}\nЖдём ответ до {срок}.",
+    mpv:"Нужно согласование · {кабинет}\n{задача}\nОтветственный {ответственный}, согласует {согласующий}, до {срок}."},
+  approve_res:{
+    client:"{задача} — согласовано. Продолжаем.",
+    mpv:"Согласование по «{задача}» закрыто. {согласующий} ответил, {ответственный} продолжает."},
+  overdue:{
+    client:"{задача} — сдвигаем срок, вернёмся с новой датой.",
+    mpv:"Просрочка · {кабинет}\n{задача} — {ответственный}, срок был {срок}.\nНужно решение: доделываем или переносим."},
+  handover:{
+    client:"",
+    mpv:"Передача задачи · {кабинет}\n{задача} переходит к {ответственный}.\nПричина и сроки — в комментарии."},
+  meet_res:{
+    client:"Итоги встречи по {кабинет}: договорились по {всего} пунктам.",
+    mpv:"Итоги планёрки · {кабинет}\nРешения: {всего}.\nСледующая встреча: {срок}."}
+};
+
+function tplStore(){ if(!S.tpl) S.tpl={}; return S.tpl; }
+function tplGet(ev, kind){
+  var t=tplStore();
+  if(t[ev] && typeof t[ev][kind]==="string") return t[ev][kind];
+  return (TPL_DEFAULT[ev] && TPL_DEFAULT[ev][kind]) || "";
+}
+function tplSet(ev, kind, val){
+  var t=tplStore();
+  if(!t[ev]) t[ev]={};
+  t[ev][kind]=val; saveState();
+}
+function tplIsCustom(ev, kind){
+  var t=tplStore();
+  return !!(t[ev] && typeof t[ev][kind]==="string" &&
+    t[ev][kind]!==((TPL_DEFAULT[ev]||{})[kind]||""));
+}
+function tplEventName(k){
+  var f=EVENTS.filter(function(e){ return e.k===k; })[0];
+  return f?f.n:k;
+}
+
+function tplHTML(){
+  if(!tplOpen){
+    var custom=0;
+    EVENTS.forEach(function(e){
+      if(tplIsCustom(e.k,"client")) custom++;
+      if(tplIsCustom(e.k,"mpv")) custom++;
+    });
+    return '<div class="gl tplw"><div class="gl-t"><h2>Тексты сообщений</h2>'+
+      '<span class="m">'+(custom?custom+' изменено вручную':'все по умолчанию')+'</span>'+
+      '<button class="bt gh2 rtadd" id="tplOpen">Открыть</button></div>'+
+      '<div class="hint2">Для каждого события свой текст: клиенту — короткий и без внутренней кухни, '+
+      'команде — полный, с ответственным и сроком.</div></div>';
+  }
+  var cl=tplGet(tplEvent,"client"), mp=tplGet(tplEvent,"mpv");
+  return '<div class="gl tplw"><div class="gl-t"><h2>Тексты сообщений</h2>'+
+      '<span class="m">'+esc(tplEventName(tplEvent))+'</span>'+
+      '<button class="bt gh2 rtadd" id="tplClose">Свернуть</button></div>'+
+    '<div class="tplev">'+EVENTS.map(function(e){
+      return '<button class="tpb'+(e.k===tplEvent?' on':'')+'" data-tple="'+esc(e.k)+'">'+
+        esc(e.n)+'</button>'; }).join("")+'</div>'+
+    '<div class="tplg">'+
+      '<div class="tplc">'+
+        '<div class="tplh">Клиенту'+(tplIsCustom(tplEvent,"client")?'<span class="tpm">изменён</span>':'')+
+          '<button class="glink tprs" data-tplrs="client">вернуть по умолчанию</button></div>'+
+        '<textarea class="fi tpta" data-tplk="client" rows="7" '+
+          'placeholder="Пусто — клиенту по этому событию не пишем">'+esc(cl)+'</textarea>'+
+      '</div>'+
+      '<div class="tplc">'+
+        '<div class="tplh">Команде, МПВ'+(tplIsCustom(tplEvent,"mpv")?'<span class="tpm">изменён</span>':'')+
+          '<button class="glink tprs" data-tplrs="mpv">вернуть по умолчанию</button></div>'+
+        '<textarea class="fi tpta" data-tplk="mpv" rows="7" '+
+          'placeholder="Пусто — в МПВ по этому событию не пишем">'+esc(mp)+'</textarea>'+
+      '</div>'+
+    '</div>'+
+    '<div class="tplv"><div class="tplvh">Что можно подставить</div>'+
+      '<div class="tplvl">'+TPL_VARS.map(function(v){
+        return '<button class="tvar" data-tplvar="'+esc(v[0])+'" title="'+esc(v[1])+'">'+
+          esc(v[0])+'</button>'; }).join("")+'</div>'+
+      '<div class="hint2">Нажмите на подстановку — она добавится в текст, где стоит курсор. '+
+        'Пустой текст означает, что по этому событию в такой чат ничего не уходит, '+
+        'даже если галочка стоит.</div></div>'+
+  '</div>';
+}
+
 /* ── кабинеты клиента: задачи, настройки задач, инвайт ── */
 var cabOpen=null, pickOpen=false, pickQ="";
 var BLOCKS={1:"Функции в кабинете клиента",2:"Функции организационные",3:"Функции технические"};
@@ -3144,6 +3875,176 @@ B.bonus=function(el){
       'Процент премии — доля от ставки за час, начисляется за часы по задачам, подхваченным у другого менеджера. '+
       'Процент штрафа работает так же, но за просроченные задачи с дедлайном. У каждого человека свои проценты.</div>';
 };
+
+/* ── модель команды: мощность, переплата, найм, разгрузка ── */
+/* всё считается от фактических задач недели; норма — WEEK_H часов на человека */
+
+function simPerson(p){
+  var mins=(S.tasks||[]).filter(function(t){ return t.person===p.id; })
+    .reduce(function(a,t){ return a+(t.minutes||0); },0);
+  var h=mins/60;
+  var r=payRate(p);
+  var pct=Math.round(h/WEEK_H*100);
+  /* сколько часов недоработано (+) или переработано (−) относительно нормы */
+  var gap=WEEK_H-h;
+  return {p:p, h:h, pct:pct, rate:r,
+    gapH:gap,                         /* + переплачиваем, − недоплачиваем */
+    gapRub:gap*r.hour,                /* то же в рублях за неделю */
+    week:r.week};
+}
+
+function simTeam(){
+  var pl=(S.people||[]).filter(function(p){ return !p.hidden; });
+  var per=pl.map(simPerson);
+  var totalH=per.reduce(function(a,x){ return a+x.h; },0);
+  var cap=pl.length*WEEK_H;
+  var avg=pl.length?Math.round(totalH/cap*100):0;
+  var over=per.filter(function(x){ return x.pct>110; });
+  var idle=per.filter(function(x){ return x.pct<85; });
+  var needH=Math.max(0,totalH-cap);
+  var freeH=Math.max(0,cap-totalH);
+  var hire=Math.ceil(needH/WEEK_H);
+  /* переплата и недоплата в рублях за неделю */
+  var overpay=per.filter(function(x){ return x.gapRub>0; })
+    .reduce(function(a,x){ return a+x.gapRub; },0);
+  var underpay=per.filter(function(x){ return x.gapRub<0; })
+    .reduce(function(a,x){ return a-x.gapRub; },0);
+  var overH=per.filter(function(x){ return x.gapH>0; })
+    .reduce(function(a,x){ return a+x.gapH; },0);
+  var underH=per.filter(function(x){ return x.gapH<0; })
+    .reduce(function(a,x){ return a-x.gapH; },0);
+  var fot=per.reduce(function(a,x){ return a+x.week; },0);
+  var idxRub=overpay-underpay;
+  var idxPct=fot?Math.round(idxRub/fot*100):0;
+  return {per:per, n:pl.length, totalH:totalH, cap:cap, avg:avg, over:over, idle:idle,
+    needH:needH, freeH:freeH, hire:hire,
+    overpay:overpay, underpay:underpay, overH:overH, underH:underH,
+    fot:fot, idxRub:idxRub, idxPct:idxPct};
+}
+
+/* средняя недельная нагрузка одного кабинета — чтобы прикинуть, сколько ещё потянем */
+function simProjectAvg(){
+  var prs=(S.projects||[]);
+  if(!prs.length) return {h:0, art:0};
+  var byPr=prs.map(function(pr){
+    var m=(S.tasks||[]).filter(function(t){ return t.project===pr.id; })
+      .reduce(function(a,t){ return a+(t.minutes||0); },0);
+    return {pr:pr, h:m/60, art:+pr.articles||0};
+  }).filter(function(x){ return x.h>0; });
+  if(!byPr.length) return {h:0, art:0};
+  return {h: byPr.reduce(function(a,x){ return a+x.h; },0)/byPr.length,
+          art: Math.round(byPr.reduce(function(a,x){ return a+x.art; },0)/byPr.length)};
+}
+
+var SIM_MODES=[
+  ["new",    "Только новые задачи",  "Новый человек берёт новых клиентов. Текущая команда работает как работала."],
+  ["hybrid", "Гибрид",               "Половина времени — снять перегруз с команды, половина — новые клиенты."],
+  ["relief", "Только разгрузить",    "Весь новый человек уходит на разгрузку текущей команды."]
+];
+var simMode="hybrid", simAdd=1;
+
+/* что будет, если добавить N человек и распределить их по выбранной стратегии */
+function simEffect(add, mode){
+  var t=simTeam();
+  add=Math.max(0, add||0);
+  var newCap=t.cap+add*WEEK_H;
+  var share = mode==="relief" ? 1 : mode==="hybrid" ? 0.5 : 0;
+  var excessTotal=t.per.reduce(function(a,x){ return a+Math.max(0, x.h-WEEK_H); },0);
+  var reliefH=Math.min(add*WEEK_H*share, excessTotal);   /* больше, чем есть перегруза, не снять */
+  var growH=add*WEEK_H-reliefH;                          /* остальное — под новых клиентов */
+  /* после разгрузки перегруз уменьшается, но нельзя уйти ниже нуля */
+  var afterNeed=Math.max(0, t.needH-reliefH);
+  var carried=t.totalH;                            /* объём работы не изменился */
+  var avgAfter=newCap?Math.round(carried/newCap*100):0;
+  /* кто останется перегружен: снимаем часы с самых загруженных */
+  var left=reliefH, after=t.per.map(function(x){ return {p:x.p, h:x.h, pct:x.pct}; })
+    .sort(function(a,b){ return b.h-a.h; });
+  after.forEach(function(x){
+    if(left<=0) return;
+    var excess=Math.max(0, x.h-WEEK_H);
+    var take=Math.min(excess, left);
+    x.h-=take; left-=take; x.pct=Math.round(x.h/WEEK_H*100);
+  });
+  var overAfter=after.filter(function(x){ return x.pct>110; }).length;
+  var freeAfter=Math.max(0, newCap-carried);
+  var pa=simProjectAvg();
+  var capacityH = growH + Math.max(0, freeAfter-growH)*0.6;   /* реалистично: не весь простой продаётся */
+  var canTake = pa.h ? Math.floor(capacityH/pa.h) : 0;
+  var freeSell = capacityH;
+  return {add:add, mode:mode, before:t, newCap:newCap, avgAfter:avgAfter,
+    reliefH:reliefH, growH:growH, afterNeed:afterNeed,
+    overBefore:t.over.length, overAfter:overAfter,
+    freeAfter:freeAfter, canTake:canTake, freeSell:freeSell, projH:pa.h, projArt:pa.art,
+    cost: add*(t.n?t.fot/t.n:0)};
+}
+
+function simScaleWord(h){
+  if(!h) return "любого";
+  if(h<8) return "небольшой (до 8 ч в неделю)";
+  if(h<20) return "средний (8–20 ч в неделю)";
+  if(h<35) return "крупный (20–35 ч в неделю)";
+  return "очень крупный (больше 35 ч в неделю)";
+}
+
+/* виджет модели — один и тот же в «Команде» и в «Росте» */
+function simWidget(opts){
+  opts=opts||{};
+  var e=simEffect(simAdd, simMode);
+  var b=e.before;
+  var money=seesMoney();
+  return '<div class="simw'+(opts.compact?' cmp':'')+'">'+
+    (opts.noHead?'':'<div class="simh"><h3>Что будет, если взять '+
+      (simAdd===1?'человека':'ещё '+simAdd)+'</h3></div>')+
+    '<div class="simctl">'+
+      '<div class="simadd"><span>Сколько берём</span>'+
+        '<div class="stp"><button class="sb" data-simadd="-1">−</button>'+
+          '<b>'+e.add+'</b>'+
+          '<button class="sb" data-simadd="1">+</button></div></div>'+
+      (opts.noModes?'':'<div class="simmodes">'+SIM_MODES.map(function(m){
+        return '<button class="smb'+(simMode===m[0]?' on':'')+'" data-simmode="'+m[0]+'">'+
+          '<b>'+m[1]+'</b><i>'+m[2]+'</i></button>'; }).join("")+'</div>')+
+    '</div>'+
+    '<div class="simg">'+
+      '<div class="simc"><div class="l">Загрузка команды</div>'+
+        '<div class="v">'+b.avg+'% <span class="ar">→</span> <b class="'+
+          (e.avgAfter>110?'critv':e.avgAfter>100?'warnv':'okv')+'">'+e.avgAfter+'%</b></div>'+
+        '<div class="d">норма 100% при '+WEEK_H+' ч в неделю</div></div>'+
+      '<div class="simc"><div class="l">Перегружены</div>'+
+        '<div class="v">'+e.overBefore+' <span class="ar">→</span> <b class="'+
+          (e.overAfter?'warnv':'okv')+'">'+e.overAfter+'</b></div>'+
+        '<div class="d">людей выше 110% нормы</div></div>'+
+      '<div class="simc"><div class="l">Разгрузили</div>'+
+        '<div class="v"><b class="okv">'+e.reliefH.toFixed(0)+' ч</b></div>'+
+        '<div class="d">снято с текущей команды за неделю</div></div>'+
+      '<div class="simc"><div class="l">Свободно под новых</div>'+
+        '<div class="v"><b>'+e.freeSell.toFixed(0)+' ч</b></div>'+
+        '<div class="d">часов в неделю, которые можно продать'+
+          (e.growH>0?' · из них '+e.growH.toFixed(0)+' ч у новичка':'')+'</div></div>'+
+      '<div class="simc wide"><div class="l">Сколько ещё клиентов потянем</div>'+
+        '<div class="v"><b class="'+(e.canTake?'okv':'')+'">'+
+          (e.canTake?('+'+e.canTake+' '+(e.canTake===1?'кабинет':e.canTake<5?'кабинета':'кабинетов')):'ни одного')+'</b></div>'+
+        '<div class="d">'+(e.canTake
+          ? 'масштаб '+simScaleWord(e.projH)+(e.projArt?' · в среднем '+e.projArt+' артикулов':'')
+          : (e.projH?'до среднего кабинета не хватает '+Math.max(0,(e.projH-e.freeSell)).toFixed(0)+' ч в неделю':'нет данных по кабинетам'))+
+        '</div></div>'+
+      (money?'<div class="simc"><div class="l">Стоит в неделю</div>'+
+        '<div class="v"><b>'+rub(e.cost)+'</b></div>'+
+        '<div class="d">по средней ставке команды</div></div>':'')+
+    '</div>'+
+    (e.mode==="relief" && e.growH>0.5
+      ? '<div class="simn">Перегруза всего '+ (e.before.needH>0? e.before.needH.toFixed(0) : e.reliefH.toFixed(0)) +
+        ' ч — снять больше нечего. Оставшиеся '+e.growH.toFixed(0)+
+        ' ч нового человека всё равно уйдут на новых клиентов.</div>'
+      : '')+
+    (money&&b.fot?'<div class="simn">Сейчас '+
+      (b.idxRub>0
+        ? 'мы переплачиваем: <b>'+b.overH.toFixed(0)+' ч</b> оплаченного времени не заняты работой — это '+rub(b.idxRub)+' в неделю'
+        : b.idxRub<0
+          ? 'мы недоплачиваем: команда работает <b>'+b.underH.toFixed(0)+' ч</b> сверх оклада — это '+rub(-b.idxRub)+' в неделю'
+          : 'оклады сходятся с нагрузкой')+
+      '.</div>':'')+
+  '</div>';
+}
 
 /* ── подсказка внутри полосы Ганта: раскрывается при наведении ── */
 function fmtHM(h){
@@ -3823,6 +4724,2102 @@ document.addEventListener("input", function(e){
   gTab("in");
   var pre=(location.search.match(/[?&]invite=([A-Za-z0-9]+)/)||[])[1];
   if(pre){ gTab("up"); document.getElementById("upCode").value=pre.toUpperCase(); }
+})();
+
+/* ══════════════════════════════════════════════════════════════
+   Ночные доработки. Всё, что ниже, переопределяет ранее объявленное.
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── 1. «Требует решения»: найм и индекс оплаты ────────────── */
+B.need=function(el){
+  if(isMgr()){
+    var w=wins();
+    document.querySelector("#needPanel h2").textContent="Победы по скорости";
+    el.innerHTML = w.length ? '<div class="mo">'+w.slice(0,5).map(function(t){
+      return '<div class="mrow"><span class="k">'+esc(t.title)+'<br><span style="font-size:11px">норматив '+t.minutes+' мин</span></span>'+
+        '<span class="v" style="color:var(--ok)">'+Math.round(t.spentSec/60)+' мин</span></div>';
+    }).join("")+'</div>' : '<div class="empty">Пока пусто. Закрой задачу по секундомеру быстрее норматива — она появится здесь.</div>';
+    return;
+  }
+  document.querySelector("#needPanel h2").textContent="Требует решения";
+  var noOwner=S.tasks.filter(function(t){ return !t.person; }).length;
+  var over=S.people.filter(function(p){ return pctOf(p.id,dow)>125; }).length;
+  var wait=S.tasks.filter(function(t){ return t.status==="wait"; }).length;
+  var undone=S.tasks.filter(function(t){ return !t.done && t.dow<dow; }).length;
+  var sim=simTeam();
+  var money=seesMoney();
+
+  var hireV = sim.hire ? "+"+sim.hire : "нет";
+  var hireC = sim.hire ? "var(--crit)" : "var(--ok)";
+  var hireH = sim.hire
+    ? "команда перерабатывает на "+sim.needH.toFixed(0)+" ч в неделю"
+    : (sim.freeH>WEEK_H*0.5 ? "есть запас "+sim.freeH.toFixed(0)+" ч в неделю" : "мощности хватает");
+
+  var idxV, idxC, idxH;
+  if(!money){ idxV="скрыто"; idxC=""; idxH="доступно собственнику"; }
+  else if(!sim.fot){ idxV="—"; idxC=""; idxH="оклады не заполнены"; }
+  else {
+    idxV=(sim.idxPct>0?"+":"")+sim.idxPct+"%";
+    idxC = sim.idxPct>12 ? "var(--crit)" : sim.idxPct<-12 ? "var(--warn)" : "var(--ok)";
+    idxH = sim.idxPct>0
+      ? "переплата "+rub(sim.overpay-sim.underpay)+" в неделю"
+      : sim.idxPct<0
+        ? "недоплата "+rub(sim.underpay-sim.overpay)+" в неделю"
+        : "оклады сходятся с нагрузкой";
+  }
+
+  el.innerHTML='<div class="mo">'+[
+   {k:"Задач без ответственного", v:noOwner, c:noOwner?"var(--crit)":""},
+   {k:"Людей выше 125%", v:over, c:over?"var(--crit)":""},
+   {k:"Ждут согласования", v:wait, c:wait?"var(--warn)":""},
+   {k:"Не закрыто за прошлые дни", v:undone, c:""},
+   {k:"Нужен новый сотрудник", v:hireV, c:hireC, h:hireH},
+   {k:"Индекс оплаты", v:idxV, c:idxC, h:idxH}
+  ].map(function(m){
+    return '<div class="mrow'+(m.h?' two':'')+'"><span class="k">'+m.k+
+      (m.h?'<i class="mh">'+esc(m.h)+'</i>':'')+'</span>'+
+      '<span class="v"'+(m.c?' style="color:'+m.c+'"':'')+'>'+m.v+'</span></div>';
+  }).join("")+'</div>';
+};
+
+/* ── 2. Разделы «Функции» и «Рейтинг» ─────────────────────── */
+var fnQ="", fnBlock=0, ratePeriod="week";
+
+function fnStats(){
+  var byFn={};
+  (S.fns||[]).forEach(function(f){ byFn[f.id]={f:f, n:0, done:0, mins:0, cabs:{}, people:{}}; });
+  (S.tasks||[]).forEach(function(t){
+    var r=byFn[t.fn]; if(!r) return;
+    r.n++; r.mins+=(t.minutes||0); if(t.done) r.done++;
+    if(t.project) r.cabs[t.project]=1;
+    if(t.person) r.people[t.person]=(r.people[t.person]||0)+1;
+  });
+  (S.plan||[]).forEach(function(p){ var r=byFn[p.fn]; if(r) r.cabs[p.cab]=1; });
+  return byFn;
+}
+
+function renderFns(){
+  var host=document.getElementById("sect");
+  var st=fnStats();
+  var all=(S.fns||[]).map(function(f){ return st[f.id]; });
+  var qq=fnQ.toLowerCase();
+  var list=all.filter(function(r){
+    if(fnBlock && blockOf(r.f)!==fnBlock) return false;
+    if(!qq) return true;
+    return r.f.name.toLowerCase().indexOf(qq)>=0 || r.f.code.toLowerCase().indexOf(qq)>=0;
+  });
+  var byBlock={1:[],2:[],3:[]};
+  all.forEach(function(r){ byBlock[blockOf(r.f)].push(r); });
+  var tot=function(arr,k){ return arr.reduce(function(a,x){ return a+x[k]; },0); };
+
+  host.innerHTML=
+    '<div class="gl grsum">'+[1,2,3].map(function(b){
+      var arr=byBlock[b], n=tot(arr,"n"), dn=tot(arr,"done");
+      var late=n-dn, pct=n?Math.round(late/n*100):0;
+      return '<div class="pss"><div class="l">'+BLOCKS[b]+'</div>'+
+        '<div class="v'+(pct>55?' critv':pct>=40?' warnv':' okv')+'">'+arr.length+'</div>'+
+        '<div class="d">'+n+' задач за неделю · не закрыто '+late+'</div></div>'; }).join("")+
+      '<div class="pss"><div class="l">Всего часов по функциям</div>'+
+        '<div class="v">'+hrs(tot(all,"mins"))+' ч</div>'+
+        '<div class="d">за текущую неделю</div></div>'+
+    '</div>'+
+    '<div class="gl"><div class="gl-t"><h2>Справочник функций</h2>'+
+      '<span class="m">норматив, частота и кто выполняет</span>'+
+      '<div class="fnbar">'+
+        '<div class="seg sm">'+[[0,"Все"],[1,"Кабинет"],[2,"Оргвопросы"],[3,"Техника"]].map(function(x){
+          return '<button data-fnb="'+x[0]+'" aria-pressed="'+(fnBlock===x[0])+'">'+x[1]+'</button>'; }).join("")+'</div>'+
+        '<input class="fi sm fnq" id="fnQ" placeholder="Найти функцию" value="'+esc(fnQ)+'">'+
+      '</div></div>'+
+      '<div class="paytw"><table class="payt fnt"><thead><tr>'+
+        '<th>Код</th><th>Функция</th><th>Норматив</th><th>За неделю</th>'+
+        '<th>Закрыто</th><th>Кабинетов</th><th>Кто чаще делает</th></tr></thead><tbody>'+
+        (list.length ? list.map(function(r){
+          var top=Object.keys(r.people).sort(function(a,b){ return r.people[b]-r.people[a]; })[0];
+          var m=top?person(top):null;
+          var pct=r.n?Math.round(r.done/r.n*100):0;
+          return '<tr>'+
+            '<td class="fnc">'+esc(r.f.code)+'</td>'+
+            '<td class="fnn">'+esc(r.f.name)+'</td>'+
+            '<td>'+r.f.minutes+' мин</td>'+
+            '<td>'+(r.n||'<span class="dim">—</span>')+'</td>'+
+            '<td class="'+(r.n&&pct<60?'critc':pct>=90?'okc':'')+'">'+(r.n?pct+'%':'<span class="dim">—</span>')+'</td>'+
+            '<td>'+(Object.keys(r.cabs).length||'<span class="dim">—</span>')+'</td>'+
+            '<td class="who">'+(m?'<span class="av" style="background:'+m.color+'">'+esc(m.av||"")+'</span>'+
+              '<span class="wn">'+esc(m.name)+'</span>':'<span class="dim">никто</span>')+'</td>'+
+          '</tr>'; }).join("")
+          : '<tr><td colspan="7" class="dim">Ничего не найдено</td></tr>')+
+      '</tbody></table></div></div>';
+}
+
+function rateRows(){
+  return (S.people||[]).map(function(m){
+    var mine=(S.tasks||[]).filter(function(t){ return t.person===m.id; });
+    var done=mine.filter(function(t){ return t.done; });
+    var fast=done.filter(function(t){ return t.spentSec>0 && t.spentSec < (t.minutes||0)*60; });
+    var late=mine.filter(function(t){ return t.due!=null && !t.done && t.dow<=today; });
+    var pick=mine.filter(function(t){ return t.from && t.from!==m.id; });
+    var h=minutesOf(mine)/60;
+    var doneP=mine.length?Math.round(done.length/mine.length*100):0;
+    /* очки: закрытые задачи + скорость + подхваты − просрочки */
+    var pts=Math.round(done.length*10 + fast.length*6 + pick.length*8 - late.length*12 + doneP*0.4);
+    return {m:m, n:mine.length, done:done.length, doneP:doneP, fast:fast.length,
+      late:late.length, pick:pick.length, h:h, pts:Math.max(0,pts)};
+  }).sort(function(a,b){ return b.pts-a.pts; });
+}
+
+function renderRate(){
+  var host=document.getElementById("sect");
+  var rows=rateRows();
+  var top=rows.slice(0,3);
+  var mx=rows.length?Math.max(1,rows[0].pts):1;
+  var PODIUM=[1,0,2];
+  host.innerHTML=
+    '<div class="gl"><div class="gl-t"><h2>Лучшие недели</h2>'+
+      '<span class="m">закрытые задачи, скорость, подхваты, минус просрочки</span></div>'+
+      '<div class="podw">'+PODIUM.map(function(i){
+        var r=top[i]; if(!r) return '';
+        var place=i+1;
+        return '<div class="pod p'+place+'">'+
+          '<div class="podn">'+place+'</div>'+
+          '<div class="av" style="background:'+r.m.color+'">'+esc(r.m.av||"")+'</div>'+
+          '<div class="podt">'+esc(r.m.name)+'</div>'+
+          '<div class="podr">'+esc(r.m.role||"")+'</div>'+
+          '<div class="podp">'+r.pts+'</div>'+
+          '<div class="podbw"><div class="podbar" data-h="'+Math.round(28+r.pts/mx*72)+'"></div></div>'+
+        '</div>'; }).join("")+'</div></div>'+
+    '<div class="gl"><div class="gl-t"><h2>Рейтинг команды</h2>'+
+      '<span class="m">за текущую неделю</span></div>'+
+      '<div class="paytw"><table class="payt"><thead><tr>'+
+        '<th>Место</th><th>Сотрудник</th><th>Очки</th><th>Задач</th><th>Закрыто</th>'+
+        '<th>Быстрее норматива</th><th>Подхватил</th><th>Просрочено</th><th>Часов</th>'+
+      '</tr></thead><tbody>'+
+      (rows.length ? rows.map(function(r,i){
+        return '<tr>'+
+          '<td class="rpl'+(i<3?' top':'')+'">'+(i+1)+'</td>'+
+          '<td class="who"><span class="av" style="background:'+r.m.color+'">'+esc(r.m.av||"")+'</span>'+
+            '<span class="wn">'+esc(r.m.name)+'<i>'+esc(r.m.role||"")+'</i></span></td>'+
+          '<td class="tot">'+r.pts+'</td>'+
+          '<td>'+r.n+'</td>'+
+          '<td class="'+(r.doneP>=90?'okc':r.doneP<60?'critc':'')+'">'+r.doneP+'%</td>'+
+          '<td class="'+(r.fast?'okc':'')+'">'+(r.fast||'—')+'</td>'+
+          '<td class="'+(r.pick?'okc':'')+'">'+(r.pick||'—')+'</td>'+
+          '<td class="'+(r.late?'critc':'')+'">'+(r.late||'—')+'</td>'+
+          '<td>'+r.h.toFixed(1)+'</td>'+
+        '</tr>'; }).join("")
+        : '<tr><td colspan="9" class="dim">Команда пока пустая</td></tr>')+
+      '</tbody></table></div>'+
+      '<div class="payh">Очки: 10 за закрытую задачу, 6 за закрытие быстрее норматива, '+
+        '8 за задачу, подхваченную у коллеги, минус 12 за просроченный дедлайн, '+
+        'плюс доля закрытых задач.</div></div>';
+}
+
+/* ── 3. Двери: у каждого «вглубь» есть «назад» ─────────────── */
+var NAV=[];                       /* стек хлебных крошек */
+function navLabel(v){
+  var T=NAV_TITLES[v];
+  if(v==="cab"){ var c=project(cabOpen); return c?c.name:"Кабинет"; }
+  return T?T[0]:v;
+}
+function navPush(fromView){
+  var st={v:fromView, openProj:openProj, projDay:projDay, projGantt:projGantt,
+    openPerson:openPerson, peDay:peDay, peGantt:peGantt, cabOpen:cabOpen,
+    label:navLabel(fromView)};
+  /* не плодим одинаковые ступени */
+  if(NAV.length && NAV[NAV.length-1].v===fromView) NAV.pop();
+  NAV.push(st);
+  if(NAV.length>6) NAV.shift();
+}
+function navBack(){
+  var st=NAV.pop();
+  if(!st){ setView("work"); return; }
+  openProj=st.openProj; projDay=st.projDay; projGantt=st.projGantt;
+  openPerson=st.openPerson; peDay=st.peDay; peGantt=st.peGantt;
+  cabOpen=st.cabOpen;
+  setView(st.v, true);
+}
+function navTo(v){
+  var idx=-1;
+  NAV.forEach(function(s,i){ if(s.v===v) idx=i; });
+  if(idx<0){ NAV=[]; setView(v, true); return; }
+  var st=NAV[idx]; NAV=NAV.slice(0,idx);
+  openProj=st.openProj; projDay=st.projDay; projGantt=st.projGantt;
+  openPerson=st.openPerson; peDay=st.peDay; peGantt=st.peGantt;
+  cabOpen=st.cabOpen;
+  setView(st.v, true);
+}
+function crumbsHTML(){
+  if(!NAV.length) return "";
+  return '<nav class="crumbs">'+
+    NAV.map(function(s){
+      return '<button class="crb" data-crumb="'+esc(s.v)+'">'+esc(s.label)+'</button>'+
+        '<span class="crs">›</span>'; }).join("")+
+    '<span class="crn">'+esc(navLabel(view))+'</span>'+
+    (view==="cab" ? '' : '<button class="crback" id="navBack">← Назад</button>')+'</nav>';
+}
+function paintCrumbs(){
+  var sec=document.getElementById("sect");
+  if(!sec || sec.hidden) return;
+  var old=sec.querySelector(":scope > .crumbs"); if(old) old.remove();
+  var h=crumbsHTML(); if(!h) return;
+  var d=document.createElement("div"); d.innerHTML=h;
+  sec.insertBefore(d.firstChild, sec.firstChild);
+}
+
+/* ── 4. Заголовки и подзаголовки всех разделов ─────────────── */
+var NAV_TITLES={
+  work:   ["Рабочий экран",""],
+  people: ["Моя команда","Кто чем занят на этой неделе"],
+  projects:["Мои клиенты","Что происходит по каждому кабинету"],
+  cards:  ["Карточки клиентов","Платёж, артикулы, функции и контакты"],
+  staff:  ["Карточки команды","Зарплата, выплаты, контакты и доступы"],
+  cab:    ["Кабинет","Задачи, ответственные и куда сообщать"],
+  fin:    ["Финансы","Календарь платежей и прогноз выручки"],
+  meet:   ["Планёрка","Задачи совещания и шпаргалка ведущему"],
+  office: ["Онлайн-офис","Как команда связана и как проходит день"],
+  growth: ["Рост","Найм, премии и слабые места"],
+  fns:    ["Функции","Справочник функций, нормативы и частота"],
+  rate:   ["Рейтинг","Кто как отработал неделю"]
+};
+var SEC_RENDER={
+  fin:renderFin, meet:renderMeet, office:renderOffice, growth:renderGrowth,
+  fns:renderFns, rate:renderRate, staff:renderStaff, cards:renderCards
+};
+
+function setTitles(v){
+  var t=NAV_TITLES[v]||["",""];
+  var h=document.getElementById("today"), s=document.getElementById("sub");
+  if(v==="cab"){
+    var c=project(cabOpen);
+    if(h) h.textContent=c?c.name:"Кабинет";
+    if(s) s.textContent="Кабинет клиента"+(c&&c.owner?" · "+c.owner:"");
+    return;
+  }
+  if(v==="work") return;                 /* рабочий экран сам ставит день */
+  if(h) h.textContent=t[0];
+  if(s) s.textContent=t[1];
+}
+
+function setView(v, keepNav){
+  /* крошки копятся только при «провале вглубь»; переход по рельсе их сбрасывает */
+  if(!keepNav) NAV=[];
+  view=v;
+  q(".rail .ri[data-v]").forEach(function(b){
+    b.setAttribute("aria-current", String(b.getAttribute("data-v")===v)); });
+  var scr=document.getElementById("screen"), sec=document.getElementById("sect");
+  if(v==="work"){ sec.hidden=true; scr.hidden=false; render(); railAcc(false); return; }
+  scr.hidden=true; sec.hidden=false;
+  setTitles(v);
+  if(v==="cab"){ renderCab(); paintCrumbs(); return; }
+  if(SEC_RENDER[v]){ SEC_RENDER[v](); paintCrumbs(); paintBars(sec); return; }
+  if(v==="people") renderPeople(); else renderProjects();
+  paintCrumbs();
+  paintBars(sec);
+}
+
+/* ── 5. Рельса: список кабинетов выезжает вниз между кнопок ── */
+var railOpen=false;
+
+function railItems(){
+  var list=(S.projects||[]);
+  return '<button class="racci add" id="raccAdd"><span class="pl">+</span>'+
+      '<span class="k">Добавить кабинет</span></button>'+
+    (list.length ? list.map(function(pr){
+      var n=(S.plan||[]).filter(function(x){ return x.cab===pr.id; }).length;
+      var tk=(S.tasks||[]).filter(function(t){ return t.project===pr.id; }).length;
+      return '<button class="racci'+(cabOpen===pr.id?" on":"")+'" data-opencab="'+esc(pr.id)+'">'+
+        '<span class="av2" style="background:'+pr.color+'">'+esc(pr.av||"")+'</span>'+
+        '<span class="k">'+esc(pr.name)+'</span>'+
+        '<span class="n2">'+(n||tk||"—")+'</span></button>'; }).join("")
+      : '<div class="raccn">Кабинетов пока нет</div>');
+}
+
+function railAcc(open){
+  var acc=document.getElementById("railAcc");
+  if(!acc) return;
+  if(open===undefined) open=!railOpen;
+  railOpen=!!open;
+  if(railOpen){
+    acc.innerHTML=railItems();
+    acc.hidden=false;
+    acc.style.maxHeight="0px";
+    requestAnimationFrame(function(){
+      acc.style.maxHeight=Math.min(acc.scrollHeight, 340)+"px";
+      acc.classList.add("on");
+    });
+  } else {
+    acc.style.maxHeight="0px";
+    acc.classList.remove("on");
+    setTimeout(function(){ if(!railOpen){ acc.hidden=true; } }, 420);
+  }
+}
+
+(function buildRail(){
+  var rw=document.querySelector(".rail .rw");
+  if(!rw) return;
+  /* старое всплывающее меню больше не нужно */
+  var old=document.getElementById("cabMenu"); if(old) old.remove();
+  var acc=document.createElement("div");
+  acc.className="racc"; acc.id="railAcc"; acc.hidden=true; acc.style.maxHeight="0px";
+  rw.parentNode.insertBefore(acc, rw.nextSibling);
+  /* нативные подсказки дублируют подписи рельсы — убираем */
+  q(".rail .ri").forEach(function(b){ b.removeAttribute("title"); });
+})();
+
+/* ── 6. Команда и кабинеты: два блока, ввод под своим блоком ── */
+/* проект и кабинет — одно и то же, поэтому блоков ровно два */
+var addMode="";                 /* "", "emp", "cab" */
+var setErrEmp="", setErrCab="";
+
+function cabinetOf(pr){
+  var c=(S.cabs||[]).filter(function(x){ return x.project===pr.id; })[0];
+  return c||null;
+}
+function addCabinet(name, extra){
+  var pr=demoAddProject(name);
+  Object.keys(extra||{}).forEach(function(k){ if(extra[k]!=="") pr[k]=extra[k]; });
+  pr.code=newCode();
+  demoAddCab(pr.id, name);
+  saveState(); return pr;
+}
+
+function empFormHTML(){
+  return '<div class="setform">'+
+    '<div class="sfr"><label><span>Имя</span>'+
+      '<input class="fi" id="empName" placeholder="Как зовут" autocomplete="off"></label>'+
+      '<label><span>Должность</span>'+
+      '<input class="fi" id="empRole" placeholder="Менеджер" autocomplete="off"></label></div>'+
+    '<div class="sfr"><label><span>Telegram</span>'+
+      '<div class="tgr"><span class="at">@</span><input class="fi" id="empTg" placeholder="nickname" autocomplete="off"></div></label>'+
+      '<label><span>Оклад, ₽ в месяц</span>'+
+      '<input class="fi" id="empPay" type="number" min="0" step="1000" placeholder="0"></label>'+
+      '<label class="nar"><span>Загрузка, %</span>'+
+      '<input class="fi" id="empLoad" type="number" min="10" max="200" value="100"></label></div>'+
+    '<div class="sfh">Как загрузим нового человека</div>'+
+    '<div class="simmodes wide">'+SIM_MODES.map(function(m){
+      return '<button class="smb'+(simMode===m[0]?' on':'')+'" data-simmode="'+m[0]+'">'+
+        '<b>'+m[1]+'</b><i>'+m[2]+'</i></button>'; }).join("")+'</div>'+
+    '<div id="simHost">'+simWidget({compact:true, noModes:true, noHead:true})+'</div>'+
+    (setErrEmp?'<div class="gerr on">'+esc(setErrEmp)+'</div>':'')+
+    '<div class="sfb"><button class="bt" id="addEmp">Добавить в команду</button>'+
+      '<button class="bt gh2" data-addmode="">Отмена</button></div>'+
+  '</div>';
+}
+
+function cabFormHTML(){
+  return '<div class="setform">'+
+    '<div class="sfr"><label><span>Название кабинета</span>'+
+      '<input class="fi" id="cabName2" placeholder="ИП Иванова · FBO" autocomplete="off"></label>'+
+      '<label><span>Собственник</span>'+
+      '<input class="fi" id="cabOwn" placeholder="Имя и фамилия" autocomplete="off"></label></div>'+
+    '<div class="sfr"><label><span>Telegram собственника</span>'+
+      '<div class="tgr"><span class="at">@</span><input class="fi" id="cabTg2" placeholder="nickname" autocomplete="off"></div></label>'+
+      '<label><span>Телефон</span>'+
+      '<input class="fi" id="cabPhone" type="tel" placeholder="+7 900 000-00-00"></label></div>'+
+    '<div class="sfr"><label><span>Сумма в месяц, ₽</span>'+
+      '<input class="fi" id="cabAmt" type="number" min="0" step="1000" placeholder="0"></label>'+
+      '<label><span>Дата платежа</span><input class="fi" id="cabPay" type="date"></label>'+
+      '<label class="nar"><span>Артикулов</span>'+
+      '<input class="fi" id="cabArt" type="number" min="0" placeholder="0"></label></div>'+
+    '<div class="sfr"><label><span>Рабочее пространство — ссылка на Google-таблицу</span>'+
+      '<input class="fi" id="cabSheet" placeholder="https://docs.google.com/..."></label></div>'+
+    (setErrCab?'<div class="gerr on">'+esc(setErrCab)+'</div>':'')+
+    '<div class="sfb"><button class="bt" id="addCab2">Добавить кабинет</button>'+
+      '<button class="bt gh2" data-addmode="">Отмена</button></div>'+
+  '</div>';
+}
+
+function renderSetup(){
+  var host=document.getElementById("sect");
+  var demo=MODE==="demo";
+  var pl=S.people||[], prs=S.projects||[];
+  host.innerHTML=
+    '<div class="setg2">'+
+
+    '<section class="gl setc2'+(addMode==="emp"?" adding":"")+'">'+
+      '<div class="sech"><h2>Команда</h2>'+
+        (addMode==="emp" ? '' : '<span class="secn">'+pl.length+'</span>')+
+        '<div class="grow"></div>'+
+        (addMode==="emp"
+          ? '<button class="bt gh2 sm" data-addmode="">Свернуть</button>'
+          : '<button class="secadd" data-addmode="emp">+ Добавить нового менеджера</button>')+
+      '</div>'+
+      (addMode==="emp"
+        ? '<div class="secsub">Заводим одного человека. Остальная команда сейчас не показывается, чтобы не мешала.</div>'+empFormHTML()
+        : '<div class="secsub">Кто работает и с какой загрузкой</div>'+
+          '<div class="setl2">'+(pl.length ? pl.map(function(p){
+            var s=simPerson(p);
+            return '<div class="setrow"><span class="av2" style="background:'+p.color+'">'+esc(p.av||"")+'</span>'+
+              '<span class="k">'+esc(p.name)+'<i>'+esc(p.role||"без должности")+'</i></span>'+
+              '<span class="v u" style="color:'+tone(s.pct)+'">'+s.pct+'%</span>'+
+              (demo?'<button class="x" data-delemp="'+esc(p.id)+'" title="Убрать">×</button>':'')+
+            '</div>'; }).join("") : '<div class="empty">Пока никого нет</div>')+'</div>')+
+    '</section>'+
+
+    '<section class="gl setc2'+(addMode==="cab"?" adding":"")+'">'+
+      '<div class="sech"><h2>Кабинеты клиентов</h2>'+
+        (addMode==="cab" ? '' : '<span class="secn">'+prs.length+'</span>')+
+        '<div class="grow"></div>'+
+        (addMode==="cab"
+          ? '<button class="bt gh2 sm" data-addmode="">Свернуть</button>'
+          : '<button class="secadd" data-addmode="cab">+ Добавить новый кабинет</button>')+
+      '</div>'+
+      (addMode==="cab"
+        ? '<div class="secsub">Заводим один кабинет. Другие кабинеты сейчас не показываются.</div>'+cabFormHTML()
+        : '<div class="secsub">Кабинет и проект — это одно и то же</div>'+
+          '<div class="setl2">'+(prs.length ? prs.map(function(pr){
+            var n=(S.tasks||[]).filter(function(t){ return t.project===pr.id; }).length;
+            return '<div class="setrow"><span class="av2" style="background:'+pr.color+'">'+esc(pr.av||"")+'</span>'+
+              '<span class="k">'+esc(pr.name)+'<i>'+(pr.articles?pr.articles+' артикулов':'артикулы не указаны')+'</i></span>'+
+              '<span class="v">'+n+' зад</span>'+
+              (demo?'<button class="x" data-delpr="'+esc(pr.id)+'" title="Убрать">×</button>':'')+
+            '</div>'; }).join("") : '<div class="empty">Кабинетов пока нет</div>')+'</div>')+
+    '</section>'+
+
+    '</div>'+
+    '<div class="setfoot2">'+
+      '<button class="bt" id="setGen2">'+(demo?'Пересобрать неделю':'Разложить задачи на сегодня')+'</button>'+
+      (demo?'<button class="bt gh2" id="setReset2">Вернуть исходный состав</button>':'')+
+      '<span class="sethint">Задачи раскладываются по людям с учётом выбранной стратегии загрузки.</span>'+
+    '</div>';
+}
+
+/* ── 7. История событий кабинета ───────────────────────────── */
+function logAll(){ if(!S.log) S.log=[]; return S.log; }
+var logQuiet=false;
+function logAdd(cab, text, kind){
+  if(logQuiet) return;
+  logAll().unshift({id:nextId("lg"), cab:cab, t:text, k:kind||"edit", ts:Date.now()});
+  if(S.log.length>400) S.log.length=400;
+  saveState();
+}
+function logOf(cab){ return logAll().filter(function(x){ return x.cab===cab; }); }
+function logSeed(cid){
+  if(logOf(cid).length) return;
+  var pr=project(cid); if(!pr) return;
+  var tk=(S.tasks||[]).filter(function(t){ return t.project===cid; });
+  var now=Date.now(), H=3600000;
+  var seed=[];
+  if(tk[0]) seed.push([2*H, "Задача «"+tk[0].title+"» закрыта", "done"]);
+  if(tk[1]) seed.push([5*H, "Задача «"+tk[1].title+"» ушла в чат клиента", "chat"]);
+  if(tk[2]) seed.push([26*H, "Поставлена задача «"+tk[2].title+"»", "task"]);
+  seed.push([30*H, "Кабинет заведён в сервисе, код "+(pr.code||"—"), "edit"]);
+  seed.forEach(function(s){
+    logAll().push({id:nextId("lg"), cab:cid, t:s[1], k:s[2], ts:now-s[0]}); });
+  logAll().sort(function(a,b){ return b.ts-a.ts; });
+  saveState();
+}
+function agoText(ts){
+  var d=Math.max(0, Date.now()-ts), m=Math.round(d/60000);
+  if(m<1) return "только что";
+  if(m<60) return m+" мин назад";
+  var h=Math.round(m/60); if(h<24) return h+" ч назад";
+  var dd=Math.round(h/24); return dd+(dd===1?" день назад":dd<5?" дня назад":" дней назад");
+}
+
+/* ── 8. Заполненность карточки: 0–100 база, 100–200 глубина ── */
+var CARD_BASE=[
+  ["name","Название кабинета"],["owner","Собственник"],["tg","Ник в Telegram"],
+  ["phone","Телефон"],["payDate","Дата платежа"],["amount","Сумма в месяц"],
+  ["articles","Объём артикулов"],["sheet","Рабочее пространство"]
+];
+function cardFill(pr){
+  var base=[], miss=[];
+  CARD_BASE.forEach(function(f){
+    var v=pr[f[0]];
+    var ok = v!=null && String(v).trim()!=="" && String(v)!=="0";
+    base.push(ok); if(!ok) miss.push(f[1]);
+  });
+  var basePct=Math.round(base.filter(Boolean).length/CARD_BASE.length*100);
+
+  var rows=planOf(pr.id);
+  var chats=(pr.chats||[]).length;
+  var deep=[
+    [rows.length>0, "Задачи кабинета заведены"],
+    [rows.length>0 && rows.every(function(r){ return r.person; }), "У каждой задачи есть ответственный"],
+    [rows.length>0 && rows.every(function(r){ return r.cycle && r.cycle!=="none"; }), "Проставлена цикличность"],
+    [rows.length>0 && rows.some(function(r){ return r.deadline; }), "Проставлены дедлайны"],
+    [rows.length>0 && rows.some(function(r){ return r.form && r.form!=="none"; }), "Задана форма сдачи"],
+    [rows.some(function(r){ return r.approve; }), "Настроено согласование"],
+    [chats>0, "Подключены чаты Telegram"],
+    [!!pr.confirm, "Клиент подтвердил продление"]
+  ];
+  var deepMiss=deep.filter(function(x){ return !x[0]; }).map(function(x){ return x[1]; });
+  var deepPct=Math.round(deep.filter(function(x){ return x[0]; }).length/deep.length*100);
+  var total = basePct<100 ? basePct : 100+deepPct;
+  return {base:basePct, deep:deepPct, total:total, miss:miss, deepMiss:deepMiss,
+    rows:rows.length, owned:rows.filter(function(r){ return r.person; }).length};
+}
+
+/* ── 9. Карточки клиентов: тезисные цифры ─────────────────── */
+function cabNumbers(pr){
+  var tk=(S.tasks||[]).filter(function(t){ return t.project===pr.id; });
+  var rows=planOf(pr.id);
+  var cyc=rows.filter(function(r){ return r.cycle && r.cycle!=="none"; }).length;
+  return {tasks:tk.length, h:minutesOf(tk)/60,
+    done: tk.length?Math.round(tk.filter(function(t){return t.done;}).length/tk.length*100):0,
+    fns:rows.length, cyc:cyc,
+    noOwner: rows.filter(function(r){ return !r.person; }).length,
+    team: peopleOfProject(pr.id).length,
+    art:+pr.articles||0, amount:+pr.amount||0};
+}
+
+function clientCard(pr){
+  var f=cardFill(pr), n=cabNumbers(pr);
+  var money=seesMoney();
+  var tg=String(pr.tg||"").replace(/^@+/,"");
+  var st = pr.confirm==="yes"?["ok","продлевает"] : pr.confirm==="no"?["no","уходит"] : ["wait","нет ответа"];
+  return '<section class="gl cc2" data-opencab="'+esc(pr.id)+'">'+
+    '<div class="cch">'+
+      '<div class="av" style="background:'+pr.color+'">'+esc(pr.av||"")+'</div>'+
+      '<div class="cct"><div class="n">'+esc(pr.name)+'</div>'+
+        '<div class="r">'+(pr.owner?esc(pr.owner):'собственник не указан')+
+          (tg?' · @'+esc(tg):'')+'</div></div>'+
+      '<div class="ccfill'+(f.total>=100?' full':'')+'" title="Заполненность карточки">'+
+        '<b>'+f.total+'%</b><i>заполнено</i></div>'+
+    '</div>'+
+    '<div class="ccnums">'+
+      '<div class="ccn1"><b>'+(money?(n.amount?money0(n.amount):'—'):'скрыто')+'</b><span>платёж в месяц</span></div>'+
+      '<div class="ccn1"><b>'+(n.art||'—')+'</b><span>артикулов</span></div>'+
+      '<div class="ccn1"><b>'+n.fns+'</b><span>функций в кабинете</span></div>'+
+      '<div class="ccn1"><b>'+n.cyc+'</b><span>цикличных</span></div>'+
+      '<div class="ccn1"><b>'+n.tasks+'</b><span>задач за неделю</span></div>'+
+      '<div class="ccn1"><b>'+hrs(n.h*60)+' ч</b><span>часов за неделю</span></div>'+
+      '<div class="ccn1"><b'+(n.noOwner?' style="color:var(--crit)"':'')+'>'+n.noOwner+'</b><span>без ответственного</span></div>'+
+      '<div class="ccn1"><b>'+n.team+'</b><span>человек в команде</span></div>'+
+    '</div>'+
+    '<div class="ccbar2"><div class="ccp"><i data-w="'+Math.min(100,f.total/2)+'"></i></div>'+
+      '<span class="ccst '+st[0]+'">'+st[1]+'</span>'+
+      '<span class="ccdt">'+(pr.payDate?dateRu(pr.payDate):'дата платежа не указана')+'</span></div>'+
+    (f.miss.length
+      ? '<div class="ccn warn2">Не хватает: '+esc(f.miss.slice(0,3).join(", "))+
+        (f.miss.length>3?' и ещё '+(f.miss.length-3):'')+'</div>'
+      : '<div class="ccn ok2">Базовые поля заполнены'+(f.deepMiss.length?' · глубина '+f.deep+'%':' · карточка готова')+'</div>')+
+    '<button class="bt gh2 ccgo" data-opencab="'+esc(pr.id)+'">Открыть кабинет →</button>'+
+  '</section>';
+}
+
+function money0(x){ return Math.round(x).toLocaleString("ru-RU")+" ₽"; }
+function dateRu(s){
+  var p=String(s||"").split("-"); if(p.length!==3) return s||"";
+  return p[2]+"."+p[1]+"."+p[0];
+}
+
+function renderCards(){
+  var host=document.getElementById("sect");
+  var list=S.projects||[];
+  var made=false;
+  list.forEach(function(pr){ if(!pr.code){ pr.code=newCode(); made=true; } });
+  if(made) saveState();
+  var money=seesMoney();
+  var sum=list.reduce(function(a,pr){ return a+(+pr.amount||0); },0);
+  var fills=list.map(cardFill);
+  var avg=fills.length?Math.round(fills.reduce(function(a,x){ return a+x.total; },0)/fills.length):0;
+  var weak=list.filter(function(pr,i){ return fills[i].base<100; }).length;
+  host.innerHTML=
+    '<div class="gl grsum">'+
+      '<div class="pss"><div class="l">Кабинетов</div><div class="v">'+list.length+'</div>'+
+        '<div class="d">'+(S.cabs||[]).length+' записей в системе</div></div>'+
+      '<div class="pss"><div class="l">Платежей в месяц</div>'+
+        '<div class="v">'+(money?money0(sum):'скрыто')+'</div>'+
+        '<div class="d">сумма всех контрактов</div></div>'+
+      '<div class="pss"><div class="l">Средняя заполненность</div>'+
+        '<div class="v'+(avg>=100?' okv':avg>=60?' warnv':' critv')+'">'+avg+'%</div>'+
+        '<div class="d">100% — база, выше — глубина</div></div>'+
+      '<div class="pss"><div class="l">Не дозаполнено</div>'+
+        '<div class="v'+(weak?' warnv':' okv')+'">'+weak+'</div>'+
+        '<div class="d">карточек с пустой базой</div></div>'+
+    '</div>'+
+    '<div class="ccgrid">'+
+      (list.length ? list.map(clientCard).join("")
+                   : '<div class="empty">Кабинетов пока нет. Заведите их в «Команде и кабинетах».</div>')+
+    '</div>';
+}
+
+/* ── 10. Экран кабинета: цифры, заполненность, таблицы, история ── */
+function cabField(pr, k, label, attrs){
+  return '<label><span>'+label+'</span><input class="fi sm" data-ck2="'+k+'" '+
+    (attrs||'')+' value="'+esc(pr[k]==null?"":String(pr[k]))+'"></label>';
+}
+
+function renderCab(){
+  var host=document.getElementById("sect");
+  var c=project(cabOpen);
+  if(!c){ setView("projects"); return; }
+  if(!c.code){ c.code=newCode(); saveState(); }
+  logSeed(c.id);
+  var f=cardFill(c), n=cabNumbers(c);
+  var money=seesMoney();
+  var rows=planOf(c.id);
+  var byBlock={1:[],2:[],3:[]};
+  rows.forEach(function(r){ byBlock[r.block||2].push(r); });
+  var back = NAV.length ? NAV[NAV.length-1].label : "Мои клиенты";
+  var tg=String(c.tg||"").replace(/^@+/,"");
+  var log=logOf(c.id).slice(0,8);
+  var team=peopleOfProject(c.id);
+
+  host.innerHTML=
+  '<div class="gl cabh2">'+
+    '<button class="bt gh2 cbback" id="cabBack">← Вернуться в «'+esc(back)+'»</button>'+
+    '<div class="cabhr">'+
+      '<div class="av big" style="background:'+c.color+'">'+esc(c.av||"")+'</div>'+
+      '<div class="cabn"><div class="n">'+esc(c.name)+'</div>'+
+        '<div class="r">'+(c.owner?esc(c.owner):'собственник не указан')+
+          (tg?' · @'+esc(tg):'')+(c.phone?' · '+esc(c.phone):'')+'</div></div>'+
+      '<div class="fillring'+(f.total>=100?' full':'')+'">'+
+        '<div class="frv">'+f.total+'%</div><div class="frl">заполнено</div>'+
+        '<div class="frb"><i data-w="'+Math.min(100,f.base)+'"></i></div>'+
+        '<div class="frb d2"><i data-w="'+Math.min(100,f.deep)+'"></i></div>'+
+        '<div class="frh">база '+f.base+'% · глубина '+f.deep+'%</div>'+
+      '</div>'+
+    '</div>'+
+    '<div class="cabnums">'+
+      '<div class="ccn1"><b>'+(money?(n.amount?money0(n.amount):'—'):'скрыто')+'</b><span>платёж в месяц</span></div>'+
+      '<div class="ccn1"><b>'+(c.payDate?dateRu(c.payDate):'—')+'</b><span>дата платежа</span></div>'+
+      '<div class="ccn1"><b>'+(n.art||'—')+'</b><span>артикулов</span></div>'+
+      '<div class="ccn1"><b>'+n.fns+'</b><span>функций</span></div>'+
+      '<div class="ccn1"><b>'+n.cyc+'</b><span>цикличных</span></div>'+
+      '<div class="ccn1"><b'+(n.noOwner?' style="color:var(--crit)"':' style="color:var(--ok)"')+'>'+
+        (n.fns?Math.round((n.fns-n.noOwner)/n.fns*100):0)+'%</b><span>задач с ответственным</span></div>'+
+      '<div class="ccn1"><b>'+n.tasks+'</b><span>задач за неделю</span></div>'+
+      '<div class="ccn1"><b>'+hrs(n.h*60)+' ч</b><span>часов за неделю</span></div>'+
+    '</div>'+
+    '<div class="inv">'+
+      '<div class="invl">Код кабинета для приглашений</div>'+
+      '<div class="invr"><code>'+esc(c.code||"")+'</code>'+
+        '<button class="bt gh2 invb" data-copy="'+esc(c.code||"")+'">Код</button>'+
+        '<button class="bt gh2 invb" data-copy="'+esc(inviteLink(c.code||""))+'">Ссылка</button></div>'+
+      '<div class="invh">Сотрудник регистрируется, вводит код — и попадает в этот кабинет.</div>'+
+    '</div>'+
+  '</div>'+
+
+  ((f.miss.length||f.deepMiss.length)
+    ? '<div class="gl fillw"><div class="gl-t"><h2>Что дозаполнить</h2>'+
+        '<span class="m">до 100% — база, дальше — глубина проекта</span></div>'+
+        '<div class="fillg">'+
+          '<div class="fillc"><div class="fh">База · '+f.base+'%</div>'+
+            (f.miss.length ? f.miss.map(function(x){
+              return '<div class="fli miss">'+esc(x)+'</div>'; }).join("")
+              : '<div class="fli ok">Всё заполнено</div>')+'</div>'+
+          '<div class="fillc"><div class="fh">Глубина · '+f.deep+'%</div>'+
+            (f.deepMiss.length ? f.deepMiss.map(function(x){
+              return '<div class="fli miss">'+esc(x)+'</div>'; }).join("")
+              : '<div class="fli ok">Проект настроен полностью</div>')+'</div>'+
+        '</div></div>'
+    : '')+
+
+  '<div class="gl"><div class="gl-t"><h2>Карточка организации</h2>'+
+    '<span class="m">эти поля подставляются в сообщения и в календарь платежей</span></div>'+
+    '<div class="ccf wide4">'+
+      cabField(c,"owner","Собственник",'placeholder="Имя и фамилия"')+
+      '<label><span>Telegram</span><div class="tgr"><span class="at">@</span>'+
+        '<input class="fi sm" data-ck2="tg" placeholder="nickname" value="'+esc(tg)+'"></div></label>'+
+      cabField(c,"phone","Телефон",'type="tel" placeholder="+7 900 000-00-00"')+
+      cabField(c,"payDate","Дата платежа",'type="date"')+
+      (money?cabField(c,"amount","Сумма в месяц, ₽",'type="number" min="0" step="1000" placeholder="0"'):'')+
+      cabField(c,"articles","Объём артикулов",'type="number" min="0" placeholder="0"')+
+      cabField(c,"sheet","Рабочее пространство · Google-таблица",'placeholder="https://docs.google.com/..."')+
+      cabField(c,"folder","Папка с материалами",'placeholder="ссылка на диск"')+
+    '</div>'+
+    '<div class="wsp">'+
+      (c.sheet?'<a class="wsl" href="'+esc(c.sheet)+'" target="_blank" rel="noopener">Открыть рабочее пространство</a>'
+             :'<span class="wsl off">Рабочее пространство не привязано</span>')+
+      (c.folder?'<a class="wsl" href="'+esc(c.folder)+'" target="_blank" rel="noopener">Папка с материалами</a>':'')+
+      (team.length?'<span class="wsteam">В проекте: '+team.map(function(x){
+        return '<i class="av2" style="background:'+x.p.color+'" title="'+esc(x.p.name)+'">'+esc(x.p.av)+'</i>'; }).join("")+'</span>':'')+
+    '</div>'+
+  '</div>'+
+
+  '<div class="gl cabt">'+
+    '<div class="gl-t"><h2>Задачи кабинета</h2>'+
+      '<span class="m">цикличность · дедлайн · форма · время · ответственный</span>'+
+      '<div class="cabbtns"><button class="bt" id="pkOpen">'+
+        (pickOpen?'Свернуть список':'Взять из списка функций')+'</button>'+
+      '<button class="bt gh2" id="ownAdd">Своя задача</button></div></div>'+
+    '<div class="ownrow" id="ownRow" hidden>'+
+      '<input class="fi" id="ownTitle" placeholder="Что сделать — своими словами">'+
+      '<button class="bt" id="ownGo">Добавить</button></div>'+
+    (pickOpen ? pickerHTML(c.id) : "")+
+    (rows.length
+      ? [1,2,3].map(function(b){
+          if(!byBlock[b].length) return "";
+          return '<div class="plb"><div class="plbh">'+BLOCKS[b]+
+            ' <span>'+byBlock[b].length+'</span></div>'+
+            byBlock[b].map(planRow).join("")+'</div>'; }).join("")
+      : '<div class="empty">Задач пока нет. Возьмите их из списка функций или впишите свою.</div>')+
+  '</div>'+
+  routeHTML(c)+
+  tplHTML(c)+
+
+  '<div class="gl histw"><div class="gl-t"><h2>Последние события</h2>'+
+    '<span class="m">что происходило в кабинете</span></div>'+
+    (log.length ? '<div class="hist">'+log.map(function(x){
+      return '<div class="hrow k-'+esc(x.k)+'"><i class="hd"></i>'+
+        '<span class="ht">'+esc(x.t)+'</span>'+
+        '<span class="hg">'+agoText(x.ts)+'</span></div>'; }).join("")+'</div>'
+      : '<div class="empty">Событий пока нет</div>')+
+  '</div>';
+}
+
+function openCab(id){
+  if(view!=="cab") navPush(view);
+  cabOpen=id; setView("cab", true);
+}
+
+/* ── 11. Стеклянные выпадающие списки поверх обычных select ── */
+/* родной <select> остаётся в разметке и продолжает работать — мы лишь
+   рисуем поверх красивую кнопку и стеклянный список */
+var GS_OPEN=null;
+
+function gsLabel(s){
+  var o=s.options[s.selectedIndex];
+  return o?o.textContent:"";
+}
+function gsClose(){
+  var p=document.getElementById("gsPop");
+  if(p){ p.classList.remove("on"); setTimeout(function(){ if(p.parentNode) p.parentNode.removeChild(p); }, 160); }
+  if(GS_OPEN){ GS_OPEN.classList.remove("open"); GS_OPEN=null; }
+}
+function gsOpen(btn, sel){
+  gsClose();
+  var pop=document.createElement("div");
+  pop.className="gspop"; pop.id="gsPop";
+  var groups=[], cur=null;
+  Array.prototype.forEach.call(sel.options, function(o,i){
+    var g=o.parentNode.tagName==="OPTGROUP"?o.parentNode.label:"";
+    if(g!==cur){ cur=g; if(g) groups.push('<div class="gsg">'+esc(g)+'</div>'); }
+    groups.push('<button class="gsi'+(i===sel.selectedIndex?" on":"")+(o.disabled?" dis":"")+
+      '" data-gsi="'+i+'">'+esc(o.textContent)+
+      (i===sel.selectedIndex?'<span class="gschk">✓</span>':'')+'</button>');
+  });
+  pop.innerHTML='<div class="gsin">'+groups.join("")+'</div>';
+  document.body.appendChild(pop);
+
+  var r=btn.getBoundingClientRect();
+  var vw=window.innerWidth, vh=window.innerHeight;
+  var w=Math.max(r.width, 210);
+  pop.style.width=w+"px";
+  var ph=pop.offsetHeight;
+  /* раскрываем в сторону центра экрана, чтобы текст не обрезался краем */
+  var toRight = (r.left+r.width/2) < vw/2;
+  var left = toRight ? r.left : (r.right - w);
+  left=Math.max(10, Math.min(left, vw-w-10));
+  var below = (r.bottom + ph + 12) < vh;
+  var top = below ? r.bottom+6 : Math.max(10, r.top-ph-6);
+  pop.style.left=Math.round(left)+"px";
+  pop.style.top=Math.round(top)+"px";
+  pop.setAttribute("data-dir", below?"down":"up");
+  pop._sel=sel;
+  requestAnimationFrame(function(){ pop.classList.add("on"); });
+  btn.classList.add("open"); GS_OPEN=btn;
+  var on=pop.querySelector(".gsi.on"); if(on) on.scrollIntoView({block:"nearest"});
+}
+
+function enhanceSelects(root){
+  q("select", root||document).forEach(function(s){
+    if(s.dataset.gsDone) return;
+    if(s.multiple || s.size>1) return;
+    s.dataset.gsDone="1";
+    var b=document.createElement("button");
+    b.type="button";
+    b.className="gsl "+(s.className||"").replace(/\bfi\b|\bsel\b/g,"").trim();
+    if(s.classList.contains("sm")||s.classList.contains("xs")) b.classList.add("sm");
+    b.innerHTML='<span class="gst"></span>'+
+      '<svg class="gsc" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>';
+    b.setAttribute("data-gsfor","1");
+    s.parentNode.insertBefore(b, s.nextSibling);
+    s.classList.add("gshidden");
+    b._sel=s;
+    var sync=function(){ b.querySelector(".gst").textContent=gsLabel(s);
+      b.classList.toggle("warn", s.classList.contains("warn"));
+      b.disabled=s.disabled; };
+    sync();
+    s._gsSync=sync;
+    s.addEventListener("change", sync);
+  });
+}
+
+document.addEventListener("click", function(e){
+  var b=e.target.closest(".gsl");
+  if(b && b._sel){ e.preventDefault(); e.stopPropagation();
+    if(GS_OPEN===b){ gsClose(); return; }
+    gsOpen(b, b._sel); return; }
+  var it=e.target.closest(".gsi");
+  if(it){
+    var pop=document.getElementById("gsPop");
+    if(pop && pop._sel){
+      var s=pop._sel, i=+it.getAttribute("data-gsi");
+      if(!s.options[i].disabled){
+        s.selectedIndex=i;
+        if(s._gsSync) s._gsSync();
+        s.dispatchEvent(new Event("change",{bubbles:true}));
+      }
+    }
+    gsClose(); return; }
+  if(!e.target.closest("#gsPop")) gsClose();
+}, true);
+window.addEventListener("resize", gsClose);
+window.addEventListener("scroll", gsClose, true);
+document.addEventListener("keydown", function(e){ if(e.key==="Escape") gsClose(); });
+
+/* ── 12. Карточки команды: доступы уходят в чат ботом ─────── */
+function allChats(){
+  var out=[];
+  (S.projects||[]).forEach(function(pr){
+    chatsOf(pr).forEach(function(ch){
+      out.push({id:ch.id, title:ch.title, kind:ch.kind, pr:pr}); }); });
+  return out;
+}
+function memberPrs(m){ if(!m.prs) m.prs={}; return m.prs; }
+function memberIn(m, prid){
+  if(m.prs && m.prs[prid]!=null) return !!m.prs[prid];
+  /* если руками не отмечали — считаем по фактическим задачам */
+  return (S.tasks||[]).some(function(t){ return t.person===m.id && t.project===prid; });
+}
+function accessBlock(list){
+  return list.map(function(m){ return accessText(m); }).join("\n\n");
+}
+function sendAccess(m){
+  var chId=m.accChat||"";
+  var ch=allChats().filter(function(x){ return x.id===chId; })[0];
+  if(!ch){ toast("Выберите чат, куда отправить доступы"); return; }
+  var mates=(S.people||[]).filter(function(p){
+    return p.sendAcc && memberIn(p, ch.pr.id) && p.accChat===chId; });
+  if(mates.indexOf(m)<0) mates.push(m);
+  var text="Доступы к кабинету "+ch.pr.name+"\n\n"+accessBlock(mates);
+  if(MODE==="live"){
+    api("/routing/send",{method:"POST",body:{chat_pk:(+chId||chId), text:text}})
+      .then(function(){ toast("Бот отправил доступы в «"+ch.title+"»"); })
+      .catch(function(e){ toast("Не отправилось: "+e.message); });
+  } else {
+    toast("Бот отправит доступы в «"+ch.title+"» — "+mates.length+" человек");
+  }
+  logAdd(ch.pr.id, "Доступы отправлены в «"+ch.title+"»: "+
+    mates.map(function(x){ return x.name; }).join(", "), "chat");
+  if(view==="staff") renderStaff();
+}
+
+function staffCard(m){
+  var tg=String(m.tg||"").replace(/^@+/,"");
+  var ready = m.mail && m.wphone;
+  var chats=allChats();
+  var prs=S.projects||[];
+  return '<section class="gl cc'+(ready?'':' part')+'" data-staff="'+esc(m.id)+'">'+
+    '<div class="cch">'+
+      '<div class="av" style="background:'+m.color+'">'+esc(m.av||"")+'</div>'+
+      '<div class="cct"><div class="n">'+esc(m.name)+'</div>'+
+        '<div class="r">'+esc(m.role||"без должности")+'</div></div>'+
+      '<button class="bt gh2 ccopen" data-acc="'+esc(m.id)+'" title="Скопировать в формате для клиента">'+
+        'Скопировать</button>'+
+    '</div>'+
+    '<div class="ccf">'+
+      '<label><span>Должность</span>'+
+        '<input class="fi sm" data-sk="role" placeholder="Менеджер" value="'+esc(m.role||"")+'"></label>'+
+      '<label><span>Telegram</span><div class="tgr"><span class="at">@</span>'+
+        '<input class="fi sm" data-sk="tg" placeholder="nickname" value="'+esc(tg)+'"></div></label>'+
+      '<label><span>Зарплата, ₽</span>'+
+        '<input class="fi sm" data-sk="pay" type="number" min="0" step="1000" placeholder="0" value="'+esc(m.pay||"")+'"></label>'+
+      '<label><span>День выплаты</span>'+
+        '<input class="fi sm" data-sk="payDay" type="number" min="1" max="31" placeholder="5" value="'+esc(m.payDay||"")+'"></label>'+
+    '</div>'+
+    '<div class="ccacc">'+
+      '<div class="acch">Доступы для кабинета WB</div>'+
+      '<div class="ccf">'+
+        '<label><span>Почта</span>'+
+          '<input class="fi sm" data-sk="mail" type="email" placeholder="name@mail.ru" value="'+esc(m.mail||"")+'"></label>'+
+        '<label><span>Телефон</span>'+
+          '<input class="fi sm" data-sk="wphone" type="tel" placeholder="+79000000000" value="'+esc(m.wphone||"")+'"></label>'+
+      '</div>'+
+      '<pre class="accp">'+esc(accessText(m))+'</pre>'+
+    '</div>'+
+    '<div class="ccsend">'+
+      '<button class="ck'+(m.sendAcc?' on':'')+'" data-sendacc="'+esc(m.id)+'">'+
+        '<i></i>Отправить доступы в чат</button>'+
+      (m.sendAcc
+        ? '<div class="sendbox">'+
+            '<label class="sbl"><span>Чат</span>'+
+              '<select class="fi sm" data-accchat="'+esc(m.id)+'">'+
+                '<option value="">Выберите чат</option>'+
+                (S.projects||[]).map(function(pr){
+                  var cs=chatsOf(pr);
+                  return '<optgroup label="'+esc(pr.name)+'">'+cs.map(function(ch){
+                    return '<option value="'+esc(ch.id)+'"'+(m.accChat===ch.id?' selected':'')+'>'+
+                      esc(ch.title)+'</option>'; }).join("")+'</optgroup>'; }).join("")+
+              '</select></label>'+
+            '<div class="sbp"><span class="sbt">Участвует в кабинетах</span>'+
+              '<div class="sbch">'+(prs.length?prs.map(function(pr){
+                return '<button class="pchip'+(memberIn(m,pr.id)?' on':'')+'" data-mempr="'+esc(pr.id)+
+                  '" data-memp="'+esc(m.id)+'">'+
+                  '<span class="av2" style="background:'+pr.color+'">'+esc(pr.av||"")+'</span>'+
+                  esc(pr.name)+'</button>'; }).join(""):'<span class="dim">кабинетов нет</span>')+'</div></div>'+
+            '<button class="bt sbgo" data-sendgo="'+esc(m.id)+'"'+(ready?'':' disabled title="Сначала заполните почту и телефон"')+'>'+
+              'Отправить ботом</button>'+
+          '</div>'
+        : '<div class="hint2">Включите — выберете чат и бот отправит доступы этого человека '+
+          'вместе с другими участниками кабинета.</div>')+
+    '</div>'+
+  '</section>';
+}
+
+function renderStaff(){
+  var host=document.getElementById("sect");
+  var list=S.people||[];
+  var ready=list.filter(function(m){ return m.mail && m.wphone; }).length;
+  var marked=list.filter(function(m){ return m.sendAcc; }).length;
+  host.innerHTML=
+    '<div class="ccbar" id="ccBar">'+staffBarText()+'</div>'+
+    (marked?'<div class="gl sendall"><div class="gl-t"><h2>Отправка доступов</h2>'+
+      '<span class="m">'+marked+' из '+list.length+' отмечены</span></div>'+
+      '<div class="hint2">Бот соберёт доступы всех отмеченных участников кабинета в одно сообщение '+
+      'и отправит в выбранный чат — в том формате, в котором вы отправляете клиентам.</div></div>':'')+
+    '<div class="ccgrid">'+
+      (list.length ? list.map(staffCard).join("") : '<div class="empty">Команда пока пустая</div>')+
+    '</div>';
+}
+function staffBarText(){
+  var list=S.people||[];
+  var fund=list.reduce(function(a,m){ return a+(+m.pay||0); },0);
+  var noAcc=list.filter(function(m){ return !(m.mail && m.wphone); }).length;
+  var money=seesMoney();
+  var out=money ? "Фонд оплаты: <b>"+fund.toLocaleString("ru-RU")+" ₽</b> в месяц"
+                : "Команда: <b>"+list.length+"</b>";
+  if(noAcc) out+=' · <span style="color:var(--warn)">'+noAcc+' без заполненных доступов</span>';
+  else out+=' · доступы у всех заполнены';
+  return out;
+}
+
+/* ── 13. Рост: список функций, которые не успеваем ─────────── */
+var growOpen=0;
+
+function lateFnsOf(block){
+  var m={};
+  (S.tasks||[]).forEach(function(t){
+    if(t.done) return;
+    var f=t.fn?fnById(t.fn):null;
+    var b=f?(+String(f.code||"F2")[1]||2):2;
+    if(b!==block) return;
+    var key=f?f.id:"_own";
+    if(!m[key]) m[key]={name:f?f.name:"Разовые задачи", code:f?f.code:"—", n:0, mins:0, who:{}};
+    m[key].n++; m[key].mins+=(t.minutes||0);
+    if(t.person) m[key].who[t.person]=(m[key].who[t.person]||0)+1;
+  });
+  return Object.keys(m).map(function(k){ return m[k]; })
+    .sort(function(a,b){ return b.mins-a.mins; });
+}
+
+function renderGrowth(){
+  var host=document.getElementById("sect");
+  var g=growthLoad();
+  var blocks=growthBlocks();
+  var rows=payRows().slice().sort(function(a,b){ return b.bonus-a.bonus; });
+  var best=rows.filter(function(x){ return x.bonus>0 || x.overH>0; }).slice(0,3);
+  var worst=payRows().slice().sort(function(a,b){ return b.lateH-a.lateH; })
+    .filter(function(x){ return x.lateN>0; }).slice(0,3);
+  var sim=simTeam();
+
+  host.innerHTML=
+    '<div class="gl grsum">'+
+      '<div class="pss"><div class="l">Средняя загрузка</div>'+
+        '<div class="v'+(g.avg>110?' critv':g.avg>100?' warnv':' okv')+'">'+g.avg+'%</div>'+
+        '<div class="d">норма 100% при 8 ч в день</div></div>'+
+      '<div class="pss"><div class="l">Перегружены</div><div class="v'+(g.over.length?' warnv':'')+'">'+
+        g.over.length+' из '+g.per.length+'</div>'+
+        '<div class="d">выше 110% нормы</div></div>'+
+      '<div class="pss"><div class="l">Не хватает часов</div><div class="v">'+g.needH.toFixed(0)+' ч</div>'+
+        '<div class="d">в неделю сверх мощности команды</div></div>'+
+      '<div class="pss"><div class="l">Рекомендация по найму</div>'+
+        '<div class="v'+(g.hire?' warnv':' okv')+'">'+(g.hire?('+'+g.hire+' человек'):'не нужен')+'</div>'+
+        '<div class="d">'+(g.hire?'чтобы закрыть перегруз':'команда справляется')+'</div></div>'+
+      '<div class="pss"><div class="l">Индекс оплаты</div>'+
+        '<div class="v'+(sim.idxPct>12?' critv':sim.idxPct<-12?' warnv':' okv')+'">'+
+          (seesMoney()&&sim.fot?((sim.idxPct>0?"+":"")+sim.idxPct+"%"):"—")+'</div>'+
+        '<div class="d">'+(seesMoney()&&sim.fot
+          ? (sim.idxPct>0?'переплачиваем '+rub(sim.overpay-sim.underpay)+' в неделю'
+                         :'недоплачиваем '+rub(sim.underpay-sim.overpay)+' в неделю')
+          : 'оклады не заполнены')+'</div></div>'+
+    '</div>'+
+
+    '<div class="gl"><div class="gl-t"><h2>Кого нанимать</h2>'+
+      '<span class="m">по перегрузу и сложности функций</span></div>'+
+      (g.hire
+        ? '<div class="grec">'+
+            '<div class="grh">Нужен '+(g.hire>1?g.hire+' человека':'один человек')+'</div>'+
+            '<div class="grb">Команда перерабатывает на '+g.needH.toFixed(0)+' ч в неделю. '+
+              'Перегружены: '+g.over.map(function(x){ return esc(x.p.name)+' ('+x.pct+'%)'; }).join(", ")+'.</div>'
+        : '<div class="grec"><div class="grh">Найм пока не нужен</div>'+
+            '<div class="grb">Перегруза нет. Ниже видно, какие группы функций всё равно проседают.</div>')+
+            '<div class="grw">'+[1,2,3].map(function(b){
+              var pct = blocks[b].n ? Math.round(blocks[b].late/blocks[b].n*100) : 0;
+              var who = b===3 ? "технический специалист" : b===2 ? "ассистент" : "менеджер по кабинетам";
+              var verdict = pct>55 ? 'берите '+who
+                          : pct>=40 ? 'на грани, следите'
+                          : 'справляемся';
+              var open=growOpen===b;
+              return '<div class="grc'+(pct>55?' hot2':'')+(open?' opened':'')+'">'+
+                '<button class="gctog" data-grow="'+b+'" aria-expanded="'+open+'">'+
+                  '<span class="gcn">'+BLOCKS[b]+'</span>'+
+                  '<svg class="gcx" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></button>'+
+                '<div class="gcv">'+blocks[b].late+' из '+blocks[b].n+' не закрыто</div>'+
+                '<div class="gcp">'+pct+'%</div>'+
+                '<div class="gcw">'+verdict+'</div>'+
+                '<div class="gcl"'+(open?'':' hidden')+'>'+
+                  (function(){
+                    var lf=lateFnsOf(b);
+                    if(!lf.length) return '<div class="empty">Всё закрыто</div>';
+                    return '<div class="gclh">Не успеваем</div>'+lf.slice(0,12).map(function(x){
+                      var top=Object.keys(x.who).sort(function(a,c){ return x.who[c]-x.who[a]; })[0];
+                      var mm=top?person(top):null;
+                      return '<div class="gcli"><span class="c">'+esc(x.code)+'</span>'+
+                        '<span class="k">'+esc(x.name)+'</span>'+
+                        '<span class="v">'+x.n+' зад · '+hrs(x.mins)+' ч</span>'+
+                        '<span class="w">'+(mm?esc(mm.name):'никто')+'</span></div>'; }).join("")+
+                      (lf.length>12?'<div class="gclm">и ещё '+(lf.length-12)+'</div>':'');
+                  })()+
+                '</div></div>'; }).join("")+
+            '</div>'+
+          '</div>'+
+    '</div>'+
+
+    '<div class="gl simwrap"><div class="gl-t"><h2>Модель: что будет, если взять человека</h2>'+
+      '<span class="m">то же окно, что и при добавлении менеджера</span></div>'+
+      '<div id="simHost2">'+simWidget({noHead:true})+'</div></div>'+
+
+    '<div class="grg">'+
+      '<section class="gl"><div class="gl-t"><h2>Кого премировать</h2>'+
+        '<span class="m">брали чужое и перерабатывали</span></div>'+
+        (best.length ? best.map(function(x){
+          return '<div class="grp">'+
+            '<div class="av" style="background:'+x.m.color+'">'+esc(x.m.av||"")+'</div>'+
+            '<div class="gpt"><div class="n">'+esc(x.m.name)+'</div>'+
+              '<div class="r">'+(x.pickN?x.pickN+' чужих задач · ':'')+
+                (x.overH>0?'+'+x.overH.toFixed(1)+' ч сверх нормы':'без переработки')+'</div></div>'+
+            '<div class="gps'+((x.bonus+x.overRub)>0?' okc':' dim')+'">'+
+              ((x.bonus+x.overRub)>0 ? rub(x.bonus+x.overRub) : 'оклад не задан')+'</div>'+
+          '</div>'; }).join("")
+          : '<div class="empty">Пока некого — никто не брал чужие задачи</div>')+
+      '</section>'+
+      '<section class="gl"><div class="gl-t"><h2>С кем разобраться</h2>'+
+        '<span class="m">просроченные дедлайны</span></div>'+
+        (worst.length ? worst.map(function(x){
+          return '<div class="grp">'+
+            '<div class="av" style="background:'+x.m.color+'">'+esc(x.m.av||"")+'</div>'+
+            '<div class="gpt"><div class="n">'+esc(x.m.name)+'</div>'+
+              '<div class="r">'+x.lateN+' просрочено · '+x.lateH.toFixed(1)+' ч</div></div>'+
+            '<div class="gps'+(x.fine?' critc':' dim')+'">'+
+              (x.fine?rub(x.fine):(x.rate.month?'штраф не задан':'оклад не задан'))+'</div>'+
+          '</div>'; }).join("")
+          : '<div class="empty">Просрочек нет</div>')+
+        '<div class="hint2">Проценты премии и штрафа ставятся в блоке «Премии и штрафы» на рабочем экране.</div>'+
+      '</section>'+
+    '</div>';
+}
+
+/* ── 14. Финансы: поступления и календарь, меняющий форму ─── */
+var finRange="week";
+var FIN_RANGES=[["week","Неделя"],["2weeks","2 недели"],["eom","До конца месяца"],
+  ["30d","Следующие 30 дней"],["month","Месяц целиком"]];
+
+function dOnly(d){ return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
+function addDays(d,n){ var x=new Date(d); x.setDate(x.getDate()+n); return x; }
+function sameDay(a,b){ return a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth() && a.getDate()===b.getDate(); }
+function keyOf(d){ return d.getFullYear()+"-"+(d.getMonth()+1)+"-"+d.getDate(); }
+
+/* все платежи в интервале, с учётом того что платёж повторяется каждый месяц */
+function payOccurrences(from, to){
+  var out=[];
+  (S.projects||[]).forEach(function(pr){
+    var p=payDay(pr); if(!p) return;
+    var d=new Date(p.y, p.m, p.d);
+    /* отматываем назад, чтобы не потерять ближайшее повторение */
+    while(d>from){ d=new Date(d.getFullYear(), d.getMonth()-1, p.d); }
+    var guard=0;
+    while(d<=to && guard++<40){
+      if(d>=from) out.push({pr:pr, d:new Date(d)});
+      d=new Date(d.getFullYear(), d.getMonth()+1, p.d);
+    }
+  });
+  return out.sort(function(a,b){ return a.d-b.d; });
+}
+function sumOcc(list){ return list.reduce(function(a,x){ return a+amountOf(x.pr); },0); }
+
+function finIncome(){
+  var now=dOnly(new Date());
+  var dowN=(now.getDay()+6)%7;                     /* 0 = понедельник */
+  var weekEnd=addDays(now, 6-dowN);
+  var nextStart=addDays(weekEnd,1), nextEnd=addDays(nextStart,6);
+  var d30=addDays(now,30);
+  var eom=new Date(now.getFullYear(), now.getMonth()+1, 0);
+  return {
+    week:   payOccurrences(now, weekEnd),
+    next:   payOccurrences(nextStart, nextEnd),
+    d30:    payOccurrences(now, d30),
+    eom:    payOccurrences(now, eom),
+    now:now, weekEnd:weekEnd, nextStart:nextStart, nextEnd:nextEnd, d30d:d30, eomd:eom };
+}
+
+function incCard(title, list, sub, money){
+  var sum=sumOcc(list);
+  var conf=list.filter(function(x){ return x.pr.confirm==="yes"; });
+  return '<div class="incc">'+
+    '<div class="incl">'+title+'</div>'+
+    '<div class="incv">'+(money?money0(sum):'скрыто')+'</div>'+
+    '<div class="incd">'+sub+' · '+list.length+' '+
+      (list.length===1?'платёж':list.length<5?'платежа':'платежей')+
+      (conf.length?' · подтверждено '+(money?money0(sumOcc(conf)):conf.length):'')+'</div>'+
+    (list.length?'<div class="incl2">'+list.slice(0,4).map(function(x){
+      return '<span class="incp'+(x.pr.confirm==="yes"?" ok":x.pr.confirm==="no"?" no":"")+'">'+
+        '<i class="av2" style="background:'+x.pr.color+'">'+esc(x.pr.av||"")+'</i>'+
+        esc(x.pr.name)+'<b>'+(x.d.getDate())+'.'+(x.d.getMonth()+1)+'</b></span>'; }).join("")+
+      (list.length>4?'<span class="incm">и ещё '+(list.length-4)+'</span>':'')+'</div>':'')+
+  '</div>';
+}
+
+function finStrip(){
+  var i=finIncome(), money=seesMoney();
+  return '<div class="gl incw"><div class="gl-t"><h2>Поступления</h2>'+
+      '<span class="m">даты берутся из карточек клиентов, платёж считается ежемесячным</span></div>'+
+    '<div class="incg">'+
+      incCard("На этой неделе", i.week, "по "+i.weekEnd.getDate()+"."+(i.weekEnd.getMonth()+1), money)+
+      incCard("На следующей неделе", i.next, i.nextStart.getDate()+"."+(i.nextStart.getMonth()+1)+"–"+
+        i.nextEnd.getDate()+"."+(i.nextEnd.getMonth()+1), money)+
+      incCard("До конца месяца", i.eom, "по "+i.eomd.getDate()+"."+(i.eomd.getMonth()+1), money)+
+      incCard("Следующие 30 дней", i.d30, "по "+i.d30d.getDate()+"."+(i.d30d.getMonth()+1), money)+
+    '</div></div>';
+}
+
+/* календарь-лента: 7 / 14 / до конца месяца / 30 дней */
+function finStrip2(days, from){
+  var money=seesMoney();
+  var to=addDays(from, days-1);
+  var occ=payOccurrences(from, to);
+  var by={};
+  occ.forEach(function(x){ (by[keyOf(x.d)]=by[keyOf(x.d)]||[]).push(x.pr); });
+  var today0=dOnly(new Date());
+  var cells="";
+  for(var i=0;i<days;i++){
+    var d=addDays(from,i), list=by[keyOf(d)]||[];
+    var sum=list.reduce(function(a,pr){ return a+amountOf(pr); },0);
+    var we=(d.getDay()===0||d.getDay()===6);
+    cells+='<div class="fsd'+(sameDay(d,today0)?' today2':'')+(list.length?' has':'')+(we?' we':'')+'">'+
+      '<div class="fsdh"><b>'+d.getDate()+'</b><span>'+DOWS.concat(["сб","вс"])[(d.getDay()+6)%7]+'</span></div>'+
+      list.map(function(pr){
+        var st = pr.confirm==="yes"?"ok" : pr.confirm==="no"?"no" : "wait";
+        return '<div class="fcp '+st+'" title="'+esc(pr.name)+'">'+
+          '<span class="fcnm">'+esc(pr.name)+'</span>'+
+          (money&&amountOf(pr)?'<span class="fcs">'+Math.round(amountOf(pr)/1000)+'к</span>':'')+
+        '</div>'; }).join("")+
+      (list.length>1 && money && sum?'<div class="fcsum">'+money0(sum)+'</div>':'')+
+    '</div>';
+  }
+  var total=sumOcc(occ);
+  return '<div class="fsw"><div class="fsg" style="--cols:'+(days>16?7:days>8?7:7)+'">'+cells+'</div>'+
+    '<div class="fsf">Итого за период: <b>'+(money?money0(total):'скрыто')+'</b> · '+occ.length+' платежей</div></div>';
+}
+
+function finCalendar(){
+  var now=dOnly(new Date());
+  var tabs='<div class="seg sm fsseg">'+FIN_RANGES.map(function(x){
+    return '<button data-finr="'+x[0]+'" aria-pressed="'+(finRange===x[0])+'">'+x[1]+'</button>'; }).join("")+'</div>';
+  var body;
+  if(finRange==="month") body=finCal();
+  else if(finRange==="week") body=finStrip2(7, now);
+  else if(finRange==="2weeks") body=finStrip2(14, now);
+  else if(finRange==="30d") body=finStrip2(30, now);
+  else {
+    var eom=new Date(now.getFullYear(), now.getMonth()+1, 0);
+    body=finStrip2(Math.max(1, Math.round((eom-now)/86400000)+1), now);
+  }
+  return '<div class="gl"><div class="gl-t"><h2>Календарь платежей</h2>'+
+    '<span class="m">форма календаря переключается</span>'+tabs+'</div>'+body+'</div>';
+}
+
+function renderFin(){
+  var host=document.getElementById("sect");
+  var s=finStats();
+  var hidden=!seesMoney();
+  host.innerHTML=
+    '<div class="gl finsum">'+
+      '<div class="pss"><div class="l">Гипотеза платежей</div>'+
+        '<div class="v">'+(hidden?'скрыто':rub(s.hyp))+'</div>'+
+        '<div class="d">сумма всех контрактов месяца</div></div>'+
+      '<div class="pss"><div class="l">Подтвердили</div>'+
+        '<div class="v okv">'+(hidden?'—':rub(s.yes))+'</div>'+
+        '<div class="d">клиент сказал «продолжаем»</div></div>'+
+      '<div class="pss"><div class="l">Ждём ответа</div>'+
+        '<div class="v warnv">'+(hidden?'—':rub(s.wait))+'</div>'+
+        '<div class="d">'+s.waitCli.length+' клиентов не ответили</div></div>'+
+      '<div class="pss"><div class="l">Недополученная выручка</div>'+
+        '<div class="v'+(s.no?' critv':'')+'">'+(hidden?'—':rub(s.no))+'</div>'+
+        '<div class="d">'+s.noCli.length+' клиентов отказались</div></div>'+
+    '</div>'+
+    finStrip()+
+    (s.noCli.length
+      ? '<div class="gl lostw"><div class="gl-t"><h2>Отказались — можно вернуть</h2>'+
+          '<span class="m">сделайте предложение или скидку</span></div>'+
+        '<div class="lostg">'+s.noCli.map(function(pr){
+          return '<div class="lost">'+
+            '<div class="av" style="background:'+pr.color+'">'+esc(pr.av||"")+'</div>'+
+            '<div class="lt"><div class="n">'+esc(pr.name)+'</div>'+
+              '<div class="r">'+esc(pr.owner||"собственник не указан")+
+              (pr.tg?' · @'+esc(String(pr.tg).replace(/^@+/,"")):'')+
+              (pr.phone?' · '+esc(pr.phone):'')+'</div></div>'+
+            (hidden?'':'<div class="ls">'+rub(amountOf(pr))+'</div>')+
+          '</div>'; }).join("")+'</div></div>'
+      : '')+
+    finCalendar()+
+    '<div class="gl"><div class="gl-t"><h2>Клиенты и продление</h2>'+
+      '<span class="m">за неделю до конца договора спросите и отметьте ответ</span>'+
+      ((role==="owner"||role==="pm")?'<button class="bt finadd" id="finAdd">Добавить клиента</button>':'')+
+      '</div>'+
+      '<div class="mtadd" id="finRow" hidden><input class="fi" id="finName" placeholder="Название кабинета клиента">'+
+        '<button class="bt" id="finGo">Добавить</button></div>'+
+      '<div class="paytw"><table class="payt fint"><thead><tr>'+
+        '<th>Клиент</th><th>Сумма в месяц</th><th>Дата платежа</th>'+
+        '<th>Продлевает?</th><th>Статус</th></tr></thead><tbody>'+
+        ((S.projects||[]).length ? (S.projects||[]).map(finRow).join("")
+          : '<tr><td colspan="5" class="dim">Клиентов пока нет</td></tr>')+
+      '</tbody></table></div>'+
+      (role==="owner"
+        ? '<label class="pmsw"><span class="ck'+(settings().pmMoney!==false?' on':'')+'" id="pmMoneySw"><i></i>'+
+          'Проджект видит стоимость контрактов</span>'+
+          '<span class="hint2">Выключите — проджект будет вести даты и ответы клиентов, но без сумм.</span></label>'
+        : '')+
+    '</div>';
+}
+
+/* ── 15. Горячая кнопка «Поставить задачу» ────────────────── */
+var ntOpen=false, ntAsk=null, ntAskTm=null;
+var NT_CYCLES=[["none","Разовая"],["daily","Каждый день"],["weekly","Раз в неделю"],
+  ["biweekly","Раз в 2 недели"],["monthly","Раз в месяц"]];
+var NT_WHERE=[["tg","Личный Telegram"],["chat","Чат проекта"],["mpv","МПВ команды"],["mail","Почта"]];
+var ntWhere={tg:1};
+
+var ntState={person:null, dow:null, cycle:"none", project:null, cab:"", fn:"", kind:"cyc", min:""};
+function ntSync(){
+  ["person","dow","cycle","project","cab","fn","kind","min"].forEach(function(k){
+    var el=document.getElementById("nt"+k.charAt(0).toUpperCase()+k.slice(1));
+    if(el) ntState[k]= (k==="dow") ? el.value : el.value;
+  });
+}
+function ntPersonId(){
+  if(ntState.person!=null && ntState.person!=="") return ntState.person;
+  return isMgr()?meId:"";
+}
+function dayFree(pid){
+  var a=[];
+  for(var d=0;d<5;d++) a.push({d:d, free:Math.max(0, NORM-loadOf(pid,d)), load:loadOf(pid,d)});
+  return a;
+}
+function ntAdvice(){
+  var pid=ntPersonId();
+  if(!pid) return {day:"", cyc:"", load:0};
+  var d = (ntState.dow!=null && ntState.dow!=="") ? +ntState.dow : dow;
+  var fr=dayFree(pid);
+  /* самый свободный день считаем по загрузке, а не по остатку:
+     когда все дни перегружены, остаток везде нулевой */
+  var best=fr.slice().sort(function(a,b){ return a.load-b.load; })[0];
+  var cur=fr[d];
+  var m=person(pid);
+  var wk=fr.reduce(function(a,x){ return a+x.load; },0);
+  var loadPct=Math.round(wk/(NORM*5)*100);
+  var out={day:"", cyc:"", load:loadPct, best:best, cur:cur, m:m};
+  if(best && cur && best.d!==d && (cur.load-best.load)>20){
+    out.day = DOW[best.d]+' свободнее на '+hrs(cur.load-best.load)+' ч';
+    out.bestDay=best.d;
+    out.dayWhy = 'в '+DOW[d].toLowerCase()+' у '+(m?m.name:'него')+' уже '+
+      hrs(cur.load)+' ч, в '+DOW[best.d].toLowerCase()+' — '+hrs(best.load)+' ч';
+  }
+  var cyc=ntState.cycle||"none";
+  if(loadPct>110 && (cyc==="daily")) { out.cyc="еженедельно"; out.cycWhy=m.name+" загружен на "+loadPct+"% — каждый день будет перебор"; }
+  else if(loadPct>125 && cyc==="weekly"){ out.cyc="раз в 2 недели"; out.cycWhy=m.name+" загружен на "+loadPct+"%"; }
+  return out;
+}
+
+B.newtask=function(el){
+  if(!ntOpen){
+    el.classList.add("nthot");
+    el.innerHTML='<button class="hotbtn" id="ntHot">'+
+        '<span class="hi2"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></span>'+
+        '<span class="ht2"><b>Поставить задачу</b>'+
+        '<i>Кабинет, ответственный, день, время — за десять секунд</i></span>'+
+        '<span class="hk">Enter</span></button>'+
+      (ntAsk?'<div class="ntask on"><div class="nal">Задача создана. Где посмотреть?</div>'+
+        '<div class="nab">'+
+          '<button class="bt gh2" data-ntgo="gantt">В ганте</button>'+
+          '<button class="bt gh2" data-ntgo="person">По сотруднику</button>'+
+          '<button class="bt gh2" data-ntgo="project">Внутри кабинета</button>'+
+          '<button class="bt gh2 dimb" data-ntgo="">Не надо</button>'+
+        '</div></div>':'');
+    return;
+  }
+  el.classList.remove("nthot");
+  var opts=function(arr,sel,f){ return arr.map(function(x){
+    return '<option value="'+esc(x.id)+'"'+(x.id===sel?" selected":"")+'>'+esc(f(x))+'</option>'; }).join(""); };
+  var adv=ntAdvice();
+  el.innerHTML='<div class="gl-t"><h2>Поставить задачу</h2>'+
+    '<div class="seg sm ntmode" role="group">'+['проект','сотрудник'].map(function(m){
+      return '<button data-m="'+m+'" aria-pressed="'+(m===ntMode)+'">В разрезе '+m+'а</button>'; }).join("")+'</div>'+
+    '<div class="grow"></div>'+
+    '<button class="bt gh2 sm" id="ntFold">Свернуть</button></div>'+
+    '<div class="ntrow">'+
+    '<select class="sel" id="ntProject">'+opts(S.projects,ntState.project||proj||(S.projects[0]&&S.projects[0].id),function(x){return x.name;})+'</select>'+
+    '<select class="sel" id="ntCab"><option value="">Кабинет: не указан</option>'+
+      S.cabs.filter(function(c){ return !proj || c.project===(document.getElementById("ntProject")?document.getElementById("ntProject").value:proj); })
+        .map(function(c){ return '<option value="'+esc(c.id)+'">'+esc(c.name)+'</option>'; }).join("")+'</select>'+
+    '<select class="sel" id="ntPerson"><option value=""'+(ntState.person?'':' selected')+'>Без ответственного</option>'+
+      opts(S.people, ntState.person || (isMgr()?meId:""), function(x){return x.name;})+'</select>'+
+    '<select class="sel" id="ntFn"><option value="">Разовая задача</option>'+
+      opts(S.fns,"",function(x){return x.name+" · "+x.minutes+" мин";})+'</select>'+
+    '<select class="sel" id="ntKind"><option value="cyc">Цикличная</option><option value="urg">Срочная</option>'+
+      '<option value="fix">Планёрка / дедлайн</option></select>'+
+    '<select class="sel" id="ntCycle">'+NT_CYCLES.map(function(c){
+      return '<option value="'+c[0]+'"'+(ntState.cycle===c[0]?' selected':'')+'>'+c[1]+'</option>'; }).join("")+'</select>'+
+    '<select class="sel" id="ntDow">'+DOWS.map(function(d2,i){
+      var cd=(ntState.dow!=null&&ntState.dow!=="")?+ntState.dow:dow;
+      return '<option value="'+i+'"'+(i===cd?" selected":"")+'>'+DOW[i]+'</option>'; }).join("")+'</select>'+
+    '<select class="sel" id="ntMin"><option value="">Время по нормативу</option>'+
+      [15,30,45,60,90,120,180].map(function(m){ return '<option value="'+m+'">'+m+' мин</option>'; }).join("")+'</select>'+
+    '</div>'+
+    ((adv.day||adv.cyc)
+      ? '<div class="ntadv">'+
+          (adv.day?'<button class="advb" data-ntday="'+adv.bestDay+'">'+
+            '<b>'+esc(adv.day)+'</b><i>'+esc(adv.dayWhy||'поставить туда — нагрузка ляжет ровнее')+'</i></button>':'')+
+          (adv.cyc?'<button class="advb warn3" data-ntcyc="'+esc(adv.cyc==="еженедельно"?"weekly":"biweekly")+'">'+
+            '<b>Сделать '+esc(adv.cyc)+'</b><i>'+esc(adv.cycWhy)+'</i></button>':'')+
+        '</div>' : '')+
+    '<div class="ntwhere"><span class="nwl">Где ещё уведомить ответственного</span>'+
+      NT_WHERE.map(function(w){
+        return '<button class="ck sm'+(ntWhere[w[0]]?' on':'')+'" data-ntw="'+w[0]+'"><i></i>'+w[1]+'</button>'; }).join("")+
+    '</div>'+
+    '<div class="ntrow" style="margin-top:10px">'+
+    '<input class="fld" id="ntTitle" placeholder="Что сделать. Одной строкой — сервис сам оформит по форме.">'+
+    '<button class="btn pri" id="ntAdd"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Поставить</button></div>'+
+    '<div class="hint"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v4h1"/></svg>'+
+    '<span>Задача уйдёт в чат проекта, менеджер будет отмечен. Если её напишут в чате — она сама появится здесь.</span></div>';
+  enhanceSelects(el);
+};
+
+function ntShowAsk(){
+  ntAsk={t:Date.now()};
+  var el=document.querySelector('[data-b="newtask"]');
+  if(el) B.newtask(el);
+  clearTimeout(ntAskTm);
+  ntAskTm=setTimeout(function(){
+    ntAsk=null;
+    var e2=document.querySelector('[data-b="newtask"]');
+    if(e2 && !ntOpen) B.newtask(e2);
+  }, 2200);
+}
+
+/* ── 16. Узкий виджет задач справа: дни, топ-3, список ─────── */
+var twDay=null, twPin=false;
+
+function twTop3(){
+  return rateRows().slice(0,3);
+}
+function twRender(){
+  var w=document.getElementById("taskDock"); if(!w) return;
+  var d = twDay==null ? dow : twDay;
+  var list=(S.tasks||[]).filter(function(t){
+    if(t.dow!==d) return false;
+    if(isMgr()) return t.person===meId;
+    if(isClient()) return true;
+    return true;
+  }).sort(function(a,b){ return a.start-b.start; });
+  var top=twTop3();
+  var mx=top.length?Math.max(1,top[0].pts):1;
+  var done=list.filter(function(t){ return t.done; }).length;
+
+  w.querySelector(".tdin").innerHTML=
+    '<div class="tdh"><b>Задачи</b>'+
+      '<button class="tdpin'+(twPin?' on':'')+'" id="tdPin" title="Закрепить">'+
+        '<svg viewBox="0 0 24 24"><path d="M9 4h6l-1 6 4 3v2H6v-2l4-3z"/><path d="M12 15v5"/></svg></button></div>'+
+    '<div class="tdays">'+DOWS.map(function(x,i){
+      return '<button class="tdd'+(i===d?" on":"")+(i===today?" td-today":"")+'" data-twd="'+i+'">'+x+'</button>'; }).join("")+
+      '<button class="tdd now'+(d===today?" on":"")+'" data-twd="'+today+'">Сегодня</button></div>'+
+    '<div class="tdlead"><div class="tdl2">Топ-3 недели</div>'+
+      (top.length?top.map(function(r,i){
+        return '<div class="tdli"><span class="tdn">'+(i+1)+'</span>'+
+          '<span class="av2" style="background:'+r.m.color+'">'+esc(r.m.av||"")+'</span>'+
+          '<span class="tdk">'+esc(r.m.name)+'</span>'+
+          '<span class="tdb"><i data-w="'+Math.round(20+r.pts/mx*80)+'"></i></span>'+
+          '<span class="tdp">'+r.pts+'</span></div>'; }).join("")
+        :'<div class="empty">Пока пусто</div>')+'</div>'+
+    '<div class="tdmeta">'+DOW[d]+' · '+list.length+' задач · '+hrs(minutesOf(list))+' ч · закрыто '+
+      (list.length?Math.round(done/list.length*100):0)+'%</div>'+
+    '<div class="tdlist">'+(list.length?list.map(function(t){
+      var m=t.person?person(t.person):null;
+      var pr=project(t.project);
+      var h=Math.floor(t.start), mm=Math.round((t.start-h)*60);
+      return '<div class="tdt'+(t.done?" done":"")+(t.kind==="urg"?" urg":"")+'" data-twt="'+esc(t.id)+'">'+
+        '<span class="tdtime">'+(h<10?"0":"")+h+":"+(mm<10?"0":"")+mm+'</span>'+
+        '<span class="tdtt">'+esc(t.title)+'</span>'+
+        '<span class="tdw">'+(m?'<i class="av2" style="background:'+m.color+'">'+esc(m.av)+'</i>':'')+
+          (pr?'<i class="dot" style="background:'+pr.color+'"></i>':'')+
+          '<b>'+t.minutes+'м</b></span>'+
+      '</div>'; }).join("") : '<div class="empty">В этот день задач нет</div>')+'</div>';
+  paintBars(w);
+}
+(function buildDock(){
+  var d=document.createElement("aside");
+  d.className="tdock"; d.id="taskDock"; d.hidden=true;
+  d.innerHTML='<div class="tdedge"><span class="tdlab">Задачи</span>'+
+      '<span class="tdcnt" id="tdCnt">0</span></div>'+
+    '<div class="tdin"></div>';
+  document.body.appendChild(d);
+  var tm=null;
+  d.addEventListener("mouseenter", function(){ clearTimeout(tm); d.classList.add("on"); twRender(); });
+  d.addEventListener("mouseleave", function(){ if(twPin) return;
+    tm=setTimeout(function(){ d.classList.remove("on"); }, 260); });
+})();
+function dockSync(){
+  var d=document.getElementById("taskDock"); if(!d) return;
+  var show = booted && !isClient();
+  d.hidden=!show;
+  if(!show) return;
+  var n=(S.tasks||[]).filter(function(t){
+    return t.dow===(twDay==null?dow:twDay) && (!isMgr()||t.person===meId); }).length;
+  var c=document.getElementById("tdCnt"); if(c) c.textContent=n;
+  if(d.classList.contains("on")) twRender();
+}
+
+/* ── 17. Обработчики всех новых элементов ─────────────────── */
+document.addEventListener("click", function(e){
+  var t;
+
+  /* двери */
+  if(e.target.closest("#navBack")){ navBack(); return; }
+  if((t=e.target.closest("[data-crumb]"))){ navTo(t.getAttribute("data-crumb")); return; }
+
+  /* рельса: список кабинетов выезжает вниз */
+  if((t=e.target.closest('.rail .ri[data-v="projects"]'))){
+    if(!booted) return;
+    railAcc(true);
+    setView("projects"); return; }
+  if(e.target.closest("#raccAdd")){ railAcc(false); addMode="cab"; setView("setup"); return; }
+  if(e.target.closest(".racci")){ railAcc(false); }
+
+  /* состав */
+  if((t=e.target.closest("[data-addmode]"))){
+    addMode=t.getAttribute("data-addmode");
+    setErrEmp=setErrCab="";
+    if(view!=="setup") setView("setup"); else renderSetup();
+    var fi=document.querySelector(".setform .fi"); if(fi) fi.focus();
+    return; }
+  if(e.target.closest("#addEmp")){
+    var nm=(document.getElementById("empName")||{}).value||"";
+    nm=nm.trim();
+    if(!nm){ setErrEmp="Напишите имя"; renderSetup(); return; }
+    var p=demoAddEmp(nm,
+      ((document.getElementById("empRole")||{}).value||"").trim(),
+      +((document.getElementById("empLoad")||{}).value||100));
+    p.tg=((document.getElementById("empTg")||{}).value||"").replace(/^@+/,"").trim();
+    p.pay=+((document.getElementById("empPay")||{}).value||0);
+    p.mode=simMode;
+    saveState();
+    setErrEmp=""; addMode=""; renderSetup();
+    toast("«"+nm+"» в команде. Стратегия загрузки: "+
+      (SIM_MODES.filter(function(m){ return m[0]===simMode; })[0]||["","",""])[1].toLowerCase());
+    return; }
+  if(e.target.closest("#addCab2")){
+    var cn=((document.getElementById("cabName2")||{}).value||"").trim();
+    if(!cn){ setErrCab="Напишите название кабинета"; renderSetup(); return; }
+    var pr=addCabinet(cn, {
+      owner:((document.getElementById("cabOwn")||{}).value||"").trim(),
+      tg:((document.getElementById("cabTg2")||{}).value||"").replace(/^@+/,"").trim(),
+      phone:((document.getElementById("cabPhone")||{}).value||"").trim(),
+      amount:+((document.getElementById("cabAmt")||{}).value||0),
+      payDate:((document.getElementById("cabPay")||{}).value||"").trim(),
+      articles:+((document.getElementById("cabArt")||{}).value||0),
+      sheet:((document.getElementById("cabSheet")||{}).value||"").trim()
+    });
+    logAdd(pr.id, "Кабинет заведён в сервисе, код "+pr.code, "edit");
+    setErrCab=""; addMode=""; renderSetup();
+    toast("Кабинет «"+cn+"» добавлен");
+    return; }
+  if(e.target.closest("#setGen2")){
+    if(MODE==="demo"){
+      if(!S.cabs.length){ setErrCab="У кабинетов нет записей — задачи не на что вешать."; renderSetup(); return; }
+      regenDemo(); setView("work"); return; }
+    return; }
+  if(e.target.closest("#setReset2")){ resetDemo(); return; }
+
+  /* модель найма */
+  if((t=e.target.closest("[data-simadd]"))){
+    simAdd=Math.max(0, Math.min(9, simAdd + (+t.getAttribute("data-simadd"))));
+    simRepaint(); return; }
+  if((t=e.target.closest("[data-simmode]"))){
+    simMode=t.getAttribute("data-simmode");
+    if(view==="setup") renderSetup(); else simRepaint();
+    return; }
+
+  /* функции */
+  if((t=e.target.closest("[data-fnb]"))){ fnBlock=+t.getAttribute("data-fnb"); renderFns(); return; }
+
+  /* рост: раскрыть список функций */
+  if((t=e.target.closest("[data-grow]"))){
+    var b=+t.getAttribute("data-grow");
+    growOpen = growOpen===b ? 0 : b;
+    renderGrowth(); paintBars(document.getElementById("sect")); return; }
+
+  /* финансы: форма календаря */
+  if((t=e.target.closest("[data-finr]"))){ finRange=t.getAttribute("data-finr"); renderFin(); return; }
+
+  /* карточки команды: доступы в чат */
+  if((t=e.target.closest("[data-sendacc]"))){
+    var m=person(t.getAttribute("data-sendacc"));
+    if(m){ m.sendAcc=!m.sendAcc; saveState(); renderStaff(); }
+    return; }
+  if((t=e.target.closest("[data-mempr]"))){
+    var mm=person(t.getAttribute("data-memp")), pid=t.getAttribute("data-mempr");
+    if(mm){ memberPrs(mm); mm.prs[pid]=!memberIn(mm,pid); saveState(); renderStaff(); }
+    return; }
+  if((t=e.target.closest("[data-sendgo]"))){
+    var m2=person(t.getAttribute("data-sendgo"));
+    if(m2) sendAccess(m2);
+    return; }
+
+  /* постановка задачи */
+  if(e.target.closest("#ntHot")){ ntOpen=true; ntAsk=null;
+    ntState={person:(isMgr()?meId:null), dow:String(dow), cycle:"none",
+             project:proj||null, cab:"", fn:"", kind:"cyc", min:""};
+    var el=document.querySelector('[data-b="newtask"]'); if(el){ B.newtask(el);
+      var ti=document.getElementById("ntTitle"); if(ti) ti.focus(); } return; }
+  if(e.target.closest("#ntFold")){ ntOpen=false;
+    var el2=document.querySelector('[data-b="newtask"]'); if(el2) B.newtask(el2); return; }
+  if((t=e.target.closest("[data-ntgo]"))){
+    var g=t.getAttribute("data-ntgo"); ntAsk=null; clearTimeout(ntAskTm);
+    if(g==="gantt"){ selPerson=null; proj=null; setView("work");
+      var gw=document.querySelector('[data-b="gantt"]'); if(gw) gw.scrollIntoView({behavior:"smooth",block:"center"}); }
+    else if(g==="person"){ openPerson=ntLastPerson||null; peDay=null; peGantt=false; setView("people"); }
+    else if(g==="project"){ if(ntLastProject) openCab(ntLastProject); }
+    else { var el3=document.querySelector('[data-b="newtask"]'); if(el3) B.newtask(el3); }
+    return; }
+  if((t=e.target.closest("[data-ntday]"))){
+    ntSync(); ntState.dow=t.getAttribute("data-ntday");
+    var ti1=(document.getElementById("ntTitle")||{}).value||"";
+    var el4=document.querySelector('[data-b="newtask"]'); if(el4) B.newtask(el4);
+    var tx1=document.getElementById("ntTitle"); if(tx1&&ti1) tx1.value=ti1;
+    toast("День задачи перенесён на "+DOW[+ntState.dow].toLowerCase());
+    return; }
+  if((t=e.target.closest("[data-ntcyc]"))){
+    ntSync(); ntState.cycle=t.getAttribute("data-ntcyc");
+    var ti2=(document.getElementById("ntTitle")||{}).value||"";
+    var el5=document.querySelector('[data-b="newtask"]'); if(el5) B.newtask(el5);
+    var tx2=document.getElementById("ntTitle"); if(tx2&&ti2) tx2.value=ti2;
+    toast("Цикличность снижена");
+    return; }
+  if((t=e.target.closest("[data-ntw]"))){
+    var k=t.getAttribute("data-ntw");
+    ntWhere[k]=!ntWhere[k];
+    t.classList.toggle("on", !!ntWhere[k]);
+    return; }
+
+  /* виджет задач справа */
+  if((t=e.target.closest("[data-twd]"))){ twDay=+t.getAttribute("data-twd"); twRender(); return; }
+  if(e.target.closest("#tdPin")){ twPin=!twPin;
+    var dk=document.getElementById("taskDock");
+    if(dk) dk.classList.toggle("on", twPin||dk.matches(":hover"));
+    twRender(); return; }
+  if((t=e.target.closest("[data-twt]"))){
+    var id=t.getAttribute("data-twt");
+    var tk=(S.tasks||[]).filter(function(x){ return x.id===id; })[0];
+    if(tk){ dow=tk.dow; openTask=id; setView("work");
+      setTimeout(function(){
+        var n=document.querySelector('[data-t="'+id+'"]');
+        if(n) n.scrollIntoView({behavior:"smooth", block:"center"}); }, 120); }
+    return; }
+});
+
+/* назад из кабинета — по стеку, а не жёстко в «Мои клиенты» */
+document.addEventListener("click", function(e){
+  if(e.target.closest("#cabBack")){ e.stopPropagation();
+    cabOpen=null; pickOpen=false; navBack(); }
+}, true);
+
+document.addEventListener("input", function(e){
+  var t=e.target;
+  if(t.id==="fnQ"){ fnQ=t.value;
+    var host=document.getElementById("sect");
+    var tb=host.querySelector(".fnt tbody");
+    renderFns();
+    var f=document.getElementById("fnQ");
+    if(f){ f.focus(); f.setSelectionRange(f.value.length,f.value.length); }
+    return; }
+  if(t.matches && t.matches("[data-ck2]")){
+    var c=project(cabOpen); if(!c) return;
+    var k=t.getAttribute("data-ck2"), v=t.value;
+    if(k==="tg") v=v.replace(/^@+/,"").trim();
+    if(k==="amount"||k==="articles") v=+v||0;
+    c[k]=v; saveState();
+    var fr=document.querySelector(".fillring");
+    if(fr){ var f2=cardFill(c);
+      fr.querySelector(".frv").textContent=f2.total+"%";
+      fr.querySelector(".frh").textContent="база "+f2.base+"% · глубина "+f2.deep+"%";
+      fr.classList.toggle("full", f2.total>=100); }
+    return; }
+});
+
+document.addEventListener("change", function(e){
+  var t=e.target;
+  if(t.matches && t.matches("[data-accchat]")){
+    var m=person(t.getAttribute("data-accchat"));
+    if(m){ m.accChat=t.value; saveState(); }
+    return; }
+  if(t.id==="ntPerson" || t.id==="ntDow" || t.id==="ntCycle" || t.id==="ntProject"){
+    var el=document.querySelector('[data-b="newtask"]');
+    if(el && ntOpen){
+      ntSync();
+      var ti0=(document.getElementById("ntTitle")||{}).value||"";
+      B.newtask(el);
+      var ti=document.getElementById("ntTitle"); if(ti && ti0) ti.value=ti0;
+    }
+    return; }
+});
+
+function simRepaint(){
+  ["simHost","simHost2"].forEach(function(id){
+    var h=document.getElementById(id);
+    if(h){ h.innerHTML=simWidget(id==="simHost"
+      ? {compact:true, noModes:true, noHead:true} : {noHead:true}); }
+  });
+}
+
+/* ── 18. Гант: выпадающий список кабинетов и сортировка ───── */
+var gSort="name";
+var G_SORTS=[["name","По алфавиту"],["load","По загрузке"],["tasks","По числу задач"],
+  ["over","Сначала перегруженные"]];
+
+function ganttPick(btn){
+  gsClose();
+  var pop=document.createElement("div");
+  pop.className="gspop wide2"; pop.id="gsPop";
+  var items=[{id:"", name:"Все кабинеты", av:"ВСЕ", color:"var(--ink-3)", n:(S.projects||[]).length+" кабинета"}]
+    .concat((S.projects||[]).map(function(pr){
+      var n=(S.tasks||[]).filter(function(t){ return t.project===pr.id; }).length;
+      return {id:pr.id, name:pr.name, av:pr.av||"", color:pr.color,
+        n:n+" задач"+(pr.articles?" · "+pr.articles+" арт":"")}; }));
+  pop.innerHTML='<div class="gsin">'+items.map(function(x){
+    return '<button class="gsi rich'+(proj===x.id||(!proj&&!x.id)?" on":"")+'" data-gpick="'+esc(x.id)+'">'+
+      '<span class="av2" style="background:'+x.color+'">'+esc(x.av)+'</span>'+
+      '<span class="gk"><b>'+esc(x.name)+'</b><i>'+esc(x.n)+'</i></span>'+
+      ((proj===x.id||(!proj&&!x.id))?'<span class="gschk">✓</span>':'')+'</button>'; }).join("")+'</div>';
+  document.body.appendChild(pop);
+  var r=btn.getBoundingClientRect(), vw=window.innerWidth, vh=window.innerHeight;
+  var w=272; pop.style.width=w+"px";
+  var ph=pop.offsetHeight;
+  var toRight=(r.left+r.width/2)<vw/2;
+  var left=toRight ? r.left : (r.right-w);
+  left=Math.max(10, Math.min(left, vw-w-10));
+  var below=(r.bottom+ph+12)<vh;
+  pop.style.left=Math.round(left)+"px";
+  pop.style.top=Math.round(below ? r.bottom+6 : Math.max(10, r.top-ph-6))+"px";
+  requestAnimationFrame(function(){ pop.classList.add("on"); });
+  GS_OPEN=btn; btn.classList.add("open");
+}
+
+document.addEventListener("click", function(e){
+  var t;
+  if((t=e.target.closest("#projSel"))){
+    e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();
+    ganttPick(t); return; }
+  if((t=e.target.closest("[data-gpick]"))){
+    e.stopPropagation();
+    var v=t.getAttribute("data-gpick");
+    proj = v || null; gsClose(); render(); return; }
+  if((t=e.target.closest("[data-gsort]"))){
+    gSort=t.getAttribute("data-gsort"); render(); return; }
+}, true);
+
+function ganttSortRows(el){
+  var tbl=el.querySelector(".gt"); if(!tbl) return;
+  var rows=Array.prototype.slice.call(tbl.querySelectorAll(".gr"));
+  if(rows.length<2) return;
+  var val=function(r){
+    var h=r.querySelector(".gn .h");
+    var txt=h?h.textContent:"";
+    var mh=parseFloat(String(txt).replace(",","."))||0;
+    var mp=parseInt((txt.split("·")[1]||"0"),10)||0;
+    var bars=r.querySelectorAll(".ln .gb").length;
+    var n=(r.querySelector(".gn .n")||{}).textContent||"";
+    return {h:mh, p:mp, b:bars, n:n};
+  };
+  var arr=rows.map(function(r){ return {r:r, v:val(r)}; });
+  arr.sort(function(a,b){
+    if(gSort==="name") return a.v.n.localeCompare(b.v.n,"ru");
+    if(gSort==="load") return b.v.h-a.v.h;
+    if(gSort==="tasks") return b.v.b-a.v.b;
+    return b.v.p-a.v.p;
+  });
+  arr.forEach(function(x){ tbl.appendChild(x.r); });
+}
+
+var _ganttBase=B.gantt;
+B.gantt=function(el){
+  _ganttBase.call(B, el);
+  /* панель сортировки — рядом с масштабом */
+  var head=el.querySelector(".gl-t");
+  if(head && !head.querySelector(".gsortw")){
+    var d=document.createElement("div");
+    d.className="gsortw";
+    d.innerHTML='<span class="gsl2">Сортировка</span>'+
+      '<div class="seg sm">'+G_SORTS.map(function(s){
+        return '<button data-gsort="'+s[0]+'" aria-pressed="'+(gSort===s[0])+'">'+s[1]+'</button>'; }).join("")+'</div>';
+    var scale=head.querySelector(".gscale");
+    if(scale) head.insertBefore(d, scale); else head.appendChild(d);
+  }
+  ganttSortRows(el);
+};
+
+/* ── 19. Права на рельсе с учётом новых разделов ──────────── */
+function applyRoleRail(){
+  var b;
+  var canMeet = (role!=="jun" && role!=="asst" && role!=="client");
+  b=document.querySelector('.rail .ri[data-v="meet"]');
+  if(b) b.style.display = canMeet ? "" : "none";
+  var canOffice = (role!=="jun" && role!=="asst");
+  b=document.querySelector('.rail .ri[data-v="office"]');
+  if(b) b.style.display = canOffice ? "" : "none";
+  b=document.querySelector('.rail .ri[data-v="growth"]');
+  if(b) b.style.display = (role==="owner"||role==="dir") ? "" : "none";
+  var op=document.getElementById("overPanel");
+  if(op) op.hidden = isMgr() || isClient();
+  b=document.querySelector('.rail .ri[data-v="cards"]');
+  if(b) b.style.display = isFin() ? "" : "none";
+  b=document.querySelector('.rail .ri[data-v="staff"]');
+  if(b) b.style.display = (role==="owner") ? "" : "none";
+  /* функции видят все, кроме клиента; рейтинг — все, кроме клиента */
+  b=document.querySelector('.rail .ri[data-v="fns"]');
+  if(b) b.style.display = isClient() ? "none" : "";
+  b=document.querySelector('.rail .ri[data-v="rate"]');
+  if(b) b.style.display = isClient() ? "none" : "";
+  b=document.getElementById("setupBtn");
+  if(b) b.style.display = (isClient()||role==="jun"||role==="asst") ? "none" : "";
+  var mi=document.getElementById("moneyIc");
+  if(mi) mi.style.display = isFin() ? "" : "none";
+  var pp=document.getElementById("payPanel");
+  if(pp) pp.hidden = (role!=="owner");
+  var deny={staff:role!=="owner", cards:!isFin(), fin:!isFin(),
+    growth:!(role==="owner"||role==="dir"), meet:!canMeet, office:!canOffice,
+    fns:isClient(), rate:isClient(), setup:isClient()||role==="jun"||role==="asst"};
+  if(deny[view]) setView("work");
+  dockSync();
+}
+
+/* «Состав» — обычный раздел, значит работают крошки и «назад» */
+NAV_TITLES.setup=["Команда и кабинеты","Люди и кабинеты клиентов — заводятся здесь"];
+SEC_RENDER.setup=renderSetup;
+function showSetup(){ setView("setup"); }
+(function(){
+  var b=document.getElementById("setupBtn");
+  if(b) b.onclick=function(){ if(booted||S.people.length) setView("setup"); };
+})();
+
+/* ── 20. После постановки задачи: куда посмотреть ─────────── */
+var ntLastPerson=null, ntLastProject=null;
+var _addTaskBase=addTask;
+addTask=function(){
+  var pEl=document.getElementById("ntPerson"), prEl=document.getElementById("ntProject");
+  ntLastPerson=pEl?pEl.value:null;
+  ntLastProject=prEl?prEl.value:null;
+  var title=(document.getElementById("ntTitle")||{}).value||"";
+  var r=_addTaskBase.apply(this, arguments);
+  if(title.trim()){
+    if(ntLastProject) logAdd(ntLastProject, "Поставлена задача «"+title.trim()+"»", "task");
+    var where=Object.keys(ntWhere).filter(function(k){ return ntWhere[k]; });
+    if(where.length){
+      var names=NT_WHERE.filter(function(w){ return ntWhere[w[0]]; }).map(function(w){ return w[1]; });
+      setTimeout(function(){ toast("Уведомление уйдёт: "+names.join(", ")); }, 900);
+    }
+    ntOpen=false; ntShowAsk();
+  }
+  return r;
+};
+
+/* ── 21. Стеклянные списки применяются ко всему, что рисуется ── */
+var _enhTm=null;
+function enhanceSoon(){ clearTimeout(_enhTm); _enhTm=setTimeout(function(){ enhanceSelects(document); }, 30); }
+(function(){
+  var mo=new MutationObserver(function(){ enhanceSoon(); });
+  mo.observe(document.body, {childList:true, subtree:true});
+  enhanceSoon();
+})();
+
+/* ── 22. Вход: даём браузеру сохранить пароль ─────────────── */
+(function(){
+  var st=document.getElementById("stIn");
+  if(!st || st.tagName==="FORM" || st.querySelector("form")) return;
+  var f=document.createElement("form");
+  f.id="loginForm"; f.setAttribute("autocomplete","on"); f.action="#"; f.method="post";
+  while(st.firstChild) f.appendChild(st.firstChild);
+  st.appendChild(f);
+  f.addEventListener("submit", function(e){
+    e.preventDefault();
+    var b=document.getElementById("btnIn"); if(b) b.click();
+  });
+  var b=document.getElementById("btnIn");
+  if(b) b.setAttribute("type","submit");
+})();
+
+/* сессия живёт месяц: пароль спрашиваем раз в 30 дней */
+var SESS_DAYS=30;
+(function(){
+  var _save=saveAuth;
+  saveAuth=function(){ A.savedAt=A.savedAt||Date.now(); return _save.apply(this, arguments); };
+  var _load=loadAuth;
+  loadAuth=function(){
+    var ok=_load.apply(this, arguments);
+    if(ok && A.savedAt && (Date.now()-A.savedAt) > SESS_DAYS*864e5){
+      dropAuth(); return false; }
+    return ok;
+  };
+})();
+
+/* ── 23. Синхронизация виджета задач с экраном ────────────── */
+var _renderBase=render;
+render=function(){
+  var r=_renderBase.apply(this, arguments);
+  dockSync();
+  return r;
+};
+var _startBase=startScreen;
+startScreen=function(){
+  var r=_startBase.apply(this, arguments);
+  setTimeout(function(){ dockSync(); enhanceSelects(document); }, 60);
+  return r;
+};
+
+/* ── 24. Демо становится живым: суммы, собственники, функции ── */
+var _saveBase=saveState;
+saveState=function(){
+  if(MODE!=="demo") return _saveBase.apply(this, arguments);
+  try{ localStorage.setItem(LSK, JSON.stringify({
+    people:S.people, projects:S.projects, cabs:S.cabs, tasks:S.tasks,
+    plan:S.plan||[], log:S.log||[], tpl:S.tpl||{}, settings:S.settings||{},
+    demoV:S.demoV })); }catch(e){}
+};
+var _restoreBase=restoreState;
+restoreState=function(){
+  var o=_restoreBase.apply(this, arguments);
+  if(o){ S.log=o.log||[]; S.tpl=o.tpl||{}; S.settings=o.settings||{pmMoney:true}; S.demoV=o.demoV; }
+  return o;
+};
+
+var DEMO_CLIENTS={
+  "ИП Аббясова":  {owner:"Гульнара Аббясова", tg:"abbyasova",  phone:"+7 917 555-12-04", amount:150000, day:25, confirm:"yes"},
+  "Пуфики Home":  {owner:"Дмитрий Ковалёв",   tg:"pufiki_home",phone:"+7 903 118-44-90", amount:90000,  day:5,  confirm:"yes"},
+  "Textile Pro":  {owner:"Артём Лисицын",     tg:"textile_pro",phone:"+7 926 740-08-15", amount:210000, day:10, confirm:"no"},
+  "Мебель Юг":    {owner:"Сергей Гринёв",     tg:"mebel_ug",   phone:"+7 988 302-77-51", amount:70000,  day:18, confirm:""}
+};
+function isoDay(d){
+  var now=new Date(), y=now.getFullYear(), m=now.getMonth();
+  if(d < now.getDate()) m+=1;
+  var dt=new Date(y,m,d);
+  return dt.getFullYear()+"-"+("0"+(dt.getMonth()+1)).slice(-2)+"-"+("0"+dt.getDate()).slice(-2);
+}
+var DEMO_TEAM={
+  "Вероника":  {pay:95000,  payDay:2,  tg:"veronika_fl", mail:"veronika.fl@mail.ru",  wphone:"+79521180042"},
+  "Игорь":     {pay:78000,  payDay:5,  tg:"igor_fl",     mail:"igor.smirnov@mail.ru", wphone:"+79520049102"},
+  "Светлана":  {pay:62000,  payDay:5,  tg:"svetlana_fl", mail:"sv.markova@mail.ru",   wphone:"+79184420018"},
+  "Виктория":  {pay:48000,  payDay:10, tg:"vika_fl",     mail:"vika.lp@mail.ru",      wphone:"+79030117744"},
+  "Елизавета": {pay:41000,  payDay:10, tg:"liza_fl",     mail:"liza.suhanova@mail.ru",wphone:"+79520049102"}
+};
+function demoEnrich(){
+  if(MODE!=="demo") return;
+  if(S.demoV==="n1") return;
+  var r=rng(20260910);
+  (S.people||[]).forEach(function(m){
+    var d=DEMO_TEAM[m.name]; if(!d) return;
+    if(!m.pay)    m.pay=d.pay;
+    if(!m.payDay) m.payDay=d.payDay;
+    if(!m.tg)     m.tg=d.tg;
+    if(!m.mail)   m.mail=d.mail;
+    if(!m.wphone) m.wphone=d.wphone;
+    if(m.bonusPct==null) m.bonusPct=30;
+    if(m.finePct==null)  m.finePct=15;
+  });
+  (S.projects||[]).forEach(function(pr,i){
+    var d=DEMO_CLIENTS[pr.name];
+    if(d){
+      if(!pr.owner)   pr.owner=d.owner;
+      if(!pr.tg)      pr.tg=d.tg;
+      if(!pr.phone)   pr.phone=d.phone;
+      if(!pr.amount)  pr.amount=d.amount;
+      if(!pr.payDate) pr.payDate=isoDay(d.day);
+      if(pr.confirm==null || pr.confirm==="") pr.confirm=d.confirm;
+    } else {
+      if(!pr.amount)  pr.amount=60000+Math.round(r()*90)*1000;
+      if(!pr.payDate) pr.payDate=isoDay(3+Math.floor(r()*24));
+    }
+    if(!pr.sheet) pr.sheet="https://docs.google.com/spreadsheets/d/FO-"+
+      (pr.av||"XX").toLowerCase()+"-"+(pr.code||"demo");
+    if(!pr.code) pr.code=newCode();
+    if(!pr.articles) pr.articles=60+Math.round(r()*160);
+  });
+  /* пакет функций у каждого кабинета */
+  logQuiet=true;
+  if(!S.plan) S.plan=[];
+  if(!S.plan.length && (S.fns||[]).length){
+    var b1=S.fns.filter(function(f){ return blockOf(f)===1; });
+    var b2=S.fns.filter(function(f){ return blockOf(f)===2; });
+    var b3=S.fns.filter(function(f){ return blockOf(f)===3; });
+    var CY=["daily","weekly","weekly","biweekly","monthly","none"];
+    (S.projects||[]).forEach(function(pr, pi){
+      var team=peopleOfProject(pr.id).map(function(x){ return x.p; });
+      if(!team.length) team=(S.people||[]).slice(0,3);
+      var take=function(arr, n){
+        var out=[], used={};
+        for(var i=0;i<n && arr.length;i++){
+          var k=Math.floor(r()*arr.length);
+          if(used[k]){ i--; continue; }
+          used[k]=1; out.push(arr[k]);
+        }
+        return out;
+      };
+      var pick=take(b1, 7).concat(take(b2, 4)).concat(take(b3, 1));
+      pick.forEach(function(f, k){
+        var row=planAdd(pr.id, f);
+        row.cycle=CY[Math.floor(r()*CY.length)];
+        if(row.cycle==="weekly"||row.cycle==="biweekly") row.days=[Math.floor(r()*5)];
+        row.person = (k%6===2 && pi%2===0) ? "" : team[Math.floor(r()*team.length)].id;
+        row.deadline = r()>0.5 ? "18:00" : "";
+        row.form = r()>0.6 ? "chat" : (r()>0.8 ? "approve" : "none");
+        row.approve = row.form==="approve";
+        if(row.approve) row.approver="";
+      });
+    });
+  }
+  logQuiet=false;
+  S.demoV="n1"; saveState();
+}
+var _buildDemoBase=buildDemo;
+buildDemo=function(){
+  var r=_buildDemoBase.apply(this, arguments);
+  try{ demoEnrich(); }catch(e){}
+  return r;
+};
+
+/* виджет задач не должен налезать на контент */
+(function(){
+  var f=function(){
+    var d=document.getElementById("taskDock");
+    document.body.classList.toggle("hasdock", !!(d && !d.hidden));
+  };
+  var _ds=dockSync;
+  dockSync=function(){ var r=_ds.apply(this, arguments); f(); return r; };
+})();
+
+/* ── 25. Редактор текстов сообщений ────────────────────────── */
+document.addEventListener("click", function(e){
+  var t;
+  if(e.target.closest("#tplOpen")){ tplOpen=true; renderCab(); return; }
+  if(e.target.closest("#tplClose")){ tplOpen=false; renderCab(); return; }
+  if((t=e.target.closest("[data-tple]"))){ tplEvent=t.getAttribute("data-tple"); renderCab(); return; }
+  if((t=e.target.closest("[data-tplrs]"))){
+    var k=t.getAttribute("data-tplrs");
+    if(S.tpl && S.tpl[tplEvent]) delete S.tpl[tplEvent][k];
+    saveState(); renderCab(); toast("Текст вернули к стандартному"); return; }
+  if((t=e.target.closest("[data-tplvar]"))){
+    var v=t.getAttribute("data-tplvar");
+    var ta=document.querySelector(".tpta:focus") || document.querySelector('.tpta[data-tplk="client"]');
+    if(!ta) return;
+    var s=ta.selectionStart||ta.value.length, en=ta.selectionEnd||s;
+    ta.value=ta.value.slice(0,s)+v+ta.value.slice(en);
+    ta.focus(); ta.setSelectionRange(s+v.length, s+v.length);
+    tplSet(tplEvent, ta.getAttribute("data-tplk"), ta.value);
+    return; }
+});
+document.addEventListener("input", function(e){
+  if(e.target && e.target.matches && e.target.matches(".tpta")){
+    tplSet(tplEvent, e.target.getAttribute("data-tplk"), e.target.value);
+  }
+});
+
+/* ── 26. Мелочи, которые видно глазом ─────────────────────── */
+/* понятные подписи в форме постановки */
+(function(){
+  var _nt=B.newtask;
+  B.newtask=function(el){
+    _nt.call(B, el);
+    var f=document.getElementById("ntFn");
+    if(f && f.options[0]) f.options[0].textContent="Без функции — своя задача";
+    var c=document.getElementById("ntCycle");
+    if(c) Array.prototype.forEach.call(c.options, function(o,i){
+      if(i===0) o.textContent="Цикличность: разовая"; });
+    if(f && f._gsSync) f._gsSync();
+    if(c && c._gsSync) c._gsSync();
+  };
+})();
+
+/* ── 27. Всплывающее раскрывается в сторону центра ─────────── */
+(function(){
+  function grow(e){
+    var b=e.target.closest ? e.target.closest(".gb") : null;
+    if(!b || b._gflip!==undefined) return;
+    var ln=b.parentNode; if(!ln) return;
+    var w=ln.clientWidth||1;
+    var mid=b.offsetLeft + b.offsetWidth/2;
+    if(mid > w*0.55){
+      b._gleft=b.style.left;
+      var r=Math.max(0, w - (b.offsetLeft + b.offsetWidth));
+      b.style.left="auto"; b.style.right=r+"px";
+      b._gflip=1;
+    } else b._gflip=0;
+  }
+  function ungrow(e){
+    var b=e.target.closest ? e.target.closest(".gb") : null;
+    if(!b || b._gflip===undefined) return;
+    if(b._gflip===1){ b.style.right=""; b.style.left=b._gleft||""; }
+    b._gflip=undefined;
+  }
+  document.addEventListener("mouseover", grow, true);
+  document.addEventListener("mouseout", ungrow, true);
+})();
+
+/* ── 28. Подсказка «нажмите» на карточках, которые открываются ── */
+(function(){
+  var _rp=renderPeople;
+  renderPeople=function(){
+    _rp.apply(this, arguments);
+    q("[data-openperson]").forEach(function(c){
+      if(c.classList.contains("open")) return;
+      if(c.querySelector(".pchint")) return;
+      var h=document.createElement("div");
+      h.className="pchint"; h.textContent="нажмите — раскроется карточка";
+      c.insertBefore(h, c.firstChild);
+    });
+  };
+})();
+
+/* ── 29. История кабинета пишется сама ─────────────────────── */
+(function(){
+  var _add=planAdd;
+  planAdd=function(cid, fn, title){
+    var r=_add.apply(this, arguments);
+    logAdd(cid, "В кабинет добавлена задача «"+(r.title||"без названия")+"»", "task");
+    return r;
+  };
+  var _del=planDel;
+  planDel=function(id){
+    var row=planAll().filter(function(x){ return x.id===id; })[0];
+    if(row) logAdd(row.cab, "Задача «"+row.title+"» убрана из кабинета", "edit");
+    return _del.apply(this, arguments);
+  };
+  var _patch=planPatch;
+  planPatch=function(id,k,v){
+    var row=planAll().filter(function(x){ return x.id===id; })[0];
+    if(row){
+      if(k==="person"){
+        var m=v?person(v):null;
+        logAdd(row.cab, "«"+row.title+"» — ответственный "+(m?m.name:"снят"), "edit");
+      } else if(k==="cycle"){
+        var c=CYCLES.filter(function(x){ return x[0]===v; })[0];
+        logAdd(row.cab, "«"+row.title+"» — цикличность: "+(c?c[1].toLowerCase():v), "edit");
+      } else if(k==="approve"){
+        logAdd(row.cab, "«"+row.title+"» — "+(v?"поставлено на согласование":"согласование снято"), "edit");
+      }
+    }
+    return _patch.apply(this, arguments);
+  };
 })();
 
 })();
