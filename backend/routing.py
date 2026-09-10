@@ -1,8 +1,9 @@
 """Куда и когда сообщать: правила по чатам кабинета, шаблоны, отложенная очередь."""
+import os
 from datetime import datetime, timedelta, time as dtime
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from ..db import pool
@@ -204,3 +205,131 @@ async def flush(p: Principal = Depends(max_level(3))):
                 now if ok else None, None if ok else "telegram отказал", r["id"])
             done += 1 if ok else 0
     return {"разослано": done, "в_очереди_было": len(rows)}
+
+
+# ---------- чаты кабинета: привязка, отправка, шаблоны ----------
+
+class ChatIn(BaseModel):
+    title: str
+    chat_id: str                      # id группы в Telegram, например -1001234567890
+    kind: str = Field(default="mpv", pattern="^(client|mpv|internal)$")
+
+
+@router.get("/{client_id}/chats")
+async def list_chats(client_id: str, p: Principal = Depends(current)):
+    """Какие чаты привязаны к кабинету."""
+    async with pool().acquire() as c:
+        rows = await c.fetch(
+            """SELECT ch.id, ch.title, ch.chat_id, cc.kind, ch.is_active
+                 FROM chat ch JOIN client_chat cc ON cc.chat_pk = ch.id
+                WHERE cc.client_id=$1 AND ch.org_id=$2 ORDER BY ch.title""",
+            client_id, p.org_id)
+    return {"кабинет": client_id,
+            "чаты": [{"id": r["id"], "название": r["title"], "телеграм": r["chat_id"],
+                      "роль": r["kind"], "активен": r["is_active"]} for r in rows]}
+
+
+@router.post("/{client_id}/chats")
+async def add_chat(client_id: str, body: ChatIn, p: Principal = Depends(max_level(5))):
+    """Привязать чат к кабинету. Если такой chat_id уже есть — переиспользуем."""
+    async with pool().acquire() as c:
+        ok = await c.fetchval("SELECT 1 FROM client WHERE id=$1 AND org_id=$2", client_id, p.org_id)
+        if not ok:
+            raise HTTPException(404, "кабинет не найден")
+        pk = await c.fetchval("SELECT id FROM chat WHERE org_id=$1 AND chat_id=$2",
+                              p.org_id, body.chat_id)
+        if pk is None:
+            pk = await c.fetchval(
+                "INSERT INTO chat (org_id, chat_id, title, is_active) VALUES ($1,$2,$3,true) RETURNING id",
+                p.org_id, body.chat_id, body.title)
+        else:
+            await c.execute("UPDATE chat SET title=$1, is_active=true WHERE id=$2", body.title, pk)
+        await c.execute(
+            """INSERT INTO client_chat (client_id, chat_pk, kind) VALUES ($1,$2,$3)
+               ON CONFLICT (client_id, chat_pk) DO UPDATE SET kind=EXCLUDED.kind""",
+            client_id, pk, body.kind)
+    return {"привязан": pk, "название": body.title, "роль": body.kind}
+
+
+@router.delete("/{client_id}/chats/{chat_pk}")
+async def del_chat(client_id: str, chat_pk: int, p: Principal = Depends(max_level(5))):
+    """Отвязать чат от кабинета. Сам чат и история правил остаются."""
+    async with pool().acquire() as c:
+        await c.execute("DELETE FROM client_chat WHERE client_id=$1 AND chat_pk=$2", client_id, chat_pk)
+    return {"отвязан": chat_pk}
+
+
+class SendIn(BaseModel):
+    chat_pk: int
+    text: str
+
+
+@router.post("/send")
+async def send_now(body: SendIn, p: Principal = Depends(max_level(5))):
+    """Отправить готовый текст в чат — этим уходят доступы новым участникам кабинета."""
+    async with pool().acquire() as c:
+        row = await c.fetchrow("SELECT chat_id, title FROM chat WHERE id=$1 AND org_id=$2",
+                               body.chat_pk, p.org_id)
+    if not row:
+        raise HTTPException(404, "чат не найден")
+    ok = await send_telegram(row["chat_id"], body.text)
+    if not ok:
+        raise HTTPException(502, "Telegram не принял сообщение")
+    return {"отправлено": True, "чат": row["title"]}
+
+
+class TplIn(BaseModel):
+    event: str
+    kind: str = Field(pattern="^(client|mpv|internal)$")
+    body: str
+
+
+@router.get("/templates/all")
+async def get_templates(p: Principal = Depends(current)):
+    """Тексты сообщений по событиям. Чего нет — берётся стандартный."""
+    async with pool().acquire() as c:
+        rows = await c.fetch(
+            "SELECT event, kind, body FROM msg_template WHERE org_id=$1", p.org_id)
+    return {"свои": [{"событие": r["event"], "кому": r["kind"], "текст": r["body"]} for r in rows],
+            "события": EVENTS}
+
+
+@router.put("/templates/all")
+async def put_template(body: TplIn, p: Principal = Depends(max_level(5))):
+    """Переписать текст одного события. Пустой текст = по этому событию не пишем."""
+    if body.event not in EVENTS:
+        raise HTTPException(400, "неизвестное событие")
+    async with pool().acquire() as c:
+        await c.execute(
+            """INSERT INTO msg_template (org_id, event, kind, body, updated_by)
+               VALUES ($1,$2,$3,$4,$5)
+               ON CONFLICT (org_id, event, kind) DO UPDATE
+               SET body=EXCLUDED.body, updated_at=now(), updated_by=EXCLUDED.updated_by""",
+            p.org_id, body.event, body.kind, body.body, p.user_id)
+    return {"сохранено": body.event + "/" + body.kind}
+
+
+# ---------- рассылка по расписанию, без входа в систему ----------
+
+@router.post("/cron/flush")
+async def cron_flush(request: Request):
+    """Дёргается системным таймером раз в 5 минут. Ключ берётся из .env, FLUSH_KEY."""
+    key = os.getenv("FLUSH_KEY", "")
+    if not key or request.headers.get("X-Flush-Key") != key:
+        raise HTTPException(403, "нет ключа")
+    now = datetime.now()
+    done = failed = 0
+    async with pool().acquire() as c:
+        rows = await c.fetch(
+            """SELECT o.id, o.body, ch.chat_id FROM outbox o
+                 JOIN chat ch ON ch.id = o.chat_pk
+                WHERE o.sent_at IS NULL AND o.send_after <= $1
+             ORDER BY o.send_after LIMIT 200""", now)
+        for r in rows:
+            ok = await send_telegram(r["chat_id"], r["body"])
+            await c.execute(
+                "UPDATE outbox SET sent_at=$1, error=$2 WHERE id=$3",
+                now if ok else None, None if ok else "telegram отказал", r["id"])
+            done += 1 if ok else 0
+            failed += 0 if ok else 1
+    return {"разослано": done, "не_ушло": failed}
