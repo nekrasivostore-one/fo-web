@@ -1,0 +1,11 @@
+[Unit]
+Description=FO: каждые 5 минут проверять очередь сообщений
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=5min
+AccuracySec=30s
+Unit=fo-flush.service
+
+[Install]
+WantedBy=timers.target
