@@ -1030,10 +1030,14 @@ body::before{content:""; position:fixed; inset:0; z-index:-1; pointer-events:non
 .crumbs .crback:hover{ color:var(--ink); box-shadow:var(--sh) }
 
 /* ── 4. Рельса: список выезжает вниз между кнопок ── */
-.racc{ width:100%; overflow:hidden; max-height:0;
-  transition:max-height .42s var(--ease), opacity .3s var(--ease); opacity:0;
-  padding:0; margin:0 }
-.racc.on{ opacity:1; margin:3px 0 5px; overflow-y:auto }
+/* список в рельсе: высоту держит CSS, а не замер в пикселях — иначе
+   в узкой рельсе строки выше и список обрезается (rail.03) */
+.racc{ width:100%; overflow:hidden; max-height:0; opacity:0;
+  transform:translateY(-6px); padding:0; margin:0;
+  transition:opacity .26s var(--ease), transform .26s var(--ease) }
+.racc.on{ max-height:calc(100vh - 240px); opacity:1; transform:none;
+  margin:3px 0 5px; overflow-y:auto }
+@media(max-height:760px){ .racc.on{ max-height:calc(100vh - 180px) } }
 .racc::-webkit-scrollbar{ width:0 }
 .racci{ display:flex; align-items:center; gap:9px; width:188px; margin:0 auto 3px;
   font-family:inherit; font-size:12px; font-weight:600; color:var(--ink-2);
@@ -2200,6 +2204,30 @@ select.gshidden{ position:absolute!important; width:1px!important; height:1px!im
 /* нативный select под стеклянным — не должен растягивать страницу на телефоне */
 .rolesel{ position:relative; overflow:hidden }
 select.gshidden{ left:0!important; top:0!important; max-width:1px!important; overflow:hidden!important }
+
+/* ═══ Регистрация: код на экране, когда почта не настроена ═══ */
+.nomail{ margin-top:10px; padding:11px 13px; border-radius:12px;
+  background:linear-gradient(135deg,rgba(255,138,0,.12),rgba(255,138,0,.04));
+  border:1px solid rgba(255,138,0,.34); text-align:left }
+.nomail b{ display:block; font-size:12.5px; color:var(--ink); margin-bottom:4px }
+.nomail span{ display:block; font-size:12px; color:var(--ink-2); line-height:1.5 }
+.nomail code{ font-family:ui-monospace,SFMono-Regular,monospace; font-size:15px;
+  font-weight:700; letter-spacing:.14em; color:var(--ink);
+  background:var(--panel); border:1px solid var(--stroke); border-radius:8px;
+  padding:2px 9px; margin:0 2px }
+code.invc{ font-family:ui-monospace,SFMono-Regular,monospace; font-weight:700;
+  letter-spacing:.12em; background:var(--panel-2); border:1px solid var(--stroke);
+  border-radius:7px; padding:1px 7px }
+
+/* ═══ Название агентства в шапке ═══ */
+.orgchip{ display:inline-flex; flex-direction:column; justify-content:center;
+  padding:5px 13px; border-radius:12px; margin-right:10px; white-space:nowrap;
+  background:linear-gradient(135deg,rgba(124,92,255,.11),rgba(0,179,154,.07));
+  border:1px solid rgba(124,92,255,.22) }
+.orgchip .ol{ font-size:8.5px; font-weight:700; letter-spacing:.09em;
+  text-transform:uppercase; color:var(--ink-3); line-height:1.2 }
+.orgchip b{ font-size:12.5px; font-weight:600; color:var(--ink); line-height:1.25 }
+@media(max-width:920px){ .orgchip{ display:none } }
 </style>
 </head>
 <body>
@@ -9768,8 +9796,15 @@ function granters(){
 }
 
 var accState = {via:"mail", val:"", name:"", role:"mgr"};
+var accJustMade = null;
 var accRoleOpen = null;
 
+function inviteCode(){
+  return (Math.random().toString(36).slice(2,6) + Math.random().toString(36).slice(2,6)).toUpperCase();
+}
+function inviteUrl(r){
+  return "https://fo.flater.pro/?invite=" + (r.code || "");
+}
 function accSeed(){
   if(S.accSeeded) return;
   var pl = (S.people||[]).slice(0, 3);
@@ -9778,9 +9813,79 @@ function accSeed(){
     accList().push({id:nextId("ac"), name:m.name, pid:m.id, role:roles[i] || "mgr",
       via: i === 1 ? "phone" : "mail",
       val: i === 1 ? "+7 999 000-0" + (10+i) : translit(m.name) + "@flater.pro",
+      login: translit(m.name), code: inviteCode(),
       status:"active", at: Date.now() - (i+1)*86400000, by:"Виталий"});
   });
   S.accSeeded = true; saveState();
+}
+
+/* ── куда можно отправить приглашение ── */
+var SEND_TO = [
+  ["wa",  "WhatsApp", "phone"],
+  ["tg",  "Telegram", "any"],
+  ["max", "MAX",      "phone"],
+  ["mail","Почта",    "mail"]
+];
+function sendIcon(k){
+  var P = {
+    wa:  '<path d="M20 12a8 8 0 0 1-11.9 7L4 20l1.1-4A8 8 0 1 1 20 12z"/><path d="M9 9.5c0 3 2.5 5.5 5.5 5.5"/>',
+    tg:  '<path d="M21 5 3 11.5l5 1.8L18 8l-7.5 7.2.3 4.3 2.6-3 4 3z"/>',
+    max: '<path d="M4 18V6l5 7 5-7v12"/><path d="M18 6v12"/>',
+    mail:'<rect x="3" y="5" width="18" height="14" rx="3"/><path d="m3.5 7 8.5 6 8.5-6"/>'
+  };
+  return '<svg viewBox="0 0 24 24" aria-hidden="true">' + (P[k]||"") + '</svg>';
+}
+/* сервис только готовит ссылку и открывает нужный мессенджер —
+   отправляет сообщение сам человек, ничего не уходит без него */
+function sendLink(k, r){
+  var digits = String(r.val||"").replace(/\D/g, "");
+  var txt = "Доступ в Flater Team Service. Роль: " + roleName(r.role) +
+            ". Вход по ссылке: " + inviteUrl(r) + " Логин: " + (r.login || r.val);
+  if(k === "wa")  return "https://wa.me/" + digits + "?text=" + encodeURIComponent(txt);
+  if(k === "tg")  return "https://t.me/share/url?url=" + encodeURIComponent(inviteUrl(r)) +
+                         "&text=" + encodeURIComponent(txt);
+  if(k === "max") return "https://max.ru/share?text=" + encodeURIComponent(txt);
+  return "mailto:" + encodeURIComponent(r.via === "mail" ? r.val : "") +
+         "?subject=" + encodeURIComponent("Доступ в Flater Team Service") +
+         "&body=" + encodeURIComponent(txt);
+}
+function sendRow(r){
+  return '<div class="accsend">'+
+    '<div class="accsl">Отправить приглашение</div>'+
+    '<div class="accsb">'+SEND_TO.map(function(x){
+      var ok = x[2] === "any" ||
+               (x[2] === "phone" && r.via === "phone") ||
+               (x[2] === "mail"  && r.via === "mail");
+      return '<a class="accsi'+(ok?'':' dim2')+'" href="'+esc(sendLink(x[0], r))+'" '+
+        'target="_blank" rel="noopener" data-accsend="'+x[0]+'" '+
+        'title="'+(ok ? 'Открыть '+x[1]+' с готовым текстом'
+                      : x[1]+': нужен '+(x[2]==="phone"?'телефон':'адрес почты'))+'">'+
+        sendIcon(x[0])+x[1]+'</a>'; }).join("")+
+    '</div>'+
+    '<div class="accsn">Сервис готовит текст и открывает мессенджер — отправляете вы сами. '+
+      'Ничего не уходит человеку без вашего нажатия.</div>'+
+  '</div>';
+}
+/* карточка только что созданного аккаунта */
+function accFresh(){
+  var r = accList().filter(function(x){ return x.id === accJustMade; })[0];
+  if(!r) return "";
+  return '<div class="gl accnew">'+
+    '<div class="acch"><b>Аккаунт создан</b>'+
+      '<i>'+esc(r.name)+' · '+esc(roleName(r.role))+' · '+
+      (r.via === "mail" ? 'почта ' : 'телефон ')+esc(r.val)+'</i>'+
+      '<button class="bt gh2 sm" id="accFreshX">Скрыть</button></div>'+
+    '<div class="accfg">'+
+      '<label><span>Логин</span><div class="accv"><code>'+esc(r.login)+'</code>'+
+        '<button class="bt gh2 sm" data-copy="'+esc(r.login)+'">Копировать</button></div></label>'+
+      '<label><span>Код приглашения</span><div class="accv"><code>'+esc(r.code)+'</code>'+
+        '<button class="bt gh2 sm" data-copy="'+esc(r.code)+'">Копировать</button></div></label>'+
+    '</div>'+
+    '<label class="acclink"><span>Ссылка для входа</span>'+
+      '<div class="accv"><code class="long">'+esc(inviteUrl(r))+'</code>'+
+        '<button class="bt gh2 sm" data-copy="'+esc(inviteUrl(r))+'">Копировать ссылку</button></div></label>'+
+    sendRow(r)+
+  '</div>';
 }
 function translit(s){
   var M = {а:"a",б:"b",в:"v",г:"g",д:"d",е:"e",ё:"e",ж:"zh",з:"z",и:"i",й:"y",к:"k",л:"l",
@@ -9825,9 +9930,9 @@ function accGrantForm(){
           ' value="'+esc(accState.val)+'"></label>'+
     '</div>'+
     '<div class="accfb">'+
-      '<button class="bt pri" id="accGrant"'+(v.ok?'':' disabled')+'>Выдать доступ</button>'+
+      '<button class="bt pri" id="accGrant"'+(v.ok?'':' disabled')+'>Создать аккаунт и получить ссылку</button>'+
       '<span class="accw'+(v.ok?' ok':'')+'">'+
-        (v.ok ? 'Приглашение уйдёт на '+esc(accState.val)+' · роль «'+esc(roleName(accState.role))+'»'
+        (v.ok ? 'Создам аккаунт «'+esc(roleName(accState.role))+'» и дам ссылку — отправите сами'
               : esc(v.why))+'</span>'+
     '</div></div>';
 }
@@ -9895,7 +10000,8 @@ function accTable(){
             '<span class="acctb">'+(boss
               ? (r.status === "revoked"
                   ? '<button class="bt gh2 sm" data-accre="'+esc(r.id)+'">Вернуть доступ</button>'
-                  : '<button class="bt gh2 sm" data-accblock="'+esc(r.id)+'">'+
+                  : '<button class="bt gh2 sm" data-accshow="'+esc(r.id)+'">Ссылка</button>'+
+                    '<button class="bt gh2 sm" data-accblock="'+esc(r.id)+'">'+
                       (r.status==="blocked"?"Разблокировать":"Заблокировать")+'</button>'+
                     '<button class="bt gh2 sm warnb" data-accrev="'+esc(r.id)+'">Забрать доступ</button>')
               : '<i class="dim">только собственник</i>')+'</span>'+
@@ -9948,7 +10054,8 @@ function renderAcc(){
       '</div></div>' + accCodeBlock();
     return;
   }
-  host.innerHTML = accGrantForm() + accCodeBlock() + accGrantersBlock() + accTable() + accRolesBlock();
+  host.innerHTML = accGrantForm() + accFresh() + accCodeBlock() +
+    accGrantersBlock() + accTable() + accRolesBlock();
 }
 
 NAV_TITLES.acc = ["Доступы", "Кто в проекте, что видит и кто может пускать других"];
@@ -9962,13 +10069,21 @@ document.addEventListener("click", function(e){
     var v = accValid(); if(!v.ok){ toast(v.why); return; }
     var nm = (accState.name || "").trim() ||
       (accState.via === "mail" ? accState.val.split("@")[0] : "Без имени");
-    accList().unshift({id:nextId("ac"), name:nm, role:accState.role, via:accState.via,
-      val:accState.val.trim(), status:"active", at:Date.now(), by:"вы"});
-    logAdd("Выдан доступ: " + nm + " · " + roleName(accState.role));
+    var rec = {id:nextId("ac"), name:nm, role:accState.role, via:accState.via,
+      val:accState.val.trim(),
+      login: accState.via === "mail" ? accState.val.split("@")[0] : translit(nm),
+      code: inviteCode(),
+      status:"active", at:Date.now(), by:"вы"};
+    accList().unshift(rec);
+    accJustMade = rec.id;
+    logAdd("Создан аккаунт: " + nm + " · " + roleName(accState.role));
     accState.name = ""; accState.val = "";
     saveState(); renderAcc();
-    toast("Доступ выдан — приглашение ушло на " + (accState.via === "mail" ? "почту" : "телефон"));
+    var box = document.querySelector(".accnew");
+    if(box) box.scrollIntoView({block:"center", behavior:"smooth"});
+    toast("Аккаунт создан — ссылка готова, выберите, куда отправить");
     return; }
+  if(e.target.closest("#accFreshX")){ accJustMade = null; renderAcc(); return; }
   if((t = e.target.closest("[data-accg]"))){
     if(t.disabled) return;
     var m = person(t.getAttribute("data-accg")); if(!m) return;
@@ -9991,6 +10106,14 @@ document.addEventListener("click", function(e){
     r2.status = "revoked";
     logAdd("Забран доступ: " + r2.name);
     saveState(); renderAcc(); toast("Доступ забран. Задачи остались на кабинете — переназначьте их");
+    return; }
+  if((t = e.target.closest("[data-accshow]"))){
+    var rr = accList().filter(function(x){ return x.id === t.getAttribute("data-accshow"); })[0];
+    if(!rr) return;
+    if(!rr.code){ rr.code = inviteCode(); rr.login = rr.login || translit(rr.name); saveState(); }
+    accJustMade = rr.id; renderAcc();
+    var bx = document.querySelector(".accnew");
+    if(bx) bx.scrollIntoView({block:"center", behavior:"smooth"});
     return; }
   if((t = e.target.closest("[data-accre]"))){
     var r3 = accList().filter(function(x){ return x.id === t.getAttribute("data-accre"); })[0];
@@ -10025,7 +10148,7 @@ document.addEventListener("input", function(e){
     if(b) b.disabled = !v.ok;
     if(w){ w.className = "accw" + (v.ok ? " ok" : "");
       w.textContent = v.ok
-        ? 'Приглашение уйдёт на ' + accState.val + ' · роль «' + roleName(accState.role) + '»'
+        ? 'Создам аккаунт «' + roleName(accState.role) + '» и дам ссылку — отправите сами'
         : v.why; }
     return; }
 });
@@ -10044,256 +10167,188 @@ document.addEventListener("change", function(e){
   };
 })();
 
-/* ── 15. Рельса: список не режется в свёрнутом виде (rail.03) ──
-   в узкой рельсе строки выше, чем в широкой, а maxHeight остаётся
-   от прошлого замера — список обрезался на трёх кабинетах.
-   Держим maxHeight:none, пока список открыт. */
+/* ── 15. Рельса: список кабинетов и людей больше не режется (rail.03) ──
+   Было: высота списка вычислялась замером (maxHeight в пикселях). В узкой
+   рельсе строки выше, чем в широкой, замер устаревал — и список обрезался
+   на трёх кабинетах. Плюс любой сдвиг вёрстки ловил mouseleave и схлопывал
+   список сразу после открытия.
+   Стало: высотой управляет CSS (max-height:none у открытого, прокрутка,
+   если список длиннее экрана), анимация — прозрачностью и сдвигом, без
+   замеров. Сворачивание по уходу мыши — с задержкой и проверкой, что мышь
+   действительно ушла с рельсы. */
 (function(){
-  function freeHeight(id){
-    var acc = document.getElementById(id);
-    if(!acc || acc.hidden) return;
-    if(acc.style.maxHeight === "0px") return;
-    acc.style.maxHeight = "none";
-    acc.style.overflowY = "auto";
+  function open(id, items){
+    var acc = document.getElementById(id); if(!acc) return;
+    acc.innerHTML = items();
+    acc.hidden = false;
+    acc.style.maxHeight = "";          /* высоту держит CSS, не замер */
+    acc.style.overflowY = "";
+    /* перезапуск анимации */
+    acc.classList.remove("on");
+    void acc.offsetWidth;
+    acc.classList.add("on");
   }
-  var _ra = railAcc, _rp = railAccPeople;
-  railAcc = function(open){
-    var v = _ra.apply(this, arguments);
-    setTimeout(function(){ freeHeight("railAcc"); }, 430);
-    return v;
+  function shut(id, still){
+    var acc = document.getElementById(id); if(!acc) return;
+    acc.classList.remove("on");
+    setTimeout(function(){ if(!still()) acc.hidden = true; }, 300);
+  }
+
+  railAcc = function(o){
+    if(o === undefined) o = !railOpen;
+    railOpen = !!o;
+    if(railOpen) open("railAcc", railItems);
+    else shut("railAcc", function(){ return railOpen; });
   };
-  railAccPeople = function(open){
-    var v = _rp.apply(this, arguments);
-    setTimeout(function(){ freeHeight("railAccP"); }, 430);
-    return v;
+  railAccPeople = function(o){
+    if(o === undefined) o = !railPeopleOpen;
+    railPeopleOpen = !!o;
+    if(railPeopleOpen) open("railAccP", railPeopleItems);
+    else shut("railAccP", function(){ return railPeopleOpen; });
   };
+
+  /* уход мыши: с задержкой, и только если мышь правда вне рельсы */
   var rail = document.querySelector(".rail");
-  if(rail) rail.addEventListener("mouseenter", function(){
-    freeHeight("railAcc"); freeHeight("railAccP"); });
-})();
-
-/* ══ 16. Рейтинг: премирование, часы в сервисе, награды (rail.07) ══ */
-
-/* награды за время, проведённое в сервисе */
-var AWARDS = [
-  [1000,  "Красавчик",      "первая тысяча часов в сервисе"],
-  [5000,  "Гид сервиса",    "показывает новичкам, где что лежит"],
-  [10000, "Мастер сервиса", "работает в сервисе быстрее всех"],
-  [20000, "Ментор сервиса", "учит команду и правит регламенты"]
-];
-function awardOf(h){
-  var got = null;
-  AWARDS.forEach(function(a){ if(h >= a[0]) got = a; });
-  return got;
-}
-function nextAward(h){
-  for(var i = 0; i < AWARDS.length; i++) if(h < AWARDS[i][0]) return AWARDS[i];
-  return null;
-}
-
-/* часы в сервисе: считаем активность — движение мыши и ввод текста.
-   тикаем раз в 30 секунд, только если за эти 30 секунд что-то было. */
-function svcHours(){
-  if(!S.svc) S.svc = {};
-  return S.svc;
-}
-function svcOf(pid){
-  var v = svcHours()[pid];
-  return typeof v === "number" ? v : 0;
-}
-(function svcTicker(){
-  var live = false;
-  var mark = function(){ live = true; };
-  document.addEventListener("mousemove", mark, {passive:true});
-  document.addEventListener("keydown", mark, {passive:true});
-  document.addEventListener("input", mark, {passive:true});
-  setInterval(function(){
-    if(!live) return;
-    live = false;
-    var id = meId || "me";
-    var h = svcHours();
-    h[id] = (h[id] || 0) + 30/3600;      /* полминуты активности */
-    try{ saveState(); }catch(e){}
-  }, 30000);
-})();
-/* демо: осмысленные часы, чтобы награды было видно */
-function svcSeed(){
-  if(S.svcSeeded) return;
-  var base = [12400, 6100, 3200, 1450, 640];
-  (S.people||[]).forEach(function(m, i){
-    if(svcHours()[m.id] === undefined) svcHours()[m.id] = base[i] !== undefined ? base[i] : 300;
-  });
-  S.svcSeeded = true; saveState();
-}
-
-/* ── премирование ── */
-var BONUS_RULES = [
-  ["done",  "Закрыл всё, что стояло на неделю", 3000, function(r){ return r.doneP >= 100; }],
-  ["fast",  "Три и больше задач быстрее норматива", 2000, function(r){ return r.fast >= 3; }],
-  ["pick",  "Подхватил задачи у коллег", 1500, function(r){ return r.pick >= 2; }],
-  ["clean", "Ни одной просрочки", 1500, function(r){ return !r.late; }],
-  ["top",   "Первое место в рейтинге недели", 5000, function(r, i){ return i === 0; }]
-];
-function bonusOf(r, i){
-  var got = BONUS_RULES.filter(function(b){ return b[3](r, i); });
-  return {list:got, sum: got.reduce(function(a,b){ return a + b[2]; }, 0)};
-}
-function bonusBlock(rows){
-  var money = seesMoney();
-  var tot = rows.reduce(function(a, r, i){ return a + bonusOf(r, i).sum; }, 0);
-  return '<div class="gl"><div class="gl-t"><h2>Премирование за неделю</h2>'+
-      '<span class="m">'+(money ? 'к выплате '+rub(tot)+' сверх окладов'
-                                : 'суммы видит собственник и директор')+'</span></div>'+
-    '<div class="bnr">'+BONUS_RULES.map(function(b){
-      var who = rows.filter(function(r, i){ return b[3](r, i); });
-      return '<div class="bnrr'+(who.length?' on':'')+'">'+
-        '<div class="bnrt"><b>'+esc(b[1])+'</b>'+
-          '<i>'+(money ? rub(b[2])+' за человека' : 'премия')+'</i></div>'+
-        '<div class="bnrw">'+(who.length
-          ? who.map(function(r){
-              return '<span class="bnp"><span class="av2" style="background:'+r.m.color+'">'+
-                esc(r.m.av||"")+'</span>'+esc(r.m.name)+'</span>'; }).join("")
-          : '<i class="dim">на этой неделе никто</i>')+'</div>'+
-      '</div>'; }).join("")+'</div>'+
-    (money
-      ? '<div class="bntot">'+rows.filter(function(r,i){ return bonusOf(r,i).sum; })
-          .map(function(r, i0){
-            var ri = rows.indexOf(r);
-            var bb = bonusOf(r, ri);
-            return '<div class="bntr"><span class="av2" style="background:'+r.m.color+'">'+
-              esc(r.m.av||"")+'</span><span class="bntn">'+esc(r.m.name)+'</span>'+
-              '<span class="bntw">'+bb.list.map(function(x){ return esc(x[1]); }).join(" · ")+'</span>'+
-              '<span class="bntv">'+rub(bb.sum)+'</span></div>'; }).join("")+
-        (tot ? '<div class="bntr sum"><span class="bntn">Итого за неделю</span>'+
-               '<span class="bntv">'+rub(tot)+'</span></div>' : '')+
-        '</div>'
-      : '')+
-    '<div class="payh">Премия считается по фактам недели, не по ощущению. '+
-      'Правила можно менять — цифры пересчитаются на всей команде сразу.</div></div>';
-}
-
-/* ── вовлечённость: часы в сервисе и награды ── */
-function svcBlock(rows){
-  svcSeed();
-  var mine = rows.map(function(r){ return {m:r.m, h: svcOf(r.m.id)}; })
-    .sort(function(a,b){ return b.h - a.h; });
-  var mx = Math.max.apply(null, mine.map(function(x){ return x.h; }).concat([1]));
-  return '<div class="gl"><div class="gl-t"><h2>Часы в сервисе</h2>'+
-      '<span class="m">активность считается по движению мыши и вводу текста</span></div>'+
-    '<div class="awl">'+AWARDS.map(function(a){
-      var got = mine.filter(function(x){ return x.h >= a[0]; });
-      return '<div class="awc'+(got.length?' on':'')+'">'+
-        '<div class="awn">'+esc(a[1])+'</div>'+
-        '<div class="awh">от '+a[0].toLocaleString("ru-RU")+' часов</div>'+
-        '<div class="awd">'+esc(a[2])+'</div>'+
-        '<div class="aww">'+(got.length
-          ? got.map(function(x){ return '<span class="av2" title="'+esc(x.m.name)+'" style="background:'+
-              x.m.color+'">'+esc(x.m.av||"")+'</span>'; }).join("")
-          : '<i class="dim">пока никто</i>')+'</div>'+
-      '</div>'; }).join("")+'</div>'+
-    '<div class="svcl">'+mine.map(function(x){
-      var a = awardOf(x.h), nx = nextAward(x.h);
-      return '<div class="svcr">'+
-        '<span class="av2" style="background:'+x.m.color+'">'+esc(x.m.av||"")+'</span>'+
-        '<span class="svcn"><b>'+esc(x.m.name)+'</b>'+
-          '<i>'+(a ? esc(a[1]) : "пока без награды")+'</i></span>'+
-        '<span class="svcb"><span class="svcbf" data-w="'+Math.round(x.h/mx*100)+'"></span></span>'+
-        '<span class="svch">'+Math.round(x.h).toLocaleString("ru-RU")+' ч</span>'+
-        '<span class="svcx">'+(nx
-          ? 'до «'+esc(nx[1])+'» — '+Math.round(nx[0]-x.h).toLocaleString("ru-RU")+' ч'
-          : 'выше уровня нет')+'</span>'+
-      '</div>'; }).join("")+'</div>'+
-    '<div class="payh">Часы копятся только когда человек реально работает в сервисе: '+
-      'открытая вкладка без действий часы не набивает.</div></div>';
-}
-
-(function(){
-  var _rr = renderRate;
-  renderRate = function(){
-    _rr.apply(this, arguments);
-    var host = document.getElementById("sect");
-    if(!host || host.querySelector(".bnr")) return;
-    var rows = rateRows();
-    host.insertAdjacentHTML("beforeend", bonusBlock(rows) + svcBlock(rows));
-    q(".svcbf").forEach(function(b){
-      var w = b.getAttribute("data-w");
-      requestAnimationFrame(function(){ b.style.width = w + "%"; });
+  if(rail){
+    var t = null;
+    rail.addEventListener("mouseleave", function(e){
+      if(e.relatedTarget && rail.contains(e.relatedTarget)) return;
+      clearTimeout(t);
+      t = setTimeout(function(){
+        if(rail.matches(":hover")) return;
+        railAcc(false); railAccPeople(false);
+      }, 380);
     });
-  };
+    rail.addEventListener("mouseenter", function(){ clearTimeout(t); });
+  }
 })();
 SEC_RENDER.rate = renderRate;   /* карта разделов собралась раньше — переподвязываем */
 
-/* ══ 17. Новая карточка клиента — шаблон для заполнения (cards.03–05) ══
-   в заполненных карточках цифры есть, в новых стоял прочерк.
-   теперь пустая цифра — это поле ввода или кнопка «внести». */
+/* ── 18. Кнопка «Команда и кабинеты» убрана с рельсы ───────────
+   Кабинет заводится из «Мои клиенты», менеджер — из «Моя команда».
+   Нижняя кнопка дублировала оба действия — Виталий решил убрать. */
 (function(){
-  var _cc = clientCard;
-  clientCard = function(pr){
-    var html = _cc.call(this, pr);
-    var n = cabNumbers(pr);
-
-    if(!n.art){
-      html = html.replace(
-        '<div class="ccn1"><b>—</b><span>артикулов</span></div>',
-        '<div class="ccn1 tpl"><input class="fi xs" type="number" min="0" step="10" '+
-          'placeholder="0" data-cart="'+esc(pr.id)+'" value="">'+
-          '<span>артикулов — впишите</span></div>');
-    }
-    if(!n.fns){
-      html = html.replace(
-        '<div class="ccn1"><b>0</b><span>функций в кабинете</span></div>',
-        '<div class="ccn1 tpl"><button class="tplb" data-cfns="'+esc(pr.id)+'">Внести</button>'+
-          '<span>функций в кабинете</span></div>');
-    }
-    if(!n.cyc){
-      html = html.replace(
-        '<div class="ccn1"><b>0</b><span>цикличных</span></div>',
-        '<div class="ccn1 tpl"><button class="tplb" data-cfns="'+esc(pr.id)+'">Отметить</button>'+
-          '<span>цикличных — из функций</span></div>');
-    }
-    if(!n.amount && seesMoney()){
-      html = html.replace(
-        '<div class="ccn1"><b>—</b><span>платёж в месяц</span></div>',
-        '<div class="ccn1 tpl"><input class="fi xs" type="number" min="0" step="5000" '+
-          'placeholder="0 ₽" data-camt="'+esc(pr.id)+'" value="">'+
-          '<span>платёж в месяц — впишите</span></div>');
-    }
-    /* пустая карточка целиком — объясняем, с чего начать */
-    if(!n.art && !n.fns && !n.amount){
-      html = html.replace('<button class="bt gh2 ccgo"',
-        '<div class="cctpl">Карточка новая. Впишите артикулы и платёж прямо здесь, '+
-        'а функции кабинета внесите внутри — сервис сам посчитает часы, задачи и загрузку.</div>'+
-        '<button class="bt gh2 ccgo"');
-    }
-    return html;
-  };
+  var b = document.getElementById("setupBtn");
+  if(b && b.parentNode) b.parentNode.removeChild(b);
 })();
 
-document.addEventListener("click", function(e){
-  var t = e.target.closest("[data-cfns]");
-  if(!t) return;
-  e.stopPropagation();
-  cabOpen = t.getAttribute("data-cfns");
-  pickOpen = true;
-  navPush("cards"); setView("cab", true);
-}, true);
+/* ══ 19. Регистрация: код агентства и честный путь без почты ══
+   Сервер теперь отвечает mail_sent и, если письмо не ушло, code_shown.
+   Раньше человек упирался в «введите код из письма», которого нет.
+   Теперь код показывается прямо на экране и подставляется в поле.
+   Как только на сервере заполнят пароль почты — код в ответе
+   перестанет приходить, и экран сам вернётся к обычному тексту. */
+(function(){
+  function fillStep3(r, head){
+    var who = document.getElementById("upWho");
+    var f2  = document.getElementById("upCode2");
+    if(!who) return;
+    if(r && r.code_shown){
+      who.innerHTML = head +
+        '<div class="nomail"><b>Почта на сервере пока не настроена.</b>'+
+        '<span>Код первого входа — <code>'+esc(r.code_shown)+'</code>. '+
+        'Он уже подставлен в поле ниже, просто придумайте пароль.</span></div>';
+      if(f2){ f2.value = r.code_shown; }
+      var pw = document.getElementById("upPwd");
+      if(pw) setTimeout(function(){ pw.focus(); }, 60);
+    } else {
+      who.innerHTML = head + ' Код входа отправлен на <b>' + esc(A.email) +
+        '</b> — проверьте входящие и папку «Спам».';
+      if(f2) setTimeout(function(){ f2.focus(); }, 60);
+    }
+  }
 
-document.addEventListener("click", function(e){
-  /* клик по полю внутри карточки не должен открывать кабинет */
-  if(e.target.closest(".ccn1.tpl input")) e.stopPropagation();
-}, true);
+  var up2 = document.getElementById("btnUp2");
+  if(up2) up2.onclick = async function(){
+    var b = this, c = (document.getElementById("upCode").value||"").trim();
+    if(c.length < 4){ gErr("errUp2","Введите код агентства"); return; }
+    busy(b, true);
+    try{
+      var r = await api("/auth/register", {method:"POST",
+        body:{email:A.email, invite_code:c}});
+      A.workspace = r.workspace || "";
+      try{ localStorage.setItem("fo_org", A.workspace); }catch(e){}
+      fillStep3(r, 'Вы вступаете в <b>'+esc(r.workspace)+'</b>.');
+      gShow("stUp3"); busy(b, false, "Продолжить");
+    }catch(e){ busy(b, false, "Продолжить"); gErr("errUp2", e.message); }
+  };
 
-document.addEventListener("change", function(e){
-  var t = e.target, pr;
-  if(t.matches && t.matches("[data-cart]")){
-    pr = project(t.getAttribute("data-cart")); if(!pr) return;
-    pr.articles = Math.max(0, +t.value || 0); saveState(); renderCards();
-    toast("Артикулы записаны — карточка пересчиталась"); return; }
-  if(t.matches && t.matches("[data-camt]")){
-    pr = project(t.getAttribute("data-camt")); if(!pr) return;
-    pr.amount = Math.max(0, +t.value || 0); saveState(); renderCards();
-    toast("Платёж записан"); return; }
-});
+  var ws = document.getElementById("btnWs");
+  if(ws) ws.onclick = async function(){
+    var b = this, n = (document.getElementById("wsName").value||"").trim();
+    if(n.length < 2){ gErr("errWs","Напишите название агентства"); return; }
+    busy(b, true);
+    try{
+      var r = await api("/auth/workspace", {method:"POST",
+        body:{email:A.email, org_name:n}});
+      A.workspace = r.workspace || n;
+      try{ localStorage.setItem("fo_org", A.workspace); }catch(e){}
+      fillStep3(r,
+        'Агентство <b>'+esc(r.workspace)+'</b> создано. '+
+        'Код для приглашений — <code class="invc">'+esc(r.invite_code)+'</code>, '+
+        'по нему команда попадёт именно к вам.');
+      gShow("stUp3"); busy(b, false, "Создать пространство");
+    }catch(e){ busy(b, false, "Создать пространство"); gErr("errWs", e.message); }
+  };
+
+  /* формулировки: код агентства, а не проекта */
+  var hint = document.querySelector("#stUp2 .ghint");
+  if(hint) hint.textContent =
+    "Код агентства даёт собственник — шесть символов. По нему вы попадёте в его рабочее пространство.";
+  var lab = document.querySelector('label[for="upCode"]');
+  if(lab) lab.textContent = "Код агентства";
+  var wsHint = document.querySelector("#stWs .ghint");
+  if(wsHint) wsHint.textContent =
+    "Вы станете собственником агентства: заведёте кабинеты, позовёте команду и раздадите роли.";
+  var wsLab = document.querySelector('label[for="wsName"]');
+  if(wsLab) wsLab.textContent = "Название агентства";
+  var toWs = document.getElementById("toWs");
+  if(toWs) toWs.textContent = "У меня нет кода — создать своё агентство";
+  var wsBack = document.getElementById("wsBack");
+  if(wsBack) wsBack.textContent = "Назад к коду агентства";
+
+  /* инвайт-ссылка: fo.flater.pro/?invite=КОД сразу подставляет код */
+  try{
+    var q = new URLSearchParams(location.search);
+    var inv = (q.get("invite") || "").trim().toUpperCase();
+    if(inv){
+      var tabs = document.getElementById("gTabs");
+      if(tabs){
+        var up = tabs.querySelector('[data-t="up"]');
+        if(up) up.click();
+      }
+      var fi = document.getElementById("upCode");
+      if(fi){ fi.value = inv; }
+      var m = document.getElementById("upMail");
+      if(m) setTimeout(function(){ m.focus(); }, 80);
+    }
+  }catch(e){}
+})();
+
+/* название агентства в шапке — видит каждый, у кого инвайт (v2acc.27) */
+function orgName(){
+  if(A && A.workspace) return A.workspace;
+  try{ return localStorage.getItem("fo_org") || ""; }catch(e){ return ""; }
+}
+function paintOrg(){
+  var bar = document.querySelector(".bar");
+  if(!bar) return;
+  var n = orgName();
+  var el = document.getElementById("orgChip");
+  if(!n){ if(el) el.remove(); return; }
+  if(!el){
+    el = document.createElement("div");
+    el.id = "orgChip"; el.className = "orgchip";
+    var anchor = document.getElementById("roleSw") || bar.firstChild;
+    bar.insertBefore(el, anchor);
+  }
+  el.innerHTML = '<span class="ol">агентство</span><b>' + esc(n) + '</b>';
+}
+(function(){
+  var _ar = applyRoleRail;
+  applyRoleRail = function(){ var v = _ar.apply(this, arguments); paintOrg(); return v; };
+  setTimeout(paintOrg, 400);
+})();
 
 })();
 </script>
