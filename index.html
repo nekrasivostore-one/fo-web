@@ -2228,6 +2228,47 @@ code.invc{ font-family:ui-monospace,SFMono-Regular,monospace; font-weight:700;
   text-transform:uppercase; color:var(--ink-3); line-height:1.2 }
 .orgchip b{ font-size:12.5px; font-weight:600; color:var(--ink); line-height:1.25 }
 @media(max-width:920px){ .orgchip{ display:none } }
+
+/* ═══ Экран первого запуска ═══ */
+.frhead{ background:linear-gradient(135deg,rgba(124,92,255,.1),rgba(0,179,154,.06)) }
+.frh{ display:flex; align-items:flex-start; gap:18px; flex-wrap:wrap }
+.frh h2{ font-family:Unbounded,sans-serif; font-size:19px; font-weight:500;
+  letter-spacing:-.03em; margin:0 0 5px }
+.frh p{ margin:0; font-size:13px; color:var(--ink-2); max-width:60ch }
+.frp{ margin-left:auto; text-align:right; white-space:nowrap }
+.frp b{ display:block; font-family:Unbounded,sans-serif; font-size:22px; font-weight:500;
+  letter-spacing:-.03em }
+.frp span{ font-size:11px; color:var(--ink-3) }
+.frbar{ height:7px; border-radius:99px; background:var(--neu); overflow:hidden; margin-top:14px }
+.frbar i{ display:block; height:100%; border-radius:99px;
+  background:linear-gradient(90deg,#7C5CFF,#00B39A); transition:width .6s var(--ease) }
+.frinv{ margin-top:12px }
+.frsteps{ display:flex; flex-direction:column; gap:9px; margin-top:12px }
+.frs{ display:flex; align-items:center; gap:14px; padding:14px 16px;
+  border:1px solid var(--stroke-2); border-radius:var(--r2); background:var(--panel);
+  transition:.18s }
+.frs:hover{ border-color:var(--neu-b) }
+.frs.ok{ background:linear-gradient(135deg,rgba(0,179,154,.07),transparent);
+  border-color:rgba(0,179,154,.3) }
+.frn{ width:32px; height:32px; border-radius:11px; flex:none; display:grid; place-items:center;
+  font-family:Unbounded,sans-serif; font-size:14px; font-weight:500;
+  background:var(--neu); color:var(--ink-3); border:1px solid var(--stroke-2) }
+.frs.ok .frn{ background:var(--ok); border-color:var(--ok); color:#fff }
+.frn svg{ width:16px; height:16px; fill:none; stroke:currentColor; stroke-width:2.6;
+  stroke-linecap:round; stroke-linejoin:round }
+.frt{ flex:1; min-width:0 }
+.frt b{ display:block; font-size:14px; font-weight:600; color:var(--ink) }
+.frt i{ display:block; font-style:normal; font-size:12px; color:var(--ink-3); margin-top:2px }
+.frc{ display:inline-block; margin-top:6px; font-size:11px; font-weight:700;
+  color:var(--ink-2); background:var(--panel-2); border:1px solid var(--stroke-2);
+  border-radius:999px; padding:2px 10px }
+.frs.ok .frc{ color:var(--ok); border-color:rgba(0,179,154,.3) }
+.frs .bt{ width:auto; flex:0 0 auto }
+.frfoot{ margin-top:12px; font-size:12px; color:var(--ink-3); line-height:1.55 }
+@media(max-width:700px){
+  .frs{ flex-wrap:wrap }
+  .frs .bt{ width:100%; margin-top:4px }
+}
 </style>
 </head>
 <body>
@@ -10267,7 +10308,10 @@ SEC_RENDER.rate = renderRate;   /* карта разделов собралас�
       var r = await api("/auth/register", {method:"POST",
         body:{email:A.email, invite_code:c}});
       A.workspace = r.workspace || "";
-      try{ localStorage.setItem("fo_org", A.workspace); }catch(e){}
+      try{
+        localStorage.setItem("fo_org", A.workspace);
+        localStorage.setItem("fo_invite", c);
+      }catch(e){}
       fillStep3(r, 'Вы вступаете в <b>'+esc(r.workspace)+'</b>.');
       gShow("stUp3"); busy(b, false, "Продолжить");
     }catch(e){ busy(b, false, "Продолжить"); gErr("errUp2", e.message); }
@@ -10282,7 +10326,10 @@ SEC_RENDER.rate = renderRate;   /* карта разделов собралас�
       var r = await api("/auth/workspace", {method:"POST",
         body:{email:A.email, org_name:n}});
       A.workspace = r.workspace || n;
-      try{ localStorage.setItem("fo_org", A.workspace); }catch(e){}
+      try{
+        localStorage.setItem("fo_org", A.workspace);
+        if(r.invite_code) localStorage.setItem("fo_invite", r.invite_code);
+      }catch(e){}
       fillStep3(r,
         'Агентство <b>'+esc(r.workspace)+'</b> создано. '+
         'Код для приглашений — <code class="invc">'+esc(r.invite_code)+'</code>, '+
@@ -10348,6 +10395,126 @@ function paintOrg(){
   var _ar = applyRoleRail;
   applyRoleRail = function(){ var v = _ar.apply(this, arguments); paintOrg(); return v; };
   setTimeout(paintOrg, 400);
+})();
+
+/* ══ 20. Экран первого запуска: агентство только что создано ══
+   Раньше пустое пространство падало в старый экран «Команда и кабинеты»,
+   кнопку которого Виталий попросил убрать. Теперь первый экран —
+   это понятная дорожка: код агентства, позвать команду, завести кабинет.
+   Экран сам исчезает, когда в агентстве появились люди и кабинеты. */
+var fr1State = {};
+
+function frInvite(){
+  /* код агентства: с сервера при регистрации, иначе из кода проекта */
+  try{ return localStorage.getItem("fo_invite") || projectCode(); }catch(e){ return projectCode(); }
+}
+function frUrl(){ return "https://fo.flater.pro/?invite=" + frInvite(); }
+
+function frSteps(){
+  var людей = (S.people||[]).filter(function(m){ return !m.hidden; }).length;
+  var каб   = (S.projects||[]).length;
+  var фн    = (S.fns||[]).length;
+  var арт   = (S.arts||[]).length;
+  return [
+    {k:"team", n:"Позвать команду", d:"Отправьте код агентства — люди зайдут сами и окажутся в вашем пространстве",
+     ok: людей > 1, cnt: людей > 1 ? людей + " в команде" : "пока только вы",
+     go:"acc", btn:"Открыть «Доступы»"},
+    {k:"cab", n:"Завести первый кабинет", d:"Кабинет — это клиент: платёж, артикулы, функции и задачи по нему",
+     ok: каб > 0, cnt: каб ? каб + " кабинет" + (каб>1?"ов":"") : "ни одного",
+     go:"newcab", btn:"Завести кабинет"},
+    {k:"fns", n:"Проверить справочник функций", d:"Нормативы, цикличность и формы отправки — из них собираются задачи",
+     ok: фн > 0, cnt: фн ? фн + " функций" : "пусто",
+     go:"fns", btn:"Открыть «Функции»"},
+    {k:"aod", n:"Внести артикулы", d:"Артикулы в рекламном управлении и кто за них отвечает",
+     ok: арт > 0, cnt: арт ? арт + " артикулов" : "пусто",
+     go:"aod", btn:"Открыть «АОД»"}
+  ];
+}
+
+function renderFirstRun(){
+  var host = document.getElementById("sect");
+  if(!host) return;
+  var st = frSteps();
+  var done = st.filter(function(x){ return x.ok; }).length;
+  host.innerHTML =
+    '<div class="gl frhead">'+
+      '<div class="frh">'+
+        '<div><h2>Агентство «'+esc(orgName() || "без названия")+'» создано</h2>'+
+          '<p>Осталось четыре шага. Порядок не важен — начните с того, что нужнее.</p></div>'+
+        '<div class="frp"><b>'+done+' / '+st.length+'</b><span>шагов пройдено</span></div>'+
+      '</div>'+
+      '<div class="frbar"><i style="width:'+Math.round(done/st.length*100)+'%"></i></div>'+
+    '</div>'+
+
+    '<div class="gl frinv">'+
+      '<div class="acch"><b>Код агентства</b>'+
+        '<i>по нему человек попадает именно в ваше пространство — ни в какое другое</i></div>'+
+      '<div class="accrow2">'+
+        '<code class="accc">'+esc(frInvite())+'</code>'+
+        '<button class="bt gh2 sm" data-copy="'+esc(frInvite())+'">Скопировать код</button>'+
+        '<button class="bt gh2 sm" data-copy="'+esc(frUrl())+'">Скопировать ссылку-инвайт</button>'+
+      '</div>'+
+      '<div class="accsb" style="margin-top:11px">'+
+        [["wa","WhatsApp"],["tg","Telegram"],["max","MAX"],["mail","Почта"]].map(function(x){
+          var txt = "Заходите в наше рабочее пространство Flater Team Service: " + frUrl() +
+                    " Код агентства: " + frInvite();
+          var href = x[0]==="wa"  ? "https://wa.me/?text=" + encodeURIComponent(txt)
+                   : x[0]==="tg"  ? "https://t.me/share/url?url=" + encodeURIComponent(frUrl()) +
+                                    "&text=" + encodeURIComponent(txt)
+                   : x[0]==="max" ? "https://max.ru/share?text=" + encodeURIComponent(txt)
+                   : "mailto:?subject=" + encodeURIComponent("Доступ в Flater Team Service") +
+                     "&body=" + encodeURIComponent(txt);
+          return '<a class="accsi" href="'+esc(href)+'" target="_blank" rel="noopener">'+
+            sendIcon(x[0]) + x[1] + '</a>'; }).join("")+
+      '</div>'+
+      '<div class="accn">Ссылка сама подставит код — человеку останется вписать почту и придумать пароль.</div>'+
+    '</div>'+
+
+    '<div class="frsteps">'+st.map(function(x, i){
+      return '<div class="frs'+(x.ok?' ok':'')+'">'+
+        '<div class="frn">'+(x.ok
+          ? '<svg viewBox="0 0 24 24"><path d="m5 13 4 4L19 7"/></svg>'
+          : (i+1))+'</div>'+
+        '<div class="frt"><b>'+esc(x.n)+'</b><i>'+esc(x.d)+'</i>'+
+          '<span class="frc">'+esc(x.cnt)+'</span></div>'+
+        '<button class="bt'+(x.ok?' gh2':' pri')+' sm" data-frgo="'+x.k+'">'+esc(x.btn)+'</button>'+
+      '</div>'; }).join("")+'</div>'+
+
+    '<div class="gl frfoot">Экран исчезнет сам, когда появятся команда и первый кабинет. '+
+      'Вернуться к нему можно из «Справочника».</div>';
+}
+
+NAV_TITLES.first = ["Первый запуск", "С чего начать в новом агентстве"];
+SEC_RENDER.first = renderFirstRun;
+
+document.addEventListener("click", function(e){
+  var t = e.target.closest("[data-frgo]");
+  if(!t) return;
+  var k = t.getAttribute("data-frgo");
+  if(k === "newcab"){ ncTasks = []; ncErr = ""; navPush("first"); setView("newcab", true); return; }
+  navPush("first"); setView(k, true);
+});
+
+/* пустое пространство открывается первым запуском, а не старым «составом» */
+(function(){
+  if(typeof showSetup !== "function") return;
+  var _ss = showSetup;
+  showSetup = function(){
+    if(MODE === "demo") return _ss.apply(this, arguments);
+    var boot = document.getElementById("boot");
+    if(boot){ boot.hidden = true; boot.classList.remove("wide"); }
+    var scr = document.getElementById("screen");
+    if(scr) scr.hidden = true;
+    setView("first");
+  };
+})();
+
+/* название агентства в шапке — перерисовываем и на обычной отрисовке */
+(function(){
+  var _r = render;
+  render = function(){ var v = _r.apply(this, arguments); try{ paintOrg(); }catch(e){} return v; };
+  var _sv = setView;
+  setView = function(){ var v = _sv.apply(this, arguments); try{ paintOrg(); }catch(e){} return v; };
 })();
 
 })();
