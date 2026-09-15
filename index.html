@@ -2269,6 +2269,67 @@ code.invc{ font-family:ui-monospace,SFMono-Regular,monospace; font-weight:700;
   .frs{ flex-wrap:wrap }
   .frs .bt{ width:100%; margin-top:4px }
 }
+
+/* ═══ Доступы: созданный аккаунт, ссылка, отправка в мессенджер ═══ */
+.accnew{ background:linear-gradient(135deg,rgba(0,179,154,.09),rgba(124,92,255,.05));
+  border-color:rgba(0,179,154,.3); animation:fngIn .3s var(--ease) }
+.accnew .acch .bt{ width:auto; flex:0 0 auto; margin-left:auto }
+.accfg{ display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:11px; margin-bottom:11px }
+.accfg label, .acclink{ display:flex; flex-direction:column; gap:5px; min-width:0 }
+.accfg label span, .acclink span{ font-size:10px; font-weight:700; letter-spacing:.06em;
+  text-transform:uppercase; color:var(--ink-3) }
+.accv{ display:flex; align-items:center; gap:8px; min-width:0 }
+.accv code{ flex:1; min-width:0; font-family:ui-monospace,SFMono-Regular,monospace; font-size:13px;
+  font-weight:600; color:var(--ink); background:var(--panel); border:1px solid var(--stroke);
+  border-radius:10px; padding:8px 11px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
+.accv code.long{ font-size:12px; font-weight:500 }
+.accv .bt{ width:auto; flex:0 0 auto; padding:7px 12px; font-size:12px }
+.accsend{ margin-top:14px; padding-top:13px; border-top:1px solid var(--stroke-2) }
+.accsl{ font-size:10px; font-weight:700; letter-spacing:.06em; text-transform:uppercase;
+  color:var(--ink-3); margin-bottom:9px }
+.accsb{ display:flex; gap:9px; flex-wrap:wrap }
+.accsi{ display:inline-flex; align-items:center; gap:8px; text-decoration:none;
+  font-size:12.5px; font-weight:600; color:var(--ink); background:var(--panel);
+  border:1px solid var(--stroke); border-radius:12px; padding:9px 14px 9px 11px;
+  transition:.16s; white-space:nowrap }
+.accsi:hover{ border-color:#7C5CFF; transform:translateY(-1px);
+  box-shadow:0 8px 18px -12px rgba(124,92,255,.9) }
+.accsi svg{ width:17px; height:17px; flex:none; fill:none; stroke:#7C5CFF;
+  stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round }
+.accsi.dim2{ opacity:.45 }
+.accsi.dim2 svg{ stroke:var(--ink-3) }
+.accsn{ margin-top:9px; font-size:11.5px; color:var(--ink-3); line-height:1.5 }
+
+/* ═══ Передача дел при приостановке и увольнении ═══ */
+.accho{ margin-top:12px; background:linear-gradient(135deg,rgba(255,138,0,.09),transparent);
+  border-color:rgba(255,138,0,.3); animation:fngIn .28s var(--ease) }
+.accho .acch .bt{ width:auto; flex:0 0 auto; margin-left:auto }
+.accpl{ display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:9px }
+.accpi{ display:flex; align-items:center; gap:11px; padding:11px 13px; cursor:pointer;
+  border:1px solid var(--stroke-2); border-radius:var(--r2); background:var(--panel);
+  font-family:inherit; text-align:left; transition:.16s; width:100% }
+.accpi:hover{ border-color:#7C5CFF; transform:translateY(-1px);
+  box-shadow:0 10px 22px -14px rgba(124,92,255,.9) }
+.accpi.hot{ border-color:rgba(255,59,92,.32) }
+.accpi .av2{ width:30px; height:30px; border-radius:10px; flex:none; display:flex;
+  align-items:center; justify-content:center; color:#fff; font-size:11px; font-weight:700 }
+.accpn{ flex:1; min-width:0 }
+.accpn b{ display:block; font-size:13px; font-weight:600; color:var(--ink) }
+.accpn i{ display:block; font-style:normal; font-size:11px; color:var(--ink-3) }
+.accpb{ font-size:12px; font-weight:600; color:var(--ink-3); white-space:nowrap }
+.accpb .ar{ color:var(--ink-3); margin:0 2px }
+.accpb b{ font-size:13.5px }
+.sel.xs{ font-size:12px; padding:5px 26px 5px 9px; min-width:150px }
+
+/* удержания рядом с премиями (v2rate.01, v2rate.04) */
+.bnrr.fine{ border-color:rgba(255,59,92,.22) }
+.bnrr.fine.on{ border-color:rgba(255,59,92,.36);
+  background:linear-gradient(135deg,rgba(255,59,92,.07),transparent) }
+.bntv.neg{ color:var(--crit) }
+/* награды нажимаются (v2rate.06) */
+.awc{ cursor:pointer; font-family:inherit; text-align:left; width:100%; display:block }
+.awc.sel{ opacity:1; border-color:#7C5CFF; box-shadow:0 0 0 1.4px rgba(124,92,255,.35) }
+.gl-t #awAll{ width:auto; flex:0 0 auto; margin-left:auto }
 </style>
 </head>
 <body>
@@ -10037,9 +10098,12 @@ function accTable(){
             '<span class="acctv"><i class="accvi">'+(r.via==="mail"?"почта":"телефон")+'</i>'+
               esc(r.val)+'</span>'+
             '<span class="accst '+r.status+'">'+
-              (r.status==="active"?"активен":r.status==="blocked"?"заблокирован":"доступ забран")+'</span>'+
+              (function(){ var f = isFem(accPerson(r) || {name:r.name});
+                return r.status==="active" ? "работает"
+                     : r.status==="paused" ? (f?"приостановлена":"приостановлен")
+                     : (f?"уволена":"уволен"); })()+'</span>'+
             '<span class="acctb">'+(boss
-              ? (r.status === "revoked"
+              ? (r.status === "fired"
                   ? '<button class="bt gh2 sm" data-accre="'+esc(r.id)+'">Вернуть доступ</button>'
                   : '<button class="bt gh2 sm" data-accshow="'+esc(r.id)+'">Ссылка</button>'+
                     '<button class="bt gh2 sm" data-accblock="'+esc(r.id)+'">'+
@@ -10135,18 +10199,20 @@ document.addEventListener("click", function(e){
   if((t = e.target.closest("[data-accblock]"))){
     var r1 = accList().filter(function(x){ return x.id === t.getAttribute("data-accblock"); })[0];
     if(!r1) return;
-    r1.status = r1.status === "blocked" ? "active" : "blocked";
-    logAdd((r1.status === "blocked" ? "Заблокирован аккаунт: " : "Разблокирован аккаунт: ") + r1.name);
+    r1.status = r1.status === "paused" ? "active" : "paused";
+    logAdd((r1.status === "paused" ? "Приостановлен: " : "Вернулся в работу: ") + r1.name);
     saveState(); renderAcc();
-    toast(r1.status === "blocked" ? "Аккаунт заблокирован — вход закрыт, история цела"
-                                  : "Аккаунт разблокирован");
+    var f1 = isFem(accPerson(r1) || {name:r1.name});
+    toast(r1.status === "paused"
+      ? (f1?"Приостановлена":"Приостановлен") + " — вход закрыт, история цела"
+      : (f1?"Вернулась":"Вернулся") + " в работу");
     return; }
   if((t = e.target.closest("[data-accrev]"))){
     var r2 = accList().filter(function(x){ return x.id === t.getAttribute("data-accrev"); })[0];
     if(!r2) return;
-    r2.status = "revoked";
-    logAdd("Забран доступ: " + r2.name);
-    saveState(); renderAcc(); toast("Доступ забран. Задачи остались на кабинете — переназначьте их");
+    r2.status = "fired";
+    logAdd("Уволен: " + r2.name);
+    saveState(); renderAcc(); toast("Вход закрыт. Сейчас спрошу, кому передать дела");
     return; }
   if((t = e.target.closest("[data-accshow]"))){
     var rr = accList().filter(function(x){ return x.id === t.getAttribute("data-accshow"); })[0];
@@ -10263,7 +10329,6 @@ document.addEventListener("change", function(e){
     rail.addEventListener("mouseenter", function(){ clearTimeout(t); });
   }
 })();
-SEC_RENDER.rate = renderRate;   /* карта разделов собралась раньше — переподвязываем */
 
 /* ── 18. Кнопка «Команда и кабинеты» убрана с рельсы ───────────
    Кабинет заводится из «Мои клиенты», менеджер — из «Моя команда».
@@ -10516,6 +10581,560 @@ document.addEventListener("click", function(e){
   var _sv = setView;
   setView = function(){ var v = _sv.apply(this, arguments); try{ paintOrg(); }catch(e){} return v; };
 })();
+
+/* ══ 21. Доступы: код агентства, роли, передача дел ══
+   Виталий спросил: «зачем блокировать человека и оставлять ему задачи?»
+   Честный ответ: сама по себе блокировка бессмысленна. Важно другое —
+   что происходит с его работой. Поэтому вместо пары «заблокировать /
+   забрать доступ» теперь пара по смыслу:
+     • Приостановить — отпуск, больничный, спорная ситуация.
+       Вход закрыт, аккаунт и история целы, человек вернётся.
+     • Уволить — вход закрыт насовсем.
+   И то и другое сразу открывает передачу дел: чьи задачи и артикулы
+   повисли и кому их отдать. Это и был настоящий вопрос. */
+
+var accHandover = null;      /* id доступа, по которому передаём дела */
+
+function accPerson(r){
+  if(r.pid) return person(r.pid);
+  var byName = (S.people||[]).filter(function(m){ return m.name === r.name; })[0];
+  return byName || null;
+}
+function accLoad(r){
+  var m = accPerson(r);
+  if(!m) return {tasks:[], arts:0, hours:0, m:null};
+  var tk = (S.tasks||[]).filter(function(t){ return t.person === m.id && !t.done; });
+  var ar = (S.arts||[]).filter(function(a){ return a.person === m.id; });
+  return {tasks:tk, arts:ar.length, hours:minutesOf(tk)/60, m:m};
+}
+
+function accHandoverHTML(){
+  var r = accList().filter(function(x){ return x.id === accHandover; })[0];
+  if(!r) return "";
+  var L = accLoad(r);
+  var fem = isFem(accPerson(r) || {name:r.name});
+  var word = r.status === "paused"
+    ? (fem ? "приостановлена" : "приостановлен")
+    : (fem ? "уволена" : "уволен");
+  if(!L.m){
+    return '<div class="gl accho"><div class="acch"><b>Дела передавать не нужно</b>'+
+      '<i>'+esc(r.name)+' '+word+'. В команде такого человека ещё нет — задач не висит.</i>'+
+      '<button class="bt gh2 sm" id="accHoX">Закрыть</button></div></div>';
+  }
+  var pool = (S.people||[]).filter(function(m){
+    return m.id !== L.m.id && !m.hidden; })
+    .map(function(m){
+      var busy = Math.round(pctOf(m.id, dow));
+      return {m:m, busy:busy}; })
+    .sort(function(a,b){ return a.busy - b.busy; });
+
+  return '<div class="gl accho">'+
+    '<div class="acch"><b>Кому передать дела</b>'+
+      '<i>'+esc(r.name)+' '+word+'. '+(fem?'На ней':'На нём')+' осталось: '+L.tasks.length+' незакрытых задач'+
+      (L.arts ? ' и '+L.arts+' артикулов' : '')+' — это '+hrs(L.hours*60)+' ч в неделю.</i>'+
+      '<button class="bt gh2 sm" id="accHoX">Позже</button></div>'+
+    (pool.length
+      ? '<div class="accpl">'+pool.slice(0, 6).map(function(x){
+          var after = x.busy + Math.round(L.hours / WEEK_H * 100);
+          return '<button class="accpi'+(after > 120 ? ' hot' : '')+'" data-accto="'+esc(x.m.id)+'">'+
+            '<span class="av2" style="background:'+x.m.color+'">'+esc(x.m.av||"")+'</span>'+
+            '<span class="accpn"><b>'+esc(x.m.name)+'</b>'+
+              '<i>'+esc(x.m.role||"Сотрудник")+'</i></span>'+
+            '<span class="accpb">'+x.busy+'% <span class="ar">→</span> '+
+              '<b class="'+(after>120?'critv':after>100?'warnv':'okv')+'">'+after+'%</b></span>'+
+          '</button>'; }).join("")+'</div>'+
+        '<div class="accn">Сервис показывает, во что превратится загрузка того, кому передаём. '+
+          'Красным — если человек уйдёт в перегруз: тогда лучше разделить между двумя.</div>'
+      : '<div class="empty">Передавать некому — в команде больше никого нет</div>')+
+  '</div>';
+}
+
+/* новые кнопки в таблице доступов */
+(function(){
+  var _t = accTable;
+  accTable = function(){
+    var html = _t.apply(this, arguments);
+    html = html.replace(/Заблокировать/g, "Приостановить")
+               .replace(/Разблокировать/g, "Вернуть в работу")
+               .replace(/Забрать доступ/g, "Уволить")
+               .replace(/заблокирован/g, "приостановлен")
+               .replace(/доступ забран/g, "уволен")
+               .replace(/Вернуть доступ/g, "Принять обратно");
+    html = html.replace(
+      /<div class="accn"><b>Приостановить<\/b>[\s\S]*?<\/div>/,
+      '<div class="accn"><b>Приостановить</b> — отпуск, больничный, спорная ситуация. '+
+      'Вход закрыт, аккаунт и история целы, человек вернётся. '+
+      '<b>Уволить</b> — вход закрыт насовсем. '+
+      'И в том, и в другом случае сервис сразу спросит, кому передать задачи и артикулы: '+
+      'работа не должна повиснуть на том, кого уже нет.</div>');
+    return html;
+  };
+})();
+
+/* роли: собственник назначает и снимает любую, кроме своей (v2acc.11) */
+function accRoleCell(r){
+  var boss = (role === "owner" || role === "dir");
+  if(!boss || r.role === "owner")
+    return '<span class="acctr2">'+esc(roleName(r.role))+'</span>';
+  return '<span class="acctr2"><select class="sel xs" data-accrole2="'+esc(r.id)+'">'+
+    ROLE_LIST.map(function(x){
+      return '<option value="'+x[0]+'"'+(r.role===x[0]?' selected':'')+'>'+x[1]+'</option>';
+    }).join("")+'</select></span>';
+}
+(function(){
+  var _t2 = accTable;
+  accTable = function(){
+    var html = _t2.apply(this, arguments);
+    accList().forEach(function(r){
+      html = html.replace(
+        '<span class="acctr2">'+esc(roleName(r.role))+'</span>',
+        accRoleCell(r));
+    });
+    return html;
+  };
+})();
+
+/* код агентства, а не проекта (v2acc.07) */
+(function(){
+  var _c = accCodeBlock;
+  accCodeBlock = function(){
+    return _c.apply(this, arguments)
+      .replace("Код проекта", "Код агентства")
+      .replace("Скопировать код проекта", "Скопировать код агентства")
+      .replace("по нему в проект попадает любая роль — даже без вашего приглашения",
+               "по нему человек попадает в ваше агентство и дальше получает роль от вас")
+      .replace("Смена кода не выкидывает тех, кто уже внутри — она закрывает вход по старому коду.",
+               "Смена кода не выкидывает тех, кто уже внутри — она закрывает вход по старому коду. "+
+               "Ссылка-инвайт: <code class=\"invc\">https://fo.flater.pro/?invite=" + projectCode() + "</code>");
+  };
+})();
+
+/* панель передачи дел встаёт сразу под таблицей */
+(function(){
+  var _r = renderAcc;
+  renderAcc = function(){
+    _r.apply(this, arguments);
+    if(!accHandover) return;
+    var host = document.getElementById("sect");
+    var tbl = host && host.querySelector(".acct");
+    if(!tbl) return;
+    var box = tbl.closest(".gl");
+    if(box) box.insertAdjacentHTML("afterend", accHandoverHTML());
+  };
+})();
+
+document.addEventListener("click", function(e){
+  var t;
+  if(e.target.closest("#accHoX")){ accHandover = null; renderAcc(); return; }
+  if((t = e.target.closest("[data-accto]"))){
+    var r = accList().filter(function(x){ return x.id === accHandover; })[0];
+    if(!r) return;
+    var L = accLoad(r);
+    var to = person(t.getAttribute("data-accto"));
+    if(!to || !L.m) return;
+    L.tasks.forEach(function(tk){ tk.person = to.id; tk.from = L.m.id; });
+    (S.arts||[]).forEach(function(a){ if(a.person === L.m.id) a.person = to.id; });
+    logAdd("Дела " + L.m.name + " переданы: " + to.name +
+           " — " + L.tasks.length + " задач");
+    accHandover = null; saveState(); renderAcc();
+    toast("Передал " + L.tasks.length + " задач и артикулы — " + to.name);
+    return; }
+});
+
+/* нажали «приостановить» или «уволить» — сразу спрашиваем про дела */
+document.addEventListener("click", function(e){
+  var t = e.target.closest("[data-accblock], [data-accrev]");
+  if(!t) return;
+  var id = t.getAttribute("data-accblock") || t.getAttribute("data-accrev");
+  setTimeout(function(){
+    var r = accList().filter(function(x){ return x.id === id; })[0];
+    if(r && r.status !== "active"){
+      accHandover = id; renderAcc();
+      var b = document.querySelector(".accho");
+      if(b) b.scrollIntoView({block:"center", behavior:"smooth"});
+    }
+  }, 60);
+}, true);
+
+document.addEventListener("change", function(e){
+  var t = e.target;
+  if(t.matches && t.matches("[data-accrole2]")){
+    var r = accList().filter(function(x){ return x.id === t.getAttribute("data-accrole2"); })[0];
+    if(!r) return;
+    var was = roleName(r.role);
+    r.role = t.value; saveState(); renderAcc();
+    logAdd("Роль изменена: " + r.name + " · " + was + " → " + roleName(r.role));
+    toast(r.name + ": роль изменена на «" + roleName(r.role) + "»");
+  }
+});
+
+/* ── 22. Пакет мелких правок третьего круга ───────────────── */
+
+/* D20 · пятый уровень вовлечённости */
+
+/* D29 · суммы платежей в карточке клиента скрыты по умолчанию у всех,
+   кроме собственника и директора */
+ROLE_LIMITS.unshift(["pay", "Не показывать суммы платежей в карточке клиента"]);
+(function(){
+  var _rc = roleCfg;
+  roleCfg = function(id){
+    var c = _rc(id);
+    if(!c._paydef){
+      c._paydef = true;
+      if(id !== "owner" && id !== "dir" && c.lim.pay === undefined) c.lim.pay = true;
+    }
+    return c;
+  };
+})();
+
+/* D23 · «Взять из списка функций» сворачивается обратно */
+var ncFnsOpen = false;
+(function(){
+  var _rn = renderNewCab;
+  renderNewCab = function(){
+    _rn.apply(this, arguments);
+    var b = document.getElementById("ncFromFns");
+    if(b) b.textContent = ncFnsOpen ? "Свернуть список функций" : "Взять из списка функций";
+  };
+  document.addEventListener("click", function(e){
+    if(e.target.closest("#ncFromFns")) ncFnsOpen = !ncFnsOpen;
+  }, true);
+})();
+
+/* D37 · «взять весь блок» снимается обратно */
+(function(){
+  document.addEventListener("click", function(e){
+    var t = e.target.closest("[data-pkall]");
+    if(!t) return;
+    setTimeout(function(){
+      q("[data-pkall]").forEach(function(b){
+        var box = b.closest(".pkg, .fng, .pkb");
+        if(!box) return;
+        var all = box.querySelectorAll('input[type=checkbox]');
+        var on = all.length && Array.prototype.every.call(all, function(c){ return c.checked; });
+        b.textContent = on ? "снять весь блок" : "взять весь блок";
+      });
+    }, 40);
+  }, true);
+})();
+
+/* oui.11 · сессия живёт 14 дней, как попросил Виталий */
+(function(){
+  var el = document.querySelector("#stIn .ghint, .gfoot");
+  if(el && /30 дней/.test(el.textContent)) el.textContent = el.textContent.replace("30 дней", "14 дней");
+})();
+
+/* ── 23. «Мои клиенты»: шапка, кнопка и переименование ─────
+   D22 · «+ Добавить кабинет» прямо на экране, как в «Моей команде»
+   D24 · «Кабинеты» → «Карточка клиента»
+   ocards · пустой экран ведёт в заведение кабинета, а не в убранный «Состав» */
+function clientsHead(){
+  var list = S.projects || [];
+  var money = seesMoney();
+  var sum = list.reduce(function(a, p){ return a + (+p.amount || 0); }, 0);
+  var art = list.reduce(function(a, p){ return a + (+p.articles || 0); }, 0);
+  return '<div class="teamh">'+
+    '<div class="teamhl"><b>Кабинеты клиентов</b>'+
+      '<i>'+list.length+' кабинет'+(list.length===1?'':list.length<5?'а':'ов')+
+      (art ? ' · <u>'+art+'</u> артикулов' : '')+
+      (money && sum ? ' · <u>'+money0(sum)+'</u> платежей в месяц' : '')+'</i></div>'+
+    '<button class="secadd" id="clAddCab">+ Добавить кабинет</button></div>';
+}
+(function(){
+  var _rp = renderProjects;
+  renderProjects = function(){
+    var host = document.getElementById("sect");
+    if(!(S.projects||[]).length){
+      host.innerHTML = clientsHead() +
+        '<div class="gl"><div class="empty">Кабинетов пока нет. '+
+        'Кабинет — это клиент: платёж, артикулы, функции и задачи по нему. '+
+        'Заведите первый — дальше всё соберётся вокруг него.</div></div>';
+      return;
+    }
+    _rp.apply(this, arguments);
+    if(host && !host.querySelector(".teamh"))
+      host.insertAdjacentHTML("afterbegin", clientsHead());
+  };
+})();
+(function(){
+  var _cc = cabCard;
+  cabCard = function(pr, mine, open){
+    return _cc.apply(this, arguments)
+      .replace('">Кабинеты</button>', '">Карточка клиента</button>');
+  };
+})();
+document.addEventListener("click", function(e){
+  if(e.target.closest("#clAddCab")){
+    e.stopPropagation();
+    ncTasks = []; ncErr = ""; navPush("projects"); setView("newcab", true);
+  }
+}, true);
+
+/* ── 24. Числовой ввод: пустое поле остаётся пустым (D10) ──
+   Раньше поля с type=number подставляли 0 и не давали стереть первую цифру.
+   Теперь пустое поле — это пусто, а значение подставляется только при уходе. */
+(function(){
+  function fix(el){
+    if(!el || el.dataset.numfix) return;
+    if(el.type !== "number" && !el.matches("[data-mccat],[data-nmcat],[data-fnk]")) return;
+    el.dataset.numfix = "1";
+    el.addEventListener("focus", function(){ this.select(); });
+    el.addEventListener("input", function(){
+      if(this.value === "") return;                 /* пусто — не трогаем */
+      var max = this.getAttribute("max");
+      if(max !== null && +this.value > +max) this.value = max;
+    });
+    el.addEventListener("blur", function(){
+      if(this.value !== "") return;
+      var mn = this.getAttribute("min");
+      this.value = mn !== null ? mn : 0;
+      this.dispatchEvent(new Event("input", {bubbles:true}));
+      this.dispatchEvent(new Event("change", {bubbles:true}));
+    });
+  }
+  function scan(root){
+    (root || document).querySelectorAll('input[type=number]').forEach(fix);
+  }
+  var _r = render, _sv = setView;
+  render  = function(){ var v = _r.apply(this, arguments);  setTimeout(scan, 0); return v; };
+  setView = function(){ var v = _sv.apply(this, arguments); setTimeout(scan, 0); return v; };
+  document.addEventListener("focusin", function(e){
+    if(e.target && e.target.tagName === "INPUT") fix(e.target);
+  });
+  setTimeout(scan, 600);
+})();
+
+/* ══ 16. Рейтинг: премирование, часы в сервисе, награды (rail.07) ══ */
+var AWARDS = [
+  [1000,   "Красавчик",          "первая тысяча часов в сервисе"],
+  [5000,   "Гид сервиса",        "показывает новичкам, где что лежит"],
+  [10000,  "Мастер сервиса",     "работает в сервисе быстрее всех"],
+  [20000,  "Ментор сервиса",     "учит команду и правит регламенты"],
+  [100000, "Советник создателя", "столько часов — это уже соавторство"]
+];
+function awardOf(h){ var got = null; AWARDS.forEach(function(a){ if(h >= a[0]) got = a; }); return got; }
+function nextAward(h){ for(var i=0;i<AWARDS.length;i++) if(h < AWARDS[i][0]) return AWARDS[i]; return null; }
+
+var awardOpen = null;   /* v2rate.06 — нажали награду, смотрим только её */
+
+function svcHours(){ if(!S.svc) S.svc = {}; return S.svc; }
+function svcOf(pid){ var v = svcHours()[pid]; return typeof v === "number" ? v : 0; }
+(function(){
+  var live = false;
+  var mark = function(){ live = true; };
+  document.addEventListener("mousemove", mark, {passive:true});
+  document.addEventListener("keydown",  mark, {passive:true});
+  document.addEventListener("input",    mark, {passive:true});
+  setInterval(function(){
+    if(!live) return;
+    live = false;
+    var id = meId || "me", h = svcHours();
+    h[id] = (h[id] || 0) + 30/3600;
+    try{ saveState(); }catch(e){}
+  }, 30000);
+})();
+function svcSeed(){
+  if(S.svcSeeded) return;
+  var base = [12400, 6100, 3200, 1450, 640];
+  (S.people||[]).forEach(function(m, i){
+    if(svcHours()[m.id] === undefined) svcHours()[m.id] = base[i] !== undefined ? base[i] : 300;
+  });
+  S.svcSeeded = true; saveState();
+}
+
+/* премии и штрафы: и то и другое влияет на итог (v2rate.01) */
+var BONUS_RULES = [
+  ["done",  "Закрыл всё, что стояло на неделю", 3000, function(r){ return r.doneP >= 100; }],
+  ["fast",  "Три и больше задач быстрее норматива", 2000, function(r){ return r.fast >= 3; }],
+  ["pick",  "Подхватил задачи у коллег", 1500, function(r){ return r.pick >= 2; }],
+  ["clean", "Ни одной просрочки", 1500, function(r){ return !r.late; }],
+  ["top",   "Первое место в рейтинге недели", 5000, function(r, i){ return i === 0; }]
+];
+var FINE_RULES = [
+  ["late",  "Просроченные дедлайны", -1000, function(r){ return r.late; },
+   function(r){ return r.late; }],
+  ["undone","Меньше 60% закрытых задач", -2000, function(r){ return r.doneP < 60; },
+   function(){ return 1; }]
+];
+function bonusOf(r, i){
+  var got = BONUS_RULES.filter(function(b){ return b[3](r, i); });
+  return {list:got, sum: got.reduce(function(a,b){ return a + b[2]; }, 0)};
+}
+function fineOf(r){
+  var got = FINE_RULES.filter(function(f){ return f[3](r); });
+  return {list:got, sum: got.reduce(function(a,f){ return a + f[2] * f[4](r); }, 0)};
+}
+
+function bonusBlock(rows){
+  var money = seesMoney();
+  var tot  = rows.reduce(function(a, r, i){ return a + bonusOf(r, i).sum; }, 0);
+  var totF = rows.reduce(function(a, r){ return a + fineOf(r).sum; }, 0);
+  return '<div class="gl"><div class="gl-t"><h2>Премирование за неделю</h2>'+
+      '<span class="m">'+(money
+        ? 'премий '+rub(tot)+', удержаний '+rub(-totF)+' · к выплате '+rub(tot + totF)
+        : 'суммы видит собственник и директор')+'</span></div>'+
+    '<div class="bnr">'+BONUS_RULES.map(function(b){
+      var who = rows.filter(function(r, i){ return b[3](r, i); });
+      return '<div class="bnrr'+(who.length?' on':'')+'">'+
+        '<div class="bnrt"><b>'+esc(b[1])+'</b>'+
+          '<i>'+(money ? rub(b[2])+' за человека' : 'премия')+'</i></div>'+
+        '<div class="bnrw">'+(who.length
+          ? who.map(function(r){
+              return '<span class="bnp"><span class="av2" style="background:'+r.m.color+'">'+
+                esc(r.m.av||"")+'</span>'+esc(r.m.name)+'</span>'; }).join("")
+          : '<i class="dim">на этой неделе никто</i>')+'</div>'+
+      '</div>'; }).join("")+
+      FINE_RULES.map(function(f){
+        var who = rows.filter(function(r){ return f[3](r); });
+        return '<div class="bnrr fine'+(who.length?' on':'')+'">'+
+          '<div class="bnrt"><b>'+esc(f[1])+'</b>'+
+            '<i>'+(money ? rub(f[2])+' за случай' : 'удержание')+'</i></div>'+
+          '<div class="bnrw">'+(who.length
+            ? who.map(function(r){
+                return '<span class="bnp"><span class="av2" style="background:'+r.m.color+'">'+
+                  esc(r.m.av||"")+'</span>'+esc(r.m.name)+'</span>'; }).join("")
+            : '<i class="dim">ни у кого</i>')+'</div>'+
+        '</div>'; }).join("")+'</div>'+
+    (money
+      ? '<div class="bntot">'+rows.map(function(r, ri){
+            var bb = bonusOf(r, ri), ff = fineOf(r);
+            if(!bb.sum && !ff.sum) return "";
+            var net = bb.sum + ff.sum;
+            return '<div class="bntr"><span class="av2" style="background:'+r.m.color+'">'+
+              esc(r.m.av||"")+'</span><span class="bntn">'+esc(r.m.name)+'</span>'+
+              '<span class="bntw">'+
+                bb.list.map(function(x){ return esc(x[1]); })
+                  .concat(ff.list.map(function(x){ return "− "+esc(x[1]); })).join(" · ")+
+              '</span>'+
+              '<span class="bntv '+(net<0?'neg':'')+'">'+rub(net)+'</span></div>'; }).join("")+
+        '<div class="bntr sum"><span class="bntn">Итого удержаний</span>'+
+          '<span class="bntv neg">'+rub(totF)+'</span></div>'+
+        '<div class="bntr sum"><span class="bntn">Итого к выплате сверх окладов</span>'+
+          '<span class="bntv">'+rub(tot + totF)+'</span></div>'+
+        '</div>'
+      : '')+
+    '<div class="payh">Премия и удержание считаются по фактам недели, не по ощущению. '+
+      'Итог — премии минус удержания: именно эту сумму человек увидит сверх оклада.</div></div>';
+}
+
+function svcBlock(rows){
+  svcSeed();
+  var mine = rows.map(function(r){ return {m:r.m, h: svcOf(r.m.id)}; })
+    .sort(function(a,b){ return b.h - a.h; });
+  if(awardOpen != null){
+    var a = AWARDS[awardOpen];
+    mine = mine.filter(function(x){ return x.h >= a[0]; });
+  }
+  var mx = Math.max.apply(null, rows.map(function(r){ return svcOf(r.m.id); }).concat([1]));
+  return '<div class="gl"><div class="gl-t"><h2>Часы в сервисе</h2>'+
+      '<span class="m">'+(awardOpen != null
+        ? 'показаны только те, кто дошёл до «'+esc(AWARDS[awardOpen][1])+'»'
+        : 'активность считается по движению мыши и вводу текста')+'</span>'+
+      (awardOpen != null ? '<button class="bt gh2 sm" id="awAll">Показать всех</button>' : '')+
+      '</div>'+
+    '<div class="awl">'+AWARDS.map(function(a, i){
+      var got = rows.map(function(r){ return {m:r.m, h:svcOf(r.m.id)}; })
+                    .filter(function(x){ return x.h >= a[0]; });
+      return '<button class="awc'+(got.length?' on':'')+(awardOpen===i?' sel':'')+'" '+
+        'data-award="'+i+'">'+
+        '<div class="awn">'+esc(a[1])+'</div>'+
+        '<div class="awh">от '+a[0].toLocaleString("ru-RU")+' часов</div>'+
+        '<div class="awd">'+esc(a[2])+'</div>'+
+        '<div class="aww">'+(got.length
+          ? got.map(function(x){ return '<span class="av2" title="'+esc(x.m.name)+'" style="background:'+
+              x.m.color+'">'+esc(x.m.av||"")+'</span>'; }).join("")
+          : '<i class="dim">пока никто</i>')+'</div>'+
+      '</button>'; }).join("")+'</div>'+
+    '<div class="svcl">'+(mine.length ? mine.map(function(x){
+      var a = awardOf(x.h), nx = nextAward(x.h);
+      return '<div class="svcr">'+
+        '<span class="av2" style="background:'+x.m.color+'">'+esc(x.m.av||"")+'</span>'+
+        '<span class="svcn"><b>'+esc(x.m.name)+'</b>'+
+          '<i>'+(a ? esc(a[1]) : "пока без награды")+'</i></span>'+
+        '<span class="svcb"><span class="svcbf" data-w="'+Math.round(x.h/mx*100)+'"></span></span>'+
+        '<span class="svch">'+Math.round(x.h).toLocaleString("ru-RU")+' ч</span>'+
+        '<span class="svcx">'+(nx
+          ? 'до «'+esc(nx[1])+'» — '+Math.round(nx[0]-x.h).toLocaleString("ru-RU")+' ч'
+          : 'выше уровня нет')+'</span>'+
+      '</div>'; }).join("") : '<div class="empty">До этой награды пока никто не дошёл</div>')+'</div>'+
+    '<div class="payh">Часы копятся только когда человек реально работает в сервисе: '+
+      'открытая вкладка без действий часы не набивает.</div></div>';
+}
+
+(function(){
+  var _rr = renderRate;
+  renderRate = function(){
+    _rr.apply(this, arguments);
+    var host = document.getElementById("sect");
+    if(!host || host.querySelector(".bnr")) return;
+    var rows = rateRows();
+    host.insertAdjacentHTML("beforeend", bonusBlock(rows) + svcBlock(rows));
+    q(".svcbf").forEach(function(b){
+      var w = b.getAttribute("data-w");
+      requestAnimationFrame(function(){ b.style.width = w + "%"; });
+    });
+  };
+})();
+SEC_RENDER.rate = renderRate;
+
+document.addEventListener("click", function(e){
+  var t = e.target.closest("[data-award]");
+  if(t){ var i = +t.getAttribute("data-award");
+    awardOpen = (awardOpen === i) ? null : i; renderRate(); return; }
+  if(e.target.closest("#awAll")){ awardOpen = null; renderRate(); }
+});
+
+/* ══ 17. Новая карточка клиента — шаблон для заполнения (cards.03–05) ══ */
+(function(){
+  var _cc = clientCard;
+  clientCard = function(pr){
+    var html = _cc.call(this, pr);
+    var n = cabNumbers(pr);
+    if(!n.art)
+      html = html.replace('<div class="ccn1"><b>—</b><span>артикулов</span></div>',
+        '<div class="ccn1 tpl"><input class="fi xs" type="number" min="0" step="10" '+
+        'placeholder="0" data-cart="'+esc(pr.id)+'" value=""><span>артикулов — впишите</span></div>');
+    if(!n.fns)
+      html = html.replace('<div class="ccn1"><b>0</b><span>функций в кабинете</span></div>',
+        '<div class="ccn1 tpl"><button class="tplb" data-cfns="'+esc(pr.id)+'">Внести</button>'+
+        '<span>функций в кабинете</span></div>');
+    if(!n.cyc)
+      html = html.replace('<div class="ccn1"><b>0</b><span>цикличных</span></div>',
+        '<div class="ccn1 tpl"><button class="tplb" data-cfns="'+esc(pr.id)+'">Отметить</button>'+
+        '<span>цикличных — из функций</span></div>');
+    if(!n.amount && seesMoney())
+      html = html.replace('<div class="ccn1"><b>—</b><span>платёж в месяц</span></div>',
+        '<div class="ccn1 tpl"><input class="fi xs" type="number" min="0" step="5000" '+
+        'placeholder="0 ₽" data-camt="'+esc(pr.id)+'" value=""><span>платёж в месяц — впишите</span></div>');
+    if(!n.art && !n.fns && !n.amount)
+      html = html.replace('<button class="bt gh2 ccgo"',
+        '<div class="cctpl">Карточка новая. Впишите артикулы и платёж прямо здесь, '+
+        'а функции кабинета внесите внутри — сервис сам посчитает часы, задачи и загрузку.</div>'+
+        '<button class="bt gh2 ccgo"');
+    return html;
+  };
+})();
+document.addEventListener("click", function(e){
+  var t = e.target.closest("[data-cfns]");
+  if(!t) return;
+  e.stopPropagation();
+  cabOpen = t.getAttribute("data-cfns"); pickOpen = true;
+  navPush("cards"); setView("cab", true);
+}, true);
+document.addEventListener("click", function(e){
+  if(e.target.closest(".ccn1.tpl input")) e.stopPropagation();
+}, true);
+document.addEventListener("change", function(e){
+  var t = e.target, pr;
+  if(t.matches && t.matches("[data-cart]")){
+    pr = project(t.getAttribute("data-cart")); if(!pr) return;
+    pr.articles = Math.max(0, +t.value || 0); saveState(); renderCards();
+    toast("Артикулы записаны — карточка пересчиталась"); return; }
+  if(t.matches && t.matches("[data-camt]")){
+    pr = project(t.getAttribute("data-camt")); if(!pr) return;
+    pr.amount = Math.max(0, +t.value || 0); saveState(); renderCards();
+    toast("Платёж записан"); return; }
+});
 
 })();
 </script>
