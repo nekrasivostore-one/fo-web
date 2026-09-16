@@ -1,0 +1,7 @@
+[Unit]
+Description=FO: забрать бэкенд из GitHub
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/fo/fo-backend-pull.sh
