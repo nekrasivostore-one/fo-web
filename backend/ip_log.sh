@@ -4,6 +4,8 @@ B="https://raw.githubusercontent.com/nekrasivostore-one/fo-web/main/backend"
 T=$(date +%s)
 curl -fsSL "$B/ip_log.py?t=$T" -o /tmp/ip_log.py || { echo "не скачался"; exit 1; }
 grep -q "адрес, с которого зашли" /tmp/ip_log.py || { echo "не тот файл"; exit 1; }
+echo "— строка импорта до правки —"
+grep -n "^from fastapi import" /opt/fo/backend/app/deps.py
 echo "— кто вызывает current() вручную —"
 grep -rn "current(" /opt/fo/backend/app --include=*.py | grep -v "Depends(current)" | grep -v "def current" | head
 echo "— поехали —"
@@ -23,3 +25,6 @@ if [ "$H" != "200" ]; then
   exit 3
 fi
 echo "без токена 401: $(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8000/refs/org)"
+echo "— как стало —"
+grep -n "^from fastapi import" /opt/fo/backend/app/deps.py
+grep -n "async def current" /opt/fo/backend/app/deps.py
