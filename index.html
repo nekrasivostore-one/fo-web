@@ -17123,7 +17123,7 @@ async function billLoad(){
   if(MODE !== "live" || !A || !A.token) return null;
   if(billTried) return BILL;
   billTried = true;
-  try{ BILL = await api("/me/org"); }
+  try{ BILL = await api("/refs/org"); }
   catch(e){ BILL = {}; }
   return BILL;
 }
@@ -17668,7 +17668,7 @@ document.addEventListener("click", function(e){
       return;
     }
     if(note) note.textContent = "сохраняю…";
-    api("/me/org", {method:"POST", body:body})
+    api("/refs/org", {method:"POST", body:body})
       .then(function(){
         if(note) note.textContent = "сохранено";
         if(typeof BILL !== "undefined" && BILL){
