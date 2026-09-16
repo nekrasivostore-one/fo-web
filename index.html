@@ -2330,6 +2330,459 @@ code.invc{ font-family:ui-monospace,SFMono-Regular,monospace; font-weight:700;
 .awc{ cursor:pointer; font-family:inherit; text-align:left; width:100%; display:block }
 .awc.sel{ opacity:1; border-color:#7C5CFF; box-shadow:0 0 0 1.4px rgba(124,92,255,.35) }
 .gl-t #awAll{ width:auto; flex:0 0 auto; margin-left:auto }
+
+/* ═══ Базовая информация внутри карточки менеджера (D33, D34) ═══ */
+.mcbase{ border:1px solid var(--stroke-2); border-radius:var(--r2); background:var(--panel);
+  padding:13px 15px; display:flex; flex-direction:column; gap:11px }
+.mcbase.part{ border-color:rgba(255,138,0,.28) }
+.mcbh{ display:flex; align-items:center; gap:10px }
+.mcbl{ font-size:10px; font-weight:700; letter-spacing:.06em; text-transform:uppercase;
+  color:var(--ink-3) }
+.mcbh .bt{ width:auto; flex:0 0 auto; margin-left:auto; padding:6px 12px; font-size:12px }
+.mcbase .ccf{ display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:10px }
+.mcbase .ccf label{ display:flex; flex-direction:column; gap:5px; min-width:0 }
+.mcbase .ccf label span{ font-size:10px; font-weight:700; letter-spacing:.06em;
+  text-transform:uppercase; color:var(--ink-3) }
+.mcown{ margin-top:6px }
+.mcnote2{ font-size:11.5px; color:var(--ink-3); line-height:1.5 }
+.mcbase .accp{ margin:0; font-family:ui-monospace,SFMono-Regular,monospace; font-size:11.5px;
+  line-height:1.55; color:var(--ink-2); background:var(--panel-2);
+  border:1px solid var(--stroke-2); border-radius:12px; padding:11px 13px;
+  white-space:pre-wrap; word-break:break-word }
+.mcbase .ccsend{ display:flex; flex-direction:column; gap:7px }
+.mcbase .ccsend .ck{ align-self:flex-start }
+.mcbase .hint2{ font-size:11.5px; color:var(--ink-3); line-height:1.5 }
+
+/* цветные чипы категорий у заголовка компетенции (v2team.11) */
+.ccl{ display:inline-flex; align-items:center; gap:5px; margin-left:8px;
+  font-size:10.5px; font-weight:700; letter-spacing:0; text-transform:none;
+  border-radius:999px; padding:2px 9px 2px 3px; vertical-align:middle }
+.ccl b{ display:inline-grid; place-items:center; width:16px; height:16px; border-radius:50%;
+  color:#fff; font-size:9.5px }
+.ccl.A{ background:rgba(0,179,154,.12); color:var(--ok) }
+.ccl.A b{ background:var(--ok) }
+.ccl.B{ background:rgba(255,138,0,.13); color:var(--warn) }
+.ccl.B b{ background:var(--warn) }
+.ccl.C{ background:rgba(255,59,92,.12); color:var(--crit) }
+.ccl.C b{ background:var(--crit) }
+
+/* карточка раскрывается под своим виджетом — мягко */
+.mcardw{ animation:mcIn .32s var(--ease) }
+@keyframes mcIn{ from{ opacity:0; transform:translateY(-10px) } to{ opacity:1; transform:none } }
+
+/* ═══ Артикулы по дням в карточке менеджера (D14) ═══ */
+.mcsx{ font-size:10.5px; font-weight:500; letter-spacing:0; text-transform:none;
+  color:var(--ink-3); margin-left:8px }
+.mcac{ display:flex; gap:4px; flex-wrap:wrap; margin-bottom:6px }
+.mcac .ccl{ margin-left:0; padding:1px 7px 1px 2px; font-size:10px }
+.mcac .ccl b{ width:14px; height:14px; font-size:9px }
+
+/* ═══ Новый кабинет: функции списком и артикулы (D6, D8) ═══ */
+.ncfnfield{ cursor:pointer; background:var(--panel-2) }
+.ncfnpop{ position:absolute; z-index:40; left:0; top:calc(100% + 5px); width:min(420px, 92vw);
+  background:var(--panel); border:1px solid var(--stroke); border-radius:var(--r2);
+  box-shadow:0 26px 60px -30px rgba(10,12,24,.85); padding:9px; animation:fngIn .18s var(--ease) }
+.ncrow{ position:relative }
+.ncfnl{ max-height:290px; overflow-y:auto; margin-top:8px }
+.ncfng{ font-size:9.5px; font-weight:700; letter-spacing:.07em; text-transform:uppercase;
+  color:var(--ink-3); padding:9px 8px 5px }
+.ncfnl .gsi{ display:flex; align-items:flex-start; gap:10px; width:100%; text-align:left;
+  padding:8px 9px; border:none; background:none; border-radius:10px; cursor:pointer;
+  font-family:inherit; transition:.13s }
+.ncfnl .gsi:hover{ background:var(--neu) }
+.ncfnl .fnc2{ width:48px; flex:none }
+.ncfnl .gk b{ display:block; font-size:12.5px; font-weight:600; color:var(--ink) }
+.ncfnl .gk i{ display:block; font-style:normal; font-size:10.5px; color:var(--ink-3); margin-top:1px }
+.ncfnl .none2{ font-size:12px; color:var(--ink-3); padding:12px }
+
+.ncart{ display:grid; grid-template-columns:1.4fr 1fr; gap:14px; align-items:start }
+@media(max-width:860px){ .ncart{ grid-template-columns:1fr } }
+.ncal{ display:flex; flex-direction:column; gap:10px }
+.ncal label{ display:flex; flex-direction:column; gap:5px }
+.ncal label span{ font-size:10px; font-weight:700; letter-spacing:.06em; text-transform:uppercase;
+  color:var(--ink-3) }
+.ncal textarea.fi{ resize:vertical; min-height:92px; font-family:ui-monospace,SFMono-Regular,monospace;
+  font-size:12px; line-height:1.5 }
+.ncas{ border:1px solid var(--stroke-2); border-radius:var(--r2); background:var(--panel-2);
+  padding:13px 14px }
+.ncan b{ font-family:Unbounded,sans-serif; font-size:24px; font-weight:500; letter-spacing:-.03em }
+.ncan span{ font-size:11px; color:var(--ink-3); margin-left:7px }
+.ncac2{ display:flex; gap:5px; margin:9px 0 }
+.ncac2 .ccl{ margin-left:0 }
+.ncap{ display:flex; flex-direction:column; gap:5px; margin-top:8px }
+.ncar{ display:flex; align-items:center; gap:9px; font-size:11.5px }
+.ncar code{ font-family:ui-monospace,SFMono-Regular,monospace; font-size:11.5px; color:var(--ink);
+  background:var(--panel); border:1px solid var(--stroke-2); border-radius:7px; padding:2px 7px }
+.ncar i{ font-style:normal; color:var(--ink-3); flex:1; min-width:0;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
+.ncar .ccl{ margin-left:0; padding:1px 3px 1px 2px }
+.ncnote{ font-size:11.5px; color:var(--ink-3); line-height:1.55; margin-top:6px }
+
+/* ═══ Постановка задачи: третий круг ═══ */
+/* v2nt.01 · горячая кнопка слева */
+.hotbar{ justify-content:flex-start !important }
+
+/* v2nt.08 · дни галочками */
+.ntdays{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:10px }
+.ntdl2{ font-size:10px; font-weight:700; letter-spacing:.06em; text-transform:uppercase;
+  color:var(--ink-3) }
+.ntdb{ display:inline-flex; align-items:center; gap:7px; cursor:pointer; font-family:inherit;
+  font-size:12.5px; font-weight:600; color:var(--ink-3); background:var(--panel);
+  border:1px solid var(--stroke-2); border-radius:11px; padding:7px 12px 7px 9px; transition:.15s }
+.ntdb:hover{ color:var(--ink); border-color:var(--neu-b) }
+.ntdb i{ width:15px; height:15px; border-radius:5px; flex:none; position:relative;
+  border:1.5px solid var(--neu-b); background:var(--panel-2); transition:.15s }
+.ntdb.on{ color:var(--ink); border-color:transparent; box-shadow:0 0 0 1.4px rgba(124,92,255,.45) }
+.ntdb.on i{ background:#7C5CFF; border-color:#7C5CFF }
+.ntdb.on i:after{ content:""; position:absolute; left:4px; top:1px; width:4px; height:8px;
+  border:solid #fff; border-width:0 2px 2px 0; transform:rotate(43deg) }
+.ntdb span{ font-size:10.5px; font-weight:500; color:var(--ink-3) }
+.ntdn{ font-size:11.5px; color:var(--ink-3); margin-left:2px }
+
+/* D7 · недописанные задачи */
+.hdrb{ cursor:pointer; text-decoration:underline; text-underline-offset:3px;
+  text-decoration-style:dotted }
+.ntdr{ margin-top:9px }
+.ntdrh{ display:inline-flex; align-items:center; gap:8px; cursor:pointer; font-family:inherit;
+  font-size:12.5px; font-weight:600; color:var(--warn); background:none; border:none; padding:4px 0 }
+.ntdrh .gcx{ transition:transform .24s var(--ease); stroke:var(--warn) }
+.ntdrh[aria-expanded="true"] .gcx{ transform:rotate(180deg) }
+.ntdrl{ display:flex; flex-direction:column; gap:6px; margin-top:8px;
+  animation:fngIn .22s var(--ease) }
+.ntdri{ display:flex; align-items:center; gap:11px; padding:9px 12px;
+  border:1px dashed rgba(255,138,0,.34); border-radius:var(--r2); background:var(--panel) }
+.ntdrt{ font-size:13px; font-weight:600; color:var(--ink); min-width:0;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
+.ntdrm{ flex:1; min-width:0; font-size:11px; color:var(--ink-3);
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
+.ntdri .bt{ width:auto; flex:0 0 auto; padding:5px 11px; font-size:11.5px }
+.ntdri .plx{ width:22px; height:22px; border-radius:7px; border:none; cursor:pointer;
+  background:var(--neu); color:var(--ink-3); font-size:14px; line-height:1; flex:none }
+.ntdri .plx:hover{ color:var(--crit) }
+.ntdrall{ align-self:flex-start; width:auto !important; margin-top:2px }
+
+/* D4 · подсветка поставленной задачи */
+.hitask{ position:relative; z-index:5;
+  box-shadow:0 0 0 2.5px rgba(124,92,255,.75), 0 12px 32px -12px rgba(124,92,255,.7) !important;
+  border-radius:12px; animation:hipulse 1.1s ease-in-out 2 }
+@keyframes hipulse{
+  0%,100%{ box-shadow:0 0 0 2.5px rgba(124,92,255,.75), 0 12px 32px -12px rgba(124,92,255,.7) }
+  50%    { box-shadow:0 0 0 5px rgba(124,92,255,.32),  0 12px 32px -12px rgba(124,92,255,.5) }
+}
+
+/* ═══ Гант: штриховка и фильтр по менеджеру ═══ */
+.gpick{ display:flex; align-items:center; gap:8px; flex-wrap:wrap }
+.gpick .gsl2{ font-size:10px; font-weight:700; letter-spacing:.06em; text-transform:uppercase;
+  color:var(--ink-3) }
+.gpick .sel{ min-width:150px }
+.gpick .bt{ width:auto; flex:0 0 auto }
+
+/* ═══ Задачи дня во всю ширину ═══ */
+.tdf{ display:flex; align-items:center; gap:9px; flex-wrap:wrap; margin-bottom:13px }
+.tdf .sel{ min-width:160px }
+.tdf .bt{ width:auto; flex:0 0 auto }
+.tdseg{ flex-wrap:wrap }
+.tdsplit{ display:grid; grid-template-columns:1fr 1fr; gap:14px }
+@media(max-width:860px){ .tdsplit{ grid-template-columns:1fr } }
+.tdcol{ border:1px solid var(--stroke-2); border-radius:var(--r2); background:var(--panel-2);
+  padding:12px 13px; display:flex; flex-direction:column; gap:7px; min-width:0 }
+.tdcol.ok{ background:linear-gradient(180deg,rgba(0,179,154,.06),transparent);
+  border-color:rgba(0,179,154,.24) }
+.tdh2{ display:flex; align-items:baseline; justify-content:space-between; gap:9px;
+  font-size:11px; font-weight:700; letter-spacing:.06em; text-transform:uppercase;
+  color:var(--ink-3); padding-bottom:7px; border-bottom:1px solid var(--stroke-2) }
+.tdh2 span{ letter-spacing:0; text-transform:none; font-weight:600; color:var(--ink-2) }
+.tdone{ display:flex; flex-direction:column; gap:7px }
+.tdr{ display:flex; align-items:center; gap:11px; padding:9px 11px; border-radius:12px;
+  background:var(--panel); border:1px solid var(--stroke-2); transition:.15s; min-width:0 }
+.tdr:hover{ border-color:var(--neu-b) }
+.tdr.done{ opacity:.6 }
+.tdr.done .tdt b{ text-decoration:line-through }
+.tdc{ width:20px; height:20px; border-radius:7px; flex:none; cursor:pointer; padding:0;
+  border:1.6px solid var(--neu-b); background:var(--panel-2); position:relative; transition:.15s }
+.tdc[aria-pressed="true"]{ background:var(--ok); border-color:var(--ok) }
+.tdc[aria-pressed="true"] i:after{ content:""; position:absolute; left:6px; top:2px;
+  width:5px; height:10px; border:solid #fff; border-width:0 2px 2px 0; transform:rotate(43deg) }
+.tdt{ flex:1; min-width:0 }
+.tdt b{ display:block; font-size:13px; font-weight:600; color:var(--ink);
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
+.tdt i{ display:block; font-style:normal; font-size:11px; color:var(--ink-3); margin-top:1px;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
+.tdr .av2{ width:26px; height:26px; border-radius:9px; flex:none; display:flex;
+  align-items:center; justify-content:center; color:#fff; font-size:10px; font-weight:700 }
+
+/* ── 33. Функции: каталог и карточка функции ── */
+.fnsum .pss{ text-align:left; cursor:default; border:1px solid transparent }
+.fnsum button.pss{ cursor:pointer; transition:border-color .16s, background .16s }
+.fnsum button.pss:hover{ border-color:var(--neu-b) }
+.fnsum button.pss.on{ border-color:#7C5CFF; background:rgba(124,92,255,.07) }
+.fnsum .v.ok{ color:var(--ok) }
+.fnsum .v.warn{ color:var(--warn) }
+
+.fng-key > .fngh b, .fng-paid > .fngh b{ color:var(--ink) }
+.fng-key{ border-left:3px solid #7C5CFF }
+.fng-paid{ border-left:3px solid var(--ok) }
+.fnprice{ margin-left:auto; font-size:11.5px; color:var(--ok);
+  background:rgba(60,190,130,.12); border-radius:999px; padding:3px 10px; white-space:nowrap }
+
+.fnr2{ display:grid; width:100%; text-align:left; background:none; border:0;
+  grid-template-columns:62px minmax(180px,1.5fr) 150px 66px 110px 170px 118px 18px;
+  gap:10px; align-items:center; padding:10px 12px; border-radius:12px;
+  color:var(--ink); cursor:pointer; transition:background .14s, transform .14s }
+.fnr2 + .fnr2{ margin-top:2px }
+.fnr2:hover{ background:var(--panel-2); transform:translateX(2px) }
+.fnr2.raw{ background:rgba(230,160,60,.05) }
+.fnr2.raw:hover{ background:rgba(230,160,60,.1) }
+.fnr2 .fnn2{ display:flex; flex-direction:column; gap:3px; min-width:0;
+  font-size:13.5px; line-height:1.3 }
+.fndub{ font-style:normal; font-size:10.5px; color:var(--ink-2);
+  background:var(--panel-2); border-radius:999px; padding:2px 8px; align-self:flex-start }
+.fcat{ font-size:11.5px; border-radius:999px; padding:3px 9px; text-align:center;
+  background:var(--panel-2); color:var(--ink-2); white-space:nowrap }
+.fcat.cA{ background:rgba(232,90,90,.14); color:#e87a7a }
+.fcat.cB{ background:rgba(230,170,60,.14); color:#e0ad5e }
+.fcat.cC{ background:rgba(60,190,130,.14); color:#4fc191 }
+.fnr2 .fnm{ font-size:12px; color:var(--ink-2); text-align:right }
+.fncy{ font-size:12px; color:var(--ink) }
+.fncy.dim{ color:var(--ink-3) }
+.fngd{ font-size:11.5px; color:var(--ink-2) }
+.fnst{ font-size:11px; text-align:right }
+.okd{ font-style:normal; color:var(--ok) }
+.rawd{ font-style:normal; color:var(--warn) }
+.fnar{ width:16px; height:16px; fill:none; stroke:var(--ink-3); stroke-width:2;
+  stroke-linecap:round; stroke-linejoin:round }
+.fnr2:hover .fnar{ stroke:#7C5CFF }
+
+/* карточка одной функции */
+.fncr{ margin-bottom:10px }
+.fnone{ display:flex; flex-direction:column; gap:0 }
+.fnsec{ border-top:1px solid var(--stroke-2); padding:16px 0 18px }
+.fnsec:first-of-type{ border-top:0; padding-top:4px }
+.fnsh{ font-size:12px; text-transform:uppercase; letter-spacing:.06em;
+  color:var(--ink-3); margin-bottom:12px }
+.fnnote{ margin-top:10px; font-size:12.5px; line-height:1.5; color:var(--ink-2);
+  background:var(--panel-2); border-radius:10px; padding:10px 12px }
+.fnflags{ display:flex; gap:8px; flex-wrap:wrap }
+.fnflags .ck{ flex:0 0 auto }
+
+.fcats{ display:grid; grid-template-columns:repeat(3,1fr); gap:10px }
+.fcb{ text-align:left; background:var(--panel-2); border:1px solid var(--stroke-2); border-radius:12px;
+  padding:11px 13px; cursor:pointer; color:var(--ink); transition:border-color .14s, background .14s }
+.fcb b{ display:block; font-size:13px; margin-bottom:4px }
+.fcb i{ display:block; font-style:normal; font-size:11.5px; color:var(--ink-3); line-height:1.4 }
+.fcb:hover{ border-color:var(--neu-b) }
+.fcb.on{ border-color:#7C5CFF; background:rgba(124,92,255,.09) }
+.fcb.cA.on{ border-color:#e87a7a; background:rgba(232,90,90,.09) }
+.fcb.cB.on{ border-color:#e0ad5e; background:rgba(230,170,60,.09) }
+.fcb.cC.on{ border-color:#4fc191; background:rgba(60,190,130,.09) }
+.fngrade{ margin-top:12px; font-size:13px; line-height:1.55; color:var(--ink);
+  background:rgba(124,92,255,.07); border:1px solid rgba(124,92,255,.18);
+  border-radius:12px; padding:12px 14px }
+
+.fndays{ display:flex; gap:5px }
+.fdb{ width:38px; height:34px; border-radius:9px; border:1px solid var(--stroke-2);
+  background:var(--panel-2); color:var(--ink-2); font-size:12px; cursor:pointer;
+  transition:border-color .14s, background .14s, color .14s }
+.fdb:hover{ border-color:var(--neu-b) }
+.fdb.on{ background:#7C5CFF; border-color:#7C5CFF; color:#fff }
+
+.fnregk{ display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:12px }
+.fkb{ text-align:left; background:var(--panel-2); border:1px solid var(--stroke-2); border-radius:12px;
+  padding:11px 13px; cursor:pointer; color:var(--ink); transition:border-color .14s, background .14s }
+.fkb b{ display:block; font-size:13px; margin-bottom:3px }
+.fkb i{ display:block; font-style:normal; font-size:11.5px; color:var(--ink-3) }
+.fkb:hover{ border-color:var(--neu-b) }
+.fkb.on{ border-color:#7C5CFF; background:rgba(124,92,255,.09) }
+
+.fndang{ border-top:1px solid var(--stroke-2); padding-top:16px; margin-top:4px }
+.bt.dangl{ color:#e87a7a; border-color:rgba(232,90,90,.3) }
+.bt.dangl:hover{ background:rgba(232,90,90,.1); border-color:#e87a7a }
+.bt.dang{ background:#c8504f; border-color:#c8504f; color:#fff }
+.bt.dang:hover{ background:#d95c5b }
+.fndq{ background:rgba(232,90,90,.07); border:1px solid rgba(232,90,90,.22);
+  border-radius:12px; padding:14px 16px }
+.fndq b{ display:block; font-size:14px; margin-bottom:6px }
+.fndq span{ display:block; font-size:12.5px; line-height:1.5; color:var(--ink-2); margin-bottom:12px }
+.fndb{ display:flex; gap:8px }
+.fndb .bt{ width:auto; flex:0 0 auto }
+
+@media (max-width:1100px){
+  .fnr2{ grid-template-columns:56px minmax(140px,1.4fr) 128px 60px 100px 18px }
+  .fnr2 .fngd, .fnr2 .fnst{ display:none }
+  .fcats{ grid-template-columns:1fr }
+  .fnregk{ grid-template-columns:1fr }
+}
+.fnform.inone{ padding:0; border-top:0; margin-top:0 }
+.fnpvh{ font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-3); margin-top:2px }
+.fnst{ display:flex; flex-direction:column; align-items:flex-end; gap:2px }
+.regd{ font-style:normal; font-size:10.5px; color:var(--ink-3) }
+.regn{ font-style:normal; font-size:10.5px; color:var(--warn); opacity:.85 }
+
+/* ── 34. Регламенты ── */
+.pss .of{ font-size:13px; color:var(--ink-3); font-family:inherit }
+.regtabs{ display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:14px }
+.rgt{ text-align:left; background:var(--panel-2); border:1px solid var(--stroke-2);
+  border-radius:var(--r2); padding:12px 14px; cursor:pointer; color:var(--ink);
+  transition:border-color .16s var(--ease), background .16s var(--ease) }
+.rgt b{ font-size:13.5px; font-weight:600 }
+.rgn{ display:inline-block; margin-left:8px; font-size:11px; font-weight:700; color:var(--ink-3);
+  background:var(--neu); border:1px solid var(--stroke-2); border-radius:999px; padding:1px 8px }
+.rgt i{ display:block; margin-top:5px; font-style:normal; font-size:11.5px; color:var(--ink-3) }
+.rgt:hover{ border-color:var(--neu-b) }
+.rgt.on{ border-color:rgba(124,92,255,.45); background:rgba(124,92,255,.09) }
+
+.regnote{ font-size:12.5px; line-height:1.55; color:var(--ink-2); background:var(--panel-2);
+  border-radius:var(--r2); padding:12px 14px; margin-bottom:14px }
+.regsec{ margin-bottom:16px }
+.regsh{ font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.05em;
+  color:var(--ink-3); margin:0 0 8px 2px }
+.regsh span{ color:var(--ink-2); margin-left:4px }
+.regr{ display:grid; width:100%; text-align:left; background:none;
+  border:1px solid var(--stroke-2); border-radius:var(--r2);
+  grid-template-columns:62px minmax(200px,1fr) auto 90px 18px; gap:12px; align-items:center;
+  padding:11px 14px; color:var(--ink); cursor:pointer;
+  transition:background .15s var(--ease), border-color .15s var(--ease), transform .15s var(--ease) }
+.regr + .regr{ margin-top:6px }
+.regr:hover{ background:var(--neu); border-color:var(--neu-b); transform:translateX(2px) }
+.regr.raw{ border-style:dashed }
+.regr .fnn2{ display:flex; flex-direction:column; gap:3px; min-width:0; white-space:normal }
+.regg{ font-style:normal; font-size:11px; color:var(--ink-3) }
+.regfor{ font-size:11.5px; color:var(--ink-3); white-space:nowrap }
+.regr:has(> .fnn2:first-child){ grid-template-columns:minmax(200px,1fr) auto 90px 18px }
+
+.regcabs{ display:flex; gap:9px; flex-wrap:wrap; margin-bottom:14px }
+.rcb{ display:flex; align-items:center; gap:9px; background:var(--panel-2);
+  border:1px solid var(--stroke-2); border-radius:999px; padding:7px 15px 7px 7px;
+  cursor:pointer; color:var(--ink); transition:border-color .16s var(--ease), background .16s var(--ease) }
+.rcb b{ font-size:12.5px; font-weight:600 }
+.rcb i{ font-style:normal; font-size:11px; color:var(--ink-3) }
+.rcb:hover{ border-color:var(--neu-b) }
+.rcb.on{ border-color:rgba(124,92,255,.45); background:rgba(124,92,255,.10) }
+.regadd{ margin-top:4px }
+.regadd .bt{ width:auto }
+
+@media (max-width:1100px){
+  .regtabs{ grid-template-columns:1fr }
+  .regr{ grid-template-columns:56px minmax(140px,1fr) 80px 18px }
+  .regr .regfor{ display:none }
+}
+
+/* ── 35. Справочник ── */
+.gdr{ display:grid; width:100%; text-align:left; background:none;
+  border:1px solid var(--stroke-2); border-radius:var(--r2);
+  grid-template-columns:minmax(220px,1fr) 100px 200px 18px; gap:14px; align-items:center;
+  padding:13px 15px; color:var(--ink); cursor:pointer;
+  transition:background .15s var(--ease), border-color .15s var(--ease), transform .15s var(--ease) }
+.gdr + .gdr{ margin-top:7px }
+.gdr:hover{ background:var(--neu); border-color:var(--neu-b); transform:translateX(2px) }
+.gdn{ display:flex; flex-direction:column; gap:4px; min-width:0 }
+.gdn b{ font-size:13.5px; font-weight:600 }
+.gdn i{ font-style:normal; font-size:11.5px; line-height:1.45; color:var(--ink-3) }
+.gdw{ font-size:11.5px; color:var(--ink-2); white-space:nowrap }
+.gdsrc{ font-size:11.5px; color:var(--ink-3); white-space:nowrap; overflow:hidden; text-overflow:ellipsis }
+
+.gdf{ border:1px solid var(--stroke-2); border-radius:var(--r2); padding:14px 16px }
+.gdf + .gdf{ margin-top:8px }
+.gdf b{ display:block; font-size:13.5px; font-weight:600; margin-bottom:7px }
+.gdwhere{ font-size:11.5px; color:var(--ink-3); margin-bottom:8px; line-height:1.5 }
+.gdwhy{ font-size:12.5px; color:var(--ink-2); line-height:1.6 }
+
+.gdsrcb{ display:grid; width:100%; text-align:left; grid-template-columns:1fr 18px; gap:12px;
+  align-items:center; background:rgba(124,92,255,.08); border:1px solid rgba(124,92,255,.25);
+  border-radius:var(--r2); padding:14px 16px; color:var(--ink); cursor:pointer;
+  transition:background .15s var(--ease) }
+.gdsrcb:hover{ background:rgba(124,92,255,.14) }
+.gdsrcb b{ display:block; font-size:14px; font-weight:600; margin-bottom:5px }
+.gdsrcb i{ display:block; font-style:normal; font-size:12px; line-height:1.5; color:var(--ink-2) }
+
+.gdw2{ display:grid; grid-template-columns:200px 1fr; gap:14px; align-items:baseline;
+  padding:11px 2px; border-bottom:1px solid var(--stroke-2) }
+.gdw2:last-child{ border-bottom:0 }
+.gdgo{ background:var(--panel-2); border:1px solid var(--stroke-2); border-radius:999px;
+  padding:5px 13px; font-size:12px; font-family:inherit; color:var(--ink); cursor:pointer;
+  text-align:left; transition:border-color .15s var(--ease), background .15s var(--ease) }
+.gdgo:hover{ border-color:var(--neu-b); background:var(--neu) }
+.gdw2 span{ font-size:12.5px; line-height:1.55; color:var(--ink-2) }
+
+@media (max-width:1100px){
+  .gdr{ grid-template-columns:1fr 18px }
+  .gdr .gdw, .gdr .gdsrc{ display:none }
+  .gdw2{ grid-template-columns:1fr; gap:6px }
+  .gdgo{ justify-self:start }
+}
+
+/* ── 36. Отдел продаж ── */
+.pss .v.ok{ color:var(--ok) }
+.salewarn{ display:flex; align-items:center; gap:16px; flex-wrap:wrap;
+  border-color:rgba(255,176,32,.35) !important; background:rgba(255,176,32,.07) }
+.salewarn b{ font-size:14px; flex:0 0 100% }
+.salewarn span{ font-size:12.5px; line-height:1.55; color:var(--ink-2); flex:1; min-width:240px }
+.salewarn .bt{ width:auto; flex:0 0 auto }
+
+.funnel{ display:grid; grid-template-columns:repeat(7,1fr); gap:8px }
+.fnl{ text-align:left; background:var(--panel-2); border:1px solid var(--stroke-2);
+  border-radius:var(--r2); padding:12px 13px; cursor:pointer; color:var(--ink);
+  transition:border-color .16s var(--ease), background .16s var(--ease), transform .16s var(--ease) }
+.fnl:hover{ border-color:var(--neu-b); transform:translateY(-2px) }
+.fnl.on{ border-color:rgba(124,92,255,.5); background:rgba(124,92,255,.1) }
+.fnlh{ display:flex; align-items:baseline; justify-content:space-between; gap:6px; margin-bottom:9px }
+.fnlh b{ font-size:12px; font-weight:600; line-height:1.3 }
+.fnlc{ font-family:Unbounded,sans-serif; font-size:17px; font-weight:500; letter-spacing:-.03em }
+.fnlb{ display:block; height:4px; border-radius:99px; background:var(--stroke-2); overflow:hidden }
+.fnlb i{ display:block; height:100%; border-radius:99px; background:#7C5CFF;
+  transition:width .5s var(--ease) }
+.fnld{ display:block; margin-top:8px; font-size:10.5px; line-height:1.4; color:var(--ink-3) }
+.fnl.st-won .fnlb i{ background:var(--ok) }
+.fnl.st-lost .fnlb i{ background:var(--crit) }
+
+.ldr{ display:grid; width:100%; text-align:left; background:none;
+  border:1px solid var(--stroke-2); border-radius:var(--r2);
+  grid-template-columns:minmax(180px,1fr) 150px 200px 18px; gap:14px; align-items:center;
+  padding:12px 15px; color:var(--ink); cursor:pointer;
+  transition:background .15s var(--ease), border-color .15s var(--ease), transform .15s var(--ease) }
+.ldr + .ldr{ margin-top:6px }
+.ldr:hover{ background:var(--neu); border-color:var(--neu-b); transform:translateX(2px) }
+.ldn{ display:flex; flex-direction:column; gap:3px; min-width:0 }
+.ldn b{ font-size:13.5px; font-weight:600 }
+.ldn i{ font-style:normal; font-size:11.5px; color:var(--ink-3) }
+.ldst{ font-size:11.5px; border-radius:999px; padding:4px 11px; text-align:center;
+  background:var(--neu); color:var(--ink-2); white-space:nowrap }
+.ldst.st-won{ background:rgba(34,176,125,.15); color:var(--ok) }
+.ldst.st-lost{ background:rgba(219,74,95,.13); color:var(--crit) }
+.ldst.st-deal, .ldst.st-offer{ background:rgba(124,92,255,.13); color:#9B85FF }
+.ldt{ display:flex; flex-direction:column; gap:5px }
+.ldtb{ display:flex; gap:3px }
+.ldtb i{ width:100%; height:5px; border-radius:99px; background:var(--stroke-2) }
+.ldtb i.on{ background:#7C5CFF }
+.ldt em{ font-style:normal; font-size:10.5px; color:var(--ink-3) }
+
+.tchs{ display:flex; flex-direction:column; gap:2px }
+.tch{ display:grid; grid-template-columns:34px 1fr 80px; gap:12px; align-items:start;
+  padding:12px 12px; border-radius:var(--r2); transition:background .15s var(--ease) }
+.tch:hover{ background:var(--neu) }
+.tch.on .tcn b{ color:var(--ink-3); text-decoration:line-through }
+.tckb{ width:26px; height:26px; border-radius:8px; border:1.5px solid var(--neu-b);
+  background:none; cursor:pointer; position:relative; margin-top:1px;
+  transition:background .16s var(--ease), border-color .16s var(--ease) }
+.tckb:hover{ border-color:#7C5CFF }
+.tch.on .tckb{ background:#7C5CFF; border-color:#7C5CFF }
+.tch.on .tckb i:after, .tch.on .tckb:after{ content:""; position:absolute; left:8.5px; top:4px;
+  width:5px; height:10px; border:solid #fff; border-width:0 2px 2px 0; transform:rotate(43deg) }
+.tcn b{ display:block; font-size:13px; font-weight:600; margin-bottom:4px }
+.tcn span{ display:block; font-size:12px; line-height:1.55; color:var(--ink-2) }
+.tcd{ font-size:11px; color:var(--ink-3); text-align:right; padding-top:2px; white-space:nowrap }
+
+.lnk{ background:none; border:0; padding:0; font-family:inherit; font-size:inherit;
+  color:#9B85FF; cursor:pointer; text-decoration:underline; text-underline-offset:3px }
+
+@media (max-width:1300px){ .funnel{ grid-template-columns:repeat(4,1fr) } }
+@media (max-width:1100px){
+  .funnel{ grid-template-columns:repeat(2,1fr) }
+  .ldr{ grid-template-columns:1fr 120px 18px }
+  .ldr .ldt{ display:none }
+  .tch{ grid-template-columns:34px 1fr }
+  .tcd{ display:none }
+}
 </style>
 </head>
 <body>
@@ -2426,6 +2879,9 @@ code.invc{ font-family:ui-monospace,SFMono-Regular,monospace; font-weight:700;
     <button class="ri" data-v="staff" title="Карточки команды"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="4"/><circle cx="12" cy="10" r="2.4"/><path d="M8 17c.6-1.9 2.2-3 4-3s3.4 1.1 4 3"/></svg><span class="rl">Карточки команды</span></button>
     <button class="ri" data-v="aod" title="АОД"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M3 9h18M9 9v11"/><path d="M12 13h6M12 16h4"/></svg><span class="rl">АОД</span></button>
     <button class="ri" data-v="acc" title="Доступы"><svg viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="10" rx="3"/><path d="M8 10V7.5a4 4 0 0 1 8 0V10"/><circle cx="12" cy="15" r="1.4"/></svg><span class="rl">Доступы</span></button>
+    <button class="ri" data-v="sales" title="Отдел продаж"><svg viewBox="0 0 24 24"><path d="M3 5h18l-6.5 8v6l-5 2v-8z"/></svg><span class="rl">Отдел продаж</span></button>
+    <button class="ri" data-v="guide" title="Справочник"><svg viewBox="0 0 24 24"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H19v15H6.5A2.5 2.5 0 0 0 4 20.5z"/><path d="M4 20.5A2.5 2.5 0 0 1 6.5 18H19v3H6.5A2.5 2.5 0 0 1 4 20.5z"/><path d="M9 8h6"/></svg><span class="rl">Справочник</span></button>
+    <button class="ri" data-v="reg" title="Регламенты"><svg viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2.5"/><path d="M9 8h6M9 12h6M9 16h3"/></svg><span class="rl">Регламенты</span></button>
     <button class="ri" data-v="fns" title="Функции"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h10M4 18h13"/><circle cx="18.5" cy="12" r="2"/></svg><span class="rl">Функции</span></button>
     <button class="ri" data-v="meet" title="Планёрка"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M8 3v4M16 3v4M3 10h18M8 14h4"/></svg><span class="rl">Планёрка</span></button>
     <button class="ri" data-v="office" title="Онлайн-офис"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><circle cx="5" cy="6" r="2"/><circle cx="19" cy="6" r="2"/><circle cx="5" cy="18" r="2"/><circle cx="19" cy="18" r="2"/><path d="M6.6 7.4 10 10.4M17.4 7.4 14 10.4M6.6 16.6 10 13.6M17.4 16.6 14 13.6"/></svg><span class="rl">Онлайн-офис</span></button>
@@ -11135,6 +11591,2280 @@ document.addEventListener("change", function(e){
     pr.amount = Math.max(0, +t.value || 0); saveState(); renderCards();
     toast("Платёж записан"); return; }
 });
+
+/* ══ 25. Карточка менеджера: всё в одном месте ══
+   D33 · кнопка «Карточки команды» уходит с рельсы
+   D34 · её содержимое переезжает НАВЕРХ карточки менеджера
+   D35 · визуал по образцу карточки клиента
+   v2team.04/06 · карточка раскрывается ПОД своим виджетом,
+                  остальные плавно уезжают вниз
+   v2team.10 · галочка «ведёт совещания»
+   D27 · часов в день — личная норма, от неё считается 100% */
+
+function normOf(m){ return Math.round((+((m||{}).hoursDay) || 8) * 60); }
+
+/* D11 · должности выпадающим списком */
+var POSTS = ["Собственник","Директор","Руководитель отдела","Проджект",
+             "Менеджер главный","Менеджер","Менеджер младший","Ассистент",
+             "Дизайнер","Аналитик","Контент-менеджер"];
+
+/* базовая информация — то, что было в «Карточках команды» */
+function manBase(m){
+  var tg = String(m.tg||"").replace(/^@+/,"");
+  var ready = m.mail && m.wphone;
+  return '<div class="mcbase'+(ready?'':' part')+'">'+
+    '<div class="mcbh"><span class="mcbl">Кто это и как с ним связаться</span>'+
+      '<button class="bt gh2 sm ccopen" data-acc="'+esc(m.id)+'" '+
+        'title="Скопировать логин, пароль и ссылки в формате для клиента">'+
+        'Скопировать доступы</button></div>'+
+    (function(){
+      var own = !!(m.role && !POSTS.some(function(x){ return x === m.role; }));
+      return '<div class="ccf">'+
+      '<label><span>Должность</span>'+
+        '<select class="sel" data-sk2="role">'+
+          POSTS.map(function(x){
+            return '<option value="'+esc(x)+'"'+((m.role||"")===x?' selected':'')+'>'+
+              esc(x)+'</option>'; }).join("")+
+          '<option value="__own"'+(own?' selected':'')+'>Своя должность…</option>'+
+        '</select>'+
+        (own ? '<input class="fi sm mcown" data-sk2="roleOwn" placeholder="Как называется должность" '+
+               'value="'+esc(m.role||"")+'">' : '')+
+        '</label>'+
+      '<label><span>Telegram</span><div class="tgr"><span class="at">@</span>'+
+        '<input class="fi sm" data-sk2="tg" placeholder="nickname" value="'+esc(tg)+'"></div></label>'+
+      '<label><span>Зарплата, ₽ в месяц</span>'+
+        '<input class="fi sm" data-sk2="pay" type="number" min="0" step="1000" '+
+          'placeholder="0" value="'+esc(m.pay||"")+'"></label>'+
+      '<label><span>День выплаты</span>'+
+        '<input class="fi sm" data-sk2="payDay" type="number" min="1" max="31" '+
+          'placeholder="5" value="'+esc(m.payDay||"")+'"></label>'+
+      '<label><span>Часов в день</span>'+
+        '<input class="fi sm" data-sk2="hoursDay" type="number" min="1" max="14" step="1" '+
+          'placeholder="8" value="'+esc(m.hoursDay||8)+'"></label>'+
+    '</div>'; })()+
+    '<div class="mcnote2">От «часов в день» считается личная норма: у кого-то 100% — это '+
+      'десять часов договорённостей, у кого-то четыре. Загрузка и перегруз считаются от неё.</div>'+
+    '<div class="mcbh"><span class="mcbl">Доступы для кабинета WB</span></div>'+
+    '<div class="ccf">'+
+      '<label><span>Почта</span>'+
+        '<input class="fi sm" data-sk2="mail" type="email" placeholder="name@mail.ru" '+
+          'value="'+esc(m.mail||"")+'"></label>'+
+      '<label><span>Телефон</span>'+
+        '<input class="fi sm" data-sk2="wphone" type="tel" placeholder="+79000000000" '+
+          'value="'+esc(m.wphone||"")+'"></label>'+
+    '</div>'+
+    '<pre class="accp">'+esc(typeof accessText === "function" ? accessText(m) : "")+'</pre>'+
+    '<div class="ccsend">'+
+      '<button class="ck'+(m.sendAcc?' on':'')+'" data-sendacc="'+esc(m.id)+'">'+
+        '<i></i>Отправить доступы в чат</button>'+
+      '<div class="hint2">Включите — выберете чат, и бот отправит доступы этого человека '+
+        'вместе с другими участниками кабинета.</div>'+
+    '</div>'+
+  '</div>';
+}
+
+/* галочки «что делает» + «ведёт совещания» (v2team.10) */
+(function(){
+  var _mf = manFlags;
+  manFlags = function(m){
+    var f = _mf(m);
+    f.push(["meets", "ведёт совещания", !!m.meets]);
+    return f;
+  };
+})();
+
+/* цвета категорий у существующих менеджеров (v2team.11) */
+function catChip(k, v){
+  return '<span class="ccl '+k+'"><b>'+k+'</b>'+v+'%</span>';
+}
+
+(function(){
+  var _mc = manCardHTML;
+  manCardHTML = function(m){
+    var html = _mc.call(this, m);
+    /* базовая информация — сразу под шапкой карточки */
+    html = html.replace('<div class="mcg">', manBase(m) + '<div class="mcg">');
+    /* цветные чипы категорий рядом с заголовком компетенции */
+    var c = comp(m);
+    html = html.replace('<div class="mcsl">Компетенция по артикулам</div>',
+      '<div class="mcsl">Компетенция по артикулам '+
+      catChip("A", +c.A||0) + catChip("B", +c.B||0) + catChip("C", +c.C||0) + '</div>');
+    return html;
+  };
+})();
+
+/* карточка раскрывается ПОД своим виджетом (v2team.04/06) */
+(function(){
+  var _rp = renderPeople;
+  renderPeople = function(){
+    _rp.apply(this, arguments);
+    var host = document.getElementById("sect");
+    if(!host) return;
+    var old = host.querySelector(".mcardw");
+    if(old) old.remove();
+    var m = manCardOpen ? person(manCardOpen) : null;
+    if(!m) return;
+    var card = host.querySelector('[data-openperson="' + manCardOpen + '"]');
+    var grid = card ? card.closest(".cards") : null;
+    var box = '<section class="gl mcardw">' + manCardHTML(m) + '</section>';
+    if(grid) grid.insertAdjacentHTML("afterend", box);
+    else host.insertAdjacentHTML("beforeend", box);
+  };
+})();
+
+document.addEventListener("input", function(e){
+  var t = e.target;
+  if(!t.matches || !t.matches("[data-sk2]")) return;
+  var row = t.closest(".mcard"); if(!row) return;
+  var m = person(manCardOpen); if(!m) return;
+  var k = t.getAttribute("data-sk2"), v = t.value;
+  if(k === "tg") v = v.replace(/^@+/, "").trim();
+  if(k === "pay" || k === "payDay" || k === "hoursDay") v = v === "" ? "" : +v;
+  m[k] = v; saveState();
+  var pre = row.querySelector(".accp");
+  if(pre && typeof accessText === "function") pre.textContent = accessText(m);
+});
+document.addEventListener("change", function(e){
+  var t = e.target;
+  if(t.matches && t.matches('[data-sk2="role"]')){
+    var m = person(manCardOpen); if(!m) return;
+    if(t.value === "__own"){
+      /* показываем поле для своей формулировки, ничего не теряя */
+      var lab = t.closest("label");
+      if(lab && !lab.querySelector(".mcown")){
+        var inp = document.createElement("input");
+        inp.className = "fi sm mcown"; inp.setAttribute("data-sk2", "roleOwn");
+        inp.placeholder = "Как называется должность"; inp.value = m.role || "";
+        lab.appendChild(inp); inp.focus();
+      }
+      return;
+    }
+    m.role = t.value; saveState(); render();
+  }
+});
+document.addEventListener("input", function(e){
+  var t = e.target;
+  if(t.matches && t.matches('[data-sk2="roleOwn"]')){
+    var m = person(manCardOpen); if(!m) return;
+    m.role = t.value; saveState();
+    var w = document.querySelector('[data-openperson="'+m.id+'"] .pcn .r');
+    if(w) w.textContent = t.value || "Сотрудник";
+  }
+});
+
+/* D33 · кнопка «Карточки команды» уходит с рельсы — её содержимое
+   теперь наверху карточки менеджера в «Моей команде» */
+(function(){
+  var b = document.querySelector('.rail .ri[data-v="staff"]');
+  if(b && b.parentNode) b.parentNode.removeChild(b);
+})();
+
+/* ── 26. Артикулы по дням в карточке менеджера (D14) ──────
+   Тот же план работы, который обновляет АОД: в какой день
+   какие артикулы человек берёт в работу. */
+function manArtDays(m){
+  if(!worksRK(m)) return "";
+  var byDay = artSchedule(m.id);
+  var any = byDay.some(function(x){ return x.length; });
+  if(!any) return '<div class="mcs"><div class="mcsl">Артикулы по дням</div>'+
+    '<div class="mcnote">Артикулы пока не назначены. Внесите их в разделе «АОД» — '+
+    'и здесь появится план работы по дням.</div></div>';
+  return '<div class="mcs"><div class="mcsl">Артикулы по дням '+
+      '<span class="mcsx">это тот же план, что обновляет АОД</span></div>'+
+    '<div class="mcdays">'+byDay.map(function(list, d){
+      var mins = list.reduce(function(s, a){ return s + (CAT_MIN[a.cat] || 5); }, 0);
+      var byCat = {A:0, B:0, C:0};
+      list.forEach(function(a){ byCat[a.cat] = (byCat[a.cat]||0) + 1; });
+      return '<div class="mcd'+(d===dow?' now':'')+'">'+
+        '<div class="mcdh">'+DOWS[d]+'<span>'+hrs(mins)+' ч</span></div>'+
+        '<div class="mcac">'+["A","B","C"].map(function(k){
+          return byCat[k] ? '<span class="ccl '+k+'"><b>'+k+'</b>'+byCat[k]+'</span>' : ""; }).join("")+
+        '</div>'+
+        (list.length
+          ? list.slice(0, 5).map(function(a){
+              var pr = a.project ? project(a.project) : null;
+              return '<div class="mcdt"><span class="dot" style="background:'+
+                (pr ? pr.color : 'var(--stroke)')+'"></span>'+
+                esc(a.wb || a.sku || a.id)+'</div>'; }).join("") +
+            (list.length > 5 ? '<div class="mcdm">и ещё '+(list.length-5)+'</div>' : '')
+          : '<div class="mcdm">свободно</div>')+
+      '</div>'; }).join("")+'</div>'+
+    '<div class="mcnote">Категория A — три дня в неделю, B — два, C — один. '+
+      'Меняется в «АОД», пересчитывается везде.</div></div>';
+}
+(function(){
+  var _mc = manCardHTML;
+  manCardHTML = function(m){
+    var html = _mc.call(this, m);
+    var i = html.lastIndexOf("</div>");
+    return i < 0 ? html : html.slice(0, i) + manArtDays(m) + html.slice(i);
+  };
+})();
+
+/* ══ 27. Новый кабинет: функции списком и артикулы в управлении ══
+   D6  · в строке задачи — поиск по справочнику, сверху платные функции
+   D8  · блок «Артикулы в управлении»: сколько всего + список
+   v2cards.01 · кабинет сразу попадает в АОД, появляется задача
+                «присвоить ответственных»
+   Про два артикула: у товара на WB есть артикул ВБ и артикул продавца.
+   Сервис принимает оба — колонки рядом. Подтяжку второго по API
+   делаем отдельным шагом, когда появится ключ кабинета. */
+
+var ncArts = [];        /* [{wb, sku, cat}] */
+var ncArtRaw = "";
+var ncFnPick = null;    /* индекс строки, у которой открыт список функций */
+var ncFnQ = "";
+
+/* платные функции клиента идут первыми (D40) */
+var PAID_FNS = [
+  "Управление РК","P&L","Прогноз поставки (анализ)","Прогноз поставки (слоты и заявка)",
+  "План продаж","Анализ точек входа/выхода по новым товарам","Курирование точек входа",
+  "Юнитка (актуализация)","Управление акциями","Управление ценой",
+  "Разработка ТЗ фотоворонка","Разработка SEO","Разработка ТЗ обложки",
+  "Разработка ТЗ А/В-тестирование","Курирование процесса разработки дизайна",
+  "Разработка ТЗ самовыкупы","Курирование процесса самовыкупов",
+  "Руководитель для внутренних менеджеров"
+];
+function isPaid(f){ return PAID_FNS.indexOf(f.name) >= 0; }
+function ncFnList(){
+  var q = (ncFnQ || "").toLowerCase().trim();
+  var all = (S.fns || []).filter(function(f){
+    return !q || f.name.toLowerCase().indexOf(q) >= 0 ||
+           String(f.code||"").toLowerCase().indexOf(q) >= 0; });
+  var paid = all.filter(isPaid), rest = all.filter(function(f){ return !isPaid(f); });
+  return {paid:paid, rest:rest, n: all.length};
+}
+
+function ncFnPop(i){
+  var L = ncFnList();
+  var row = function(f){
+    return '<button class="gsi" data-ncfn="'+i+'" data-ncfnid="'+esc(f.id)+'">'+
+      '<span class="fnc2">'+esc(f.code||"")+'</span>'+
+      '<span class="gk"><b>'+esc(f.name)+'</b>'+
+        '<i>'+(f.minutes||30)+' мин по нормативу</i></span></button>';
+  };
+  return '<div class="ncfnpop">'+
+    '<input class="fi sm" id="ncFnQ" autocomplete="off" '+
+      'placeholder="Начните печатать — функция подскажется" value="'+esc(ncFnQ)+'">'+
+    '<div class="ncfnl">'+
+      (L.paid.length
+        ? '<div class="ncfng">Платные функции клиента</div>'+L.paid.map(row).join("")
+        : '')+
+      (L.rest.length
+        ? '<div class="ncfng">Остальные функции</div>'+L.rest.map(row).join("")
+        : '')+
+      (L.n ? '' : '<div class="none2">Ничего не нашлось</div>')+
+    '</div></div>';
+}
+
+/* разбор вставленного списка артикулов */
+function ncParseArts(txt){
+  var out = [], seen = {};
+  String(txt || "").split(/[\r\n]+/).forEach(function(line){
+    var parts = line.split(/[\t;,|]+/).map(function(x){ return x.trim(); }).filter(Boolean);
+    if(!parts.length) return;
+    var wb = parts[0], sku = parts[1] || "";
+    var cat = (parts[2] || "").toUpperCase();
+    if(!/^\d{4,}$/.test(wb) && !sku) return;      /* похоже на заголовок — пропускаем */
+    if(seen[wb]) return;
+    seen[wb] = 1;
+    out.push({wb:wb, sku:sku, cat:(cat === "A" || cat === "B" || cat === "C") ? cat : "C"});
+  });
+  return out;
+}
+
+function ncArtsBlock(){
+  var byCat = {A:0, B:0, C:0};
+  ncArts.forEach(function(a){ byCat[a.cat] = (byCat[a.cat]||0) + 1; });
+  return '<div class="sfh">Артикулы в управлении</div>'+
+    '<div class="ncart">'+
+      '<div class="ncal">'+
+        '<label><span>Сколько всего артикулов у клиента</span>'+
+          '<input class="fi sm" id="ncArtTotal" type="number" min="0" step="10" '+
+            'placeholder="0" value=""></label>'+
+        '<label class="wide"><span>Какие берём в рекламное управление</span>'+
+          '<textarea class="fi" id="ncArtList" rows="4" '+
+            'placeholder="Один артикул в строке. Можно вставить из таблицы двумя колонками:&#10;'+
+            '12345678\tSKU-001\tA&#10;12345679\tSKU-002\tB">'+esc(ncArtRaw)+'</textarea></label>'+
+      '</div>'+
+      '<div class="ncas">'+
+        '<div class="ncan"><b>'+ncArts.length+'</b><span>разобрано</span></div>'+
+        '<div class="ncac2">'+["A","B","C"].map(function(k){
+          return '<span class="ccl '+k+'"><b>'+k+'</b>'+(byCat[k]||0)+'</span>'; }).join("")+'</div>'+
+        (ncArts.length
+          ? '<div class="ncap">'+ncArts.slice(0, 8).map(function(a){
+              return '<div class="ncar"><code>'+esc(a.wb)+'</code>'+
+                (a.sku ? '<i>'+esc(a.sku)+'</i>' : '<i class="dim">артикул продавца не указан</i>')+
+                '<span class="ccl '+a.cat+'"><b>'+a.cat+'</b></span></div>'; }).join("")+
+            (ncArts.length > 8 ? '<div class="mcdm">и ещё '+(ncArts.length-8)+'</div>' : '')+
+            '</div>'
+          : '<div class="ncnote">У товара на WB два артикула: артикул ВБ и артикул продавца. '+
+            'Вставьте первый столбец — второй можно дописать позже или подтянуть по API кабинета. '+
+            'Третьим столбцом — категория A, B или C, если она уже известна.</div>')+
+      '</div>'+
+    '</div>';
+}
+
+(function(){
+  var _rn = renderNewCab;
+  renderNewCab = function(){
+    _rn.apply(this, arguments);
+    var host = document.getElementById("sect");
+    if(!host) return;
+    /* блок артикулов — перед задачами кабинета */
+    var sfh = host.querySelector(".sfh");
+    if(sfh && !host.querySelector(".ncart"))
+      sfh.insertAdjacentHTML("beforebegin", ncArtsBlock());
+    /* поле «что делаем» становится поиском по справочнику */
+    q(".ncrow").forEach(function(rw, i){
+      var inp = rw.querySelector('input[data-nck="title"]');
+      if(!inp) return;
+      inp.setAttribute("readonly", "readonly");
+      inp.classList.add("ncfnfield");
+      inp.placeholder = "Выбрать функцию";
+      if(ncFnPick === i && !rw.querySelector(".ncfnpop"))
+        inp.insertAdjacentHTML("afterend", ncFnPop(i));
+    });
+  };
+})();
+
+document.addEventListener("click", function(e){
+  var t;
+  if((t = e.target.closest(".ncfnfield"))){
+    var rw = t.closest(".ncrow");
+    var i = rw ? +rw.getAttribute("data-nc") : -1;
+    ncFnPick = (ncFnPick === i) ? null : i;
+    ncFnQ = "";
+    renderNewCab();
+    var f = document.getElementById("ncFnQ");
+    if(f) f.focus();
+    return;
+  }
+  if((t = e.target.closest("[data-ncfn]"))){
+    var idx = +t.getAttribute("data-ncfn");
+    var f2 = fnById(t.getAttribute("data-ncfnid"));
+    if(f2 && ncTasks[idx]){
+      ncTasks[idx].title = f2.name;
+      ncTasks[idx].fn = f2.id;
+      ncTasks[idx].minutes = f2.minutes || 30;
+    }
+    ncFnPick = null; renderNewCab();
+    return;
+  }
+  /* клик мимо — закрываем список */
+  if(ncFnPick !== null && !e.target.closest(".ncfnpop")){ ncFnPick = null; renderNewCab(); }
+});
+
+document.addEventListener("input", function(e){
+  var t = e.target;
+  if(t.id === "ncFnQ"){
+    ncFnQ = t.value;
+    var i = ncFnPick;
+    renderNewCab();
+    var f = document.getElementById("ncFnQ");
+    if(f){ f.focus(); f.setSelectionRange(f.value.length, f.value.length); }
+    return;
+  }
+  if(t.id === "ncArtList"){
+    ncArtRaw = t.value;
+    ncArts = ncParseArts(ncArtRaw);
+    var host = document.getElementById("sect");
+    var side = host && host.querySelector(".ncas");
+    if(side){
+      var tmp = document.createElement("div");
+      tmp.innerHTML = ncArtsBlock();
+      var fresh = tmp.querySelector(".ncas");
+      if(fresh) side.innerHTML = fresh.innerHTML;
+    }
+    return;
+  }
+});
+
+/* при заведении кабинета: артикулы уходят в АОД,
+   а на собственника падает задача присвоить ответственных */
+(function(){
+  var _save = null;
+  document.addEventListener("click", function(e){
+    if(!e.target.closest("#ncSave")) return;
+    var total = (document.getElementById("ncArtTotal") || {}).value;
+    var arts = ncArts.slice();
+    var raw  = ncArtRaw;
+    setTimeout(function(){
+      var pr = (S.projects || [])[ (S.projects||[]).length - 1 ];
+      if(!pr) return;
+      if(total) pr.articles = +total || arts.length;
+      else if(arts.length) pr.articles = arts.length;
+      if(arts.length){
+        if(!S.arts) S.arts = [];
+        arts.forEach(function(a){
+          S.arts.push({id:nextId("ar"), wb:a.wb, sku:a.sku, cat:a.cat,
+            project:pr.id, person:""});
+        });
+        /* задача присвоить ответственных — тому, кто главный */
+        var boss = (S.people||[]).filter(function(m){
+          return /собствен|директор|проджект|руковод/i.test(m.role||""); })[0]
+          || (S.people||[])[0];
+        if(boss){
+          var cab0 = (S.cabs||[]).filter(function(c){ return c.project === pr.id; })[0];
+          S.tasks.push({id:nextId("t"),
+            title:"Присвоить ответственных за артикулы · " + pr.name,
+            project:pr.id, person:boss.id, cab: cab0 ? cab0.id : "",
+            fn:"", minutes:30, kind:"urg", dow:dow,
+            start:10, done:false, spentSec:0, comment:"", link:"",
+            approver:"Без согласования", from:"", due:null, status:"", createdAt:Date.now()});
+        }
+        logAdd("Кабинет «" + pr.name + "»: внесено " + arts.length + " артикулов, ушли в АОД");
+      }
+      ncArts = []; ncArtRaw = "";
+      saveState();
+    }, 120);
+  }, true);
+})();
+
+/* ══ 29. Постановка задачи: доработки третьего круга ══
+   v2nt.01 · горячая кнопка слева, как нарисовал Виталий
+   v2nt.05 · список функций не гаснет при прокрутке — он едет за полем
+             и закрывается только после выбора, по Escape или клику мимо
+   v2nt.08 · «несколько раз в неделю» — выбираем конкретные дни галочками
+   v2nt.09 · подсказка предлагает свободные ДНИ, когда их выбрано несколько
+   D5  · артикул выпадающим списком: по артикулу ВБ и по артикулу продавца
+   D7  · «2 незаполненные задачи» разворачиваются, лишние удаляются
+   D4  · «где посмотреть» ведёт к самой задаче и подсвечивает её */
+
+var ntPickDays = null;       /* [0,2,4] — выбранные дни для «несколько раз» */
+var ntArtQ = "", ntArtOpen = false;
+var ntDraftsOpen = false;
+var ntHiTask = null;         /* какую задачу подсветить после перехода */
+
+/* ── список функций больше не гаснет при прокрутке ── */
+(function(){
+  window.removeEventListener("scroll", gsClose, true);
+  var tm = null;
+  window.addEventListener("scroll", function(){
+    var pop = document.getElementById("gsPop");
+    if(!pop) return;
+    /* окно с функциями едет за своим полем, а не закрывается */
+    var box = document.getElementById("fnCombo") ||
+              document.querySelector('[aria-expanded="true"]');
+    if(!box){ gsClose(); return; }
+    clearTimeout(tm);
+    tm = setTimeout(function(){
+      var p = document.getElementById("gsPop"); if(!p) return;
+      var r = box.getBoundingClientRect();
+      var vh = window.innerHeight, ph = p.offsetHeight;
+      if(r.bottom < -40 || r.top > vh + 40){ gsClose(); return; }
+      var below = (r.bottom + ph + 12) < vh;
+      p.style.top = Math.round(below ? r.bottom + 6 : Math.max(10, r.top - ph - 6)) + "px";
+      p.setAttribute("data-dir", below ? "down" : "up");
+    }, 10);
+  }, true);
+})();
+
+/* ── артикулы кабинета: поиск по обоим артикулам (D5) ── */
+function ntArtList(){
+  var prId = ntState.project || (S.projects[0] && S.projects[0].id);
+  var q = (ntArtQ || "").toLowerCase().trim();
+  return (S.arts || []).filter(function(a){
+    if(prId && a.project && a.project !== prId) return false;
+    if(!q) return true;
+    return String(a.wb||"").toLowerCase().indexOf(q) >= 0 ||
+           String(a.sku||"").toLowerCase().indexOf(q) >= 0;
+  }).slice(0, 60);
+}
+function ntArtName(){
+  if(!ntState.art) return "";
+  var a = (S.arts||[]).filter(function(x){ return x.id === ntState.art; })[0];
+  return a ? (a.wb + (a.sku ? " · " + a.sku : "")) : "";
+}
+function ntArtPop(){
+  gsClose();
+  var box = document.getElementById("artCombo");
+  if(!box) return;
+  var list = ntArtList();
+  var pop = document.createElement("div");
+  pop.className = "gspop fnpop"; pop.id = "gsPop";
+  pop.innerHTML = '<div class="gsin">'+
+    '<button class="gsi'+(ntState.art?'':' on')+'" data-ntart="">Без артикула — задача по кабинету</button>'+
+    (list.length ? list.map(function(a){
+      return '<button class="gsi'+(ntState.art===a.id?' on':'')+'" data-ntart="'+esc(a.id)+'">'+
+        '<span class="fnc2">'+esc(a.wb||"")+'</span>'+
+        '<span class="gk"><b>'+esc(a.sku || "артикул продавца не указан")+'</b>'+
+          '<i>категория '+esc(a.cat||"C")+'</i></span></button>'; }).join("")
+      : '<div class="none2">В этом кабинете артикулов ещё нет — внесите их в «АОД»</div>')+'</div>';
+  document.body.appendChild(pop);
+  var r = box.getBoundingClientRect(), vw = window.innerWidth, vh = window.innerHeight;
+  var w = Math.max(r.width, 320);
+  pop.style.width = w + "px";
+  var ph = pop.offsetHeight;
+  var toRight = (r.left + r.width/2) < vw/2;
+  var left = toRight ? r.left : (r.right - w);
+  pop.style.left = Math.round(Math.max(10, Math.min(left, vw - w - 10))) + "px";
+  var below = (r.bottom + ph + 12) < vh;
+  pop.style.top = Math.round(below ? r.bottom + 6 : Math.max(10, r.top - ph - 6)) + "px";
+  pop.setAttribute("data-dir", below ? "down" : "up");
+  requestAnimationFrame(function(){ pop.classList.add("on"); });
+}
+
+/* ── выбор конкретных дней галочками (v2nt.08) ── */
+function ntDayPick(){
+  var cur = ntPickDays || [];
+  return '<div class="ntdays"><span class="ntdl2">В какие дни</span>'+
+    DOWS.map(function(n, i){
+      var on = cur.indexOf(i) >= 0;
+      var fr = ntState.person ? dayFree(ntState.person)[i] : null;
+      return '<button class="ntdb'+(on?' on':'')+'" data-ntpd="'+i+'">'+
+        '<i></i>'+n+(fr ? '<span>'+hrs(fr.load)+' ч</span>' : '')+'</button>'; }).join("")+
+    '<span class="ntdn">'+(cur.length ? cur.length + ' из 5' : 'ни одного')+'</span></div>';
+}
+
+/* ── подсказка по нескольким дням (v2nt.09) ── */
+function ntFreeDaysHint(){
+  var pid = ntPersonId();
+  if(!pid) return "";
+  var cyc = ntState.cycle || "once";
+  if(cyc !== "several") return "";
+  var want = (ntPickDays || []).length || ntDays || 2;
+  var fr = dayFree(pid).slice().sort(function(a,b){ return a.load - b.load; });
+  var best = fr.slice(0, want).map(function(x){ return x.d; }).sort();
+  var cur = (ntPickDays || []).slice().sort();
+  if(!cur.length || best.join() === cur.join()) return "";
+  var heavy = cur.filter(function(d){ return best.indexOf(d) < 0; });
+  if(!heavy.length) return "";
+  return '<div class="ntadv"><button class="advb" data-ntdays="'+best.join(",")+'">'+
+    '<b>'+best.map(function(d){ return DOW[d]; }).join(", ")+' свободнее</b>'+
+    '<i>'+heavy.map(function(d){ return DOW[d].toLowerCase(); }).join(" и ")+
+    (heavy.length>1?' загружены':' загружен')+' сильнее — сервис предлагает переставить</i>'+
+    '</button></div>';
+}
+
+/* ── недописанные задачи: раскрыть и почистить (D7) ── */
+function ntDraftsBox(){
+  var d = drafts();
+  if(!d.length) return "";
+  return '<div class="ntdr">'+
+    '<button class="ntdrh" id="ntDrTog" aria-expanded="'+ntDraftsOpen+'">'+
+      '<svg class="gcx" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>'+
+      d.length+' незаполненн'+(d.length===1?'ая задача':d.length<5?'ые задачи':'ых задач')+
+    '</button>'+
+    (ntDraftsOpen
+      ? '<div class="ntdrl">'+d.map(function(x){
+          var pr = x.project ? project(x.project) : null;
+          var m  = x.person ? person(x.person) : null;
+          return '<div class="ntdri">'+
+            '<span class="ntdrt">'+esc(x.title || "без названия")+'</span>'+
+            '<span class="ntdrm">'+(pr ? esc(pr.name) : "кабинет не выбран")+
+              (m ? ' · ' + esc(m.name) : '')+' · '+agoText(x.ts)+'</span>'+
+            '<button class="bt gh2 sm" data-drgo="'+esc(x.id)+'">Дописать</button>'+
+            '<button class="plx" data-drdel="'+esc(x.id)+'" title="Убрать">×</button>'+
+          '</div>'; }).join("")+
+        '<button class="bt gh2 sm ntdrall" id="ntDrClear">Убрать все недописанные</button>'+
+        '</div>'
+      : '')+
+  '</div>';
+}
+
+/* ── собираем всё в форму ── */
+(function(){
+  var _b = B.newtask;
+  B.newtask = function(el){
+    _b.call(B, el);
+    if(!ntOpen){
+      /* чип «начатых» → «незаполненных», и он разворачивается */
+      var chip = el.querySelector(".hdr");
+      if(chip){
+        var n = drafts().length;
+        chip.textContent = n + ' незаполненн' +
+          (n === 1 ? 'ая задача' : n < 5 ? 'ые задачи' : 'ых задач');
+        chip.classList.add("hdrb");
+        chip.setAttribute("data-ntdrtog", "1");
+      }
+      var bar = el.querySelector(".hotbar");
+      if(bar && ntDraftsOpen) bar.insertAdjacentHTML("afterend", ntDraftsBox());
+      else if(bar && drafts().length && !el.querySelector(".ntdr"))
+        bar.insertAdjacentHTML("afterend", ntDraftsBox());
+      return;
+    }
+    /* артикул — рядом с функцией */
+    var combo = el.querySelector("#fnCombo");
+    if(combo && !el.querySelector("#artCombo")){
+      combo.insertAdjacentHTML("afterend",
+        '<div class="fncombo" id="artCombo">'+
+          '<input class="fi fnq2" id="ntArtQ" autocomplete="off" '+
+            'placeholder="Артикул — необязательно" '+
+            'value="'+esc(ntArtOpen ? ntArtQ : ntArtName())+'">'+
+          '<svg class="gsc" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>'+
+          (ntState.art ? '<button class="fnx" id="ntArtClr" title="Убрать артикул">×</button>' : '')+
+        '</div>');
+    }
+    /* «несколько раз в неделю» — галочки по дням вместо числа */
+    if((ntState.cycle || "") === "several"){
+      var sel = el.querySelector("#ntDays");
+      if(sel) sel.remove();
+      var row = el.querySelector(".ntrow");
+      if(row && !el.querySelector(".ntdays"))
+        row.insertAdjacentHTML("afterend", ntDayPick());
+      var adv = el.querySelector(".ntadv");
+      var hint = ntFreeDaysHint();
+      if(hint){
+        if(adv) adv.insertAdjacentHTML("beforebegin", hint);
+        else {
+          var dd = el.querySelector(".ntdays");
+          if(dd) dd.insertAdjacentHTML("afterend", hint);
+        }
+      }
+    }
+    if(ntArtOpen) ntArtPop();
+  };
+})();
+
+/* ── постановка учитывает выбранные дни и артикул ── */
+(function(){
+  var _p = ntPlace;
+  ntPlace = function(){
+    if((ntState.cycle||"") === "several" && ntPickDays && ntPickDays.length){
+      /* подменяем раскладку: берём ровно отмеченные дни */
+      var _sd = spreadDays;
+      spreadDays = function(){ return ntPickDays.slice().sort(); };
+      var r = _p.apply(this, arguments);
+      spreadDays = _sd;
+      return r;
+    }
+    return _p.apply(this, arguments);
+  };
+})();
+(function(){
+  var _p2 = ntPlace;
+  ntPlace = function(){
+    var art = ntState.art;
+    var before = (S.tasks||[]).length;
+    var r = _p2.apply(this, arguments);
+    if(art){
+      for(var i = before; i < S.tasks.length; i++) S.tasks[i].art = art;
+      saveState();
+    }
+    /* запоминаем, что подсвечивать при переходе «где посмотреть» */
+    var last = placed()[0];
+    ntHiTask = last ? last.taskId : null;
+    return r;
+  };
+})();
+
+/* ── «где посмотреть» ведёт к самой задаче (D4, v2nt.17) ── */
+function ntGoto(kind){
+  var t = ntHiTask ? (S.tasks||[]).filter(function(x){ return x.id === ntHiTask; })[0] : null;
+  if(!t){ toast("Задача уже не найдена"); return; }
+  if(kind === "gantt"){
+    selPerson = t.person || null; proj = t.project || null;
+    scale = "день"; dow = t.dow;
+    setView("work"); render();
+  } else if(kind === "person"){
+    openPerson = t.person || null; peGantt = true;
+    navPush("work"); setView("people", true);
+  } else if(kind === "project"){
+    cabOpen = t.project || null;
+    navPush("work"); setView("cab", true);
+  }
+  setTimeout(function(){ ntHighlight(t.id); }, 420);
+}
+function ntHighlight(id){
+  var el = document.querySelector('[data-task="'+id+'"], [data-t="'+id+'"], [data-id="'+id+'"]');
+  if(!el){
+    /* ищем по тексту в ганте */
+    var t = (S.tasks||[]).filter(function(x){ return x.id === id; })[0];
+    if(t) q(".gt .tk, .tkr, .trow").some(function(n){
+      if((n.textContent||"").indexOf(t.title) >= 0){ el = n; return true; }
+      return false; });
+  }
+  if(!el){ toast("Задача поставлена — на этом экране её видно в общем списке"); return; }
+  el.classList.add("hitask");
+  el.scrollIntoView({block:"center", behavior:"smooth"});
+  setTimeout(function(){ el.classList.remove("hitask"); }, 4200);
+}
+
+document.addEventListener("click", function(e){
+  var t;
+  if((t = e.target.closest("[data-ntpd]"))){
+    e.stopPropagation();
+    var d = +t.getAttribute("data-ntpd");
+    if(!ntPickDays) ntPickDays = [];
+    var i = ntPickDays.indexOf(d);
+    if(i >= 0) ntPickDays.splice(i, 1); else ntPickDays.push(d);
+    ntCollect(); render(); return; }
+  if((t = e.target.closest("[data-ntdays]"))){
+    e.stopPropagation();
+    ntPickDays = t.getAttribute("data-ntdays").split(",").map(Number);
+    ntCollect(); render(); return; }
+  if((t = e.target.closest("[data-ntart]"))){
+    e.stopPropagation();
+    ntCollect(); ntState.art = t.getAttribute("data-ntart") || "";
+    ntArtOpen = false; ntArtQ = ""; gsClose(); render(); return; }
+  if(e.target.closest("#ntArtClr")){
+    e.stopPropagation(); ntCollect(); ntState.art = ""; ntArtQ = ""; ntArtOpen = false;
+    gsClose(); render(); return; }
+  if(e.target.closest("#ntArtQ")){
+    e.stopPropagation(); ntArtOpen = true; ntArtQ = ""; ntArtPop(); return; }
+  if(e.target.closest("[data-ntdrtog]") || e.target.closest("#ntDrTog")){
+    e.stopPropagation(); ntDraftsOpen = !ntDraftsOpen; render(); return; }
+  if((t = e.target.closest("[data-drdel]"))){
+    e.stopPropagation();
+    var id = t.getAttribute("data-drdel");
+    S.drafts = drafts().filter(function(x){ return x.id !== id; });
+    saveState(); render(); toast("Убрал"); return; }
+  if(e.target.closest("#ntDrClear")){
+    e.stopPropagation();
+    var n = drafts().length; S.drafts = [];
+    saveState(); ntDraftsOpen = false; render();
+    toast("Убрал " + n + " недописанных"); return; }
+  if((t = e.target.closest("[data-drgo]"))){
+    e.stopPropagation();
+    var dr = drafts().filter(function(x){ return x.id === t.getAttribute("data-drgo"); })[0];
+    if(!dr) return;
+    ntState = {project:dr.project, person:dr.person, dow:dr.dow, cycle:dr.cycle,
+               fn:dr.fn, min:dr.min, title:dr.title};
+    S.drafts = drafts().filter(function(x){ return x.id !== dr.id; });
+    ntOpen = true; ntDraftsOpen = false; saveState(); render(); return; }
+}, true);
+
+document.addEventListener("input", function(e){
+  if(e.target.id === "ntArtQ"){
+    ntArtQ = e.target.value; ntArtOpen = true; ntArtPop();
+  }
+});
+
+/* перехватываем «где посмотреть»: ведём к задаче, а не просто в раздел */
+document.addEventListener("click", function(e){
+  var t = e.target.closest("[data-ntgo]");
+  if(!t) return;
+  var k = t.getAttribute("data-ntgo");
+  if(!k) return;                 /* «свернуть варианты» — не трогаем */
+  e.stopImmediatePropagation();
+  ntAsk = null; ntAskOpen = false;
+  ntGoto(k);
+}, true);
+
+/* ══ 31. Гант: штриховка на неделе и месяце, фильтр по менеджеру ══
+   v2gantt.01/02 · штриховка «за пределами нормы» считалась только в дне,
+     потому что в неделе и месяце сервис не знал, где кончается норма.
+     Теперь считаем от часов: сколько процентов полосы — сверх нормы.
+   v2gantt.01 · фильтр по менеджеру был спрятан в клике по имени строки.
+     Делаем явный выпадающий список рядом с масштабом. */
+
+function gRowLoad(u, byProject){
+  /* часы строки за период, честно из задач */
+  var mins = 0;
+  for(var d = 0; d < 5; d++){
+    (S.tasks || []).forEach(function(t){
+      if(t.dow !== d) return;
+      if(byProject){ if(t.project !== u.id) return;
+        if(selPerson && t.person !== selPerson) return; }
+      else { if(t.person !== u.id) return;
+        if(proj && t.project !== proj) return; }
+      mins += (t.minutes || 0);
+    });
+  }
+  return mins;
+}
+
+function ganttHatch(el){
+  if(scale === "день") return;              /* в дне рисует сам гант */
+  var byProject = !!selPerson || role === "mgr";
+  var norm = scale === "неделя" ? NORM * 5 : NORM * 20;
+  q(".gr", el).forEach(function(r){
+    var ln = r.querySelector(".ln");
+    if(!ln || ln.querySelector(".ov")) return;
+    var h = r.querySelector(".gn .h");
+    var mins = 0;
+    if(h){
+      /* «38,8 ч · 126%» — берём часы, они точнее процента */
+      var m = /([\d.,]+)\s*ч/.exec(h.textContent || "");
+      if(m) mins = parseFloat(m[1].replace(",", ".")) * 60;
+    }
+    if(mins <= norm) return;
+    var over = Math.min(72, (mins - norm) / mins * 100);
+    var d = document.createElement("div");
+    d.className = "ov";
+    d.style.left = (100 - over) + "%";
+    d.style.right = "0";
+    d.title = "за пределами нормы: " + hrs(mins - norm) + " ч";
+    ln.appendChild(d);
+  });
+}
+
+function ganttPeopleFilter(el){
+  var head = el.querySelector(".gl-t");
+  if(!head || head.querySelector(".gpick")) return;
+  if(role === "mgr") return;
+  var pl = (S.people || []).filter(function(m){ return !m.hidden; });
+  if(!pl.length) return;
+  var cur = selPerson ? person(selPerson) : null;
+  var d = document.createElement("div");
+  d.className = "gpick";
+  d.innerHTML = '<span class="gsl2">Менеджер</span>'+
+    '<select class="sel sm" id="gPerson">'+
+      '<option value="">Вся команда</option>'+
+      pl.map(function(m){
+        return '<option value="'+esc(m.id)+'"'+(selPerson===m.id?' selected':'')+'>'+
+          esc(m.name)+'</option>'; }).join("")+
+    '</select>'+
+    (cur ? '<button class="bt gh2 sm" id="gPersonX">Снять</button>' : '');
+  var scaleBox = head.querySelector(".gscale");
+  if(scaleBox) head.insertBefore(d, scaleBox); else head.appendChild(d);
+}
+
+(function(){
+  var _g = B.gantt;
+  B.gantt = function(el){
+    var v = _g.call(B, el);
+    try{ ganttHatch(el); }catch(e){}
+    try{ ganttPeopleFilter(el); }catch(e){}
+    return v;
+  };
+})();
+
+document.addEventListener("change", function(e){
+  if(e.target.id === "gPerson"){
+    selPerson = e.target.value || null;
+    render();
+  }
+});
+document.addEventListener("click", function(e){
+  if(e.target.closest("#gPersonX")){ selPerson = null; render(); }
+});
+
+/* ══ 32. «Задачи дня»: во всю ширину, фильтры, сделано / не сделано ══
+   D1 · блок во всю ширину; фильтры «сегодня», любой день недели,
+        любой сотрудник; когда открыт сегодня — слева не сделано,
+        справа уже сделано
+   odock.01 · плюс фильтр по клиенту: из чего состоит работа менеджера
+        сегодня во всех кабинетах или по одному */
+
+var tdDay = null;          /* null = сегодня */
+var tdWho = "";            /* id сотрудника */
+var tdCab = "";            /* id кабинета */
+
+function tdList(){
+  var d = tdDay === null ? dow : tdDay;
+  return (S.tasks || []).filter(function(t){
+    if(t.dow !== d) return false;
+    if(tdWho && t.person !== tdWho) return false;
+    if(tdCab && t.project !== tdCab) return false;
+    if(isMgr() && t.person !== meId) return false;
+    return true;
+  });
+}
+
+function tdRow(t){
+  var m  = t.person ? person(t.person) : null;
+  var pr = t.project ? project(t.project) : null;
+  var f  = t.fn ? fnById(t.fn) : null;
+  return '<div class="tdr'+(t.done?' done':'')+'" data-task="'+esc(t.id)+'">'+
+    '<button class="tdc" data-cb="'+esc(t.id)+'" aria-pressed="'+(!!t.done)+'"><i></i></button>'+
+    '<div class="tdt"><b>'+esc(t.title || (f ? f.name : "Задача"))+'</b>'+
+      '<i>'+(m ? esc(m.name) : 'без ответственного')+
+        (pr ? ' · ' + esc(pr.name) : '')+
+        ' · '+(t.minutes||0)+' мин'+
+        (t.kind === "cyc" ? ' · цикличная' : t.kind === "urg" ? ' · срочная' : '')+'</i></div>'+
+    (m ? '<span class="av2" style="background:'+m.color+'">'+esc(m.av||"")+'</span>' : '')+
+  '</div>';
+}
+
+function renderDayTasks(el){
+  var d = tdDay === null ? dow : tdDay;
+  var list = tdList();
+  var done = list.filter(function(t){ return t.done; });
+  var left = list.filter(function(t){ return !t.done; });
+  var pl = (S.people||[]).filter(function(m){ return !m.hidden; });
+  var today0 = (tdDay === null || tdDay === dow);
+
+  var filters =
+    '<div class="tdf">'+
+      '<div class="seg sm tdseg">'+
+        '<button data-tdd="now" aria-pressed="'+(tdDay===null)+'">Сегодня</button>'+
+        DOWS.map(function(n, i){
+          return '<button data-tdd="'+i+'" aria-pressed="'+(tdDay===i)+'">'+n+'</button>'; }).join("")+
+      '</div>'+
+      (isMgr() ? '' :
+        '<select class="sel sm" id="tdWho"><option value="">Все сотрудники</option>'+
+          pl.map(function(m){
+            return '<option value="'+esc(m.id)+'"'+(tdWho===m.id?' selected':'')+'>'+
+              esc(m.name)+'</option>'; }).join("")+'</select>')+
+      '<select class="sel sm" id="tdCab"><option value="">Все кабинеты</option>'+
+        (S.projects||[]).map(function(p){
+          return '<option value="'+esc(p.id)+'"'+(tdCab===p.id?' selected':'')+'>'+
+            esc(p.name)+'</option>'; }).join("")+'</select>'+
+      ((tdWho || tdCab || tdDay !== null)
+        ? '<button class="bt gh2 sm" id="tdClear">Сбросить</button>' : '')+
+    '</div>';
+
+  el.innerHTML = filters +
+    (today0
+      ? '<div class="tdsplit">'+
+          '<div class="tdcol"><div class="tdh2">Ещё не сделано '+
+            '<span>'+left.length+' · '+hrs(minutesOf(left))+' ч</span></div>'+
+            (left.length ? left.map(tdRow).join("")
+              : '<div class="empty">Всё закрыто — день чистый</div>')+'</div>'+
+          '<div class="tdcol ok"><div class="tdh2">Уже сделано '+
+            '<span>'+done.length+' · '+hrs(minutesOf(done))+' ч</span></div>'+
+            (done.length ? done.map(tdRow).join("")
+              : '<div class="empty">Пока ничего не закрыто</div>')+'</div>'+
+        '</div>'
+      : '<div class="tdone">'+(list.length
+          ? list.map(tdRow).join("")
+          : '<div class="empty">В '+DOWS[d].toLowerCase()+' задач нет</div>')+'</div>');
+
+  var meta = document.getElementById("tasksMeta");
+  if(meta) meta.textContent = list.length + ' задач · ' + hrs(minutesOf(list)) + ' ч' +
+    (today0 ? ' · сделано ' + done.length + ' из ' + list.length : '');
+  var ttl = document.getElementById("tasksTitle");
+  if(ttl) ttl.textContent = today0 ? "Задачи дня" : "Задачи · " + DOW[d];
+}
+
+B.tasks = renderDayTasks;
+
+document.addEventListener("click", function(e){
+  var t;
+  if((t = e.target.closest("[data-tdd]"))){
+    var v = t.getAttribute("data-tdd");
+    tdDay = v === "now" ? null : +v;
+    render(); return; }
+  if(e.target.closest("#tdClear")){ tdDay = null; tdWho = ""; tdCab = ""; render(); return; }
+});
+document.addEventListener("change", function(e){
+  if(e.target.id === "tdWho"){ tdWho = e.target.value; render(); }
+  if(e.target.id === "tdCab"){ tdCab = e.target.value; render(); }
+});
+
+/* блок «Задачи дня» занимает всю ширину сетки */
+(function(){
+  var sec = document.querySelector('[data-b="tasks"]');
+  sec = sec ? sec.closest("section") : null;
+  if(sec){ sec.classList.remove("s5"); sec.classList.add("s12"); }
+})();
+
+/* ══ 33. Функции: каталог, настройка каждой функции, регламент ══
+   D3  · каждую функцию можно открыть, настроить и удалить
+   D15 · категория сложности → рекомендованный грейд
+   D40 · «Ключевые функции в проекте» и «Платные функции» отдельными
+         группами, повтор помечается дублем
+   v2fns · с экрана ушли менеджеры, ники и кабинеты — здесь справочник,
+         а не отчёт по людям. Прогноз поставки больше не реклама,
+         новинки — организационное.                                   */
+
+/* сложность задачи: от неё считается рекомендованный грейд */
+var FCATS = [
+  ["A", "высокая", "нужно решение и своя голова"],
+  ["B", "средняя", "понятный порядок действий, но есть выбор"],
+  ["C", "низкая",  "делается по инструкции, ошибиться сложно"]
+];
+function fcatName(c){
+  var x = FCATS.filter(function(g){ return g[0] === c; })[0];
+  return x ? x[1] : "средняя";
+}
+/* D15 · какой грейд тянет такую сложность */
+var FCAT_GRADE = {
+  A: ["head", "Главный менеджер или проджект"],
+  B: ["mid",  "Менеджер"],
+  C: ["jun",  "Младший менеджер или ассистент"]
+};
+
+/* группа · сложность · ключевая — разложено руками, а не регуляркой:
+   «прогноз поставки» не реклама, «новинки» — организационное      */
+var FN_META = {
+  "F1-01":["unit","C"],   "F1-02":["analyt","C"], "F1-03":["card","A",1],
+  "F1-04":["ads","B"],    "F1-05":["analyt","B",1],"F1-06":["ads","A"],
+  "F1-07":["analyt","C"], "F1-08":["buyout","B"], "F1-09":["card","A"],
+  "F1-10":["analyt","B"], "F1-11":["analyt","B"], "F1-12":["analyt","B"],
+  "F1-13":["supply","C"], "F1-14":["supply","C"], "F1-15":["analyt","C"],
+  "F1-16":["unit","A"],   "F1-17":["unit","A",1], "F1-18":["card","A",1],
+  "F1-19":["unit","A",1], "F1-20":["unit","B"],   "F1-21":["analyt","A",1],
+  "F1-22":["unit","A"],   "F1-23":["unit","B"],   "F1-24":["ads","A",1],
+  "F1-25":["ads","A"],    "F1-26":["analyt","B"], "F1-27":["analyt","B"],
+  "F1-28":["ads","A"],    "F1-29":["org","B"],    "F1-30":["supply","A",1],
+  "F1-31":["ads","C"],    "F1-32":["ads","C"],
+  "F2-01":["org","A"],    "F2-02":["org","A"],    "F2-03":["org","C"],
+  "F2-04":["org","B"],    "F2-05":["ads","C"],    "F2-06":["ads","B"],
+  "F2-07":["org","A"],    "F2-08":["tech","B"],   "F2-09":["org","B"],
+  "F2-10":["org","C"],    "F2-11":["org","A",1],  "F2-12":["org","B"],
+  "F2-13":["org","B"],    "F2-14":["org","B"],
+  "F3-01":["tech","A"]
+};
+
+/* платные функции с сайта: где живут в работе и насколько тяжёлые */
+var FN_META_PAID = {
+  "S1-01":["card","A"],   "S1-02":["card","A"],   "S1-03":["card","B"],
+  "S1-04":["card","A"],   "S1-05":["card","B"],   "S1-06":["buyout","B"],
+  "S1-07":["buyout","C"], "S1-08":["org","A"],    "S1-09":["org","B"],
+  "S1-10":["card","A"]
+};
+var FN_META_NAME = {
+  "Прогноз поставки (анализ)":            ["supply","A"],
+  "Прогноз поставки (слоты и заявка)":    ["supply","B"],
+  "План продаж":                          ["analyt","A"],
+  "Анализ точек входа/выхода по новым товарам": ["analyt","A"],
+  "Курирование точек входа":              ["org","B"],
+  "Юнитка (актуализация)":                ["unit","B"],
+  "Управление акциями":                   ["unit","B"]
+};
+
+var FN_GROUPS2 = [
+  ["key",   "Ключевые функции в проекте",
+   "вокруг них строится неделя — их клиент покупает вместе с ведением"],
+  ["paid",  "Платные функции",
+   "докупаются отдельно — ровно те блоки, что стоят на сайте"],
+  ["ads",   "Реклама и трафик",       "ставки, кластеры, полки, бюджет"],
+  ["unit",  "Юнит-экономика и цена",  "цена, СПП, акции, маржа"],
+  ["analyt","Аналитика и отчётность", "что сняли, что посчитали, что показали"],
+  ["card",  "Карточка и контент",     "SEO, фото, обложки, тесты"],
+  ["supply","Поставки и остатки",     "что закончится и когда везти"],
+  ["buyout","Самовыкупы",             "ТЗ и курирование"],
+  ["org",   "Организационные",        "планёрки, регламенты, люди, новинки"],
+  ["tech",  "Технические",            "сервисы, доступы, интеграции"]
+];
+var FN_PAID_PRICE = 7000;      /* цена платной функции с сайта */
+
+/* запасной разбор — только для функций, которые завели сами */
+var FN_FALL = [
+  ["supply",/поставк|остатк|склад|пополнен|прогноз|вылетевш|закончитс/i],
+  ["ads",   /реклам|\bрк\b|трафик|кластер|полк|ctr|бюджет|откручив|сплит/i],
+  ["unit",  /юнит|цен|спп|акци|p&l|маржин|скидк/i],
+  ["analyt",/отчёт|отчет|статист|аналитик|монитор|конверс|динамик|лайтстат|сводн|план продаж|конкурент/i],
+  ["card",  /seo|фото|обложк|карточк|а\/в|ав-тест|размер|дизайн|семантик/i],
+  ["buyout",/самовыкуп/i],
+  ["tech",  /api|интеграц|подключен|техничес/i]
+];
+
+/* если функция уже стоит в планах кабинетов — берём её ритм оттуда,
+   чтобы экран не встречал пустотой то, что сервис и так знает */
+function fnCycSeed(f){
+  var rows = (S.plan || []).filter(function(p){ return p.fn === f.id && p.cycle && p.cycle !== "none"; });
+  if(!rows.length) return "";
+  var cnt = {};
+  rows.forEach(function(p){ cnt[p.cycle] = (cnt[p.cycle] || 0) + 1; });
+  return Object.keys(cnt).sort(function(a, b){ return cnt[b] - cnt[a]; })[0] || "";
+}
+function fnCfg(f){
+  if(!S.fnCfg) S.fnCfg = {};
+  var c = S.fnCfg[f.id];
+  if(!c){
+    var m = FN_META[f.code] || FN_META_PAID[f.code] || FN_META_NAME[f.name] || null;
+    var grp = m ? m[0] : "org";
+    if(!m){
+      for(var i = 0; i < FN_FALL.length; i++){
+        if(FN_FALL[i][1].test(f.name || "")){ grp = FN_FALL[i][0]; break; }
+      }
+    }
+    if(grp === "paid" || grp === "key") grp = "org";
+    c = S.fnCfg[f.id] = {
+      grp:  grp,
+      cat:  m ? m[1] : "",
+      key:  m && m[2] ? 1 : 0,
+      paid: /^S1-/.test(f.code || "") ? 1 : 0,
+      price: /^S1-/.test(f.code || "") ? FN_PAID_PRICE : 0,
+      cyc: fnCycSeed(f), days: [],
+      appr: 0, apprBy: "",
+      regKind: "tpl", regText: "", regLink: "", regShot: "",
+      own: ""
+    };
+    saveState();
+  }
+  if(!c.days) c.days = [];
+  return c;
+}
+/* рабочая группа функции — платные и ключевые живут поверх неё */
+function fnHome(f){ return fnCfg(f).grp; }
+function fnTitle(f){ var c = fnCfg(f); return c.own || f.name; }
+function fnReady(f){
+  var c = fnCfg(f);
+  return !!(c.cat && f.minutes && c.cyc);
+}
+function fnHasReg(f){
+  var c = fnCfg(f);
+  return !!(c.regText || c.regLink || c.regShot);
+}
+function fnCycName(v){
+  var x = CYCLES.filter(function(c){ return c[0] === v; })[0];
+  return x ? x[1] : "не задана";
+}
+function canEditFns(){
+  if(role === "owner" || role === "dir") return true;
+  return !!roleCfg(role).ext.editFns;
+}
+
+/* ── состояние экрана ── */
+var fnOpen = null;        /* id открытой функции */
+var fnOpenFrom = null;    /* из какой группы провалились — чтобы вернуться туда же */
+var fnFilter = "";        /* "", "ready", "raw" */
+var fnDel = null;         /* подтверждение удаления */
+fnOpenGrp = fnOpenGrp || {};
+
+function fnList(){
+  fnsSeed(); fnsSeedPaid();
+  return (S.fns || []).slice();
+}
+function fnGrouped(){
+  var qq = fnQ.toLowerCase().trim();
+  var by = {};
+  FN_GROUPS2.forEach(function(g){ by[g[0]] = []; });
+  fnList().forEach(function(f){
+    if(qq && fnTitle(f).toLowerCase().indexOf(qq) < 0 &&
+       String(f.code).toLowerCase().indexOf(qq) < 0) return;
+    if(fnFilter === "ready" && !fnReady(f)) return;
+    if(fnFilter === "raw" && fnReady(f)) return;
+    if(fnFilter === "noreg" && fnHasReg(f)) return;
+    var c = fnCfg(f);
+    if(c.key)  by.key.push(f);
+    if(c.paid) by.paid.push(f);
+    var home = by[c.grp] ? c.grp : "org";
+    if(home !== "key" && home !== "paid") by[home].push(f);
+  });
+  return by;
+}
+/* где ещё эта функция показывается, кроме текущей группы */
+function fnAlso(f, here){
+  var c = fnCfg(f), out = [];
+  if(c.key  && here !== "key")  out.push("Ключевые");
+  if(c.paid && here !== "paid") out.push("Платные");
+  if(here !== c.grp){
+    var g = FN_GROUPS2.filter(function(x){ return x[0] === c.grp; })[0];
+    if(g) out.push(g[1]);
+  }
+  return out;
+}
+
+function renderFns(){
+  if(fnOpen){ renderFnOne(); return; }
+  var host = document.getElementById("sect");
+  var by = fnGrouped();
+  var all = fnList();
+  var ready = all.filter(fnReady).length;
+  var reg = all.filter(fnHasReg).length;
+  var qq = fnQ.trim();
+  var shown = FN_GROUPS2.reduce(function(a, g){ return a + by[g[0]].length; }, 0);
+
+  host.innerHTML =
+    '<div class="gl grsum fnsum">'+
+      '<button class="pss'+(fnFilter===""?" on":"")+'" data-fnfil="">'+
+        '<div class="l">Всего функций</div><div class="v">'+all.length+'</div>'+
+        '<div class="d">из них '+by.key.length+' ключевых и '+by.paid.length+' платных</div></button>'+
+      '<button class="pss'+(fnFilter==="ready"?" on":"")+'" data-fnfil="ready">'+
+        '<div class="l">Настроено</div><div class="v ok">'+ready+'</div>'+
+        '<div class="d">сложность, норматив и цикличность на месте</div></button>'+
+      '<button class="pss'+(fnFilter==="raw"?" on":"")+'" data-fnfil="raw">'+
+        '<div class="l">Не настроено</div><div class="v'+(all.length-ready?" warn":"")+'">'+
+        (all.length - ready)+'</div>'+
+        '<div class="d">нажмите — покажу только их</div></button>'+
+      '<button class="pss'+(fnFilter==="noreg"?" on":"")+'" data-fnfil="noreg">'+
+        '<div class="l">Без регламента</div>'+
+        '<div class="v'+(all.length-reg?" warn":"")+'">'+(all.length - reg)+'</div>'+
+        '<div class="d">некому объяснить новичку, как это делается</div></button>'+
+    '</div>'+
+
+    '<div class="gl"><div class="gl-t"><h2>Функции</h2>'+
+      '<span class="m">'+(qq ? 'нашлось '+shown
+        : fnFilter === "raw" ? 'показываю только ненастроенные'
+        : fnFilter === "ready" ? 'показываю только настроенные'
+        : fnFilter === "noreg" ? 'показываю те, у которых нет регламента'
+        : 'сначала то, за что платит клиент, потом рабочие блоки')+'</span>'+
+      '<div class="fnbar"><input class="fi sm fnq" id="fnQ" placeholder="Найти функцию" value="'+esc(fnQ)+'">'+
+        (canEditFns() ? '<button class="bt gh2 sm" id="fnAdd2">+ Своя функция</button>' : '')+
+      '</div></div>'+
+
+      FN_GROUPS2.map(function(g){
+        var list = by[g[0]];
+        if(!list.length) return "";
+        var open = (qq || fnFilter) ? true
+                 : (g[0] === "key" || g[0] === "paid") ? (fnOpenGrp[g[0]] !== false)
+                 : !!fnOpenGrp[g[0]];
+        var mins = list.reduce(function(a, f){ return a + (f.minutes || 0); }, 0);
+        return '<div class="fng fng-'+g[0]+(open?' on':'')+'">'+
+          '<button class="fngh" data-fng2="'+g[0]+'">'+
+            '<svg class="gcx" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>'+
+            '<b>'+g[1]+'</b><span class="fngn">'+list.length+'</span>'+
+            '<i>'+esc(g[2])+' · '+hrs(mins)+' ч суммарно</i>'+
+            (g[0] === "paid" ? '<span class="fnprice">'+money0(FN_PAID_PRICE)+' за функцию · '+
+              money0(list.length * FN_PAID_PRICE)+' весь список</span>' : '')+
+          '</button>'+
+          (open ? '<div class="fngl">'+list.map(function(f){
+            return fnRowHTML(f, g[0]); }).join("")+'</div>' : '')+
+        '</div>'; }).join("")+
+
+      (shown ? '' : '<div class="empty">'+
+        (fnFilter === "raw" ? 'Все функции настроены — так и должно быть'
+         : 'Ничего не найдено')+'</div>')+
+    '</div>';
+}
+
+function fnRowHTML(f, here){
+  var c = fnCfg(f), also = fnAlso(f, here), ok = fnReady(f);
+  var gr = FCAT_GRADE[c.cat];
+  return '<button class="fnr2'+(ok?'':' raw')+'" data-fnopen="'+esc(f.id)+'" data-fnfrom="'+here+'">'+
+    '<span class="fnc2">'+esc(f.code)+'</span>'+
+    '<span class="fnn2">'+esc(fnTitle(f))+
+      (also.length ? '<i class="fndub" title="эта же функция есть в других блоках">дубль · '+
+        esc(also.join(", "))+'</i>' : '')+
+    '</span>'+
+    '<span class="fcat c'+(c.cat||"x")+'">'+(c.cat ? c.cat + ' · ' + fcatName(c.cat) : 'сложность не задана')+'</span>'+
+    '<span class="fnm">'+(f.minutes || 0)+' мин</span>'+
+    '<span class="fncy'+(c.cyc?'':' dim')+'">'+esc(fnCycName(c.cyc))+'</span>'+
+    '<span class="fngd">'+(gr ? esc(gr[1]) : '<i class="dim">грейд не выведен</i>')+'</span>'+
+    '<span class="fnst">'+(ok
+      ? '<i class="okd">настроена</i>'
+      : '<i class="rawd">нужно настроить</i>')+
+      (fnHasReg(f) ? '<i class="regd">регламент есть</i>' : '<i class="regn">без регламента</i>')+
+    '</span>'+
+    '<svg class="fnar" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>'+
+  '</button>';
+}
+
+/* ── второй уровень: одна функция целиком ── */
+function renderFnOne(){
+  var f = fnById(fnOpen);
+  if(!f){ fnOpen = null; renderFns(); return; }
+  var c = fnCfg(f), fm = fnForm(f.id);
+  var own = /^F0-/.test(f.code || "");
+  var gr = FCAT_GRADE[c.cat];
+  var grName = gr ? (grades().filter(function(g){ return g.id === gr[0]; })[0] || {}).name : "";
+  var homeG = FN_GROUPS2.filter(function(g){ return g[0] === (fnOpenFrom || c.grp); })[0];
+  var host = document.getElementById("sect");
+
+  host.innerHTML =
+    '<nav class="crumbs fncr">'+
+      '<button class="crb" id="fnBackAll">Функции</button><span class="crs">›</span>'+
+      (homeG ? '<button class="crb" id="fnBackGrp">'+esc(homeG[1])+'</button><span class="crs">›</span>' : '')+
+      '<span class="crn">'+esc(fnTitle(f))+'</span>'+
+      '<button class="crback" id="fnBack">← Назад</button>'+
+    '</nav>'+
+
+    '<div class="gl fnone">'+
+      '<div class="gl-t"><h2>'+esc(f.code)+' · '+esc(fnTitle(f))+'</h2>'+
+        '<span class="m">'+(fnReady(f)
+          ? 'функция настроена — из неё можно собирать задачи'
+          : 'пока не хватает настроек — задачи по ней будут неполными')+'</span></div>'+
+
+      /* 1. Что это за функция */
+      '<div class="fnsec"><div class="fnsh">Что это за функция</div>'+
+        '<div class="sfr">'+
+          '<label><span>'+(own ? 'Название' : 'Название в справочнике')+'</span>'+
+            (own
+              ? '<input class="fi sm" data-fnname="'+esc(f.id)+'" value="'+esc(f.name)+'">'
+              : '<input class="fi sm" value="'+esc(f.name)+'" disabled>')+
+          '</label>'+
+          (own ? '' :
+          '<label><span>Как называем у себя</span>'+
+            '<input class="fi sm" data-fnc="own" placeholder="'+esc(f.name)+'" value="'+esc(c.own)+'"></label>')+
+          '<label class="nar"><span>Норматив, мин</span>'+
+            '<input class="fi sm" type="number" min="5" step="5" data-fnmin="'+esc(f.id)+'" value="'+(f.minutes||30)+'"></label>'+
+        '</div>'+
+        '<div class="sfr"><label><span>Блок, в котором живёт</span>'+
+          '<select class="sel" data-fnc="grp">'+FN_GROUPS2.filter(function(g){
+            return g[0] !== "key" && g[0] !== "paid"; }).map(function(g){
+            return '<option value="'+g[0]+'"'+(c.grp===g[0]?' selected':'')+'>'+esc(g[1])+'</option>'; }).join("")+
+          '</select></label>'+
+          '<label class="nar"><span>Показывать ещё</span><div class="fnflags">'+
+            '<button class="ck'+(c.key?' on':'')+'" data-fnck="key"><i></i>Ключевая</button>'+
+            '<button class="ck'+(c.paid?' on':'')+'" data-fnck="paid"><i></i>Платная</button>'+
+          '</div></label>'+
+          (c.paid ? '<label class="nar"><span>Цена, ₽</span>'+
+            '<input class="fi sm" type="number" min="0" step="500" data-fnc="price" value="'+(c.price||FN_PAID_PRICE)+'"></label>' : '')+
+        '</div>'+
+        (fnAlso(f, fnOpenFrom || c.grp).length
+          ? '<div class="fnnote">Эта функция показывается ещё в: <b>'+
+            esc(fnAlso(f, fnOpenFrom || c.grp).join(", "))+'</b>. Так и задумано: продаём по одному списку, '+
+            'а задачи ставим по другому — чтобы не искать одно и то же дважды.</div>' : '')+
+      '</div>'+
+
+      /* 2. Сложность и грейд (D15) */
+      '<div class="fnsec"><div class="fnsh">Сложность и кто это тянет</div>'+
+        '<div class="fcats">'+FCATS.map(function(x){
+          return '<button class="fcb c'+x[0]+(c.cat===x[0]?' on':'')+'" data-fncat="'+x[0]+'">'+
+            '<b>'+x[0]+' · '+x[1]+'</b><i>'+x[2]+'</i></button>'; }).join("")+'</div>'+
+        (gr ? '<div class="fngrade">Такую сложность тянет <b>'+esc(gr[1])+'</b>'+
+          (grName ? ' — грейд «'+esc(grName)+'»' : '')+'. '+
+          'Если задачу регулярно делает кто-то младше, сервис это увидит и '+
+          'предложит поднять грейд — а если повышения не будет, запомнит это в рейтинге.</div>'
+          : '<div class="fnnote">Пока сложность не проставлена, грейд по этой функции не считается.</div>')+
+      '</div>'+
+
+      /* 3. Ритм */
+      '<div class="fnsec"><div class="fnsh">Как часто делаем</div>'+
+        '<div class="sfr"><label><span>Цикличность</span>'+
+          '<select class="sel" data-fnc="cyc">'+
+            '<option value=""'+(c.cyc?'':' selected')+'>— не задана —</option>'+
+            CYCLES.map(function(x){
+            return '<option value="'+x[0]+'"'+(c.cyc===x[0]?' selected':'')+'>'+x[1]+'</option>'; }).join("")+
+          '</select></label>'+
+          '<label><span>Дни недели</span><div class="fndays">'+
+            ["Пн","Вт","Ср","Чт","Пт","Сб","Вс"].map(function(d, i){
+              return '<button class="fdb'+(c.days.indexOf(i)>=0?' on':'')+'" data-fnday="'+i+'">'+d+'</button>'; }).join("")+
+          '</div></label>'+
+        '</div>'+
+        '<div class="fnnote">'+fnRhythmWords(f, c)+'</div>'+
+      '</div>'+
+
+      /* 4. Регламент (D2 живёт отсюда) */
+      '<div class="fnsec"><div class="fnsh">Регламент</div>'+
+        '<div class="fnregk">'+
+          '<button class="fkb'+(c.regKind==="tpl"?' on':'')+'" data-fnreg="tpl">'+
+            '<b>Шаблонный</b><i>один на все кабинеты</i></button>'+
+          '<button class="fkb'+(c.regKind==="uniq"?' on':'')+'" data-fnreg="uniq">'+
+            '<b>Уникальный</b><i>свой у каждого кабинета</i></button>'+
+        '</div>'+
+        '<div class="sfr"><label><span>Как делать — коротко, своими словами</span>'+
+          '<textarea class="fi" rows="4" data-fnc="regText" placeholder="Три-четыре шага. Что открыть, что посмотреть, что записать, куда отправить.">'+esc(c.regText)+'</textarea></label></div>'+
+        '<div class="sfr">'+
+          '<label><span>Ссылка на документ</span>'+
+            '<input class="fi sm" data-fnc="regLink" placeholder="https://docs.google.com/..." value="'+esc(c.regLink)+'"></label>'+
+          '<label><span>Ссылка на скриншот или видео</span>'+
+            '<input class="fi sm" data-fnc="regShot" placeholder="ссылка на разбор или запись экрана" value="'+esc(c.regShot)+'"></label>'+
+        '</div>'+
+        '<div class="fnnote">Регламент лежит здесь, а в разделе «Регламенты» он же собирается в общий список — '+
+          'шаблонные отдельно, уникальные отдельно. Писать дважды не нужно.</div>'+
+      '</div>'+
+
+      /* 5. Согласование и отправка */
+      '<div class="fnsec"><div class="fnsh">Согласование и отправка</div>'+
+        '<div class="sfr">'+
+          '<label class="nar"><span>Перед отправкой</span>'+
+            '<button class="ck'+(c.appr?' on':'')+'" data-fnck="appr"><i></i>Нужно согласовать</button></label>'+
+          (c.appr ? '<label><span>С кем согласовываем</span>'+
+            '<select class="sel" data-fnc="apprBy">'+
+              '<option value="">— выберите —</option>'+
+              (S.people||[]).map(function(m){
+                return '<option value="'+esc(m.id)+'"'+(c.apprBy===m.id?' selected':'')+'>'+
+                  esc(m.name)+' · '+esc(m.role||"")+'</option>'; }).join("")+
+            '</select></label>' : '')+
+        '</div>'+
+        fnFormHTML(f, fm)+
+      '</div>'+
+
+      /* 6. Удаление (D3) */
+      (canEditFns()
+        ? '<div class="fndang">'+
+            (fnDel === f.id
+              ? '<div class="fndq"><b>Удалить «'+esc(fnTitle(f))+'»?</b>'+
+                '<span>Функция исчезнет из справочника и из списков постановки. '+
+                'Уже поставленные задачи останутся — они просто потеряют связь со справочником.</span>'+
+                '<div class="fndb"><button class="bt dang sm" data-fndelyes="'+esc(f.id)+'">Да, удалить</button>'+
+                '<button class="bt gh2 sm" id="fnDelNo">Оставить</button></div></div>'
+              : '<button class="bt gh2 sm dangl" data-fndel="'+esc(f.id)+'">Удалить функцию</button>')+
+          '</div>'
+        : '<div class="fnnote">Удалять функции может собственник, директор или тот, кому в «Доступах» '+
+          'поставили галочку «Может править справочник функций».</div>')+
+    '</div>';
+}
+
+function fnRhythmWords(f, c){
+  if(!c.cyc) return "Цикличность не задана — сервис не знает, когда сам подставлять эту функцию в неделю.";
+  var per = c.cyc === "daily" ? 5
+          : c.cyc === "weekly" ? 1
+          : c.cyc === "biweekly" ? 0.5
+          : c.cyc === "monthly" ? 0.25 : 0;
+  if(c.days.length) per = c.days.length;
+  if(!per) return "Разовая функция — в неделю сама не встаёт, ставится руками.";
+  var wk = Math.round(per * (f.minutes || 0));
+  return "Получается " + per + " раз в неделю, это " + hrs(wk) + " ч на один кабинет. " +
+    "На десяти кабинетах — " + hrs(wk * 10) + " ч в неделю, почти " +
+    Math.round(wk * 10 / 60 / 8 * 10) / 10 + " рабочего дня.";
+}
+
+/* ── обработчики каталога ── */
+document.addEventListener("click", function(e){
+  var t;
+  if(view !== "fns") return;
+  if((t = e.target.closest("[data-fng2]"))){
+    var g2 = t.getAttribute("data-fng2");
+    var cur = (g2 === "key" || g2 === "paid") ? (fnOpenGrp[g2] !== false) : !!fnOpenGrp[g2];
+    fnOpenGrp[g2] = !cur; renderFns(); return; }
+  if((t = e.target.closest("[data-fnfil]"))){
+    fnFilter = t.getAttribute("data-fnfil"); renderFns(); return; }
+  if((t = e.target.closest("[data-fnopen]"))){
+    fnOpen = t.getAttribute("data-fnopen");
+    fnOpenFrom = t.getAttribute("data-fnfrom") || null;
+    fnDel = null; renderFns();
+    var sec = document.getElementById("sect"); if(sec) sec.scrollTop = 0;
+    return; }
+  if(e.target.closest("#fnBack") || e.target.closest("#fnBackGrp")){
+    var g = fnOpenFrom; fnOpen = null; fnDel = null;
+    if(g) fnOpenGrp[g] = true;
+    renderFns(); return; }
+  if(e.target.closest("#fnBackAll")){
+    fnOpen = null; fnOpenFrom = null; fnDel = null; fnQ = ""; fnFilter = "";
+    renderFns(); return; }
+  if((t = e.target.closest("[data-fncat]"))){
+    var f1 = fnById(fnOpen); if(!f1) return;
+    fnCfg(f1).cat = t.getAttribute("data-fncat"); saveState(); renderFns(); return; }
+  if((t = e.target.closest("[data-fnck]"))){
+    var f2 = fnById(fnOpen); if(!f2) return;
+    var k = t.getAttribute("data-fnck"), cc = fnCfg(f2);
+    cc[k] = cc[k] ? 0 : 1;
+    if(k === "paid" && cc.paid && !cc.price) cc.price = FN_PAID_PRICE;
+    saveState(); renderFns(); return; }
+  if((t = e.target.closest("[data-fnday]"))){
+    var f3 = fnById(fnOpen); if(!f3) return;
+    var d = +t.getAttribute("data-fnday"), c3 = fnCfg(f3);
+    var i3 = c3.days.indexOf(d);
+    if(i3 >= 0) c3.days.splice(i3, 1); else c3.days.push(d);
+    c3.days.sort(function(a, b){ return a - b; });
+    saveState(); renderFns(); return; }
+  if((t = e.target.closest("[data-fnreg]"))){
+    var f4 = fnById(fnOpen); if(!f4) return;
+    fnCfg(f4).regKind = t.getAttribute("data-fnreg"); saveState(); renderFns(); return; }
+  if((t = e.target.closest("[data-fndel]"))){
+    fnDel = t.getAttribute("data-fndel"); renderFns(); return; }
+  if(e.target.closest("#fnDelNo")){ fnDel = null; renderFns(); return; }
+  if((t = e.target.closest("[data-fndelyes]"))){
+    var id = t.getAttribute("data-fndelyes"), f5 = fnById(id);
+    S.fns = (S.fns || []).filter(function(x){ return x.id !== id; });
+    if(S.fnCfg) delete S.fnCfg[id];
+    if(S.fnForm) delete S.fnForm[id];
+    S.plan = (S.plan || []).filter(function(p){ return p.fn !== id; });
+    saveState();
+    fnOpen = null; fnDel = null; renderFns();
+    toast("Функция «" + (f5 ? fnTitle(f5) : "") + "» удалена из справочника");
+    return; }
+  if(e.target.closest("#fnAdd2")){
+    var k2 = (S.fns || []).filter(function(x){ return /^F0-/.test(x.code || ""); }).length + 1;
+    var nf = {id:nextId("fn"), code:"F0-" + k2, name:"Своя функция " + k2, minutes:30};
+    S.fns.push(nf);
+    fnCfg(nf); saveState();
+    fnOpen = nf.id; fnOpenFrom = "org"; fnFilter = ""; fnQ = "";
+    renderFns();
+    var inp = document.querySelector('[data-fnname="' + nf.id + '"]');
+    if(inp){ inp.focus(); inp.select(); }
+    toast("Функция создана — назовите её и проставьте сложность");
+    return; }
+});
+document.addEventListener("input", function(e){
+  var t = e.target;
+  if(view !== "fns" || !fnOpen) return;
+  var f = fnById(fnOpen); if(!f) return;
+  if(t.matches && t.matches("[data-fnc]")){
+    var k = t.getAttribute("data-fnc"), c = fnCfg(f);
+    c[k] = (k === "price") ? (+t.value || 0) : t.value;
+    saveState();
+    if(k === "regText" || k === "regLink" || k === "regShot" || k === "own") return;
+    renderFns(); return; }
+});
+document.addEventListener("change", function(e){
+  var t = e.target;
+  if(view !== "fns" || !fnOpen) return;
+  if(t.matches && t.matches("select[data-fnc]")) renderFns();
+});
+
+/* форма отправки внутри карточки функции: имя и норматив тут не дублируем */
+function fnFormHTML(f, fm){
+  return '<div data-fnr="'+esc(f.id)+'"><div class="fnform inone">'+
+    '<div class="sfr">'+
+      '<label><span>Заголовок сообщения</span><input class="fi sm" data-fnk="h" placeholder="Доброе утро" value="'+esc(fm.h)+'"></label>'+
+      '<label><span>Подзаголовок</span><input class="fi sm" data-fnk="sub" placeholder="ИП Кунгурская · отчёт по остаткам FBS" value="'+esc(fm.sub)+'"></label>'+
+    '</div>'+
+    '<div class="sfr"><label><span>Текст сообщения</span>'+
+      '<textarea class="fi" data-fnk="body" rows="3" placeholder="Суть в двух строках — что сделано и на что смотреть">'+esc(fm.body)+'</textarea></label></div>'+
+    '<div class="sfr">'+
+      '<label><span>Ссылка на Google-таблицу</span><input class="fi sm" data-fnk="link" placeholder="https://docs.google.com/..." value="'+esc(fm.link)+'"></label>'+
+      '<label class="nar"><span>Кого отметить</span><div class="tgr"><span class="at">@</span>'+
+        '<input class="fi sm" data-fnk="tg" placeholder="nickname" value="'+esc(fm.tg)+'"></div></label>'+
+    '</div>'+
+    '<div class="fnpvh">Так сообщение уйдёт в чат</div>'+
+    '<div class="fnprev">'+esc(fnPreview(f, fm))+'</div>'+
+  '</div></div>';
+}
+
+/* платные функции — ровно тот список, что стоит на сайте (D40).
+   Чего нет в справочнике — добавляем, чтобы группа была полной. */
+function fnsSeedPaid(){
+  if(S.fnsPaidSeeded) return;
+  var have = {};
+  (S.fns||[]).forEach(function(f){ have[f.name] = f; });
+  (typeof PAID_FNS !== "undefined" ? PAID_FNS : []).forEach(function(nm, i){
+    var f = have[nm];
+    if(!f){
+      f = {id:"fp"+i, code:"S2-"+(i<9?"0":"")+(i+1), name:nm, minutes:60};
+      S.fns.push(f);
+    }
+    var c = fnCfg(f);
+    c.paid = 1;
+    if(!c.price) c.price = FN_PAID_PRICE;
+  });
+  S.fnsPaidSeeded = true; saveState();
+}
+
+/* ══ 34. РЕГЛАМЕНТЫ (D2) ═══════════════════════════════════════
+   Два блока: шаблонные — один на все кабинеты, уникальные — свой
+   у конкретного кабинета. Регламент функции живёт в самой функции,
+   сюда он просто собирается, чтобы видеть картину целиком и не
+   писать одно и то же дважды. Плюс свободные документы, которые
+   не привязаны ни к какой функции — вводный, техника безопасности
+   в рекламе и прочее.                                             */
+
+var regTab = "tpl";        /* tpl | uniq | doc */
+var regCab = "";           /* для уникальных: какой кабинет смотрим */
+var regOpenDoc = null;     /* открытый свободный документ */
+var regQ = "";
+
+function regUniqAll(){ if(!S.regUniq) S.regUniq = {}; return S.regUniq; }
+function regUniqKey(cab, fn){ return cab + "|" + fn; }
+function regUniq(cab, fn){
+  var all = regUniqAll(), k = regUniqKey(cab, fn);
+  if(!all[k]) all[k] = {text:"", link:"", shot:"", at:0};
+  return all[k];
+}
+function regUniqFilled(r){ return !!(r && (r.text || r.link || r.shot)); }
+
+function regDocs(){ if(!S.regDocs) S.regDocs = []; return S.regDocs; }
+function regDocsSeed(){
+  if(S.regDocsSeeded) return;
+  regDocs().push(
+    {id:nextId("rd"), name:"Вводный регламент — первый день в агентстве",
+     who:"для всех", text:"", link:"", shot:"", at:Date.now()},
+    {id:nextId("rd"), name:"Как мы общаемся с клиентом в чате",
+     who:"менеджеры и выше", text:"", link:"", shot:"", at:Date.now()}
+  );
+  S.regDocsSeeded = true; saveState();
+}
+
+/* какие функции вообще требуют регламента */
+function regFns(kind){
+  return fnList().filter(function(f){
+    var c = fnCfg(f);
+    if(kind === "tpl")  return c.regKind !== "uniq";
+    if(kind === "uniq") return c.regKind === "uniq";
+    return true;
+  });
+}
+
+function renderReg(){
+  regDocsSeed();
+  if(regOpenDoc){ renderRegDoc(); return; }
+  var host = document.getElementById("sect");
+  var all = fnList();
+  var tplF  = regFns("tpl"), uniqF = regFns("uniq");
+  var tplDone  = tplF.filter(fnHasReg).length;
+  var cabs = S.projects || [];
+  if(!regCab && cabs.length) regCab = cabs[0].id;
+  var uniqDone = 0;
+  uniqF.forEach(function(f){
+    cabs.forEach(function(pr){ if(regUniqFilled(regUniqAll()[regUniqKey(pr.id, f.id)])) uniqDone++; });
+  });
+  var docDone = regDocs().filter(function(d){ return d.text || d.link || d.shot; }).length;
+
+  host.innerHTML =
+    '<div class="gl grsum">'+
+      '<div class="pss"><div class="l">Шаблонных</div>'+
+        '<div class="v">'+tplDone+' <span class="of">из '+tplF.length+'</span></div>'+
+        '<div class="d">один документ работает на все кабинеты сразу</div></div>'+
+      '<div class="pss"><div class="l">Уникальных</div>'+
+        '<div class="v">'+uniqDone+'</div>'+
+        '<div class="d">'+uniqF.length+' функц. отмечены как «свой у каждого кабинета»</div></div>'+
+      '<div class="pss"><div class="l">Свободных документов</div>'+
+        '<div class="v">'+docDone+' <span class="of">из '+regDocs().length+'</span></div>'+
+        '<div class="d">не привязаны к функции — вводный, правила общения</div></div>'+
+      '<div class="pss"><div class="l">Функций без регламента</div>'+
+        '<div class="v'+(all.length - all.filter(fnHasReg).length ? ' warn' : '')+'">'+
+        (all.length - all.filter(fnHasReg).length)+'</div>'+
+        '<div class="d">новичку эту работу объяснить нечем</div></div>'+
+    '</div>'+
+
+    '<div class="gl"><div class="gl-t"><h2>Регламенты</h2>'+
+      '<span class="m">инструкции, по которым работа делается одинаково у всех</span>'+
+      '<div class="fnbar"><input class="fi sm fnq" id="regQ" placeholder="Найти регламент" value="'+esc(regQ)+'"></div>'+
+    '</div>'+
+
+    '<div class="regtabs">'+
+      [["tpl","Шаблонные","один на все кабинеты",tplF.length],
+       ["uniq","Уникальные","свой у каждого кабинета",uniqF.length],
+       ["doc","Свободные документы","не про функцию, а про то, как мы работаем",regDocs().length]
+      ].map(function(t){
+        return '<button class="rgt'+(regTab===t[0]?' on':'')+'" data-regtab="'+t[0]+'">'+
+          '<b>'+t[1]+'</b><span class="rgn">'+t[3]+'</span><i>'+t[2]+'</i></button>'; }).join("")+
+    '</div>'+
+
+    (regTab === "tpl"  ? regTplHTML(tplF)
+     : regTab === "uniq" ? regUniqHTML(uniqF, cabs)
+     : regDocHTML())+
+    '</div>';
+}
+
+function regRowHTML(f, filled, extra){
+  var c = fnCfg(f), g = FN_GROUPS2.filter(function(x){ return x[0] === c.grp; })[0];
+  return '<button class="regr'+(filled?'':' raw')+'" data-regfn="'+esc(f.id)+'">'+
+    '<span class="fnc2">'+esc(f.code)+'</span>'+
+    '<span class="fnn2">'+esc(fnTitle(f))+
+      '<i class="regg">'+esc(g ? g[1] : "")+(c.cat ? ' · сложность '+c.cat : '')+'</i></span>'+
+    (extra || '')+
+    '<span class="fnst">'+(filled
+      ? '<i class="okd">есть</i>'
+      : '<i class="rawd">пусто</i>')+'</span>'+
+    '<svg class="fnar" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>'+
+  '</button>';
+}
+
+function regTplHTML(list){
+  var qq = regQ.toLowerCase().trim();
+  var vis = list.filter(function(f){
+    return !qq || fnTitle(f).toLowerCase().indexOf(qq) >= 0 ||
+      String(f.code).toLowerCase().indexOf(qq) >= 0; });
+  var done = vis.filter(fnHasReg), raw = vis.filter(function(f){ return !fnHasReg(f); });
+  return '<div class="regnote">Шаблонный регламент пишется один раз и действует во всех кабинетах. '+
+      'Если по какому-то кабинету работа идёт иначе — откройте функцию и переключите её '+
+      'на «уникальный», тогда у каждого кабинета появится свой текст.</div>'+
+    (raw.length ? '<div class="regsec"><div class="regsh">Ещё не написаны <span>'+raw.length+'</span></div>'+
+      raw.map(function(f){ return regRowHTML(f, false); }).join("")+'</div>' : '')+
+    (done.length ? '<div class="regsec"><div class="regsh">Готовы <span>'+done.length+'</span></div>'+
+      done.map(function(f){ return regRowHTML(f, true); }).join("")+'</div>' : '')+
+    (vis.length ? '' : '<div class="empty">Ничего не найдено</div>');
+}
+
+function regUniqHTML(list, cabs){
+  if(!list.length) return '<div class="regnote">Пока ни одна функция не отмечена как «уникальная». '+
+    'Откройте функцию → блок «Регламент» → «Уникальный» — и она появится здесь, '+
+    'со своим текстом под каждый кабинет.</div>';
+  if(!cabs.length) return '<div class="empty">Сначала заведите хотя бы один кабинет</div>';
+  var qq = regQ.toLowerCase().trim();
+  var vis = list.filter(function(f){
+    return !qq || fnTitle(f).toLowerCase().indexOf(qq) >= 0; });
+  return '<div class="regcabs">'+cabs.map(function(pr){
+      var n = vis.filter(function(f){ return regUniqFilled(regUniqAll()[regUniqKey(pr.id, f.id)]); }).length;
+      return '<button class="rcb'+(regCab===pr.id?' on':'')+'" data-regcab="'+esc(pr.id)+'">'+
+        '<span class="av2" style="background:'+pr.color+'">'+esc(pr.av||"")+'</span>'+
+        '<b>'+esc(pr.name)+'</b><i>'+n+' из '+vis.length+'</i></button>'; }).join("")+
+    '</div>'+
+    '<div class="regsec">'+vis.map(function(f){
+      var r = regUniqAll()[regUniqKey(regCab, f.id)];
+      return regRowHTML(f, regUniqFilled(r),
+        '<span class="regfor">для «'+esc((project(regCab)||{}).name || "")+'»</span>'); }).join("")+
+    '</div>';
+}
+
+function regDocHTML(){
+  var qq = regQ.toLowerCase().trim();
+  var vis = regDocs().filter(function(d){ return !qq || d.name.toLowerCase().indexOf(qq) >= 0; });
+  return '<div class="regnote">Здесь то, что не сводится к одной функции: как проходит первый день, '+
+      'как мы отвечаем клиенту, что делать, когда всё сломалось. Эти документы видит вся команда.</div>'+
+    '<div class="regsec">'+vis.map(function(d){
+      var filled = !!(d.text || d.link || d.shot);
+      return '<button class="regr'+(filled?'':' raw')+'" data-regdoc="'+esc(d.id)+'">'+
+        '<span class="fnn2">'+esc(d.name)+'<i class="regg">'+esc(d.who||"для всех")+'</i></span>'+
+        '<span class="fnst">'+(filled?'<i class="okd">есть</i>':'<i class="rawd">пусто</i>')+'</span>'+
+        '<svg class="fnar" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>'+
+      '</button>'; }).join("")+
+    '</div>'+
+    '<div class="regadd"><button class="bt gh2 sm" id="regAdd">+ Свой регламент</button></div>';
+}
+
+function renderRegDoc(){
+  var d = regDocs().filter(function(x){ return x.id === regOpenDoc; })[0];
+  if(!d){ regOpenDoc = null; renderReg(); return; }
+  var host = document.getElementById("sect");
+  host.innerHTML =
+    '<nav class="crumbs fncr">'+
+      '<button class="crb" id="regBackAll">Регламенты</button><span class="crs">›</span>'+
+      '<button class="crb" id="regBackTab">Свободные документы</button><span class="crs">›</span>'+
+      '<span class="crn">'+esc(d.name)+'</span>'+
+      '<button class="crback" id="regBack">← Назад</button>'+
+    '</nav>'+
+    '<div class="gl fnone">'+
+      '<div class="gl-t"><h2>'+esc(d.name)+'</h2>'+
+        '<span class="m">свободный регламент — не привязан к функции</span></div>'+
+      '<div class="fnsec">'+
+        '<div class="sfr">'+
+          '<label><span>Название</span><input class="fi sm" data-rdk="name" value="'+esc(d.name)+'"></label>'+
+          '<label class="nar"><span>Кому читать</span><input class="fi sm" data-rdk="who" placeholder="для всех" value="'+esc(d.who||"")+'"></label>'+
+        '</div>'+
+        '<div class="sfr"><label><span>Текст</span>'+
+          '<textarea class="fi" rows="10" data-rdk="text" placeholder="Пишите так, как объясняли бы человеку в первый рабочий день.">'+esc(d.text||"")+'</textarea></label></div>'+
+        '<div class="sfr">'+
+          '<label><span>Ссылка на документ</span><input class="fi sm" data-rdk="link" placeholder="https://docs.google.com/..." value="'+esc(d.link||"")+'"></label>'+
+          '<label><span>Ссылка на запись или скриншот</span><input class="fi sm" data-rdk="shot" value="'+esc(d.shot||"")+'"></label>'+
+        '</div>'+
+      '</div>'+
+      '<div class="fndang"><button class="bt gh2 sm dangl" id="regDocDel">Удалить регламент</button></div>'+
+    '</div>';
+}
+
+document.addEventListener("click", function(e){
+  var t;
+  if(view !== "reg") return;
+  if((t = e.target.closest("[data-regtab]"))){
+    regTab = t.getAttribute("data-regtab"); renderReg(); return; }
+  if((t = e.target.closest("[data-regcab]"))){
+    regCab = t.getAttribute("data-regcab"); renderReg(); return; }
+  if((t = e.target.closest("[data-regfn]"))){
+    /* проваливаемся в саму функцию — регламент живёт там */
+    navPush("reg");
+    fnOpen = t.getAttribute("data-regfn"); fnOpenFrom = null; fnDel = null;
+    setView("fns", true); return; }
+  if((t = e.target.closest("[data-regdoc]"))){
+    regOpenDoc = t.getAttribute("data-regdoc"); renderReg(); return; }
+  if(e.target.closest("#regBack") || e.target.closest("#regBackTab") || e.target.closest("#regBackAll")){
+    regOpenDoc = null; renderReg(); return; }
+  if(e.target.closest("#regAdd")){
+    var d = {id:nextId("rd"), name:"Новый регламент", who:"для всех",
+             text:"", link:"", shot:"", at:Date.now()};
+    regDocs().push(d); saveState();
+    regOpenDoc = d.id; renderReg();
+    var i = document.querySelector('[data-rdk="name"]'); if(i){ i.focus(); i.select(); }
+    return; }
+  if(e.target.closest("#regDocDel")){
+    S.regDocs = regDocs().filter(function(x){ return x.id !== regOpenDoc; });
+    saveState(); regOpenDoc = null; renderReg();
+    toast("Регламент удалён"); return; }
+});
+document.addEventListener("input", function(e){
+  var t = e.target;
+  if(view !== "reg") return;
+  if(t.matches && t.matches("#regQ")){ regQ = t.value; renderReg();
+    var i = document.getElementById("regQ"); if(i){ i.focus();
+      i.setSelectionRange(i.value.length, i.value.length); } return; }
+  if(t.matches && t.matches("[data-rdk]") && regOpenDoc){
+    var d = regDocs().filter(function(x){ return x.id === regOpenDoc; })[0];
+    if(d){ d[t.getAttribute("data-rdk")] = t.value; d.at = Date.now(); saveState(); }
+    return; }
+});
+
+/* раздел в общий реестр */
+NAV_TITLES.reg = ["Регламенты", "Как эта работа делается — одинаково у всех"];
+SEC_RENDER.reg = renderReg;
+
+/* ══ 35. СПРАВОЧНИК (D13) ══════════════════════════════════════
+   Что где повторяется и зачем. Сервис намеренно показывает одни
+   и те же сущности в разных местах — не по недосмотру, а потому
+   что один и тот же кабинет нужен и когда мы считаем деньги, и
+   когда ставим задачу. Здесь написано, где у каждой сущности
+   «источник правды» — единственное место, где её правят, чтобы
+   изменение разошлось по всем остальным экранам.                  */
+
+var gdTab = "ent";        /* ent | form | rule */
+var gdOpen = null;
+
+/* сущности: [id, что это, где встречается [[view,label,зачем]], где правда, короткое объяснение] */
+var GUIDE_ENT = [
+  ["cab", "Кабинет клиента",
+   "Единица, за которую платят. Один кабинет — один договор, одна сумма, один набор артикулов.",
+   "cards", "Карточка клиента",
+   [["projects","Мои клиенты","Здесь видно, что происходит по кабинету на этой неделе — задачи и кто их ведёт."],
+    ["cards","Карточки клиентов","Здесь кабинет заводится и правится: сумма, дата платежа, контакты, функции."],
+    ["fin","Деньги","Календарь платежей строится из даты и суммы, которые стоят в карточке клиента."],
+    ["aod","АОД","Артикулы принадлежат кабинету — иначе непонятно, чей план работы обновлять."],
+    ["work","Постановка задачи","Задача без кабинета бессмысленна: непонятно, в чей отчёт она попадёт."],
+    ["growth","Рост","Чтобы посчитать, сколько кабинетов мы ещё потянем, нужно знать, сколько их сейчас."]]],
+
+  ["man", "Менеджер",
+   "Единица мощности. У человека есть часы в день, компетенция и грейд — из этого складывается, что он успеет.",
+   "people", "Моя команда",
+   [["people","Моя команда","Карточка менеджера: компетенции, часы в день, что делает, сколько задач."],
+    ["work","Рабочий экран","Кто сегодня перегружен, а кто свободен — видно сразу, без открытия карточек."],
+    ["growth","Рост","Модель найма считает, кого добрать: от грейда зависит, сколько кабинетов он потянет."],
+    ["rate","Рейтинг","Как отработал неделю, премии, удержания, индекс неудовлетворённости."],
+    ["acc","Доступы","Роль и права. Здесь же — приостановка, увольнение и передача дел."],
+    ["work","Постановка задачи","Выбор ответственного сразу показывает его загрузку — чтобы не догрузить того, кто и так тонет."]]],
+
+  ["fn", "Функция",
+   "Единица работы. Всё остальное в сервисе — это комбинация: функция × кабинет × человек × день.",
+   "fns", "Функции",
+   [["fns","Функции","Справочник: норматив, сложность, ритм, регламент, форма отправки."],
+    ["cards","Новый кабинет","Что именно мы делаем в этом кабинете — выбирается из того же списка."],
+    ["work","Постановка задачи","Задача — это функция, у которой появился исполнитель и день."],
+    ["people","Карточка менеджера","Что человек умеет и что за ним закреплено по дням."],
+    ["reg","Регламенты","Регламент пишется к функции — и оттуда собирается в общий список."],
+    ["work","Замеры скорости","Замеряем не абстрактное время, а сколько занимает конкретная функция."]]],
+
+  ["load", "Загрузка в процентах",
+   "Общая шкала: 480 минут рабочего дня — это 100%. Всё, что выше, — переработка, которую мы видим заранее.",
+   "people", "Моя команда",
+   [["work","Рабочий экран","Кто за пределами нормы сегодня."],
+    ["people","Моя команда","Загрузка на неделю по каждому."],
+    ["growth","Рост","Свободная мощность команды — из неё считается, сколько кабинетов взять."],
+    ["acc","Передача дел","Когда человек уходит, видно, кого его задачи утопят."],
+    ["rate","Рейтинг","Переработки идут в индекс неудовлетворённости."]]],
+
+  ["min", "Норматив в минутах",
+   "Общая валюта сервиса. Часы, проценты, зарплата на задачу, стоимость кабинета — всё пересчитывается из минут.",
+   "fns", "Функции",
+   [["fns","Функции","Сколько минут занимает одно выполнение."],
+    ["aod","АОД","Минуты на одно касание артикула — по категории A, B, C."],
+    ["work","Постановка задачи","Можно переопределить норматив для конкретной задачи."],
+    ["work","Замеры скорости","Факт против норматива: где мы обманываем сами себя."],
+    ["fin","Деньги","Себестоимость часа × минуты = во что нам обходится кабинет."]]],
+
+  ["cat", "Категория сложности A / B / C",
+   "Одна буква решает две вещи: какой грейд нужен для задачи и сколько внимания требует артикул.",
+   "fns", "Функции",
+   [["fns","Функции","Сложность функции → рекомендованный грейд исполнителя."],
+    ["aod","АОД","Категория артикула → сколько минут и сколько дней в неделю он в работе."],
+    ["people","Карточка менеджера","Компетенция: сколько артикулов какой категории человек тянет."],
+    ["growth","Рост","Грейд и вилка гонорара выводятся из того, задачи какой сложности человек закрывает."]]],
+
+  ["cyc", "Цикличность",
+   "Превращает одно определение в много повторов. Без неё нельзя ничего прогнозировать: неделя выглядит пустой, а в реальности забита.",
+   "fns", "Функции",
+   [["fns","Функции","Ритм по умолчанию: каждый день, раз в неделю, раз в месяц."],
+    ["cards","Новый кабинет","У конкретного кабинета ритм может отличаться от общего."],
+    ["work","Постановка задачи","Одна задача или повторяющаяся — и по каким дням."],
+    ["aod","АОД","Категория артикула сама задаёт, сколько дней в неделю он в работе."]]],
+
+  ["pay", "Сумма и дата платежа",
+   "Источник один — карточка клиента. Все остальные экраны её только читают, поэтому исправлять нужно там.",
+   "cards", "Карточка клиента",
+   [["cards","Карточка клиента","Единственное место, где сумма и дата вводятся."],
+    ["fin","Деньги","Календарь платежей и прогноз выручки."],
+    ["growth","Рост","Средний чек кабинета — от него считается, что даёт новый человек."],
+    ["cab","Кабинет","Виден платёж — но только тем ролям, которым это открыто."]]],
+
+  ["role", "Роль и доступ",
+   "Роль решает, что человек видит. Права не зашиты жёстко: любой роли можно что-то отнять и что-то добавить галочкой.",
+   "acc", "Доступы",
+   [["acc","Доступы","Кому что открыто, кто может выдавать доступы, кого приостановили."],
+    ["people","Карточка менеджера","Должность и грейд — рядом с правами."],
+    ["work","Каждый экран","Кнопки рельсы и блоки внутри показываются по роли."],
+    ["cards","Карточка клиента","Суммы платежей по умолчанию скрыты — открываются галочкой в «Доступах»."]]],
+
+  ["code", "Код агентства",
+   "Единственный способ попасть в один проект. Код принадлежит агентству, а не кабинету: по нему заходят все сотрудники.",
+   "acc", "Доступы",
+   [["acc","Доступы","Код агентства и ссылки-приглашения."],
+    ["work","Регистрация","Новый сотрудник вводит код и оказывается в вашем агентстве, а не в своём."],
+    ["cards","Карточка клиента","У клиента свой код — он видит только свой кабинет."]]],
+
+  ["send", "Форма отправки в чат",
+   "Работа считается сделанной, когда результат доехал до клиента. Поэтому форма отправки привязана к функции, а не к человеку.",
+   "fns", "Функции",
+   [["fns","Функции","Шаблон сообщения: заголовок, текст, ссылка, кого отметить."],
+    ["cab","Кабинет","Куда именно уходит — в чат этого кабинета."],
+    ["work","Постановка задачи","Нужно ли согласование перед отправкой."],
+    ["meet","Планёрка","Итоги планёрки уходят той же формой."]]]
+];
+
+/* формы, которые выглядят одинаково в разных местах — и почему так */
+var GUIDE_FORM = [
+  ["Добавить из выпадающего списка + кнопка «Добавить»",
+   "«Моя команда» → добавить менеджера · «Мои клиенты» → добавить кабинет · «Новый кабинет» → добавить функцию · постановка задачи → выбор артикула",
+   "Один и тот же жест: сначала попробуй выбрать из того, что уже есть, и только если не нашёл — заводи новое. Так справочники не зарастают дублями «Управление РК», «Управление рк» и «управление РК.»"],
+
+  ["Раскрывающийся блок со стрелкой",
+   "Группы функций · карточка менеджера · карточка клиента · «Требует решения» · рельса",
+   "Экран всегда начинается свёрнутым, чтобы было видно целое. Разворачивается только то, куда вы сейчас смотрите. Это сознательно: полный список из шестидесяти функций не помогает принять ни одного решения."],
+
+  ["Галочки по блоку + «взять весь блок»",
+   "Новый кабинет → функции · карточка менеджера → что делает · «Доступы» → права роли",
+   "Везде, где выбор длинный, есть переключатель на весь блок сразу — и он всегда снимается обратно. Это одна и та же механика, поэтому её достаточно понять один раз."],
+
+  ["Шкала загрузки с отсечкой на 100%",
+   "Рабочий экран · «Моя команда» · «Рост» · передача дел · «Разгружаем менеджера»",
+   "Один визуальный язык: до 100% — синий, выше — красная штриховка. Вы узнаёте перегруз боковым зрением, не читая цифр."],
+
+  ["Бегунок времени",
+   "Задача у менеджера · «Замеры скорости» · календарь платежей",
+   "Бегунок значит одно и то же: «идёт прямо сейчас». У менеджера это запуск работы, у ролей выше — замер, который попадает на главный экран."],
+
+  ["Крошки и кнопка «Назад»",
+   "Все экраны второго уровня: функция, кабинет, менеджер, регламент, пункт «Требует решения»",
+   "Провалиться вглубь и вернуться по той же лесенке можно везде одинаково. Вы никогда не теряетесь — путь виден сверху, и каждая ступень кликабельна."],
+
+  ["Пустое состояние с объяснением, а не с пустотой",
+   "Новый кабинет без функций · неделя без задач · регламент, который не написан",
+   "Вместо «нет данных» сервис говорит, что именно нужно сделать и почему это важно. Пустой экран — это чаще всего не ошибка, а шаг, до которого ещё не дошли руки."]
+];
+
+/* правила, по которым сервис считает — чтобы цифры не выглядели магией */
+var GUIDE_RULE = [
+  ["Рабочий день — 480 минут", "Восемь часов. В карточке менеджера можно поставить 4 — тогда его 100% это 240 минут, и все проценты по нему пересчитываются."],
+  ["Неделя — 40 часов, месяц — 173,2", "Месяц берём не «умножить на четыре», а по производственному календарю: 173,2 часа. Иначе годовой прогноз врёт почти на месяц работы."],
+  ["Артикул категории A — 10 минут за касание, B — 6, C — 3", "И дней в неделю: A — три, B — два, C — один. Из этих двух чисел собирается вся нагрузка АОД."],
+  ["Компетенция = (A×3 + B×2 + C×1) / 100", "Больше 2,4 — уровень A, больше 1,6 — B, иначе C. Так грейд получается из фактической работы, а не из должности в договоре."],
+  ["Уникальная задача ≠ задача за неделю", "Уникальная — это одно определение: человек + кабинет + функция. За неделю их больше, потому что цикличные повторяются. Разница между двумя числами — и есть объём рутины."],
+  ["Перегруз считается вперёд, а не по факту", "Сервис показывает переработку в момент постановки задачи, а не в пятницу вечером. Смысл в том, чтобы её не допустить."]
+];
+
+function renderGuide(){
+  var host = document.getElementById("sect");
+  if(gdOpen){ renderGuideOne(); return; }
+  host.innerHTML =
+    '<div class="gl"><div class="gl-t"><h2>Справочник</h2>'+
+      '<span class="m">что где повторяется, зачем и где это править</span></div>'+
+      '<div class="regnote">Одни и те же вещи сервис показывает в нескольких местах намеренно. '+
+        'Кабинет нужен и когда считаем деньги, и когда ставим задачу; человек нужен и в команде, и в найме. '+
+        'Ниже по каждой сущности написано, <b>где она встречается</b>, <b>зачем повторяется</b> '+
+        'и главное — <b>где источник правды</b>: единственный экран, на котором её правят, '+
+        'чтобы правка разошлась по всем остальным.</div>'+
+      '<div class="regtabs">'+
+        [["ent","Сущности","кабинет, человек, функция, деньги",GUIDE_ENT.length],
+         ["form","Формы","одинаковые жесты в разных местах",GUIDE_FORM.length],
+         ["rule","Правила счёта","откуда берутся цифры",GUIDE_RULE.length]
+        ].map(function(t){
+          return '<button class="rgt'+(gdTab===t[0]?' on':'')+'" data-gdtab="'+t[0]+'">'+
+            '<b>'+t[1]+'</b><span class="rgn">'+t[3]+'</span><i>'+t[2]+'</i></button>'; }).join("")+
+      '</div>'+
+      (gdTab === "ent" ? GUIDE_ENT.map(function(x){
+          return '<button class="gdr" data-gdent="'+x[0]+'">'+
+            '<span class="gdn"><b>'+esc(x[1])+'</b><i>'+esc(x[2])+'</i></span>'+
+            '<span class="gdw">в '+x[5].length+' местах</span>'+
+            '<span class="gdsrc">правим в «'+esc(x[4])+'»</span>'+
+            '<svg class="fnar" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>'+
+          '</button>'; }).join("")
+       : gdTab === "form" ? GUIDE_FORM.map(function(x){
+          return '<div class="gdf"><b>'+esc(x[0])+'</b>'+
+            '<div class="gdwhere">'+esc(x[1])+'</div>'+
+            '<div class="gdwhy">'+esc(x[2])+'</div></div>'; }).join("")
+       : GUIDE_RULE.map(function(x){
+          return '<div class="gdf"><b>'+esc(x[0])+'</b>'+
+            '<div class="gdwhy">'+esc(x[1])+'</div></div>'; }).join(""))+
+    '</div>';
+}
+
+function renderGuideOne(){
+  var x = GUIDE_ENT.filter(function(e){ return e[0] === gdOpen; })[0];
+  if(!x){ gdOpen = null; renderGuide(); return; }
+  var host = document.getElementById("sect");
+  host.innerHTML =
+    '<nav class="crumbs fncr">'+
+      '<button class="crb" id="gdBackAll">Справочник</button><span class="crs">›</span>'+
+      '<span class="crn">'+esc(x[1])+'</span>'+
+      '<button class="crback" id="gdBack">← Назад</button>'+
+    '</nav>'+
+    '<div class="gl fnone">'+
+      '<div class="gl-t"><h2>'+esc(x[1])+'</h2><span class="m">'+esc(x[2])+'</span></div>'+
+      '<div class="fnsec">'+
+        '<div class="fnsh">Источник правды</div>'+
+        '<button class="gdsrcb" data-gdgo="'+esc(x[3])+'">'+
+          '<b>'+esc(x[4])+'</b>'+
+          '<i>единственное место, где это заводят и правят — здесь правка расходится по всем экранам ниже</i>'+
+          '<svg class="fnar" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></button>'+
+      '</div>'+
+      '<div class="fnsec">'+
+        '<div class="fnsh">Где встречается и зачем</div>'+
+        x[5].map(function(w){
+          return '<div class="gdw2">'+
+            '<button class="gdgo" data-gdgo="'+esc(w[0])+'">'+esc(w[1])+'</button>'+
+            '<span>'+esc(w[2])+'</span></div>'; }).join("")+
+      '</div>'+
+      '<div class="regnote">Если одно и то же число расходится на двух экранах — почти всегда его правили '+
+        'не в источнике правды, а «по месту». Возвращайтесь в «'+esc(x[4])+'» и меняйте там.</div>'+
+    '</div>';
+}
+
+document.addEventListener("click", function(e){
+  var t;
+  if(view !== "guide") return;
+  if((t = e.target.closest("[data-gdtab]"))){
+    gdTab = t.getAttribute("data-gdtab"); renderGuide(); return; }
+  if((t = e.target.closest("[data-gdent]"))){
+    gdOpen = t.getAttribute("data-gdent"); renderGuide(); return; }
+  if(e.target.closest("#gdBack") || e.target.closest("#gdBackAll")){
+    gdOpen = null; renderGuide(); return; }
+  if((t = e.target.closest("[data-gdgo]"))){
+    var v = t.getAttribute("data-gdgo");
+    navPush("guide");
+    setView(v === "cab" ? "projects" : v, true);
+    return; }
+});
+
+NAV_TITLES.guide = ["Справочник", "Что где повторяется, зачем и где это править"];
+SEC_RENDER.guide = renderGuide;
+
+/* ══ 36. ОТДЕЛ ПРОДАЖ (D25) ════════════════════════════════════
+   Воронка, карточка лида и цепочка из десяти касаний. Два касания
+   названы Виталием: «Точки роста (РМагент)» и «CTR-тест (трюк с
+   конкурентом)». Остальные восемь собраны в ту же логику: каждое
+   касание — это не «напоминание о себе», а новая цифра про его
+   магазин, которую он сам не посчитал.
+   Воронка связана с «Ростом»: если в переговорах больше кабинетов,
+   чем команда потянет, сервис говорит об этом заранее.            */
+
+var SALE_STAGES = [
+  ["new",   "Новый лид",       "Есть контакт и магазин, касаний ещё не было"],
+  ["touch", "Касания идут",    "Отправляем разборы, ждём реакции"],
+  ["call",  "Разбор проведён", "Созвонились, показали экран, назвали выводы"],
+  ["offer", "КП отправлено",   "Объём работ и цена у него на руках"],
+  ["deal",  "Переговоры",      "Обсуждаем условия и дату старта"],
+  ["won",   "Клиент",          "Договорились — заводим кабинет"],
+  ["lost",  "Отказ",           "Не сейчас или не мы"]
+];
+function stageName(id){
+  var s = SALE_STAGES.filter(function(x){ return x[0] === id; })[0];
+  return s ? s[1] : id;
+}
+
+/* десять касаний: что отправляем и зачем именно это */
+var TOUCHES = [
+  ["Первое касание — по делу",
+   "Короткое сообщение с одной конкретной цифрой по его магазину. Не «предлагаем услуги», а «у вас 41% артикулов вылетели из размеров, посмотрите».",
+   0],
+  ["Точки роста (РМагент)",
+   "Разбор магазина в РМагенте: три-пять точек роста с цифрами и суммой, которую они дают в месяц. Это первое, что показывает, что мы вообще умеем считать.",
+   2],
+  ["CTR-тест (трюк с конкурентом)",
+   "Ставим его карточку рядом с карточкой конкурента и показываем разницу по CTR. Дальше — что меняется от одной обложки. Работает почти всегда: он видит своими глазами, что теряет клики на ровном месте.",
+   3],
+  ["Юнит-экономика одного артикула",
+   "Берём его самый продаваемый товар и раскладываем до чистой прибыли. Обычно оказывается, что топ по обороту — не топ по деньгам.",
+   3],
+  ["Что закончится без рекламы",
+   "Прогноз: какие артикулы вылетят из стока и когда. Дата в сообщении делает больше, чем любое «давайте обсудим».",
+   4],
+  ["SEO-срез: где его не видно",
+   "По каким запросам конкуренты есть, а его нет. Список запросов с частотностью — и сколько это заказов в месяц.",
+   4],
+  ["Созвон-разбор, 20 минут",
+   "Не презентация, а экран: открываем его кабинет и проходим три вывода. Цель — не продать, а чтобы он услышал, как мы думаем.",
+   5],
+  ["Кейс похожего магазина",
+   "Тот же сегмент, похожий оборот: что было, что сделали, что стало. С цифрами и сроком, иначе это просто реклама.",
+   7],
+  ["Коммерческое предложение",
+   "Конкретный объём работ: какие функции берём, с какой цикличностью, кто ведёт, сколько стоит. Без «индивидуального подхода».",
+   7],
+  ["Дожим цифрой",
+   "Сколько он теряет каждую неделю, пока думает — в рублях, из его же данных. Последнее касание должно быть самым честным, а не самым настойчивым.",
+   10]
+];
+
+function leads(){ if(!S.leads) S.leads = []; return S.leads; }
+function leadsSeed(){
+  if(S.leadsSeeded) return;
+  var demo = [
+    ["Кунгурская Алина", "@kungurskaya", "+7 912 440-11-02", "wildberries.ru/seller/1274408", "touch", 3],
+    ["Ремезов Игорь",    "@remezov_ig",  "+7 903 118-42-70", "wildberries.ru/seller/908114",  "call",  6],
+    ["Сафина Гульнара",  "@safina_wb",   "+7 927 302-55-19", "wildberries.ru/seller/1511903", "offer", 9],
+    ["Балашов Пётр",     "@pbalashov",   "+7 916 774-28-63", "wildberries.ru/seller/774201",  "new",   0],
+    ["Литвинова Ольга",  "@olitvinova",  "+7 921 655-90-34", "wildberries.ru/seller/655003",  "deal",  10]
+  ];
+  demo.forEach(function(d, i){
+    leads().push({id:nextId("ld"), name:d[0], tg:d[1], phone:d[2], soc:"", shop:d[3],
+      arts:"", stage:d[4], done:d[5], note:"", at:Date.now() - (i+1)*86400000*3});
+  });
+  S.leadsSeeded = true; saveState();
+}
+function leadTouch(l){
+  if(!l.touch) l.touch = {};
+  return l.touch;
+}
+function leadDone(l){
+  var t = leadTouch(l), n = 0;
+  TOUCHES.forEach(function(x, i){ if(t[i]) n++; });
+  if(!n && l.done) return l.done;    /* демо-заготовка */
+  return n;
+}
+
+var saleOpen = null, saleStage = "";
+
+function renderSales(){
+  leadsSeed();
+  if(saleOpen){ renderLead(); return; }
+  var host = document.getElementById("sect");
+  var all = leads();
+  var by = {};
+  SALE_STAGES.forEach(function(s){ by[s[0]] = all.filter(function(l){ return l.stage === s[0]; }); });
+  var active = all.filter(function(l){ return l.stage !== "won" && l.stage !== "lost"; });
+  var won = by.won.length, lost = by.lost.length;
+  var conv = (won + lost) ? Math.round(won / (won + lost) * 100) : 0;
+
+  /* связка с «Ростом»: потянем ли то, что в переговорах */
+  var hot = by.offer.length + by.deal.length;
+  var free = salesFreeCabs();
+
+  host.innerHTML =
+    '<div class="gl grsum">'+
+      '<div class="pss"><div class="l">В работе</div><div class="v">'+active.length+'</div>'+
+        '<div class="d">лидов, по которым идут касания</div></div>'+
+      '<div class="pss"><div class="l">Близко к сделке</div><div class="v">'+hot+'</div>'+
+        '<div class="d">КП отправлено или идут переговоры</div></div>'+
+      '<div class="pss"><div class="l">Конверсия</div><div class="v">'+conv+'%</div>'+
+        '<div class="d">'+won+' взяли, '+lost+' отказались</div></div>'+
+      '<div class="pss"><div class="l">Свободная мощность</div>'+
+        '<div class="v'+(hot > free ? ' warn' : ' ok')+'">'+free+'</div>'+
+        '<div class="d">'+(hot > free
+          ? 'кабинетов потянем, а в переговорах '+hot+' — не хватит людей'
+          : 'кабинетов команда возьмёт без перегруза')+'</div></div>'+
+    '</div>'+
+
+    (hot > free ? '<div class="gl salewarn">'+
+      '<b>В переговорах больше кабинетов, чем команда потянет.</b>'+
+      '<span>Сейчас близко к сделке '+hot+' кабинетов, а свободной мощности хватит на '+free+'. '+
+      'Либо закрываем сделки по очереди, либо в «Росте» считаем, кого добрать — и начинаем искать человека '+
+      'до подписания, а не после.</span>'+
+      '<button class="bt gh2 sm" id="saleToGrowth">Открыть «Рост»</button></div>' : '')+
+
+    '<div class="gl"><div class="gl-t"><h2>Воронка продаж</h2>'+
+      '<span class="m">нажмите на этап — увидите, кто в нём стоит</span>'+
+      '<div class="fnbar"><button class="bt gh2 sm" id="leadAdd">+ Новый лид</button></div></div>'+
+      '<div class="funnel">'+SALE_STAGES.map(function(s, i){
+        var n = by[s[0]].length;
+        var w = all.length ? Math.max(8, Math.round(n / Math.max(1, all.length) * 100)) : 8;
+        return '<button class="fnl'+(saleStage===s[0]?' on':'')+' st-'+s[0]+'" data-salest="'+s[0]+'">'+
+          '<span class="fnlh"><b>'+s[1]+'</b><span class="fnlc">'+n+'</span></span>'+
+          '<span class="fnlb"><i style="width:'+w+'%"></i></span>'+
+          '<span class="fnld">'+esc(s[2])+'</span>'+
+        '</button>'; }).join("")+
+      '</div>'+
+    '</div>'+
+
+    '<div class="gl"><div class="gl-t"><h2>'+
+      (saleStage ? esc(stageName(saleStage)) : 'Все лиды')+'</h2>'+
+      '<span class="m">'+(saleStage
+        ? '<button class="lnk" id="saleAllSt">показать всех</button>'
+        : 'кого ведём и на каком касании остановились')+'</span></div>'+
+      (function(){
+        var list = saleStage ? by[saleStage] : all;
+        if(!list.length) return '<div class="empty">В этом этапе пока никого</div>';
+        return list.map(function(l){
+          var d = leadDone(l);
+          return '<button class="ldr" data-lead="'+esc(l.id)+'">'+
+            '<span class="ldn"><b>'+esc(l.name)+'</b><i>'+esc(l.tg||l.phone||"")+'</i></span>'+
+            '<span class="ldst st-'+l.stage+'">'+esc(stageName(l.stage))+'</span>'+
+            '<span class="ldt"><span class="ldtb">'+TOUCHES.map(function(x, i){
+              return '<i class="'+(i < d ? 'on' : '')+'"></i>'; }).join("")+'</span>'+
+              '<em>'+d+' из 10 касаний</em></span>'+
+            '<svg class="fnar" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>'+
+          '</button>'; }).join("");
+      })()+
+    '</div>';
+}
+
+/* сколько кабинетов команда ещё возьмёт — грубо, по свободным часам */
+function salesFreeCabs(){
+  try{
+    var people = S.people || [];
+    if(!people.length) return 0;
+    var freeMin = 0;
+    people.forEach(function(m){
+      var day = (m.hoursDay || 8) * 60;
+      var load = (typeof loadOf === "function") ? (loadOf(m) || 0) : 80;
+      freeMin += Math.max(0, day * 5 * (1 - load / 100));
+    });
+    var perCab = 0;
+    var cabs = (S.projects || []).length;
+    if(cabs){
+      var week = 0;
+      (S.tasks || []).forEach(function(t){ week += (t.minutes || 0); });
+      perCab = week / cabs;
+    }
+    if(!perCab) perCab = 600;
+    return Math.max(0, Math.floor(freeMin / perCab));
+  } catch(e){ return 0; }
+}
+
+function renderLead(){
+  var l = leads().filter(function(x){ return x.id === saleOpen; })[0];
+  if(!l){ saleOpen = null; renderSales(); return; }
+  var t = leadTouch(l), host = document.getElementById("sect");
+  var d = leadDone(l);
+  host.innerHTML =
+    '<nav class="crumbs fncr">'+
+      '<button class="crb" id="saleBackAll">Отдел продаж</button><span class="crs">›</span>'+
+      '<button class="crb" id="saleBackSt">'+esc(stageName(l.stage))+'</button><span class="crs">›</span>'+
+      '<span class="crn">'+esc(l.name)+'</span>'+
+      '<button class="crback" id="saleBack">← Назад</button>'+
+    '</nav>'+
+    '<div class="gl fnone">'+
+      '<div class="gl-t"><h2>'+esc(l.name)+'</h2>'+
+        '<span class="m">'+d+' из 10 касаний · этап «'+esc(stageName(l.stage))+'»</span></div>'+
+
+      '<div class="fnsec"><div class="fnsh">Кто это</div>'+
+        '<div class="sfr">'+
+          '<label><span>ФИО</span><input class="fi sm" data-ldk="name" value="'+esc(l.name)+'"></label>'+
+          '<label><span>Telegram</span><div class="tgr"><span class="at">@</span>'+
+            '<input class="fi sm" data-ldk="tg" placeholder="nickname" value="'+esc(String(l.tg||"").replace(/^@/,""))+'"></div></label>'+
+          '<label><span>Телефон</span><input class="fi sm" type="tel" data-ldk="phone" value="'+esc(l.phone||"")+'"></label>'+
+        '</div>'+
+        '<div class="sfr">'+
+          '<label><span>Соцсети</span><input class="fi sm" data-ldk="soc" placeholder="instagram, vk, сайт — через запятую" value="'+esc(l.soc||"")+'"></label>'+
+          '<label><span>Ссылка на магазин</span><input class="fi sm" data-ldk="shop" placeholder="wildberries.ru/seller/…" value="'+esc(l.shop||"")+'"></label>'+
+        '</div>'+
+        '<div class="sfr"><label><span>Номера артикулов</span>'+
+          '<textarea class="fi" rows="2" data-ldk="arts" placeholder="через запятую или с новой строки — по ним считаем точки роста">'+esc(l.arts||"")+'</textarea></label></div>'+
+        '<div class="sfr">'+
+          '<label><span>Этап</span><select class="sel" data-ldk="stage">'+SALE_STAGES.map(function(s){
+            return '<option value="'+s[0]+'"'+(l.stage===s[0]?' selected':'')+'>'+s[1]+'</option>'; }).join("")+
+          '</select></label>'+
+          '<label><span>Заметка</span><input class="fi sm" data-ldk="note" placeholder="что важно помнить перед следующим касанием" value="'+esc(l.note||"")+'"></label>'+
+        '</div>'+
+      '</div>'+
+
+      '<div class="fnsec"><div class="fnsh">Цепочка касаний</div>'+
+        '<div class="regnote">Каждое касание — новая цифра про его магазин, а не напоминание о себе. '+
+          'Порядок важен: сначала показываем, что умеем считать, и только потом говорим про деньги.</div>'+
+        '<div class="tchs">'+TOUCHES.map(function(x, i){
+          var on = t[i] ? true : (i < (l.done || 0));
+          return '<div class="tch'+(on?' on':'')+'">'+
+            '<button class="tckb" data-ldtouch="'+i+'"><i></i></button>'+
+            '<div class="tcn"><b>'+(i+1)+'. '+esc(x[0])+'</b>'+
+              '<span>'+esc(x[1])+'</span></div>'+
+            '<div class="tcd">'+(x[2] ? '+'+x[2]+' дн.' : 'сразу')+'</div>'+
+          '</div>'; }).join("")+
+        '</div>'+
+      '</div>'+
+
+      (l.stage === "won"
+        ? '<div class="fnsec"><div class="fnsh">Дальше</div>'+
+          '<div class="regnote">Лид стал клиентом. Заведите кабинет — карточка, сумма, дата платежа, '+
+          'артикулы и функции. Артикулы из этой карточки можно перенести, чтобы не набирать заново.</div>'+
+          '<button class="bt sm" id="leadToCab">Завести кабинет</button></div>'
+        : '')+
+
+      '<div class="fndang"><button class="bt gh2 sm dangl" id="leadDel">Удалить лида</button></div>'+
+    '</div>';
+}
+
+document.addEventListener("click", function(e){
+  var t;
+  if(view !== "sales") return;
+  if((t = e.target.closest("[data-salest]"))){
+    var s = t.getAttribute("data-salest");
+    saleStage = saleStage === s ? "" : s; renderSales(); return; }
+  if(e.target.closest("#saleAllSt")){ saleStage = ""; renderSales(); return; }
+  if((t = e.target.closest("[data-lead]"))){
+    saleOpen = t.getAttribute("data-lead"); renderSales();
+    var sec = document.getElementById("sect"); if(sec) sec.scrollTop = 0; return; }
+  if(e.target.closest("#saleBack") || e.target.closest("#saleBackSt")){
+    var l0 = leads().filter(function(x){ return x.id === saleOpen; })[0];
+    if(l0) saleStage = l0.stage;
+    saleOpen = null; renderSales(); return; }
+  if(e.target.closest("#saleBackAll")){ saleOpen = null; saleStage = ""; renderSales(); return; }
+  if((t = e.target.closest("[data-ldtouch]"))){
+    var l = leads().filter(function(x){ return x.id === saleOpen; })[0]; if(!l) return;
+    var i = +t.getAttribute("data-ldtouch"), tt = leadTouch(l);
+    /* первый клик переносит демо-заготовку в явные галочки */
+    if(!Object.keys(tt).length && l.done){ for(var k = 0; k < l.done; k++) tt[k] = 1; l.done = 0; }
+    tt[i] = tt[i] ? 0 : 1;
+    if(tt[i] && l.stage === "new") l.stage = "touch";
+    saveState(); renderSales(); return; }
+  if(e.target.closest("#leadAdd")){
+    var nl = {id:nextId("ld"), name:"Новый лид", tg:"", phone:"", soc:"", shop:"",
+      arts:"", stage:"new", done:0, note:"", touch:{}, at:Date.now()};
+    leads().push(nl); saveState();
+    saleOpen = nl.id; renderSales();
+    var i2 = document.querySelector('[data-ldk="name"]'); if(i2){ i2.focus(); i2.select(); }
+    return; }
+  if(e.target.closest("#leadDel")){
+    S.leads = leads().filter(function(x){ return x.id !== saleOpen; });
+    saveState(); saleOpen = null; renderSales(); toast("Лид удалён"); return; }
+  if(e.target.closest("#saleToGrowth")){ navPush("sales"); setView("growth", true); return; }
+  if(e.target.closest("#leadToCab")){
+    navPush("sales"); setView("cards", true);
+    toast("Заведите кабинет — карточка клиента открыта"); return; }
+});
+document.addEventListener("input", function(e){
+  var t = e.target;
+  if(view !== "sales" || !saleOpen) return;
+  if(t.matches && t.matches("[data-ldk]")){
+    var l = leads().filter(function(x){ return x.id === saleOpen; })[0]; if(!l) return;
+    var k = t.getAttribute("data-ldk");
+    l[k] = (k === "tg") ? ("@" + String(t.value).replace(/^@+/, "")) : t.value;
+    saveState();
+    if(k === "stage") renderSales();
+    return; }
+});
+document.addEventListener("change", function(e){
+  if(view !== "sales" || !saleOpen) return;
+  if(e.target.matches && e.target.matches('select[data-ldk="stage"]')){
+    var l = leads().filter(function(x){ return x.id === saleOpen; })[0];
+    if(l){ l.stage = e.target.value; saveState(); renderSales(); }
+  }
+});
+
+NAV_TITLES.sales = ["Отдел продаж", "Воронка, лиды и цепочка касаний"];
+SEC_RENDER.sales = renderSales;
 
 })();
 </script>
