@@ -3585,6 +3585,24 @@ a.hlpc:hover{ border-color:rgba(124,92,255,.45) }
   .demobadge .dbtx{ display:none }
   .demobadge{ padding:0 8px }
 }
+
+/* ── 58. Редактируемые карточки ── */
+.edbox{ background:var(--panel-2); border:1px solid var(--stroke-2); border-radius:var(--r2);
+  padding:16px 18px; margin-bottom:16px }
+.edh{ display:flex; align-items:baseline; gap:10px; font-size:13px; font-weight:600; margin-bottom:4px }
+.edh i{ font-style:normal; font-size:11px; font-weight:400; color:var(--ink-3) }
+.edg{ font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.05em;
+  color:var(--ink-3); margin:14px 0 8px }
+.edr{ display:flex; gap:12px; flex-wrap:wrap }
+.edf{ display:flex; flex-direction:column; gap:5px; flex:1 1 170px; min-width:150px }
+.edf.wide{ flex:2 1 260px }
+.edf > span{ font-size:11px; color:var(--ink-3) }
+.edf .fi, .edf .sel{ width:100% }
+.edf .fi.edok, .edf .sel.edok{ border-color:rgba(34,176,125,.55);
+  box-shadow:0 0 0 3px rgba(34,176,125,.12); transition:box-shadow .2s var(--ease) }
+@media (max-width:900px){
+  .edf, .edf.wide{ flex:1 1 100% }
+}
 </style>
 </head>
 <body>
@@ -18302,6 +18320,182 @@ document.addEventListener("click", function(e){
     if(el) el.scrollIntoView({behavior:"smooth", block:"nearest"});
   }, 220);
 }, true);
+
+/* ══ 58. Карточки, в которых можно всё заполнить ════════════════
+   Раньше карточка была витриной: цифры посмотреть можно, а внести
+   данные — только через форму заведения. Теперь и у сотрудника, и
+   у клиента карточка открывается с виджета и содержит все поля.
+   Правки сохраняются сразу, без кнопки «применить»: поле потеряло
+   фокус — значение записано.                                    */
+
+var ED_POSTS = (typeof POSTS !== "undefined" && POSTS.length) ? POSTS : [
+  "Собственник","Директор","Руководитель отдела","Проджект",
+  "Менеджер главный","Менеджер","Менеджер младший","Ассистент",
+  "Дизайнер","Аналитик","Контент-менеджер"];
+
+function edRow(cells){ return '<div class="edr">' + cells.join("") + '</div>'; }
+
+function edText(who, id, key, label, val, opt){
+  opt = opt || {};
+  return '<label class="edf'+(opt.wide ? " wide" : "")+'"><span>'+esc(label)+'</span>'+
+    '<input class="fi sm" data-ed="'+who+'" data-edid="'+esc(id)+'" data-edk="'+key+'"'+
+    (opt.type ? ' type="'+opt.type+'"' : '')+
+    (opt.ph ? ' placeholder="'+esc(opt.ph)+'"' : '')+
+    (opt.min !== undefined ? ' min="'+opt.min+'"' : '')+
+    ' value="'+esc(val == null ? "" : String(val))+'"></label>';
+}
+function edSel(who, id, key, label, val, list){
+  return '<label class="edf"><span>'+esc(label)+'</span>'+
+    '<select class="sel sm" data-ed="'+who+'" data-edid="'+esc(id)+'" data-edk="'+key+'">'+
+      list.map(function(o){
+        var v = (o instanceof Array) ? o[0] : o, t = (o instanceof Array) ? o[1] : o;
+        return '<option value="'+esc(v)+'"'+(String(val) === String(v) ? ' selected' : '')+'>'+
+          esc(t)+'</option>'; }).join("")+
+    '</select></label>';
+}
+
+/* ── карточка сотрудника ── */
+function edManForm(m){
+  var gl = [];
+  try{ gl = grades().map(function(g){ return [g.id, g.name]; }); }catch(e){}
+  var posts = ED_POSTS.slice();
+  if(m.role && posts.indexOf(m.role) < 0) posts.unshift(m.role);
+
+  return '<div class="edbox">'+
+    '<div class="edh">Данные сотрудника<i>сохраняется само, как только уходите из поля</i></div>'+
+
+    '<div class="edg">Кто это</div>'+
+    edRow([
+      edText("man", m.id, "name", "Имя", m.name, {wide:true}),
+      edSel ("man", m.id, "role", "Должность", m.role || "", posts),
+      gl.length ? edSel("man", m.id, "grade", "Грейд", m.grade || "", gl) : ""
+    ])+
+
+    '<div class="edg">Как связаться</div>'+
+    edRow([
+      edText("man", m.id, "tg",     "Telegram",       m.tg,     {ph:"@nickname"}),
+      edText("man", m.id, "mail",   "Рабочая почта",  m.mail,   {ph:"имя@flater.pro"}),
+      edText("man", m.id, "wphone", "Телефон",        m.wphone, {ph:"+7…"})
+    ])+
+
+    '<div class="edg">Деньги</div>'+
+    edRow([
+      edText("man", m.id, "pay",      "Оклад, ₽ в месяц", m.pay,      {type:"number", min:0}),
+      edText("man", m.id, "payDay",   "День выплаты",     m.payDay,   {type:"number", min:1, ph:"5"}),
+      edText("man", m.id, "bonusPct", "Премия, %",        m.bonusPct, {type:"number", min:0}),
+      edText("man", m.id, "finePct",  "Штраф, %",         m.finePct,  {type:"number", min:0})
+    ])+
+
+    '<div class="edg">Рабочий день</div>'+
+    edRow([
+      edText("man", m.id, "hoursDay", "Часов в день",      m.hoursDay, {type:"number", min:1, ph:"8"}),
+      edText("man", m.id, "target",   "Плановая загрузка, %", m.target, {type:"number", min:0, ph:"100"}),
+      edText("man", m.id, "maxArt",   "Максимум артикулов",m.maxArt,   {type:"number", min:0})
+    ])+
+  '</div>';
+}
+
+(function(){
+  if(typeof manCardHTML !== "function") return;
+  var _mc = manCardHTML;
+  manCardHTML = function(m){
+    var h = _mc.apply(this, arguments);
+    try{ return edManForm(m) + h; }catch(e){ return h; }
+  };
+})();
+
+/* ── карточка клиента ── */
+function edCliForm(pr){
+  return '<div class="edbox">'+
+    '<div class="edh">Данные клиента<i>сохраняется само, как только уходите из поля</i></div>'+
+
+    '<div class="edg">Кто это</div>'+
+    edRow([
+      edText("cli", pr.id, "name",  "Название", pr.name, {wide:true}),
+      edText("cli", pr.id, "owner", "Собственник", pr.owner, {ph:"имя и фамилия"})
+    ])+
+
+    '<div class="edg">Как связаться</div>'+
+    edRow([
+      edText("cli", pr.id, "tg",    "Telegram", pr.tg,    {ph:"@nickname"}),
+      edText("cli", pr.id, "phone", "Телефон",  pr.phone, {ph:"+7…"}),
+      edText("cli", pr.id, "sheet", "Таблица клиента", pr.sheet, {ph:"ссылка", wide:true})
+    ])+
+
+    '<div class="edg">Деньги</div>'+
+    edRow([
+      edText("cli", pr.id, "amount",  "Платёж, ₽ в месяц", pr.amount,  {type:"number", min:0}),
+      edText("cli", pr.id, "payDate", "Дата платежа",      pr.payDate, {type:"date"})
+    ])+
+
+    '<div class="edg">Кабинет</div>'+
+    edRow([
+      edText("cli", pr.id, "articles", "Артикулов в управлении", pr.articles, {type:"number", min:0}),
+      edText("cli", pr.id, "code",     "Код кабинета",           pr.code,     {ph:"например WB-1042"})
+    ])+
+  '</div>';
+}
+
+(function(){
+  if(typeof ccDetail !== "function") return;
+  var _cd = ccDetail;
+  ccDetail = function(pr){
+    var h = _cd.apply(this, arguments);
+    try{
+      return h.replace('<div class="ccdet">', '<div class="ccdet">' + edCliForm(pr));
+    }catch(e){ return h; }
+  };
+})();
+
+/* ── сохранение: ушли из поля — значение записано ── */
+(function(){
+  var NUM = {pay:1, payDay:1, bonusPct:1, finePct:1, hoursDay:1, target:1,
+             maxArt:1, amount:1, articles:1};
+
+  function put(el){
+    var who = el.getAttribute("data-ed"),
+        id  = el.getAttribute("data-edid"),
+        key = el.getAttribute("data-edk");
+    if(!who || !id || !key) return;
+    var obj = null;
+    try{ obj = who === "man" ? person(id) : project(id); }catch(e){}
+    if(!obj) return;
+
+    var v = el.value;
+    if(NUM[key]) v = v === "" ? null : Math.max(0, +v || 0);
+    else v = String(v).trim();
+    if(key === "tg") v = String(v).replace(/^@+/, "");
+    obj[key] = v;
+
+    try{ saveState(); }catch(e){}
+
+    /* имя видно в шапке карточки — обновляем на месте, без перерисовки,
+       иначе поле теряет фокус на каждой букве */
+    if(key === "name"){
+      var host = document.getElementById("sect");
+      if(host){
+        var t = host.querySelector('[data-openperson="'+id+'"] .n, [data-openpr="'+id+'"] .n, .cc2.ccx .n');
+        if(t) t.textContent = v;
+      }
+    }
+    el.classList.add("edok");
+    clearTimeout(el._t);
+    el._t = setTimeout(function(){ el.classList.remove("edok"); }, 900);
+  }
+
+  document.addEventListener("change", function(e){
+    var el = e.target;
+    if(el && el.matches && el.matches("[data-ed]")) put(el);
+  });
+  document.addEventListener("blur", function(e){
+    var el = e.target;
+    if(el && el.matches && el.matches("[data-ed]")) put(el);
+  }, true);
+  /* клик внутри формы не должен схлопывать карточку */
+  document.addEventListener("click", function(e){
+    if(e.target.closest && e.target.closest(".edbox")) e.stopPropagation();
+  }, true);
+})();
 
 })();
 </script>
