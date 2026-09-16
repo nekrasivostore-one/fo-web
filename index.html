@@ -2927,6 +2927,237 @@ code.invc{ font-family:ui-monospace,SFMono-Regular,monospace; font-weight:700;
 .tdcol .tdh2{ position:sticky; top:0; z-index:2; background:var(--panel);
   backdrop-filter:var(--blur); padding-top:2px }
 .tdone{ max-height:560px; overflow-y:auto; padding-right:4px }
+
+/* ── 38. Рост: индекс оплаты, выгорание, сборка команды ── */
+.payidx{ border:1px solid var(--stroke-2); border-radius:var(--r2); overflow:hidden }
+.payih{ display:grid; width:100%; grid-template-columns:1fr 1fr 1fr 20px; gap:16px;
+  align-items:center; text-align:left; background:none; border:0; padding:15px 17px;
+  color:var(--ink); cursor:pointer; transition:background .15s var(--ease) }
+.payih:hover{ background:var(--neu) }
+.pyc{ display:flex; flex-direction:column; gap:3px }
+.pyc i{ font-style:normal; font-size:10.5px; font-weight:700; text-transform:uppercase;
+  letter-spacing:.05em; color:var(--ink-3) }
+.pyc b{ font-family:Unbounded,sans-serif; font-size:19px; font-weight:500; letter-spacing:-.03em }
+.pyc u{ text-decoration:none; font-size:11px; color:var(--ink-3); line-height:1.35 }
+.payil{ border-top:1px solid var(--stroke-2); padding:14px 17px 16px;
+  animation:fngIn .24s var(--ease) }
+.payig + .payig{ margin-top:14px }
+.payigh{ font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.05em;
+  color:var(--ink-3); margin-bottom:8px }
+.payr{ display:grid; grid-template-columns:28px minmax(140px,1fr) 60px 130px 110px; gap:12px;
+  align-items:center; padding:8px 0; border-bottom:1px solid var(--stroke-2) }
+.payr:last-child{ border-bottom:0 }
+.payn{ display:flex; flex-direction:column; gap:2px; min-width:0 }
+.payn b{ font-size:13px; font-weight:600 }
+.payn i{ font-style:normal; font-size:11px; color:var(--ink-3) }
+.payl{ font-size:12.5px; color:var(--ink-2); text-align:right }
+.payl.bad{ color:var(--crit) }
+.payh{ font-size:11.5px; color:var(--ink-3) }
+.payv{ font-size:13px; text-align:right }
+
+.burn{ margin-top:14px; display:flex; flex-direction:column; gap:10px }
+.burnh, .burnc{ border-radius:var(--r2); padding:13px 15px }
+.burnh{ background:rgba(219,74,95,.07); border:1px solid rgba(219,74,95,.2) }
+.burnc{ background:rgba(255,176,32,.06); border:1px solid rgba(255,176,32,.2) }
+.burnh b, .burnc b{ display:block; font-size:13.5px; margin-bottom:5px }
+.burnh span, .burnc span{ display:block; font-size:12.5px; line-height:1.55; color:var(--ink-2) }
+.burng{ font-size:12.5px; line-height:1.55; color:var(--ink-2);
+  background:var(--panel-2); border-radius:var(--r2); padding:11px 14px }
+
+/* сборка команды */
+.crewhint{ font-size:12.5px; line-height:1.6; color:var(--ink-2);
+  background:var(--panel-2); border-radius:var(--r2); padding:13px 15px }
+.crew{ display:flex; flex-direction:column; gap:14px }
+.crewh{ display:flex; align-items:baseline; gap:12px; flex-wrap:wrap }
+.crewh b{ font-size:14px; font-weight:600 }
+.crewh span{ font-size:12px; color:var(--ink-3) }
+.crewh .bt{ width:auto; margin-left:auto }
+.crows{ display:flex; flex-direction:column; gap:7px }
+.crow{ display:grid; grid-template-columns:200px 110px 1fr 110px 26px; gap:12px; align-items:center;
+  background:var(--panel-2); border:1px solid var(--stroke-2); border-radius:var(--r2); padding:9px 12px }
+.cqty{ display:flex; align-items:center; gap:4px; justify-content:center }
+.cqb{ width:28px; height:28px; border-radius:8px; border:1px solid var(--stroke-2);
+  background:none; color:var(--ink-2); font-size:15px; cursor:pointer; line-height:1;
+  transition:border-color .15s var(--ease), color .15s var(--ease) }
+.cqb:hover{ border-color:#7C5CFF; color:#9B85FF }
+.cqty b{ min-width:26px; text-align:center; font-family:Unbounded,sans-serif; font-size:15px }
+.crcap{ font-size:11.5px; color:var(--ink-3) }
+.crcost{ font-size:12.5px; color:var(--ink-2); text-align:right }
+.crdel{ width:26px; height:26px; border-radius:8px; border:1px solid transparent; background:none;
+  color:var(--ink-3); font-size:16px; cursor:pointer; line-height:1 }
+.crdel:hover{ color:var(--crit); border-color:rgba(219,74,95,.3) }
+.crdel.dim{ cursor:default; opacity:.3 }
+.crewadd{ width:auto; align-self:flex-start }
+
+.crsum{ display:grid; grid-template-columns:repeat(4,1fr); gap:10px }
+.crc{ background:var(--panel-2); border:1px solid var(--stroke-2); border-radius:var(--r2);
+  padding:12px 14px }
+.crc .l{ font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.05em;
+  color:var(--ink-3) }
+.crc .v{ font-family:Unbounded,sans-serif; font-size:21px; font-weight:500; letter-spacing:-.03em;
+  margin:6px 0 4px }
+.crc .d{ font-size:11px; line-height:1.4; color:var(--ink-3) }
+.crc.big{ border-color:rgba(124,92,255,.3); background:rgba(124,92,255,.06) }
+
+.crwarn{ background:rgba(219,74,95,.07); border:1px solid rgba(219,74,95,.22);
+  border-radius:var(--r2); padding:14px 16px }
+.crwarn b{ display:block; font-size:13.5px; margin-bottom:6px }
+.crwarn span{ display:block; font-size:12.5px; line-height:1.6; color:var(--ink-2); margin-bottom:12px }
+.crwarn .bt{ width:auto }
+.crok{ font-size:12.5px; line-height:1.55; color:var(--ok);
+  background:rgba(34,176,125,.07); border-radius:var(--r2); padding:12px 15px }
+
+.crrev{ border-top:1px solid var(--stroke-2); padding-top:14px }
+.crrh{ font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.05em;
+  color:var(--ink-3); margin-bottom:10px }
+.crrg{ display:grid; grid-template-columns:repeat(3,1fr); gap:12px }
+.crrg > div{ display:flex; flex-direction:column; gap:3px }
+.crrg i{ font-style:normal; font-size:11px; color:var(--ink-3) }
+.crrg b{ font-family:Unbounded,sans-serif; font-size:18px; font-weight:500; letter-spacing:-.03em }
+.crrg u{ text-decoration:none; font-size:11px; color:var(--ink-3); line-height:1.4 }
+
+.crlaw{ display:grid; grid-template-columns:repeat(5,1fr); gap:9px;
+  border-top:1px solid var(--stroke-2); padding-top:14px }
+.crl{ background:var(--panel-2); border-radius:11px; padding:10px 12px }
+.crl b{ display:block; font-size:12.5px; font-weight:600; margin-bottom:3px }
+.crl span{ display:block; font-size:11px; color:#9B85FF; margin-bottom:6px }
+.crl i{ display:block; font-style:normal; font-size:10.5px; line-height:1.45; color:var(--ink-3) }
+
+@media (max-width:1300px){
+  .crlaw{ grid-template-columns:repeat(3,1fr) }
+  .crsum{ grid-template-columns:repeat(2,1fr) }
+}
+@media (max-width:1100px){
+  .payih{ grid-template-columns:1fr; gap:12px }
+  .payr{ grid-template-columns:28px 1fr 100px }
+  .payr .payl, .payr .payh{ display:none }
+  .crow{ grid-template-columns:1fr 100px 26px }
+  .crow .crcap, .crow .crcost{ display:none }
+  .crlaw, .crrg{ grid-template-columns:1fr }
+}
+
+/* ── 39. Рейтинг: неудовлетворённость, выгодность, сравнение ── */
+.unhl{ display:flex; flex-direction:column; gap:6px; margin-top:14px }
+.unhr{ border:1px solid var(--stroke-2); border-radius:var(--r2); overflow:hidden }
+.unhr.on{ border-color:rgba(124,92,255,.4) }
+.unhh{ display:grid; width:100%; text-align:left; background:none; border:0;
+  grid-template-columns:28px minmax(150px,1fr) 2fr 46px 140px 18px; gap:12px; align-items:center;
+  padding:11px 14px; color:var(--ink); cursor:pointer; transition:background .15s var(--ease) }
+.unhh:hover{ background:var(--neu) }
+.unhn{ display:flex; flex-direction:column; gap:2px; min-width:0 }
+.unhn b{ font-size:13px; font-weight:600 }
+.unhn i{ font-style:normal; font-size:11px; color:var(--ink-3) }
+.unhb{ height:8px; border-radius:99px; background:var(--stroke-2); overflow:hidden }
+.unhb i{ display:block; height:100%; border-radius:99px; transition:width .5s var(--ease) }
+.unhb i.z1{ background:var(--ok) }
+.unhb i.z2{ background:var(--warn) }
+.unhb i.z3{ background:var(--crit) }
+.unhv{ font-family:Unbounded,sans-serif; font-size:16px; letter-spacing:-.03em; text-align:right }
+.unhv.z1{ color:var(--ok) } .unhv.z2{ color:var(--warn) } .unhv.z3{ color:var(--crit) }
+.unhw{ font-size:11.5px; color:var(--ink-3) }
+.unhr.on .unhh .fnar{ transform:rotate(180deg) }
+.unhh .fnar{ transition:transform .24s var(--ease) }
+.unhp{ padding:4px 14px 14px; border-top:1px dashed var(--stroke-2);
+  animation:fngIn .24s var(--ease) }
+.unhi{ display:grid; grid-template-columns:52px minmax(130px,auto) 1fr; gap:12px; align-items:baseline;
+  padding:9px 0; border-bottom:1px solid var(--stroke-2) }
+.unhi:last-child{ border-bottom:0 }
+.unhiw{ font-size:12px; color:var(--crit); text-align:right }
+.unhi.good .unhiw{ color:var(--ok) }
+.unhi b{ font-size:12.5px; font-weight:600 }
+.unhi i{ font-style:normal; font-size:11.5px; color:var(--ink-2); line-height:1.5 }
+.unhi.ok b{ color:var(--ok) }
+.unhfix{ margin-top:12px; background:rgba(255,176,32,.07); border:1px solid rgba(255,176,32,.22);
+  border-radius:var(--r2); padding:12px 14px; font-size:12.5px; line-height:1.55; color:var(--ink-2) }
+.unhfix .bt{ width:auto; margin-top:10px }
+
+/* выгодность */
+.prow{ display:grid; grid-template-columns:1fr 1fr; gap:12px; margin:14px 0 }
+.prc{ border:1px solid var(--stroke-2); border-radius:var(--r2); padding:15px 16px }
+.prc.best{ border-color:rgba(34,176,125,.3); background:rgba(34,176,125,.05) }
+.prc.worst{ border-color:rgba(255,176,32,.3); background:rgba(255,176,32,.04) }
+.prch{ font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.05em;
+  color:var(--ink-3); margin-bottom:10px }
+.prcm{ display:flex; align-items:center; gap:10px; margin-bottom:12px }
+.prcm b{ font-size:14.5px; font-weight:600 }
+.prcm i{ font-style:normal; font-size:11.5px; color:var(--ink-3) }
+.prcg{ display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:14px }
+.prcg i{ display:block; font-style:normal; font-size:10.5px; color:var(--ink-3); margin-bottom:3px }
+.prcg b{ font-family:Unbounded,sans-serif; font-size:15px; font-weight:500; letter-spacing:-.03em }
+.prcb{ display:flex; flex-direction:column; gap:7px; margin-bottom:12px }
+.prb{ display:grid; grid-template-columns:110px 1fr 34px; gap:10px; align-items:center }
+.prb span{ font-size:11.5px; color:var(--ink-3) }
+.prb i{ display:block; height:6px; border-radius:99px; background:var(--stroke-2); overflow:hidden }
+.prb i u{ display:block; height:100%; border-radius:99px; background:#7C5CFF;
+  transition:width .5s var(--ease) }
+.prb b{ font-size:11.5px; color:var(--ink-2); text-align:right }
+.prcn{ font-size:12px; line-height:1.55; color:var(--ink-2);
+  border-top:1px solid var(--stroke-2); padding-top:11px }
+#profAll{ width:auto }
+.prlist{ margin-top:12px }
+.prr{ display:grid; grid-template-columns:26px 28px minmax(140px,1fr) 110px 110px 120px 50px;
+  gap:12px; align-items:center; padding:9px 0; border-bottom:1px solid var(--stroke-2) }
+.prnum{ font-family:Unbounded,sans-serif; font-size:13px; color:var(--ink-3); text-align:center }
+.prn{ display:flex; flex-direction:column; gap:2px; min-width:0 }
+.prn b{ font-size:13px; font-weight:600 }
+.prn i{ font-style:normal; font-size:11px; color:var(--ink-3) }
+.prv{ font-size:12.5px; text-align:right; display:flex; flex-direction:column; gap:2px }
+.prv i{ font-style:normal; font-size:10px; color:var(--ink-3) }
+.prsc{ font-family:Unbounded,sans-serif; font-size:15px; letter-spacing:-.03em; text-align:right }
+
+.rookie{ margin-top:16px; border:1px solid rgba(124,92,255,.25); background:rgba(124,92,255,.06);
+  border-radius:var(--r2); padding:15px 17px }
+.rkh{ font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.05em;
+  color:var(--ink-3); margin-bottom:12px }
+.rkg{ display:grid; grid-template-columns:repeat(5,1fr); gap:12px; margin-bottom:12px }
+.rkg i{ display:block; font-style:normal; font-size:10.5px; color:var(--ink-3); margin-bottom:4px }
+.rkg b{ font-family:Unbounded,sans-serif; font-size:16px; font-weight:500; letter-spacing:-.03em }
+.rkn{ font-size:12.5px; line-height:1.6; color:var(--ink-2) }
+
+/* сравнение */
+.cmpp{ margin-left:auto }
+.cmph{ display:grid; grid-template-columns:1fr 90px 1fr; gap:14px; align-items:center;
+  margin:14px 0 18px }
+.cmpp1, .cmpp2{ display:flex; align-items:center; gap:12px }
+.cmpp2{ flex-direction:row-reverse }
+.cmpp1 .sel, .cmpp2 .sel{ flex:1; min-width:0 }
+.cmpsc{ width:46px; height:46px; flex:none; border-radius:50%; display:flex; align-items:center;
+  justify-content:center; font-family:Unbounded,sans-serif; font-size:18px;
+  background:var(--panel-2); border:1px solid var(--stroke-2); color:var(--ink-3) }
+.cmpsc.win{ background:rgba(124,92,255,.14); border-color:rgba(124,92,255,.45); color:#9B85FF }
+.cmpvs{ text-align:center; font-size:11.5px; color:var(--ink-3) }
+.cmpax{ display:flex; flex-direction:column; gap:9px }
+.cmpr{ display:grid; grid-template-columns:1fr 210px 1fr; gap:14px; align-items:center }
+.cmpn{ text-align:center }
+.cmpn b{ display:block; font-size:12.5px; font-weight:600 }
+.cmpn i{ display:block; font-style:normal; font-size:10.5px; color:var(--ink-3); line-height:1.35 }
+.cmpbar{ position:relative; height:26px; display:flex; align-items:center }
+.cmpbar i{ position:absolute; top:6px; height:14px; border-radius:99px; background:var(--stroke-2);
+  transition:width .5s var(--ease) }
+.cmpbar i.win{ background:#7C5CFF }
+.cmpbar.l i{ right:0 }
+.cmpbar.r i{ left:0 }
+.cmpbar b{ position:absolute; font-size:11.5px; color:var(--ink-2) }
+.cmpbar.l b{ left:0 }
+.cmpbar.r b{ right:0 }
+.cmpsum{ margin-top:16px; font-size:12.5px; line-height:1.6; color:var(--ink-2);
+  background:var(--panel-2); border-radius:var(--r2); padding:13px 15px }
+.cmpsum b{ color:var(--ink) }
+
+@media (max-width:1100px){
+  .unhh{ grid-template-columns:28px 1fr 46px 18px }
+  .unhh .unhb, .unhh .unhw{ display:none }
+  .prow{ grid-template-columns:1fr }
+  .prr{ grid-template-columns:26px 28px 1fr 50px }
+  .prr .prv{ display:none }
+  .rkg{ grid-template-columns:repeat(2,1fr) }
+  .cmpr{ grid-template-columns:1fr }
+  .cmpbar i{ left:0; right:auto }
+  .cmph{ grid-template-columns:1fr }
+}
+.prcled{ font-size:12px; line-height:1.55; color:#9B85FF; background:rgba(124,92,255,.08);
+  border-radius:10px; padding:9px 12px; margin-bottom:11px }
+.cmpbar b{ background:var(--panel); padding:0 3px; border-radius:4px }
 </style>
 </head>
 <body>
@@ -14474,6 +14705,747 @@ document.addEventListener("click", function(e){
   if(!t) return;
   gMode = t.getAttribute("data-gmode");
   render();
+});
+
+/* ══ 38. РОСТ: ёмкость по грейду и сборка команды ═══════════════
+   D18 · чем выше грейд, тем больше кабинетов человек утянет:
+         ассистент — один, проджект — восемь. Причина не в скорости,
+         а в том, что ассистенту нужно ставить задачи, а проджект
+         ставит их себе сам и ещё нескольким людям.
+   D19 · «Создать команду»: собираем связку из разных ролей и видим,
+         сколько кабинетов она реально потянет. Двадцать менеджеров
+         не дают двадцати проектов — ими некому управлять.
+   D9  · сколько недоплачиваем в месяц и поимённо — кому.
+   ogrowth.03 · рядом с экономией всегда видно выгорание.
+   ogrowth.05 · цель не «загрузить под завязку», а 100–120%.      */
+
+/* склонение по числу: 1 человек, 2 человека, 5 человек */
+function plural(n, one, few, many){
+  var a = Math.abs(n) % 100, b = a % 10;
+  var w = (a > 10 && a < 20) ? many : (b === 1) ? one : (b >= 2 && b <= 4) ? few : many;
+  return n + " " + w;
+}
+
+/* ёмкость и управляемость по грейду */
+var GRADE_CAP = {
+  assist: {cabs:1, span:0, why:"Ассистент закрывает рутину, но кабинет за собой не ведёт — задачи ему ставит кто-то другой."},
+  jun:    {cabs:2, span:0, why:"Младший ведёт пару кабинетов под присмотром: решения по цене и рекламе за ним не оставляют."},
+  mid:    {cabs:4, span:0, why:"Менеджер тянет четыре кабинета целиком, но команду не ведёт."},
+  head:   {cabs:6, span:4, why:"Главный менеджер ведёт шесть кабинетов и может держать под собой до четырёх человек."},
+  pm:     {cabs:8, span:8, why:"Проджект — единственная роль, которая добавляет не только руки, но и управление: до восьми кабинетов и до восьми человек под ним."}
+};
+function gcap(id){ return GRADE_CAP[id] || GRADE_CAP.mid; }
+
+/* сколько людей команда способна удержать под управлением сейчас */
+function teamSpan(){
+  var span = 0, need = 0;
+  (S.people || []).forEach(function(m){
+    if(m.hidden) return;
+    var g = gradeOf(m);
+    span += gcap(g.id).span;
+    if(!gcap(g.id).span) need++;          /* этим людям нужен руководитель */
+  });
+  return {span:span, need:need, free:Math.max(0, span - need)};
+}
+
+/* ── сборка команды (D19) ── */
+var crewOpen = false;
+var crew = null;
+function crewRows(){
+  if(!crew) crew = [{grade:"mid", n:1}];
+  return crew;
+}
+function crewCalc(){
+  var rows = crewRows();
+  var people = 0, cabs = 0, span = 0, cost = 0, needMgr = 0;
+  rows.forEach(function(r){
+    var n = Math.max(0, r.n || 0);
+    var c = gcap(r.grade), g = gradeById(r.grade);
+    people += n;
+    cabs   += n * c.cabs;
+    span   += n * c.span;
+    cost   += n * Math.round((g.min + g.max) / 2);
+    if(!c.span) needMgr += n;
+  });
+  var t = teamSpan();
+  var spanAll = t.span + span;            /* управленческая ёмкость после найма */
+  var needAll = t.need + needMgr;         /* столько людей нужно кому-то вести */
+  var short   = Math.max(0, needAll - spanAll);
+  /* если управлять некому — часть новых людей просто не выйдет на мощность */
+  var usable  = needMgr ? Math.max(0, needMgr - short) : 0;
+  var realCabs = cabs;
+  if(short > 0 && needMgr > 0){
+    var lost = 0;
+    rows.forEach(function(r){
+      var c = gcap(r.grade);
+      if(c.span) return;
+      lost += Math.min(r.n || 0, short) * c.cabs;
+    });
+    realCabs = Math.max(0, cabs - Math.round(lost * (short / Math.max(1, needMgr))));
+  }
+  return {people:people, cabs:cabs, realCabs:realCabs, span:span, cost:cost,
+    needMgr:needMgr, short:short, spanAll:spanAll, needAll:needAll, usable:usable};
+}
+
+function crewHTML(){
+  var c = crewCalc(), rows = crewRows();
+  var prs = (S.projects || []).filter(function(p){ return +p.amount > 0; });
+  var avg = prs.length
+    ? Math.round(prs.reduce(function(a, p){ return a + (+p.amount || 0); }, 0) / prs.length) : 0;
+  var gain = c.realCabs * avg;
+  var net  = gain - c.cost;
+
+  return '<div class="crew">'+
+    '<div class="crewh"><b>Собираем команду</b>'+
+      '<span>сколько кабинетов реально потянет такая связка</span>'+
+      '<button class="bt gh2 sm" id="crewHide">Свернуть</button></div>'+
+
+    '<div class="crows">'+rows.map(function(r, i){
+      var g = gradeById(r.grade), cap = gcap(r.grade);
+      return '<div class="crow">'+
+        '<select class="sel sm" data-crg="'+i+'">'+grades().map(function(x){
+          return '<option value="'+x.id+'"'+(r.grade === x.id ? ' selected' : '')+'>'+
+            esc(x.name)+'</option>'; }).join("")+'</select>'+
+        '<div class="cqty">'+
+          '<button class="cqb" data-crn="'+i+'|-1">−</button>'+
+          '<b>'+(r.n || 0)+'</b>'+
+          '<button class="cqb" data-crn="'+i+'|1">+</button>'+
+        '</div>'+
+        '<span class="crcap">'+(cap.cabs * (r.n || 0))+' каб.'+
+          (cap.span ? ' · ведёт до '+(cap.span * (r.n || 0))+' чел.' : ' · нужен руководитель')+'</span>'+
+        '<span class="crcost">'+rub(Math.round((g.min + g.max) / 2) * (r.n || 0))+'</span>'+
+        (rows.length > 1
+          ? '<button class="crdel" data-crd="'+i+'" title="убрать строку">×</button>'
+          : '<span class="crdel dim">·</span>')+
+      '</div>'; }).join("")+
+    '</div>'+
+    '<button class="bt gh2 sm crewadd" id="crewAdd">+ Добавить роль</button>'+
+
+    '<div class="crsum">'+
+      '<div class="crc"><div class="l">Людей</div><div class="v">'+c.people+'</div>'+
+        '<div class="d">в связке</div></div>'+
+      '<div class="crc"><div class="l">На бумаге</div><div class="v">'+c.cabs+'</div>'+
+        '<div class="d">кабинетов, если каждого есть кому вести</div></div>'+
+      '<div class="crc big"><div class="l">На самом деле</div>'+
+        '<div class="v '+(c.realCabs < c.cabs ? 'critv' : 'okv')+'">'+c.realCabs+'</div>'+
+        '<div class="d">кабинетов с учётом того, кто кем управляет</div></div>'+
+      '<div class="crc"><div class="l">Гонорар</div><div class="v">'+rub(c.cost)+'</div>'+
+        '<div class="d">в месяц по серединам вилок</div></div>'+
+    '</div>'+
+
+    (c.short > 0
+      ? '<div class="crwarn"><b>Управлять некому: '+
+        plural(c.short, "человек останется", "человека останутся", "человек останутся")+
+        ' без руководителя.</b>'+
+        '<span>Сейчас команда может держать под управлением '+c.spanAll+' человек, '+
+        'а после найма их станет '+c.needAll+'. Менеджеры без проджекта не превращаются в кабинеты — '+
+        'они превращаются в очередь вопросов к вам. Добавьте в связку проджекта или главного менеджера.</span>'+
+        '<button class="bt sm" id="crewFix">Добавить проджекта</button></div>'
+      : c.people
+        ? '<div class="crok">Связка сбалансирована: у каждого есть кому задавать вопросы, '+
+          'а у руководителей — запас, чтобы взять ещё '+Math.max(0, c.spanAll - c.needAll)+' человек.</div>'
+        : '')+
+
+    (avg && c.realCabs
+      ? '<div class="crrev">'+
+        '<div class="crrh">Что это даёт в деньгах</div>'+
+        '<div class="crrg">'+
+          '<div><i>Выручка</i><b class="okv">+'+rub(gain)+'</b>'+
+            '<u>'+c.realCabs+' кабинетов × '+rub(avg)+' средний чек</u></div>'+
+          '<div><i>Гонорар</i><b>−'+rub(c.cost)+'</b><u>'+c.people+' человек в месяц</u></div>'+
+          '<div><i>Разница</i><b class="'+(net > 0 ? 'okv' : 'critv')+'">'+
+            (net > 0 ? '+' : '')+rub(net)+'</b>'+
+            '<u>'+(net > 0 ? 'окупается, если кабинеты найдутся' : 'пока в минус')+'</u></div>'+
+        '</div>'+
+        '<div class="srn">Это гипотеза, а не прогноз: она верна ровно настолько, насколько '+
+          'отдел продаж успеет привести '+c.realCabs+' кабинетов. Сначала воронка, потом найм.</div>'+
+      '</div>'
+      : '')+
+
+    '<div class="crlaw">'+Object.keys(GRADE_CAP).map(function(k){
+      var g = gradeById(k);
+      return '<div class="crl"><b>'+esc(g.name)+'</b><span>'+gcap(k).cabs+' каб.'+
+        (gcap(k).span ? ' · до '+gcap(k).span+' чел. под собой' : '')+'</span>'+
+        '<i>'+esc(gcap(k).why)+'</i></div>'; }).join("")+
+    '</div>'+
+  '</div>';
+}
+
+/* ── D9 · индекс оплаты: сколько недоплачиваем и кому ── */
+var payWhoOpen = false;
+
+function payIndexHTML(){
+  var t = simTeam();
+  var per = t.per.slice().sort(function(a, b){ return a.gapRub - b.gapRub; });
+  var underM = Math.round(t.underpay * 4.33);
+  var overM  = Math.round(t.overpay * 4.33);
+  var under = per.filter(function(x){ return x.gapRub < 0; });
+  var over  = per.filter(function(x){ return x.gapRub > 0; });
+
+  return '<div class="payidx">'+
+    '<button class="payih" id="payiToggle">'+
+      '<span class="pyc"><i>Недоплачиваем</i><b class="critv">'+rub(underM)+'</b>'+
+        '<u>в месяц · '+under.length+' чел. работают больше нормы</u></span>'+
+      '<span class="pyc"><i>Переплачиваем</i><b>'+rub(overM)+'</b>'+
+        '<u>в месяц · '+over.length+' чел. недогружены</u></span>'+
+      '<span class="pyc"><i>Итог</i><b class="'+(overM - underM >= 0 ? '' : 'critv')+'">'+
+        (overM - underM >= 0 ? '+' : '')+rub(overM - underM)+'</b>'+
+        '<u>'+(overM > underM
+          ? 'платим больше, чем получаем часов'
+          : 'команда отрабатывает больше, чем получает')+'</u></span>'+
+      '<svg class="fnar" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>'+
+    '</button>'+
+    (payWhoOpen
+      ? '<div class="payil">'+
+        (under.length
+          ? '<div class="payig"><div class="payigh critv">Кому недоплачиваем</div>'+
+            under.map(function(x){ return payGapRow(x, true); }).join("")+'</div>' : '')+
+        (over.length
+          ? '<div class="payig"><div class="payigh">Кому переплачиваем</div>'+
+            over.map(function(x){ return payGapRow(x, false); }).join("")+'</div>' : '')+
+        '<div class="srn">Считаем от нормы 40 часов в неделю и ставки человека. '+
+          'Недоплата — это не жадность, а сигнал: либо снять часы, либо поднять ставку. '+
+          'Если человек второй месяц в красной зоне, сервис запомнит это в рейтинге, '+
+          'даже если формально всё «нормально».</div>'+
+      '</div>'
+      : '')+
+  '</div>';
+}
+
+function payGapRow(x, isUnder){
+  var m = x.p, mo = Math.round(Math.abs(x.gapRub) * 4.33);
+  var hrsGap = Math.abs(Math.round(x.gapH * 10) / 10);
+  return '<div class="payr">'+
+    '<span class="av2" style="background:'+m.color+'">'+esc(m.av || "")+'</span>'+
+    '<span class="payn"><b>'+esc(m.name)+'</b><i>'+esc(m.role || "")+'</i></span>'+
+    '<span class="payl'+(isUnder ? ' bad' : '')+'">'+x.pct+'%</span>'+
+    '<span class="payh">'+(isUnder ? '+' : '−')+hrsGap+' ч в неделю</span>'+
+    '<span class="payv '+(isUnder ? 'critv' : '')+'">'+(isUnder ? '−' : '+')+rub(mo)+'</span>'+
+  '</div>';
+}
+
+/* ── выгорание рядом с экономией (ogrowth.03) + цель 100–120% (ogrowth.05) ── */
+function burnNote(){
+  var t = simTeam();
+  var hot = t.per.filter(function(x){ return x.pct > 120; });
+  var cold = t.per.filter(function(x){ return x.pct < 85; });
+  if(!hot.length && !cold.length) return '';
+  return '<div class="burn">'+
+    (hot.length
+      ? '<div class="burnh"><b>'+plural(hot.length, "человек работает", "человека работают", "человек работают")+
+        ' больше 120% нормы</b>'+
+        '<span>'+hot.map(function(x){ return esc(x.p.name) + ' — ' + x.pct + '%'; }).join(", ")+'. '+
+        'На этой цифре экономия на найме превращается в выгорание: человек либо уходит, '+
+        'либо начинает делать хуже — и второе дороже первого.</span></div>'
+      : '')+
+    (cold.length
+      ? '<div class="burnc"><b>'+plural(cold.length, "человек загружен", "человека загружены", "человек загружены")+
+        ' меньше чем на 85%</b>'+
+        '<span>'+cold.map(function(x){ return esc(x.p.name) + ' — ' + x.pct + '%'; }).join(", ")+'. '+
+        'Это не лень, а недогруз: им можно отдать часть кабинетов у перегруженных — '+
+        'бесплатно и сегодня, без найма.</span></div>'
+      : '')+
+    '<div class="burng">Здоровая цель — <b>100–120%</b>, а не «загрузить под завязку». '+
+      'Ниже 100% — платим за простой, выше 120% — платим выгоранием.</div>'+
+  '</div>';
+}
+
+/* вставляем всё это в раздел «Рост» */
+(function(){
+  var _rg = renderGrowth;
+  renderGrowth = function(){
+    _rg.apply(this, arguments);
+    var host = document.getElementById("sect");
+    if(!host) return;
+    /* индекс оплаты и выгорание — сразу под моделью */
+    var sim = host.querySelector(".simwrap") || host.querySelector(".gl");
+    var block = document.createElement("div");
+    block.className = "gl growext";
+    block.innerHTML =
+      '<div class="gl-t"><h2>Сколько стоит текущий расклад</h2>'+
+        '<span class="m">нажмите на цифры — покажу поимённо</span></div>'+
+      (seesMoney() ? payIndexHTML() : '')+
+      burnNote();
+    host.appendChild(block);
+
+    var crewBlock = document.createElement("div");
+    crewBlock.className = "gl crewwrap";
+    crewBlock.innerHTML =
+      '<div class="gl-t"><h2>Кого берём</h2>'+
+        '<span class="m">не «сколько людей», а «какая связка» — от этого зависит, '+
+        'сколько кабинетов вы реально утянете</span>'+
+        (crewOpen ? '' : '<button class="bt sm" id="crewShow">+ Создать команду</button>')+
+      '</div>'+
+      (crewOpen ? crewHTML()
+        : '<div class="crewhint">Сейчас команда может держать под управлением <b>'+
+          teamSpan().span+'</b> человек, из них занято <b>'+teamSpan().need+'</b>. '+
+          'Нажмите «Создать команду», чтобы собрать связку из разных ролей и увидеть, '+
+          'сколько кабинетов она потянет на самом деле.</div>');
+    host.appendChild(crewBlock);
+  };
+  /* SEC_RENDER держит ссылку на старую функцию — переназначаем и её */
+  if(typeof SEC_RENDER !== "undefined") SEC_RENDER.growth = renderGrowth;
+})();
+
+document.addEventListener("click", function(e){
+  var t;
+  if(view !== "growth") return;
+  if(e.target.closest("#payiToggle")){ payWhoOpen = !payWhoOpen; renderGrowth(); return; }
+  if(e.target.closest("#crewShow")){ crewOpen = true; renderGrowth(); return; }
+  if(e.target.closest("#crewHide")){ crewOpen = false; renderGrowth(); return; }
+  if(e.target.closest("#crewAdd")){
+    crewRows().push({grade:"pm", n:1}); renderGrowth(); return; }
+  if(e.target.closest("#crewFix")){
+    var has = crewRows().filter(function(r){ return r.grade === "pm"; })[0];
+    if(has) has.n = (has.n || 0) + 1; else crewRows().push({grade:"pm", n:1});
+    renderGrowth(); return; }
+  if((t = e.target.closest("[data-crn]"))){
+    var p = t.getAttribute("data-crn").split("|");
+    var r = crewRows()[+p[0]];
+    if(r){ r.n = Math.max(0, (r.n || 0) + (+p[1])); renderGrowth(); }
+    return; }
+  if((t = e.target.closest("[data-crd]"))){
+    crewRows().splice(+t.getAttribute("data-crd"), 1);
+    if(!crewRows().length) crew = [{grade:"mid", n:1}];
+    renderGrowth(); return; }
+});
+document.addEventListener("change", function(e){
+  if(view !== "growth") return;
+  var t = e.target;
+  if(t.matches && t.matches("[data-crg]")){
+    var r = crewRows()[+t.getAttribute("data-crg")];
+    if(r){ r.grade = t.value; renderGrowth(); }
+  }
+});
+
+/* ══ 39. РЕЙТИНГ: неудовлетворённость, выгодность, сравнение ══════
+   D16 · если сервис рекомендовал поднять грейд, а повышения не было —
+         он это запоминает. Молчаливое «потерпит» имеет цену.
+   D17 · индекс неудовлетворённости: переработки, отсутствие повышений,
+         штрафы — вниз; премии — вверх.
+   D41 · самый выгодный и самый невыгодный сотрудник для организации;
+         портрет новичка, которого стоит искать.
+   D42 · «Сравнить менеджеров» — по всем пунктам квалификации, на разных
+         отрезках. Соревнование, которое видите только вы.            */
+
+/* ── D16 · история рекомендаций по грейду ──────────────────
+   Сервис смотрит, задачи какой сложности человек реально закрывает,
+   и если это выше его грейда — фиксирует рекомендацию с датой.
+   Дальше он просто ждёт: подняли или нет.                   */
+function gradeRecs(){ if(!S.gradeRec) S.gradeRec = {}; return S.gradeRec; }
+
+function hardShare(m){
+  /* доля задач категории A и B в том, что человек реально закрывает */
+  var mine = (S.tasks || []).filter(function(t){ return t.person === m.id; });
+  if(!mine.length) return {a:0, b:0, n:0, share:0};
+  var a = 0, b = 0;
+  mine.forEach(function(t){
+    var f = t.fn ? fnById(t.fn) : null;
+    if(!f) return;
+    var c = fnCfg(f).cat;
+    if(c === "A") a++; else if(c === "B") b++;
+  });
+  return {a:a, b:b, n:mine.length, share:Math.round((a * 2 + b) / (mine.length * 2) * 100)};
+}
+function gradeShould(m){
+  var h = hardShare(m);
+  if(h.share >= 60) return "head";
+  if(h.share >= 38) return "mid";
+  if(h.share >= 18) return "jun";
+  return "assist";
+}
+function gradeRecCheck(){
+  var recs = gradeRecs(), changed = false;
+  (S.people || []).forEach(function(m){
+    if(m.hidden) return;
+    var have = gradeOf(m).id, should = gradeShould(m);
+    var hi = grades().map(function(g){ return g.id; });
+    if(hi.indexOf(should) <= hi.indexOf(have)) return;   /* не выше — нечего фиксировать */
+    if(!recs[m.id]){
+      recs[m.id] = {from:have, to:should, since:Date.now() - 1000 * 60 * 60 * 24 * 38, done:false};
+      changed = true;
+    } else if(!recs[m.id].done && recs[m.id].to !== should){
+      recs[m.id].to = should; changed = true;
+    }
+  });
+  /* если грейд подняли — закрываем рекомендацию */
+  Object.keys(recs).forEach(function(pid){
+    var m = person(pid); if(!m) return;
+    var hi = grades().map(function(g){ return g.id; });
+    if(!recs[pid].done && hi.indexOf(gradeOf(m).id) >= hi.indexOf(recs[pid].to)){
+      recs[pid].done = true; recs[pid].at = Date.now(); changed = true;
+    }
+  });
+  if(changed) saveState();
+  return recs;
+}
+function recMonths(r){
+  return Math.max(0, Math.round((Date.now() - r.since) / (1000 * 60 * 60 * 24 * 30)));
+}
+
+/* ── D17 · индекс неудовлетворённости ───────────────────── */
+function unhappy(r){
+  var m = r.m;
+  var per = simPerson(m);
+  var parts = [];
+  /* переработка */
+  var over = Math.max(0, per.pct - 110);
+  if(over > 0) parts.push({k:"over", w:Math.min(35, Math.round(over * 0.8)),
+    t:"Переработка", d:"загрузка " + per.pct + "% при норме 100–120%"});
+  /* недогруз тоже неприятен: человек чувствует себя лишним */
+  if(per.pct < 70) parts.push({k:"idle", w:12,
+    t:"Недогруз", d:"всего " + per.pct + "% — работы меньше, чем он может"});
+  /* повышение, которого не случилось */
+  var rec = gradeRecCheck()[m.id];
+  if(rec && !rec.done){
+    var mo = recMonths(rec);
+    parts.push({k:"grade", w:Math.min(40, 12 + mo * 8),
+      t:"Повышения не было",
+      d:"сервис рекомендовал «" + gradeById(rec.to).name + "» " +
+        (mo ? plural(mo, "месяц", "месяца", "месяцев") + " назад" : "недавно") + ", грейд прежний"});
+  }
+  /* штрафы */
+  var f = fineOf(r);
+  if(f.sum < 0) parts.push({k:"fine", w:Math.min(20, Math.round(-f.sum / 500) * 4),
+    t:"Штрафы", d:f.list.map(function(x){ return x[1].toLowerCase(); }).join(", ")});
+  /* премии — в плюс */
+  var b = bonusOf(r, 99);
+  var relief = b.sum > 0 ? Math.min(25, Math.round(b.sum / 1000) * 4) : 0;
+  var idx = Math.max(0, Math.min(100,
+    parts.reduce(function(a, x){ return a + x.w; }, 0) - relief));
+  return {idx:idx, parts:parts, relief:relief, bonus:b.sum, pct:per.pct, rec:rec};
+}
+function unhappyWord(i){
+  return i >= 60 ? "красная зона" : i >= 35 ? "есть напряжение" : i >= 15 ? "терпимо" : "спокойно";
+}
+
+/* ── D41 · выгодность сотрудника ───────────────────────── */
+function profitOf(r){
+  var m = r.m, per = simPerson(m);
+  var payM = Math.round((per.week || 0) * 4.33);
+  /* сколько работы человек реально вывозит в деньгах:
+     его часы × средняя стоимость часа по кабинетам */
+  var prs = (S.projects || []).filter(function(p){ return +p.amount > 0; });
+  var revPerH = 0;
+  if(prs.length){
+    var rev = prs.reduce(function(a, p){ return a + (+p.amount || 0); }, 0);
+    var totH = (S.tasks || []).reduce(function(a, t){ return a + (t.minutes || 0); }, 0) / 60 * 4.33;
+    revPerH = totH ? rev / totH : 0;
+  }
+  var madeM = Math.round(per.h * 4.33 * revPerH);
+  var u = unhappy(r);
+  /* выносливость, командность, вовлечённость — из того, что сервис и так видит */
+  var endurance = Math.min(100, Math.round(per.pct * 0.8 + (r.late ? -15 : 10)));
+  var team      = Math.min(100, 40 + r.pick * 18);
+  var involve   = Math.min(100, Math.round(svcOf(m.id) / 120));
+  var quality   = Math.max(0, Math.min(100, r.doneP - r.late * 8));
+  /* руководителю платят не за часы, а за то, что работают другие.
+     Без этой поправки любой управленец автоматически «невыгоден». */
+  var span = gcap(gradeOf(m).id).span;
+  var led = span ? Math.min(span, Math.max(0, (S.people || []).filter(function(x){
+    return !x.hidden && x.id !== m.id && !gcap(gradeOf(x).id).span; }).length)) : 0;
+  var manage = led * 9;
+  var score = Math.round(
+    (madeM - payM) / Math.max(1, payM) * 22 +
+    endurance * 0.18 + team * 0.14 + involve * 0.12 + quality * 0.2 +
+    manage - u.idx * 0.15);
+  return {pay:payM, made:madeM, net:madeM - payM, score:score,
+    endurance:endurance, team:team, involve:involve, quality:quality,
+    unhappy:u.idx, led:led, manage:manage, span:span};
+}
+
+/* портрет новичка: кого искать, судя по тем, кто у нас работает хорошо */
+function rookiePortrait(rows){
+  var p = rows.map(function(r){ return {r:r, p:profitOf(r)}; })
+    .sort(function(a, b){ return b.p.score - a.p.score; });
+  if(!p.length) return null;
+  var best = p.slice(0, Math.max(1, Math.ceil(p.length / 2)));
+  var avg = function(f){ return Math.round(best.reduce(function(a, x){ return a + f(x); }, 0) / best.length); };
+  var g = gradeOf(best[0].r.m);
+  return {
+    grade: g.name,
+    endurance: avg(function(x){ return x.p.endurance; }),
+    team:      avg(function(x){ return x.p.team; }),
+    quality:   avg(function(x){ return x.p.quality; }),
+    pay:       avg(function(x){ return x.p.pay; }),
+    like:      best.map(function(x){ return x.r.m.name; }).slice(0, 2)
+  };
+}
+
+/* ── D42 · сравнение менеджеров ────────────────────────── */
+var cmpA = null, cmpB = null, cmpPeriod = "week";
+var CMP_PERIODS = [["week","Неделя"],["month","Месяц"],["all","Всё время"]];
+var CMP_AXES = [
+  ["load",    "Загрузка",        function(r, p){ return Math.min(100, p.endurance); },
+   "сколько человек вывозит относительно нормы"],
+  ["quality", "Качество",        function(r, p){ return p.quality; },
+   "доля закрытых задач минус просрочки"],
+  ["hard",    "Сложность задач", function(r){ return hardShare(r.m).share; },
+   "какая доля работы — категории A и B"],
+  ["team",    "Командность",     function(r, p){ return p.team; },
+   "подхватывает ли чужое"],
+  ["involve", "Вовлечённость",   function(r, p){ return p.involve; },
+   "часы в сервисе: смотрит ли он вообще, что происходит"],
+  ["calm",    "Спокойствие",     function(r, p){ return 100 - p.unhappy; },
+   "обратная сторона индекса неудовлетворённости"],
+  ["money",   "Выгодность",      function(r, p){
+     return Math.max(0, Math.min(100, Math.round(p.net / Math.max(1, p.pay) * 50 + 50))); },
+   "сколько приносит относительно того, сколько стоит"]
+];
+function cmpRow(id){
+  return rateRows().filter(function(r){ return r.m.id === id; })[0] || null;
+}
+
+function cmpHTML(){
+  var rows = rateRows();
+  var pl = rows.map(function(r){ return r.m; });
+  if(pl.length < 2) return '';
+  if(!cmpA) cmpA = pl[0].id;
+  if(!cmpB) cmpB = (pl[1] || pl[0]).id;
+  var ra = cmpRow(cmpA), rb = cmpRow(cmpB);
+  if(!ra || !rb) return '';
+  var pa = profitOf(ra), pb = profitOf(rb);
+  var winA = 0, winB = 0;
+  var axes = CMP_AXES.map(function(ax){
+    var va = Math.max(0, Math.min(100, ax[2](ra, pa) || 0));
+    var vb = Math.max(0, Math.min(100, ax[2](rb, pb) || 0));
+    if(va > vb) winA++; else if(vb > va) winB++;
+    return {ax:ax, a:va, b:vb};
+  });
+
+  return '<div class="gl cmpw"><div class="gl-t"><h2>Сравнить менеджеров</h2>'+
+      '<span class="m">по всем пунктам квалификации — это видите только вы</span>'+
+      '<div class="seg sm cmpp">'+CMP_PERIODS.map(function(x){
+        return '<button data-cmpp="'+x[0]+'" aria-pressed="'+(cmpPeriod===x[0])+'">'+x[1]+'</button>';
+      }).join("")+'</div></div>'+
+
+    '<div class="cmph">'+
+      '<div class="cmpp1">'+
+        '<select class="sel" id="cmpA">'+pl.map(function(m){
+          return '<option value="'+esc(m.id)+'"'+(cmpA===m.id?' selected':'')+'>'+esc(m.name)+'</option>';
+        }).join("")+'</select>'+
+        '<div class="cmpsc'+(winA > winB ? ' win' : '')+'">'+winA+'</div>'+
+      '</div>'+
+      '<div class="cmpvs">из '+CMP_AXES.length+'</div>'+
+      '<div class="cmpp2">'+
+        '<div class="cmpsc'+(winB > winA ? ' win' : '')+'">'+winB+'</div>'+
+        '<select class="sel" id="cmpB">'+pl.map(function(m){
+          return '<option value="'+esc(m.id)+'"'+(cmpB===m.id?' selected':'')+'>'+esc(m.name)+'</option>';
+        }).join("")+'</select>'+
+      '</div>'+
+    '</div>'+
+
+    '<div class="cmpax">'+axes.map(function(x){
+      return '<div class="cmpr">'+
+        '<div class="cmpbar l"><i style="width:'+x.a+'%" class="'+(x.a>=x.b?'win':'')+'"></i>'+
+          '<b>'+x.a+'</b></div>'+
+        '<div class="cmpn"><b>'+x.ax[1]+'</b><i>'+x.ax[3]+'</i></div>'+
+        '<div class="cmpbar r"><i style="width:'+x.b+'%" class="'+(x.b>=x.a?'win':'')+'"></i>'+
+          '<b>'+x.b+'</b></div>'+
+      '</div>'; }).join("")+
+    '</div>'+
+
+    '<div class="cmpsum">'+cmpVerdict(ra, rb, pa, pb, winA, winB)+'</div>'+
+  '</div>';
+}
+function cmpVerdict(ra, rb, pa, pb, wa, wb){
+  var lead = wa === wb ? null : (wa > wb ? ra : rb);
+  var ld   = wa === wb ? null : (wa > wb ? pa : pb);
+  var other= wa === wb ? null : (wa > wb ? rb : ra);
+  var od   = wa === wb ? null : (wa > wb ? pb : pa);
+  if(!lead) return 'Ровно. Эти двое закрывают разное и одинаково нужны — '+
+    'сравнение тут не поможет, смотрите, кому что отдавать по сложности задач.';
+  var gaps = CMP_AXES.filter(function(ax){
+    var vl = ax[2](lead, ld) || 0, vo = ax[2](other, od) || 0;
+    return vo > vl;
+  }).map(function(ax){ return ax[1].toLowerCase(); });
+  return '<b>'+esc(lead.m.name)+' впереди по '+plural(Math.max(wa, wb), "пункту", "пунктам", "пунктам")+'.</b> '+
+    (gaps.length
+      ? esc(other.m.name)+' сильнее в том, что касается «'+gaps.join('», «')+'» — '+
+        'это и есть то, что стоит отдавать ему, а не ровнять всех под одного.'
+      : esc(other.m.name)+' не выигрывает ни по одному пункту. Это не повод увольнять — '+
+        'это повод посмотреть, те ли задачи ему дают: возможно, он сидит на работе не своей сложности.');
+}
+
+/* ── собираем всё в раздел «Рейтинг» ─────────────────────── */
+var unhOpen = null, profOpen = false;
+
+function unhappyHTML(rows){
+  var list = rows.map(function(r){ return {r:r, u:unhappy(r)}; })
+    .sort(function(a, b){ return b.u.idx - a.u.idx; });
+  var worst = list[0];
+  return '<div class="gl"><div class="gl-t"><h2>Индекс неудовлетворённости</h2>'+
+      '<span class="m">переработки и непройденные повышения — вниз, премии — вверх</span></div>'+
+    '<div class="regnote">Это не настроение, а арифметика: сервис складывает то, что человеку '+
+      'объективно неприятно, и вычитает то, что приятно. Ноль — спокойно, выше шестидесяти — '+
+      'человек держится на характере, и это ненадолго.</div>'+
+    '<div class="unhl">'+list.map(function(x){
+      var m = x.r.m;
+      return '<div class="unhr'+(unhOpen === m.id ? ' on' : '')+'">'+
+        '<button class="unhh" data-unh="'+esc(m.id)+'">'+
+          '<span class="av2" style="background:'+m.color+'">'+esc(m.av || "")+'</span>'+
+          '<span class="unhn"><b>'+esc(m.name)+'</b><i>'+esc(m.role || "")+'</i></span>'+
+          '<span class="unhb"><i style="width:'+x.u.idx+'%" class="z'+
+            (x.u.idx >= 60 ? '3' : x.u.idx >= 35 ? '2' : '1')+'"></i></span>'+
+          '<span class="unhv z'+(x.u.idx >= 60 ? '3' : x.u.idx >= 35 ? '2' : '1')+'">'+x.u.idx+'</span>'+
+          '<span class="unhw">'+unhappyWord(x.u.idx)+'</span>'+
+          '<svg class="fnar" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>'+
+        '</button>'+
+        (unhOpen === m.id
+          ? '<div class="unhp">'+
+            (x.u.parts.length
+              ? x.u.parts.map(function(pp){
+                  return '<div class="unhi"><span class="unhiw">+'+pp.w+'</span>'+
+                    '<b>'+esc(pp.t)+'</b><i>'+esc(pp.d)+'</i></div>'; }).join("")
+              : '<div class="unhi ok"><b>Ничего не давит</b><i>загрузка в норме, повышения не ждёт, штрафов нет</i></div>')+
+            (x.u.relief
+              ? '<div class="unhi good"><span class="unhiw">−'+x.u.relief+'</span>'+
+                '<b>Премии</b><i>'+rub(x.u.bonus)+' за неделю — это реально снимает напряжение</i></div>'
+              : '')+
+            (x.u.rec && !x.u.rec.done
+              ? '<div class="unhfix">Сервис рекомендовал поднять грейд до «'+
+                esc(gradeById(x.u.rec.to).name)+'». Пока не поднят — индекс будет расти каждый месяц.'+
+                '<button class="bt sm" data-gradeup="'+esc(m.id)+'">Поднять грейд</button></div>'
+              : '')+
+          '</div>'
+          : '')+
+      '</div>'; }).join("")+
+    '</div>'+
+    (worst && worst.u.idx >= 60
+      ? '<div class="crwarn"><b>'+esc(worst.r.m.name)+' в красной зоне.</b>'+
+        '<span>Индекс '+worst.u.idx+'. Это тот случай, когда человек ещё работает, но уже '+
+        'решает для себя, оставаться ли. Дешевле поговорить сейчас, чем искать замену через месяц.</span></div>'
+      : '')+
+  '</div>';
+}
+
+function profitHTML(rows){
+  var list = rows.map(function(r){ return {r:r, p:profitOf(r)}; })
+    .sort(function(a, b){ return b.p.score - a.p.score; });
+  if(!list.length) return '';
+  var best = list[0], worst = list[list.length - 1];
+  var rp = rookiePortrait(rows);
+  return '<div class="gl"><div class="gl-t"><h2>Выгодность для организации</h2>'+
+      '<span class="m">зарплата, выносливость, командная работа, вовлечённость — в одной цифре</span></div>'+
+    '<div class="prow">'+
+      profCard(best, true)+profCard(worst, false)+
+    '</div>'+
+    '<button class="bt gh2 sm" id="profAll">'+(profOpen ? 'Свернуть список' : 'Показать всех')+'</button>'+
+    (profOpen
+      ? '<div class="prlist">'+list.map(function(x, i){
+          return '<div class="prr">'+
+            '<span class="prnum">'+(i + 1)+'</span>'+
+            '<span class="av2" style="background:'+x.r.m.color+'">'+esc(x.r.m.av || "")+'</span>'+
+            '<span class="prn"><b>'+esc(x.r.m.name)+'</b><i>'+esc(x.r.m.role || "")+'</i></span>'+
+            '<span class="prv">'+rub(x.p.pay)+'<i>стоит</i></span>'+
+            '<span class="prv">'+rub(x.p.made)+'<i>приносит</i></span>'+
+            '<span class="prv '+(x.p.net >= 0 ? 'okv' : 'critv')+'">'+
+              (x.p.net >= 0 ? '+' : '')+rub(x.p.net)+'<i>разница</i></span>'+
+            '<span class="prsc">'+x.p.score+'</span>'+
+          '</div>'; }).join("")+
+        '<div class="srn">«Приносит» — это часы человека, пересчитанные по средней стоимости часа '+
+          'наших кабинетов. Цифра грубая: она не учитывает, что часть работы вообще не продаётся, '+
+          'и не видит управленческую работу напрямую — для неё есть отдельная поправка. '+
+          'Смотрите на порядок, а не на рубли.</div>'+
+        '</div>'
+      : '')+
+    (rp
+      ? '<div class="rookie"><div class="rkh">Портрет новичка, которого стоит искать</div>'+
+        '<div class="rkg">'+
+          '<div><i>Грейд</i><b>'+esc(rp.grade)+'</b></div>'+
+          '<div><i>Выносливость</i><b>от '+rp.endurance+'</b></div>'+
+          '<div><i>Командность</i><b>от '+rp.team+'</b></div>'+
+          '<div><i>Качество</i><b>от '+rp.quality+'</b></div>'+
+          '<div><i>Вилка</i><b>'+rub(rp.pay)+'</b></div>'+
+        '</div>'+
+        '<div class="rkn">Портрет собран по лучшей половине вашей команды — похож на '+
+          esc(rp.like.join(" и "))+'. Это не «идеальный кандидат из головы», а описание тех, '+
+          'кто у вас уже работает хорошо. На собеседовании проверяйте именно эти четыре вещи, '+
+          'а не опыт в годах.</div>'+
+      '</div>'
+      : '')+
+  '</div>';
+}
+
+function profCard(x, isBest){
+  var m = x.r.m, p = x.p;
+  return '<div class="prc'+(isBest ? ' best' : ' worst')+'">'+
+    '<div class="prch">'+(isBest ? 'Самый выгодный' : 'Самый невыгодный')+'</div>'+
+    '<div class="prcm"><span class="av2" style="background:'+m.color+'">'+esc(m.av || "")+'</span>'+
+      '<b>'+esc(m.name)+'</b><i>'+esc(m.role || "")+'</i></div>'+
+    '<div class="prcg">'+
+      '<div><i>Стоит</i><b>'+rub(p.pay)+'</b></div>'+
+      '<div><i>Приносит</i><b>'+rub(p.made)+'</b></div>'+
+      '<div><i>Разница</i><b class="'+(p.net >= 0 ? 'okv' : 'critv')+'">'+
+        (p.net >= 0 ? '+' : '')+rub(p.net)+'</b></div>'+
+    '</div>'+
+    '<div class="prcb">'+
+      [["Выносливость", p.endurance], ["Командность", p.team],
+       ["Вовлечённость", p.involve], ["Качество", p.quality]].map(function(b){
+        return '<div class="prb"><span>'+b[0]+'</span>'+
+          '<i><u style="width:'+Math.max(0, Math.min(100, b[1]))+'%"></u></i>'+
+          '<b>'+b[1]+'</b></div>'; }).join("")+
+    '</div>'+
+    (p.led
+      ? '<div class="prcled">Ведёт '+plural(p.led, "человека", "человек", "человек")+
+        '. К счёту добавлено '+p.manage+' — за управление, а не за часы: '+
+        'то, что делает его команда, в его собственных часах не видно.</div>'
+      : '')+
+    '<div class="prcn">'+(isBest
+      ? (p.led
+        ? 'Держите: уходит не один человек, а связка. Его задачи разойдутся по команде, '+
+          'а вот управление ими — нет.'
+        : 'Держите его: если уйдёт, закрыть эту дыру одним человеком не получится.')
+      : (p.led
+        ? 'Считать управленца по его собственным часам нечестно, и сервис это знает — '+
+          'поправка на управление уже сделана. Если он всё равно внизу, вопрос не в нём, '+
+          'а в том, сколько людей ему дали вести.'
+        : p.net < 0
+          ? 'Пока обходится дороже, чем приносит. Это не приговор: сначала проверьте, '+
+            'те ли задачи ему дают — по сложности и по количеству.'
+          : 'Приносит меньше остальных. Смотрите не на человека, а на то, чем он занят: '+
+            'возможно, он сидит на работе, которую должен делать ассистент.'))+'</div>'+
+  '</div>';
+}
+
+(function(){
+  var _rr = renderRate;
+  renderRate = function(){
+    _rr.apply(this, arguments);
+    var host = document.getElementById("sect");
+    if(!host || isClient()) return;
+    var rows = rateRows().filter(function(r){ return !r.m.hidden; });
+    if(!rows.length) return;
+    var wrap = document.createElement("div");
+    wrap.innerHTML = unhappyHTML(rows) + profitHTML(rows) + cmpHTML();
+    while(wrap.firstChild) host.appendChild(wrap.firstChild);
+  };
+  if(typeof SEC_RENDER !== "undefined") SEC_RENDER.rate = renderRate;
+})();
+
+document.addEventListener("click", function(e){
+  var t;
+  if(view !== "rate") return;
+  if((t = e.target.closest("[data-unh]"))){
+    var id = t.getAttribute("data-unh");
+    unhOpen = unhOpen === id ? null : id; renderRate(); return; }
+  if((t = e.target.closest("[data-gradeup]"))){
+    var m = person(t.getAttribute("data-gradeup"));
+    var rec = gradeRecs()[t.getAttribute("data-gradeup")];
+    if(m && rec){
+      m.grade = rec.to; rec.done = true; rec.at = Date.now(); saveState();
+      toast(m.name + " — грейд «" + gradeById(rec.to).name + "». Индекс пересчитан.");
+      renderRate();
+    }
+    return; }
+  if(e.target.closest("#profAll")){ profOpen = !profOpen; renderRate(); return; }
+  if((t = e.target.closest("[data-cmpp]"))){
+    cmpPeriod = t.getAttribute("data-cmpp"); renderRate(); return; }
+});
+document.addEventListener("change", function(e){
+  if(view !== "rate") return;
+  if(e.target.id === "cmpA"){ cmpA = e.target.value; renderRate(); }
+  if(e.target.id === "cmpB"){ cmpB = e.target.value; renderRate(); }
 });
 
 })();
