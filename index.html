@@ -3553,7 +3553,7 @@ a.hlpc:hover{ border-color:rgba(124,92,255,.45) }
 
 .demobadge{
   display:inline-flex; align-items:center; gap:7px; flex:none;
-  height:30px; padding:0 12px; border-radius:999px;
+  height:28px; padding:0 10px; border-radius:999px;
   background:var(--panel); border:1px solid rgba(124,92,255,.4);
   font-size:11px; font-weight:700; letter-spacing:.04em; white-space:nowrap;
 }
@@ -3567,7 +3567,7 @@ a.hlpc:hover{ border-color:rgba(124,92,255,.45) }
 }
 .demobadge .dbtx{
   color:#7C5CFF; transition:opacity .26s var(--ease);
-  min-width:92px; text-align:center;
+  text-align:center; white-space:nowrap;
 }
 .demobadge .dbtx.role{
   color:var(--ink-2); font-weight:600; letter-spacing:0; text-transform:none;
@@ -3576,9 +3576,14 @@ a.hlpc:hover{ border-color:rgba(124,92,255,.45) }
   .rolesel.demo{ animation:none }
   .demobadge .dbdot{ animation:none }
 }
+/* шапка не должна разъезжаться на две строки из-за бейджа */
+.bar{ row-gap:8px }
+@media (max-width:1500px){
+  .demobadge .dbtx{ max-width:120px; overflow:hidden; text-overflow:ellipsis }
+}
 @media (max-width:1200px){
-  .demobadge .dbtx{ min-width:0 }
-  .demobadge{ padding:0 9px }
+  .demobadge .dbtx{ display:none }
+  .demobadge{ padding:0 8px }
 }
 </style>
 </head>
@@ -18062,7 +18067,9 @@ window.foRoleState = function(){
    переключившись на ассистента, из демо было бы не выйти.        */
 
 function canDemoSwitch(){
-  if(MODE === "demo") return !!(A && A.token);   /* выйти можно всегда */
+  /* из демо выход виден ВСЕГДА: если сессия просела, пункт исчезал
+     и человек оставался запертым в песочнице */
+  if(MODE === "demo") return true;
   return typeof canOpenDemo === "function" ? canOpenDemo() : false;
 }
 
@@ -18103,7 +18110,12 @@ document.addEventListener("click", function(e){
   if(m){ m.classList.remove("on"); setTimeout(function(){ if(m.parentNode) m.remove(); }, 200); }
 
   if(MODE === "demo"){
-    goLive();
+    if(A && A.token){ goLive(); }
+    else {
+      /* сессии нет — честно отправляем на вход, а не оставляем в песочнице */
+      if(typeof window.foKick === "function") window.foKick("Войдите, чтобы вернуться в свой аккаунт");
+      else location.reload();
+    }
   } else {
     if(!canDemoSwitch()) return;
     MODE = "demo";
