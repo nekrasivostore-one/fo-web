@@ -3539,6 +3539,47 @@ a.hlpc:hover{ border-color:rgba(124,92,255,.45) }
 @media (max-width:1200px){
   .bar{ flex-wrap:wrap }
 }
+
+/* ── 55. Демо видно сразу ── */
+.rolesel.demo{
+  position:relative; border-radius:999px; padding:2px;
+  background:linear-gradient(90deg, rgba(124,92,255,.22), rgba(0,179,154,.22), rgba(124,92,255,.22));
+  background-size:220% 100%;
+  animation:demoFlow 3.4s linear infinite;
+  box-shadow:0 0 0 1px rgba(124,92,255,.45), 0 0 18px -4px rgba(124,92,255,.55);
+  display:flex; align-items:center; gap:8px;
+}
+@keyframes demoFlow{ from{ background-position:0% 0 } to{ background-position:220% 0 } }
+
+.demobadge{
+  display:inline-flex; align-items:center; gap:7px; flex:none;
+  height:30px; padding:0 12px; border-radius:999px;
+  background:var(--panel); border:1px solid rgba(124,92,255,.4);
+  font-size:11px; font-weight:700; letter-spacing:.04em; white-space:nowrap;
+}
+.demobadge .dbdot{
+  width:7px; height:7px; border-radius:50%; flex:none; background:#7C5CFF;
+  animation:demoDot 1.3s ease-in-out infinite;
+}
+@keyframes demoDot{
+  0%,100%{ opacity:1; transform:scale(1);   box-shadow:0 0 0 0 rgba(124,92,255,.55) }
+  50%    { opacity:.55; transform:scale(.8); box-shadow:0 0 0 6px rgba(124,92,255,0) }
+}
+.demobadge .dbtx{
+  color:#7C5CFF; transition:opacity .26s var(--ease);
+  min-width:92px; text-align:center;
+}
+.demobadge .dbtx.role{
+  color:var(--ink-2); font-weight:600; letter-spacing:0; text-transform:none;
+}
+@media (prefers-reduced-motion:reduce){
+  .rolesel.demo{ animation:none }
+  .demobadge .dbdot{ animation:none }
+}
+@media (max-width:1200px){
+  .demobadge .dbtx{ min-width:0 }
+  .demobadge{ padding:0 9px }
+}
 </style>
 </head>
 <body>
@@ -18070,6 +18111,82 @@ document.addEventListener("click", function(e){
     startScreen();
   }
 }, true);
+
+/* ══ 55. Видно с первого взгляда, что ты в демо ══════════════════
+   Переключение работало, но выглядело тихо: сидишь в песочнице и
+   не сразу понимаешь, что это она. Теперь плашка роли в демо
+   подсвечена и пульсирует, а её подпись переливается: название
+   роли ↔ «ДЕМО-РЕЖИМ». В рабочем аккаунте ничего не мигает —
+   там мигать не о чем.                                          */
+(function(){
+  var timer = null, flip = 0;
+
+  function badge(){
+    var sw = document.getElementById("roleSw");
+    if(!sw) return null;
+    var b = document.getElementById("demoBadge");
+    if(!b){
+      b = document.createElement("span");
+      b.className = "demobadge"; b.id = "demoBadge";
+      b.innerHTML = '<i class="dbdot"></i><span class="dbtx"></span>';
+      sw.insertBefore(b, sw.firstChild);
+    }
+    return b;
+  }
+
+  function roleWord(){
+    try{
+      return typeof myRoleName === "function" ? myRoleName(role) : role;
+    }catch(e){ return ""; }
+  }
+
+  function paintDemo(){
+    var sw = document.getElementById("roleSw");
+    if(!sw) return;
+
+    if(MODE !== "demo"){
+      sw.classList.remove("demo");
+      var old = document.getElementById("demoBadge");
+      if(old) old.remove();
+      if(timer){ clearInterval(timer); timer = null; }
+      return;
+    }
+
+    sw.classList.add("demo");
+    var b = badge();
+    if(!b) return;
+    var tx = b.querySelector(".dbtx");
+
+    var swap = function(){
+      flip = flip ? 0 : 1;
+      tx.style.opacity = "0";
+      setTimeout(function(){
+        tx.textContent = flip ? roleWord() : "ДЕМО-РЕЖИМ";
+        tx.className = "dbtx" + (flip ? " role" : "");
+        tx.style.opacity = "1";
+      }, 260);
+    };
+    if(!timer){
+      tx.textContent = "ДЕМО-РЕЖИМ";
+      tx.style.opacity = "1";
+      flip = 0;
+      timer = setInterval(swap, 2600);
+    }
+  }
+
+  window.foDemoBadge = paintDemo;
+
+  var _ar = applyRoleRail;
+  applyRoleRail = function(){ var v = _ar.apply(this, arguments); try{ paintDemo(); }catch(e){} return v; };
+
+  var _ss = startScreen;
+  startScreen = function(){
+    var v = _ss.apply(this, arguments);
+    setTimeout(function(){ try{ paintDemo(); }catch(e){} }, 60);
+    return v;
+  };
+  setTimeout(paintDemo, 700);
+})();
 
 })();
 </script>
