@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 set -u
+PW="${1:-}"
 B="https://raw.githubusercontent.com/nekrasivostore-one/fo-web/main/backend"
 curl -fsSL "$B/admin_pwd.py?t=$(date +%s)" -o /tmp/admin_pwd.py || { echo "не скачался"; exit 1; }
 grep -q "Админ сервиса с готовым паролем" /tmp/admin_pwd.py || { echo "не тот файл"; exit 1; }
-cd /tmp && /opt/fo/venv/bin/python /tmp/admin_pwd.py
+cd /tmp && /opt/fo/venv/bin/python /tmp/admin_pwd.py "$PW"
 echo
 echo "— админы —"
 sudo -u postgres psql -d fo -A -F' | ' -c \
