@@ -14,8 +14,23 @@ trap 'rm -rf "$TMP"' EXIT
 
 say(){ echo "$(date '+%F %T') $*" >> "$LOG"; }
 
+# сначала — не появилась ли новая версия самого этого скрипта
+SELF="/opt/fo/fo-backend-pull.sh"
+if curl -fsSL "${RAW%/live}/fo-backend-pull.sh?t=$(date +%s)" -o "$TMP/self.sh" 2>/dev/null; then
+  if grep -q "Бэкенд едет из GitHub" "$TMP/self.sh" && ! cmp -s "$TMP/self.sh" "$SELF"; then
+    cp "$TMP/self.sh" "$SELF"; chmod +x "$SELF"
+    say "обновил сам себя — следующий прогон пойдёт по новой версии"
+    exit 0
+  fi
+fi
+
 curl -fsSL "$RAW/manifest.txt?t=$(date +%s)" -o "$TMP/manifest.txt" 2>/dev/null || { say "манифест не скачался"; exit 0; }
-grep -qE '^[a-zA-Z0-9_./-]+$' "$TMP/manifest.txt" || { say "манифест выглядит не так"; exit 0; }
+# комментарии и пустые строки выкидываем, остальное должно быть путями
+grep -vE '^[[:space:]]*(#|$)' "$TMP/manifest.txt" > "$TMP/list.txt" || true
+if [ -s "$TMP/list.txt" ] && grep -qvE '^[A-Za-z0-9_./-]+$' "$TMP/list.txt"; then
+  say "манифест выглядит не так"; exit 0
+fi
+if [ ! -s "$TMP/list.txt" ]; then exit 0; fi   # нечего везти
 
 # качаем всё, что перечислено, и считаем общий отпечаток
 FP=""
@@ -24,7 +39,7 @@ while read -r f; do
   case "$f" in \#*) continue;; esac
   curl -fsSL "$RAW/$f?t=$(date +%s)" -o "$TMP/$(basename "$f")" 2>/dev/null || { say "не скачался $f"; exit 0; }
   FP="$FP$(sha256sum "$TMP/$(basename "$f")" | cut -c1-16)"
-done < "$TMP/manifest.txt"
+done < "$TMP/list.txt"
 FP=$(printf '%s' "$FP" | sha256sum | cut -c1-32)
 
 OLD=$(cat "$STATE" 2>/dev/null || echo "")
@@ -43,7 +58,7 @@ while read -r f; do
   mkdir -p "$APP/$(dirname "$f")"
   cp "$TMP/$b" "$APP/$f"
   say "  положен $f"
-done < "$TMP/manifest.txt"
+done < "$TMP/list.txt"
 
 rollback(){
   say "  ОТКАТ из $BAK"
@@ -57,7 +72,7 @@ while read -r f; do
   [ -z "$f" ] && continue
   case "$f" in \#*) continue;; esac
   case "$f" in *.py) "$PY" -m py_compile "$APP/$f" 2>>"$LOG" || { say "  синтаксис не сошёлся: $f"; rollback; exit 0; };; esac
-done < "$TMP/manifest.txt"
+done < "$TMP/list.txt"
 
 systemctl restart fo; sleep 4
 H=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8000/health)
