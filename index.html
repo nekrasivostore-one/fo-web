@@ -15693,6 +15693,30 @@ document.addEventListener("click", function(e){
     ccOpen = null; renderCards(); return; }
 }, true);
 
+/* ══ 41. Права на новые разделы рельсы ═══════════════════════
+   Отдел продаж — воронка и лиды; менеджерам она не нужна,
+   а клиенту агентства её видеть просто нельзя.
+   Регламенты и Справочник — внутренняя кухня: вся команда да,
+   клиент нет.                                                  */
+(function(){
+  var _ar = applyRoleRail;
+  applyRoleRail = function(){
+    _ar.apply(this, arguments);
+    var show = function(v, ok){
+      var b = document.querySelector('.rail .ri[data-v="' + v + '"]');
+      if(b) b.style.display = ok ? "" : "none";
+    };
+    var sales = (role === "owner" || role === "dir" || role === "head" || role === "pm");
+    show("sales", sales);
+    show("reg",   !isClient());
+    show("guide", !isClient());
+    /* если человек стоял в разделе, который ему больше не положен — уводим на рабочий */
+    if((view === "sales" && !sales) || ((view === "reg" || view === "guide") && isClient())){
+      setView("work");
+    }
+  };
+})();
+
 })();
 </script>
 </body>
