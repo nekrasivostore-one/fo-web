@@ -2783,6 +2783,150 @@ code.invc{ font-family:ui-monospace,SFMono-Regular,monospace; font-weight:700;
   .tch{ grid-template-columns:34px 1fr }
   .tcd{ display:none }
 }
+
+/* ── 37. Замеры скорости ── */
+.spnow{ margin-left:auto; font-size:11.5px; color:var(--ok);
+  background:rgba(34,176,125,.13); border-radius:999px; padding:3px 11px }
+.splist{ display:flex; flex-direction:column; gap:6px }
+.spr{ display:grid; width:100%; text-align:left; background:none;
+  border:1px solid var(--stroke-2); border-radius:var(--r2);
+  grid-template-columns:110px minmax(180px,1fr) 78px 78px 64px 18px; gap:12px; align-items:center;
+  padding:11px 14px; color:var(--ink); cursor:pointer;
+  transition:background .15s var(--ease), border-color .15s var(--ease) }
+.spr:hover{ background:var(--neu); border-color:var(--neu-b) }
+.spr.run{ border-color:rgba(34,176,125,.4); background:rgba(34,176,125,.05) }
+.spr.on{ border-color:rgba(124,92,255,.45) }
+.spst{ font-size:11.5px; color:var(--ink-3); display:flex; align-items:center; gap:7px }
+.spr.run .spst{ color:var(--ok) }
+.spst .dot{ width:7px; height:7px; border-radius:50%; background:var(--ok); flex:none;
+  animation:sppulse 1.6s var(--ease) infinite }
+@keyframes sppulse{ 0%,100%{ opacity:1; transform:scale(1) } 50%{ opacity:.35; transform:scale(.7) } }
+.spn{ display:flex; flex-direction:column; gap:3px; min-width:0 }
+.spn b{ font-size:13px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
+.spn i{ font-style:normal; font-size:11px; color:var(--ink-3) }
+.spv{ display:flex; flex-direction:column; gap:2px; text-align:right }
+.spv b{ font-family:Unbounded,sans-serif; font-size:15px; font-weight:500; letter-spacing:-.03em }
+.spv i{ font-style:normal; font-size:10px; color:var(--ink-3) }
+.spd{ font-size:12.5px; text-align:right; color:var(--ink-2) }
+.spd.bad{ color:var(--crit) }
+.spd.good{ color:var(--ok) }
+
+.spcard{ margin-top:12px; border:1px solid var(--stroke-2); border-radius:var(--r2);
+  padding:16px; animation:fngIn .24s var(--ease) }
+.spch{ display:flex; align-items:baseline; gap:12px; flex-wrap:wrap; margin-bottom:14px }
+.spch b{ font-size:14.5px; font-weight:600 }
+.spch span{ font-size:12px; color:var(--ink-3) }
+.spch .bt{ width:auto; margin-left:auto }
+.spbars{ display:flex; flex-direction:column; gap:8px; margin-bottom:16px }
+.spb{ display:grid; grid-template-columns:28px minmax(120px,1fr) 2fr 70px; gap:11px; align-items:center }
+.spbn{ font-size:12.5px; color:var(--ink) }
+.spbn i{ font-style:normal; font-size:10.5px; color:#9B85FF; display:block }
+.spbb{ height:7px; border-radius:99px; background:var(--stroke-2); overflow:hidden }
+.spbb i{ display:block; height:100%; border-radius:99px; background:var(--neu-b);
+  transition:width .5s var(--ease) }
+.spb.basis .spbb i{ background:#7C5CFF }
+.spbm{ font-size:12px; color:var(--ink-2); text-align:right }
+.spbasis .fnsh{ display:block; margin-bottom:10px }
+.spbtns{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px }
+.spbasis .ck{ display:inline-flex; align-items:center; gap:8px; cursor:pointer; font-family:inherit;
+  font-size:12.5px; color:var(--ink-2); background:var(--panel-2); border:1px solid var(--stroke-2);
+  border-radius:999px; padding:7px 14px 7px 11px; white-space:nowrap }
+.spbasis .ck i{ width:15px; height:15px; border-radius:50%; flex:none; position:relative;
+  border:1.5px solid var(--neu-b) }
+.spbasis .ck.on{ color:var(--ink); border-color:rgba(124,92,255,.45); background:rgba(124,92,255,.10) }
+.spbasis .ck.on i{ border-color:#7C5CFF }
+.spbasis .ck.on i:after{ content:""; position:absolute; inset:3px; border-radius:50%; background:#7C5CFF }
+.spapply{ display:flex; gap:8px; flex-wrap:wrap; margin-top:12px }
+.spapply .bt{ width:auto }
+
+/* бегунок на задаче */
+.tdrun{ display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px;
+  width:46px; height:40px; flex:none; border-radius:11px; border:1px solid var(--stroke-2);
+  background:var(--panel-2); color:var(--ink-3); cursor:pointer;
+  transition:border-color .15s var(--ease), color .15s var(--ease), background .15s var(--ease) }
+.tdrun svg{ width:13px; height:13px; fill:currentColor; stroke:none }
+.tdrun i{ font-style:normal; font-size:9px; letter-spacing:.02em }
+.tdrun:hover{ border-color:#7C5CFF; color:#9B85FF }
+.tdrun.on{ background:rgba(34,176,125,.14); border-color:rgba(34,176,125,.45); color:var(--ok) }
+.rq{ width:11px; height:11px; border-radius:3px; background:currentColor; display:block }
+
+/* ── Разгружаем менеджера ── */
+.unln{ margin-left:auto; font-size:11.5px; color:var(--warn);
+  background:rgba(255,176,32,.12); border-radius:999px; padding:3px 11px }
+.unlist{ display:flex; flex-direction:column; gap:6px }
+.unr{ border:1px solid var(--stroke-2); border-radius:var(--r2); overflow:hidden }
+.unr.on{ border-color:rgba(124,92,255,.4) }
+.unrh{ display:grid; width:100%; text-align:left; background:none; border:0;
+  grid-template-columns:26px 28px minmax(180px,1fr) 150px 18px; gap:12px; align-items:center;
+  padding:12px 14px; color:var(--ink); cursor:pointer; transition:background .15s var(--ease) }
+.unrh:hover{ background:var(--neu) }
+.unnum{ font-family:Unbounded,sans-serif; font-size:14px; color:var(--ink-3); text-align:center }
+.unn{ display:flex; flex-direction:column; gap:3px; min-width:0 }
+.unn b{ font-size:13px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
+.unn i{ font-style:normal; font-size:11px; color:var(--ink-3) }
+.unw{ font-size:11.5px; color:var(--ink-2); text-align:right }
+.unw.bad{ color:var(--crit) }
+.unr.on .unrh .fnar{ transform:rotate(180deg) }
+.unrh .fnar{ transition:transform .24s var(--ease) }
+.unp{ padding:0 14px 16px; border-top:1px dashed var(--stroke-2); animation:fngIn .24s var(--ease) }
+.unp .fnnote{ margin-top:12px }
+.unch{ font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.05em;
+  color:var(--ink-3); margin:14px 0 9px }
+.uncs{ display:flex; gap:8px; flex-wrap:wrap }
+.unc{ display:flex; align-items:center; gap:9px; background:var(--panel-2);
+  border:1px solid var(--stroke-2); border-radius:999px; padding:6px 14px 6px 6px;
+  cursor:pointer; color:var(--ink); transition:border-color .15s var(--ease) }
+.unc b{ font-size:12.5px; font-weight:600 }
+.unc i{ font-style:normal; font-size:11px; color:var(--ink-3) }
+.unc i u{ text-decoration:none; color:var(--ok) }
+.unc.over i u{ color:var(--crit) }
+.unc:hover{ border-color:var(--neu-b) }
+.unb{ display:flex; gap:8px; flex-wrap:wrap; margin-top:14px }
+.unb .bt{ width:auto }
+
+/* ── Неделя списком ── */
+.gmodew{ margin-left:14px }
+.tlist{ display:flex; flex-direction:column; gap:10px }
+.tlp{ border:1px solid var(--stroke-2); border-radius:var(--r2); padding:14px 15px }
+.tlph{ display:flex; align-items:center; gap:11px; margin-bottom:10px }
+.tlph b{ font-size:13.5px; font-weight:600 }
+.tlph i{ font-style:normal; font-size:11.5px; color:var(--ink-3) }
+.tlpc{ margin-left:auto; font-family:Unbounded,sans-serif; font-size:15px; letter-spacing:-.03em }
+.tlpc.bad{ color:var(--crit) }
+.tlpw{ font-size:11.5px; color:var(--ink-3) }
+.tlate{ background:rgba(219,74,95,.07); border-radius:10px; padding:10px 12px; margin-bottom:10px }
+.tlate b{ display:block; font-size:12px; color:var(--crit); margin-bottom:6px }
+.tlt{ display:block; font-size:12px; color:var(--ink-2); line-height:1.6 }
+.tlt u{ text-decoration:none; color:var(--ink-3) }
+.tlok{ font-size:12px; color:var(--ok); margin-bottom:10px }
+.tldays{ display:grid; grid-template-columns:repeat(5,1fr); gap:8px }
+.tld{ background:var(--panel-2); border:1px solid var(--stroke-2); border-radius:11px; padding:9px 10px }
+.tld.now{ border-color:rgba(124,92,255,.4) }
+.tld.over{ background:rgba(219,74,95,.06) }
+.tldh{ display:flex; justify-content:space-between; font-size:11px; color:var(--ink-3);
+  margin-bottom:7px; padding-bottom:6px; border-bottom:1px solid var(--stroke-2) }
+.tldt{ font-size:11.5px; line-height:1.4; color:var(--ink); padding:5px 0; cursor:pointer }
+.tldt i{ display:block; font-style:normal; font-size:10px; color:var(--ink-3) }
+.tldt.done{ color:var(--ink-3); text-decoration:line-through }
+.tldt:hover{ color:#9B85FF }
+.tldn{ font-size:11px; color:var(--ink-3); padding:5px 0 }
+
+@media (max-width:1100px){
+  .spr{ grid-template-columns:90px 1fr 64px 18px }
+  .spr .spv:nth-of-type(2), .spr .spd{ display:none }
+  .spb{ grid-template-columns:28px 1fr 60px }
+  .spb .spbb{ display:none }
+  .unrh{ grid-template-columns:26px 28px 1fr 18px }
+  .unw{ display:none }
+  .tldays{ grid-template-columns:1fr }
+}
+/* «Задачи дня»: длинные колонки прокручиваются, а не растягивают экран */
+.tdcol{ max-height:560px; overflow-y:auto; padding-right:4px }
+.tdcol::-webkit-scrollbar{ width:8px }
+.tdcol::-webkit-scrollbar-thumb{ background:var(--stroke); border-radius:99px }
+.tdcol .tdh2{ position:sticky; top:0; z-index:2; background:var(--panel);
+  backdrop-filter:var(--blur); padding-top:2px }
+.tdone{ max-height:560px; overflow-y:auto; padding-right:4px }
 </style>
 </head>
 <body>
@@ -2932,6 +3076,8 @@ code.invc{ font-family:ui-monospace,SFMono-Regular,monospace; font-weight:700;
       <div class="gl s12" style="padding:16px 22px" data-b="kpistrip"></div>
       <section class="gl s12 tall" data-b="gantt"></section>
       <section class="gl s12" id="payPanel" data-b="bonus"></section>
+      <section class="gl s12" data-b="unload" hidden></section>
+      <section class="gl s12" data-b="speed" hidden></section>
       <section class="gl s5"><div class="gl-t"><h2 id="tasksTitle">Задачи дня</h2><span class="m" id="tasksMeta"></span></div>
         <div data-b="tasks" data-scroll="1"></div></section>
       <section class="gl s3"><div class="gl-t"><h2>Загрузка людей</h2></div><div data-b="people"></div></section>
@@ -13865,6 +14011,470 @@ document.addEventListener("change", function(e){
 
 NAV_TITLES.sales = ["Отдел продаж", "Воронка, лиды и цепочка касаний"];
 SEC_RENDER.sales = renderSales;
+
+/* ══ 37. ЗАМЕРЫ СКОРОСТИ, РАЗГРУЗКА, СПИСОК ВМЕСТО ГАНТА ══════
+   D30 · у ролей выше проджекта внизу главного экрана — список замеров;
+         по нажатию видно, кто участвовал и по чьему времени принят норматив
+   D31 · менеджер нажимает бегунок на задаче — и замер появляется на экране
+   D32 · выше PM: список, сверху текущий, ниже история от свежего к старому;
+         PM и младше: только актуальный замер, и он сверху экрана
+   D38 · виджет «Разгружаем менеджера»: пять задач, которые не успеваются
+   D26 · одна кнопка переключает Гант в списковую раскладку               */
+
+var ROLE_ORDER = ["owner","dir","head","pm","mgr","jun","asst","client"];
+function roleRank(r){
+  var i = ROLE_ORDER.indexOf(r || role);
+  return i < 0 ? 99 : i;
+}
+function isAbovePM(){ return roleRank(role) < ROLE_ORDER.indexOf("pm"); }
+function isPMorBelow(){ return roleRank(role) >= ROLE_ORDER.indexOf("pm") && role !== "client"; }
+
+/* ── модель замера ──────────────────────────────────────────
+   Замер — это не «сколько времени у Пети», а «сколько на самом
+   деле занимает эта функция». Поэтому в нём несколько человек,
+   и норматив принимается либо по среднему, либо по конкретному
+   человеку — и всегда видно, по чьему.                        */
+function speedAll(){ if(!S.speed) S.speed = []; return S.speed; }
+function speedSeed(){
+  if(S.speedSeeded) return;
+  var fns = fnList().filter(function(f){ return f.minutes >= 15; });
+  var pl  = (S.people || []).filter(function(m){ return !m.hidden; });
+  if(!fns.length || !pl.length){ S.speedSeeded = true; return; }
+  function pick(n, i){ return fns[(i * 7 + 3) % fns.length]; }
+  var now = Date.now();
+  var seeds = [
+    [0, "run",  0],
+    [1, "done", 2 * 3600e3],
+    [2, "done", 26 * 3600e3],
+    [3, "done", 74 * 3600e3],
+    [4, "done", 170 * 3600e3]
+  ];
+  seeds.forEach(function(sd, k){
+    var f = pick(0, sd[0]);
+    var who = [];
+    var n = 2 + (k % 3);
+    for(var i = 0; i < n && i < pl.length; i++){
+      var m = pl[(k * 3 + i) % pl.length];
+      var base = f.minutes || 30;
+      var delta = [(k % 2 ? 1.35 : 0.75), 1.05, 0.9, 1.6][i % 4];
+      who.push({pid:m.id, min: Math.round(base * delta)});
+    }
+    var st = sd[1];
+    speedAll().push({
+      id: nextId("sp"), fn: f.id, status: st,
+      at: now - sd[2],
+      basis: k === 1 ? who[0].pid : "avg",     /* по кому приняли норматив */
+      who: who,
+      norm: f.minutes || 30,
+      by: (pl[k % pl.length] || {}).id || ""
+    });
+  });
+  S.speedSeeded = true; saveState();
+}
+function speedFact(s){
+  if(!s.who || !s.who.length) return 0;
+  if(s.basis && s.basis !== "avg"){
+    var r = s.who.filter(function(x){ return x.pid === s.basis; })[0];
+    if(r) return r.min;
+  }
+  return Math.round(s.who.reduce(function(a, x){ return a + x.min; }, 0) / s.who.length);
+}
+function speedRunning(){
+  return speedAll().filter(function(s){ return s.status === "run"; });
+}
+function speedAgo(ms){
+  var m = Math.round((Date.now() - ms) / 60000);
+  if(m < 1) return "только что";
+  if(m < 60) return m + " мин назад";
+  var h = Math.round(m / 60);
+  if(h < 24) return h + " ч назад";
+  var d = Math.round(h / 24);
+  return d + (d === 1 ? " день назад" : d < 5 ? " дня назад" : " дней назад");
+}
+
+var spOpen = null;
+
+B.speed = function(el){
+  speedSeed();
+  var sec = el.closest ? el.closest("section") : null;
+  var all = speedAll().slice().sort(function(a, b){
+    if(a.status === "run" && b.status !== "run") return -1;
+    if(b.status === "run" && a.status !== "run") return 1;
+    return b.at - a.at;
+  });
+  var run = all.filter(function(s){ return s.status === "run"; });
+
+  if(isClient() || !all.length){ if(sec) sec.hidden = true; return; }
+  if(sec){
+    sec.hidden = false;
+    /* D32 · у ролей PM и младше актуальный замер стоит сверху экрана */
+    sec.style.order = isAbovePM() ? "90" : "-1";
+  }
+  /* PM и младше видят только идущий сейчас замер */
+  var list = isAbovePM() ? all : run;
+  if(!list.length){ if(sec) sec.hidden = true; return; }
+
+  el.innerHTML =
+    '<div class="gl-t"><h2>Замеры скорости</h2>'+
+      '<span class="m">'+(isAbovePM()
+        ? 'сверху то, что идёт сейчас, ниже — история от свежего к старому'
+        : 'идёт замер — работайте как обычно, время считается само')+'</span>'+
+      (isAbovePM() && run.length
+        ? '<span class="spnow">'+run.length+' идёт сейчас</span>' : '')+
+    '</div>'+
+    '<div class="splist">'+list.map(spRowHTML).join("")+'</div>'+
+    (spOpen ? spCardHTML(spOpen) : '');
+};
+
+function spRowHTML(s){
+  var f = fnById(s.fn), fact = speedFact(s);
+  var diff = s.norm ? Math.round((fact - s.norm) / s.norm * 100) : 0;
+  var basis = s.basis === "avg" ? "по среднему"
+            : "по времени " + ((person(s.basis) || {}).name || "одного из участников");
+  return '<button class="spr'+(s.status === "run" ? " run" : "")+(spOpen === s.id ? " on" : "")+
+      '" data-sp="'+esc(s.id)+'">'+
+    '<span class="spst">'+(s.status === "run"
+      ? '<i class="dot"></i>идёт'
+      : speedAgo(s.at))+'</span>'+
+    '<span class="spn"><b>'+esc(f ? fnTitle(f) : "функция удалена")+'</b>'+
+      '<i>'+s.who.length+' участник'+(s.who.length === 1 ? "" : s.who.length < 5 ? "а" : "ов")+
+      ' · норматив '+basis+'</i></span>'+
+    '<span class="spv"><b>'+fact+'</b><i>факт, мин</i></span>'+
+    '<span class="spv"><b>'+s.norm+'</b><i>норматив</i></span>'+
+    '<span class="spd '+(diff > 15 ? "bad" : diff < -10 ? "good" : "")+'">'+
+      (diff > 0 ? "+" : "")+diff+'%</span>'+
+    '<svg class="fnar" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>'+
+  '</button>';
+}
+
+function spCardHTML(id){
+  var s = speedAll().filter(function(x){ return x.id === id; })[0];
+  if(!s) return "";
+  var f = fnById(s.fn), fact = speedFact(s);
+  var mx = Math.max.apply(null, s.who.map(function(x){ return x.min; }).concat([s.norm]));
+  return '<div class="spcard">'+
+    '<div class="spch"><b>'+esc(f ? fnTitle(f) : "функция")+'</b>'+
+      '<span>кто участвовал и сколько у кого заняло</span>'+
+      '<button class="bt gh2 sm" id="spClose">Свернуть</button></div>'+
+    '<div class="spbars">'+s.who.map(function(x){
+      var m = person(x.pid) || {name:"—", color:"#888", av:""};
+      var w = mx ? Math.round(x.min / mx * 100) : 0;
+      var isB = s.basis === x.pid;
+      return '<div class="spb'+(isB ? " basis" : "")+'">'+
+        '<span class="av2" style="background:'+m.color+'">'+esc(m.av || "")+'</span>'+
+        '<span class="spbn">'+esc(m.name)+(isB ? ' <i>норматив принят по нему</i>' : '')+'</span>'+
+        '<span class="spbb"><i style="width:'+w+'%"></i></span>'+
+        '<span class="spbm">'+x.min+' мин</span>'+
+      '</div>'; }).join("")+
+    '</div>'+
+    '<div class="spbasis">'+
+      '<span class="fnsh">По какому времени принять норматив</span>'+
+      '<div class="spbtns">'+
+        '<button class="ck'+(s.basis === "avg" ? " on" : "")+'" data-spb="avg"><i></i>По среднему — '+
+          Math.round(s.who.reduce(function(a,x){ return a + x.min; }, 0) / s.who.length)+' мин</button>'+
+        s.who.map(function(x){
+          var m = person(x.pid) || {name:"—"};
+          return '<button class="ck'+(s.basis === x.pid ? " on" : "")+'" data-spb="'+esc(x.pid)+'">'+
+            '<i></i>По времени '+esc(m.name)+' — '+x.min+' мин</button>'; }).join("")+
+      '</div>'+
+      '<div class="fnnote">Среднее — честнее, когда люди примерно одного уровня. '+
+        'По конкретному человеку — когда он делает эту функцию правильно, а остальные ещё учатся. '+
+        'Сейчас норматив '+s.norm+' мин, замер даёт '+fact+' мин.</div>'+
+      '<div class="spapply"><button class="bt sm" data-spapply="'+esc(s.id)+'">'+
+        'Принять '+fact+' мин как норматив функции</button>'+
+        (s.status === "run"
+          ? '<button class="bt gh2 sm" data-spstop="'+esc(s.id)+'">Завершить замер</button>' : '')+
+      '</div>'+
+    '</div>'+
+  '</div>';
+}
+
+document.addEventListener("click", function(e){
+  var t;
+  if((t = e.target.closest("[data-sp]"))){
+    var id = t.getAttribute("data-sp");
+    spOpen = spOpen === id ? null : id; render(); return; }
+  if(e.target.closest("#spClose")){ spOpen = null; render(); return; }
+  if((t = e.target.closest("[data-spb]"))){
+    var s = speedAll().filter(function(x){ return x.id === spOpen; })[0];
+    if(s){ s.basis = t.getAttribute("data-spb"); saveState(); render(); }
+    return; }
+  if((t = e.target.closest("[data-spapply]"))){
+    var s2 = speedAll().filter(function(x){ return x.id === t.getAttribute("data-spapply"); })[0];
+    if(s2){
+      var f = fnById(s2.fn), was = f ? f.minutes : 0, now = speedFact(s2);
+      if(f){ f.minutes = now; s2.norm = now; saveState(); }
+      toast("Норматив «" + (f ? fnTitle(f) : "") + "»: было " + was + ", стало " + now + " мин");
+      render();
+    }
+    return; }
+  if((t = e.target.closest("[data-spstop]"))){
+    var s3 = speedAll().filter(function(x){ return x.id === t.getAttribute("data-spstop"); })[0];
+    if(s3){ s3.status = "done"; s3.at = Date.now(); saveState(); render();
+      toast("Замер завершён — он ушёл в историю"); }
+    return; }
+});
+
+/* ── D31 · бегунок времени на задаче ───────────────────────
+   Менеджер нажимает — время пошло. Если у роли PM или ниже,
+   замер сразу виден на главном экране: не «кто-то что-то делает»,
+   а «сейчас меряем, сколько это занимает на самом деле».        */
+function runOf(t){ if(!S.runs) S.runs = {}; return S.runs[t.id] || null; }
+function runStart(t){
+  if(!S.runs) S.runs = {};
+  S.runs[t.id] = {at: Date.now()};
+  /* поднимаем замер по этой функции, если его ещё нет */
+  if(t.fn){
+    var has = speedAll().filter(function(s){ return s.fn === t.fn && s.status === "run"; })[0];
+    var f = fnById(t.fn);
+    if(!has && f){
+      speedAll().unshift({id:nextId("sp"), fn:t.fn, status:"run", at:Date.now(),
+        basis:"avg", who:[{pid:t.person || meId, min:f.minutes || 30}],
+        norm:f.minutes || 30, by:t.person || meId});
+    } else if(has){
+      var mine = has.who.filter(function(x){ return x.pid === (t.person || meId); })[0];
+      if(!mine) has.who.push({pid:t.person || meId, min:f ? f.minutes : 30});
+    }
+  }
+  saveState();
+}
+function runStop(t){
+  var r = runOf(t);
+  if(!r) return;
+  var min = Math.max(1, Math.round((Date.now() - r.at) / 60000));
+  delete S.runs[t.id];
+  if(t.fn){
+    var s = speedAll().filter(function(x){ return x.fn === t.fn && x.status === "run"; })[0];
+    if(s){
+      var pid = t.person || meId;
+      var w = s.who.filter(function(x){ return x.pid === pid; })[0];
+      if(w) w.min = min; else s.who.push({pid:pid, min:min});
+    }
+  }
+  saveState();
+  toast("Записал: " + min + " мин. Это попадёт в замер функции.");
+}
+
+/* добавляем бегунок в строку «Задач дня» */
+var _tdRowBase = tdRow;
+tdRow = function(t){
+  var h = _tdRowBase(t);
+  if(t.done) return h;
+  var r = runOf(t);
+  var btn = '<button class="tdrun'+(r ? " on" : "")+'" data-run="'+esc(t.id)+'" '+
+    'title="'+(r ? "Остановить — время запишется" : "Начать — время пойдёт")+'">'+
+    (r ? '<span class="rq"></span>' : '<svg viewBox="0 0 24 24"><path d="M8 5l11 7-11 7z"/></svg>')+
+    '<i>'+(r ? "идёт" : "старт")+'</i></button>';
+  return h.replace('<div class="tdt">', btn + '<div class="tdt">');
+};
+
+document.addEventListener("click", function(e){
+  var t = e.target.closest("[data-run]");
+  if(!t) return;
+  e.stopPropagation();
+  var id = t.getAttribute("data-run");
+  var task = (S.tasks || []).filter(function(x){ return x.id === id; })[0];
+  if(!task) return;
+  if(runOf(task)) runStop(task); else {
+    runStart(task);
+    toast("Время пошло. Нажмите ещё раз, когда закончите.");
+  }
+  render();
+});
+
+/* ══ D38 · «Разгружаем менеджера» ═══════════════════════════
+   Пять задач, которые дольше всего не закрываются. Не «кто плохой»,
+   а «что снять прямо сейчас, чтобы человек выплыл».             */
+var unlOpen = null;
+
+function unloadTop(){
+  var rows = [];
+  (S.tasks || []).forEach(function(t){
+    if(t.done || !t.person) return;
+    var m = person(t.person); if(!m) return;
+    var late = t.dow < dow;                       /* день прошёл, а задача жива */
+    var heavy = (t.minutes || 0) >= 45;
+    if(!late && !heavy) return;
+    rows.push({t:t, m:m, late:late,
+      score: (late ? 1000 : 0) + (dow - t.dow) * 100 + (t.minutes || 0)});
+  });
+  rows.sort(function(a, b){ return b.score - a.score; });
+  return rows.slice(0, 5);
+}
+
+B.unload = function(el){
+  var sec = el.closest ? el.closest("section") : null;
+  if(isMgr() || isClient()){ if(sec) sec.hidden = true; return; }
+  var top = unloadTop();
+  if(!top.length){ if(sec) sec.hidden = true; return; }
+  if(sec){ sec.hidden = false; sec.style.order = "80"; }
+
+  el.innerHTML =
+    '<div class="gl-t"><h2>Разгружаем менеджера</h2>'+
+      '<span class="m">что снять прямо сейчас, чтобы человек выплыл</span>'+
+      '<span class="unln">'+top.length+' задач</span></div>'+
+    '<div class="unlist">'+top.map(function(r, i){
+      var pr = r.t.project ? project(r.t.project) : null;
+      var f  = r.t.fn ? fnById(r.t.fn) : null;
+      return '<div class="unr'+(unlOpen === r.t.id ? " on" : "")+'">'+
+        '<button class="unrh" data-unl="'+esc(r.t.id)+'">'+
+          '<span class="unnum">'+(i + 1)+'</span>'+
+          '<span class="av2" style="background:'+r.m.color+'">'+esc(r.m.av || "")+'</span>'+
+          '<span class="unn"><b>'+esc(r.t.title || (f ? fnTitle(f) : "Задача"))+'</b>'+
+            '<i>'+esc(r.m.name)+(pr ? ' · ' + esc(pr.name) : '')+' · '+(r.t.minutes || 0)+' мин</i></span>'+
+          '<span class="unw '+(r.late ? "bad" : "")+'">'+
+            (r.late ? 'висит с ' + DOWS[r.t.dow] : 'тяжёлая, сегодня')+'</span>'+
+          '<svg class="fnar" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>'+
+        '</button>'+
+        (unlOpen === r.t.id ? unlPanel(r) : '')+
+      '</div>'; }).join("")+
+    '</div>';
+};
+
+function unlPanel(r){
+  /* кому можно передать: свободнее всех, и видно, во что это ему обойдётся */
+  var cands = (S.people || []).filter(function(m){
+    return !m.hidden && m.id !== r.m.id;
+  }).map(function(m){
+    var cur = loadPct(m);
+    var add = Math.round((r.t.minutes || 0) / ((m.hoursDay || 8) * 60) * 100);
+    return {m:m, cur:cur, next:cur + add};
+  }).sort(function(a, b){ return a.next - b.next; }).slice(0, 4);
+
+  return '<div class="unp">'+
+    '<div class="fnnote">Сейчас у '+esc(r.m.name)+' загрузка '+loadPct(r.m)+'%. '+
+      'Снять эту задачу — значит вернуть ему '+
+      Math.round((r.t.minutes || 0) / ((r.m.hoursDay || 8) * 60) * 100)+'% дня.</div>'+
+    '<div class="unch">Кому передать</div>'+
+    '<div class="uncs">'+cands.map(function(c){
+      return '<button class="unc'+(c.next > 120 ? " over" : "")+'" data-unmove="'+
+        esc(r.t.id)+'|'+esc(c.m.id)+'">'+
+        '<span class="av2" style="background:'+c.m.color+'">'+esc(c.m.av || "")+'</span>'+
+        '<b>'+esc(c.m.name)+'</b>'+
+        '<i>'+c.cur+'% → <u>'+c.next+'%</u></i>'+
+      '</button>'; }).join("")+
+    '</div>'+
+    '<div class="unb">'+
+      '<button class="bt gh2 sm" data-unpost="'+esc(r.t.id)+'">Перенести на завтра</button>'+
+      '<button class="bt gh2 sm" data-undrop="'+esc(r.t.id)+'">Снять задачу совсем</button>'+
+    '</div>'+
+  '</div>';
+}
+
+function loadPct(m){
+  var mins = 0;
+  (S.tasks || []).forEach(function(t){
+    if(t.person === m.id && t.dow === dow) mins += (t.minutes || 0); });
+  var day = (m.hoursDay || 8) * 60;
+  return day ? Math.round(mins / day * 100) : 0;
+}
+
+document.addEventListener("click", function(e){
+  var t;
+  if((t = e.target.closest("[data-unl]"))){
+    var id = t.getAttribute("data-unl");
+    unlOpen = unlOpen === id ? null : id; render(); return; }
+  if((t = e.target.closest("[data-unmove]"))){
+    var p = t.getAttribute("data-unmove").split("|");
+    var task = (S.tasks || []).filter(function(x){ return x.id === p[0]; })[0];
+    var to = person(p[1]);
+    if(task && to){ task.person = to.id; saveState(); unlOpen = null; render();
+      toast("Задача у " + to.name + ". Загрузка пересчитана."); }
+    return; }
+  if((t = e.target.closest("[data-unpost]"))){
+    var t2 = (S.tasks || []).filter(function(x){ return x.id === t.getAttribute("data-unpost"); })[0];
+    if(t2){ t2.dow = Math.min(4, (t2.dow || 0) + 1); saveState(); unlOpen = null; render();
+      toast("Перенесено на " + DOWS[t2.dow].toLowerCase()); }
+    return; }
+  if((t = e.target.closest("[data-undrop]"))){
+    var id3 = t.getAttribute("data-undrop");
+    S.tasks = (S.tasks || []).filter(function(x){ return x.id !== id3; });
+    saveState(); unlOpen = null; render();
+    toast("Задача снята. Если она нужна — поставьте её заново на свободный день.");
+    return; }
+});
+
+/* ══ D26 · списковая раскладка вместо Ганта ═════════════════
+   Тот же смысл, что у Ганта, но читается сверху вниз: человек,
+   что он не успевает, и весь его день по задачам.             */
+var gMode = "gantt";        /* gantt | list */
+
+var _ganttV2 = B.gantt;
+B.gantt = function(el){
+  if(gMode === "gantt"){
+    _ganttV2.call(B, el);
+    gModeBtn(el);
+    return;
+  }
+  renderTaskList(el);
+  gModeBtn(el);
+};
+
+function gModeBtn(el){
+  var head = el.querySelector(".gl-t");
+  if(!head || head.querySelector(".gmodew")) return;
+  var d = document.createElement("div");
+  d.className = "gmodew";
+  d.innerHTML = '<div class="seg sm">'+
+    '<button data-gmode="gantt" aria-pressed="'+(gMode === "gantt")+'">Гант</button>'+
+    '<button data-gmode="list" aria-pressed="'+(gMode === "list")+'">Списком</button></div>';
+  head.insertBefore(d, head.firstChild.nextSibling);
+}
+
+function renderTaskList(el){
+  var pl = (S.people || []).filter(function(m){ return !m.hidden; });
+  if(isMgr()) pl = pl.filter(function(m){ return m.id === meId; });
+  el.innerHTML =
+    '<div class="gl-t"><h2>Неделя списком</h2>'+
+      '<span class="m">кто что не успевает и из чего состоит его день</span></div>'+
+    '<div class="tlist">'+pl.map(function(m){
+      var mine = (S.tasks || []).filter(function(t){ return t.person === m.id; });
+      var late = mine.filter(function(t){ return !t.done && t.dow < dow; });
+      var byDay = {};
+      mine.forEach(function(t){ (byDay[t.dow] = byDay[t.dow] || []).push(t); });
+      var wk = mine.reduce(function(a, t){ return a + (t.minutes || 0); }, 0);
+      var norm = (m.hoursDay || 8) * 60 * 5;
+      var pct = norm ? Math.round(wk / norm * 100) : 0;
+      return '<div class="tlp">'+
+        '<div class="tlph">'+
+          '<span class="av2" style="background:'+m.color+'">'+esc(m.av || "")+'</span>'+
+          '<b>'+esc(m.name)+'</b><i>'+esc(m.role || "")+'</i>'+
+          '<span class="tlpc'+(pct > 100 ? " bad" : "")+'">'+pct+'%</span>'+
+          '<span class="tlpw">'+hrs(wk)+' ч за неделю</span>'+
+        '</div>'+
+        (late.length
+          ? '<div class="tlate"><b>Не успевает: '+late.length+'</b>'+
+            late.map(function(t){
+              var pr = t.project ? project(t.project) : null;
+              return '<span class="tlt">'+esc(t.title || "задача")+
+                (pr ? ' · ' + esc(pr.name) : '')+' <u>с '+DOWS[t.dow]+'</u></span>'; }).join("")+
+            '</div>'
+          : '<div class="tlok">Всё в срок</div>')+
+        '<div class="tldays">'+[0,1,2,3,4].map(function(d){
+          var list = byDay[d] || [];
+          var mins = list.reduce(function(a, t){ return a + (t.minutes || 0); }, 0);
+          var dnorm = (m.hoursDay || 8) * 60;
+          var dp = dnorm ? Math.round(mins / dnorm * 100) : 0;
+          return '<div class="tld'+(d === dow ? " now" : "")+(dp > 100 ? " over" : "")+'">'+
+            '<div class="tldh">'+DOWS[d]+'<span>'+(mins ? hrs(mins) + ' ч' : '—')+'</span></div>'+
+            (list.length ? list.map(function(t){
+              var pr = t.project ? project(t.project) : null;
+              return '<div class="tldt'+(t.done ? " done" : "")+'" data-task="'+esc(t.id)+'">'+
+                esc(t.title || "задача")+
+                '<i>'+(pr ? esc(pr.name) + ' · ' : '')+(t.minutes || 0)+' мин</i></div>'; }).join("")
+              : '<div class="tldn">пусто</div>')+
+          '</div>'; }).join("")+
+        '</div>'+
+      '</div>'; }).join("")+
+    '</div>';
+}
+
+document.addEventListener("click", function(e){
+  var t = e.target.closest("[data-gmode]");
+  if(!t) return;
+  gMode = t.getAttribute("data-gmode");
+  render();
+});
 
 })();
 </script>
