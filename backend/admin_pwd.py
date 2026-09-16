@@ -50,7 +50,9 @@ async def main():
         print("не нашёл функцию хеширования пароля — покажите app/security.py"); sys.exit(3)
     print("хеширую так же, как сервис:", where)
 
-    pwd = gen()
+    # пароль можно передать первым аргументом — тогда он не зависит от того,
+    # правильно ли кто-то прочитал его с экрана консоли
+    pwd = sys.argv[1] if len(sys.argv) > 1 and len(sys.argv[1]) >= 12 else gen()
     c = await asyncpg.connect(dsn())
 
     cols = {r["column_name"]: r for r in await c.fetch(
@@ -95,8 +97,7 @@ async def main():
     await c.close()
     print("админ %s: %s" % (what, EMAIL))
     print("агентство:", org["name"] if org else "—")
-    print("PWD_START")
-    print(pwd)
-    print("PWD_END")
+    print("пароль длиной %d символов установлен" % len(pwd))
+    print("первые 3 символа для сверки: %s…" % pwd[:3])
 
 asyncio.run(main())
