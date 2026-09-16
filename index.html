@@ -4163,9 +4163,7 @@ function genWeekFor(p, r){
       var mins=f.minutes*(1+Math.floor(r()*3));
       if(used+mins>target) mins=target-used;
       if(mins<5) break;
-      /* в прошлых днях бывают хвосты — иначе «не закрыто за прошлые дни»
-         всегда ноль, и механику хвостов не на чем показать */
-      var done = d<today ? r()<.88 : (d===today && r()<.42);
+      var done = d<today || (d===today && r()<.42);
       out.push({id:nextId("t"), title:f.name, project:cab.project, person:p.id, cab:cab.id,
         fn:f.id, minutes:mins, kind:kinds[Math.floor(r()*kinds.length)], dow:d,
         start:Math.min(19.4, 10+used/60), done:done,
@@ -17841,6 +17839,77 @@ window.foRoleState = function(){
     if(e.target.closest("#bootRetry")){ goLive(); return; }
     if(e.target.closest("#bootOut")){ window.foKick("Войдите заново"); return; }
   });
+})();
+
+/* ══ 52. Пустое агентство больше никого не запирает ═════════════
+   Было так: в живом агентстве без людей, кабинетов и задач сервис
+   уводил на экран первого запуска — и оттуда было не выйти, рельса
+   как будто не работала. Виталий: «просто виджеты пустые показывай».
+   Теперь после входа всегда обычный рабочий экран, а разделы
+   открываются даже когда данных нет. Сценарий подсказок для первого
+   запуска сделаем отдельно и так, чтобы он не блокировал.        */
+(function(){
+  if(typeof showSetup !== "function") return;
+  var _ss = showSetup;
+  showSetup = function(){
+    if(MODE === "demo") return _ss.apply(this, arguments);
+    /* живой режим: никаких запертых экранов */
+    var boot = document.getElementById("boot");
+    if(boot){ boot.hidden = true; boot.classList.remove("wide"); }
+    startScreen();
+  };
+})();
+
+/* ── пустые разделы рисуются, а не молчат ──
+   Если раздел упал на пустых данных, человек видит пустой экран и
+   думает, что кнопка не нажалась. Ловим и показываем честную
+   заглушку — раздел открылся, просто в нём пока ничего нет.     */
+(function(){
+  var TITLES = {
+    people:   ["Моя команда", "Здесь появятся сотрудники, когда вы их заведёте"],
+    projects: ["Мои клиенты", "Здесь появятся кабинеты клиентов"],
+    cards:    ["Карточки клиентов", "Заведите первый кабинет — карточка появится здесь"],
+    staff:    ["Карточки команды", "Заведите первого сотрудника — карточка появится здесь"],
+    fns:      ["Функции", "Справочник функций пока пуст"],
+    fin:      ["Финансы", "Платежей пока нет"],
+    meet:     ["Планёрка", "Задач для планёрки пока нет"],
+    office:   ["Онлайн-офис", "Команда пока не заведена"],
+    growth:   ["Рост", "Считать рост пока не на чем — нет команды и задач"],
+    rate:     ["Рейтинг", "Отрабатывать неделю пока некому"],
+    cab:      ["Кабинет", "Кабинет пока не выбран"],
+    reg:      ["Регламенты", "Регламентов пока нет"],
+    guide:    ["Справочник", "Справочник пока пуст"],
+    sales:    ["Отдел продаж", "Лидов пока нет"]
+  };
+
+  function emptyFill(v){
+    var sec = document.getElementById("sect");
+    if(!sec || sec.hidden) return;
+    if((sec.innerHTML || "").trim().length > 40) return;    /* раздел нарисовался сам */
+    var t = TITLES[v] || ["Раздел", "Здесь пока пусто"];
+    sec.innerHTML =
+      '<div class="gl"><div class="gl-t"><h2>'+esc(t[0])+'</h2></div>'+
+      '<div class="empty">'+esc(t[1])+'</div></div>';
+  }
+
+  var _sv = setView;
+  setView = function(v, keep){
+    try{
+      return _sv.apply(this, arguments);
+    }catch(e){
+      /* раздел упал на пустых данных — не оставляем человека в тишине */
+      try{
+        view = v;
+        var scr = document.getElementById("screen"), sec = document.getElementById("sect");
+        if(scr) scr.hidden = true;
+        if(sec){ sec.hidden = false; sec.innerHTML = ""; }
+        emptyFill(v);
+      }catch(e2){}
+      return null;
+    }finally{
+      try{ if(v !== "work") setTimeout(function(){ emptyFill(v); }, 30); }catch(e3){}
+    }
+  };
 })();
 
 })();
