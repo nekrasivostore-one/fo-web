@@ -16,9 +16,17 @@ if OLD not in s:
 NEW = "async def current(request: Request, authorization: str = Header(default=\"\")) -> Principal:"
 s = s.replace(OLD, NEW, 1)
 
-if "from fastapi import" in s and "Request" not in s.split("\n")[0:25].__str__():
-    s = re.sub(r"(from fastapi import [^\n]*)", lambda m: m.group(1) if "Request" in m.group(1)
-               else m.group(1) + ", Request", s, count=1)
+# Импорт Request. Проверяем ИМЕННО строку импорта — в прошлый раз проверка
+# смотрела на первые 25 строк файла, а там уже стояло "request: Request"
+# из замены выше: импорт не добавился и сервис не поднялся.
+imp = re.search(r"^from fastapi import .*$", s, re.M)
+if not imp:
+    print("нет строки 'from fastapi import' — покажите файл"); sys.exit(5)
+if "Request" not in imp.group(0):
+    s = s[:imp.start()] + imp.group(0).rstrip() + ", Request" + s[imp.end():]
+    print("  импорт Request добавлен")
+else:
+    print("  импорт Request уже был")
 
 # запись адреса — в самом конце current(), перед возвратом Principal
 m = re.search(r"(\n    p = Principal\(data\)\n)", s)
