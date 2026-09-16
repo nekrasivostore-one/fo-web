@@ -3441,6 +3441,94 @@ code.invc{ font-family:ui-monospace,SFMono-Regular,monospace; font-weight:700;
   .tarsp{ align-items:flex-start }
   .tarbuy{ width:100% }
 }
+
+/* ── 47. Не выполненные за прошедшие дни ── */
+.tdlate{ width:auto; padding:8px 15px }
+.tdlate.has{ border-color:rgba(219,74,95,.4); color:var(--crit) }
+.tdlate.on{ background:var(--crit); border-color:var(--crit); color:#fff }
+.tdr.late{ border-color:rgba(219,74,95,.4); background:rgba(219,74,95,.05) }
+.tdr.late .tdt b{ color:var(--crit) }
+.tdr.late .tdc{ border-color:rgba(219,74,95,.45) }
+.tdtail{ margin-top:22px; border-top:1px solid var(--stroke-2); padding-top:16px }
+.tdth{ display:flex; align-items:baseline; gap:10px; font-size:10.5px; font-weight:700;
+  text-transform:uppercase; letter-spacing:.05em; color:var(--crit); margin-bottom:10px }
+.tdth span{ font-size:11px; font-weight:500; text-transform:none; letter-spacing:0;
+  color:var(--ink-3) }
+.tdtn{ margin-top:10px; font-size:11.5px; line-height:1.55; color:var(--ink-3) }
+
+/* ── 48. Назначение ответственного ── */
+.ndrow.asgrow{ align-items:center }
+.ndx.asg{ display:flex; align-items:center; gap:8px }
+.asgsel{ min-width:210px }
+.asgok{ width:auto; padding:8px 14px }
+.asgok:disabled{ opacity:.45; cursor:default }
+.asgbox{ position:fixed; right:26px; bottom:26px; z-index:90; width:330px;
+  background:var(--panel); border:1px solid var(--stroke-2); border-radius:var(--r2);
+  padding:16px 18px; box-shadow:0 30px 70px -28px rgba(0,0,0,.55);
+  opacity:0; transform:translateY(12px); transition:opacity .24s var(--ease), transform .24s var(--ease) }
+.asgbox.on{ opacity:1; transform:none }
+.asgh{ font-size:13px; font-weight:600; margin-bottom:6px }
+.asgd{ font-size:11.5px; line-height:1.55; color:var(--ink-3); margin-bottom:12px }
+.asgb{ display:flex; gap:9px }
+.asgb .bt{ width:auto; flex:1 }
+@media (max-width:900px){
+  .ndx.asg{ flex-direction:column; align-items:stretch }
+  .asgsel{ min-width:0; width:100% }
+  .asgbox{ left:16px; right:16px; width:auto }
+}
+
+/* ── 49. Меню под именем ── */
+.bar .me.mebtn{ cursor:pointer; padding-right:8px; border-radius:999px;
+  transition:background .16s var(--ease) }
+.bar .me.mebtn:hover{ background:var(--neu) }
+.mear{ width:13px; height:13px; flex:none; stroke:var(--ink-3); fill:none; stroke-width:2;
+  stroke-linecap:round; margin-left:4px }
+.memenu{ position:absolute; right:22px; top:66px; z-index:80; width:302px;
+  background:var(--panel); border:1px solid var(--stroke-2); border-radius:var(--r2);
+  padding:8px; box-shadow:0 30px 70px -28px rgba(0,0,0,.5);
+  opacity:0; transform:translateY(-8px); transition:opacity .18s var(--ease), transform .18s var(--ease) }
+.memenu.on{ opacity:1; transform:none }
+.memh{ padding:10px 12px 12px }
+.memh b{ display:block; font-size:12.5px; font-weight:600; overflow:hidden;
+  text-overflow:ellipsis; white-space:nowrap }
+.memh i{ display:block; font-style:normal; font-size:11px; color:var(--ink-3); margin-top:2px }
+.memi{ display:flex; align-items:flex-start; gap:11px; width:100%; text-align:left;
+  background:none; border:0; border-radius:10px; padding:10px 12px; cursor:pointer;
+  color:var(--ink); transition:background .14s var(--ease) }
+.memi:hover{ background:var(--neu) }
+.memi svg{ width:17px; height:17px; flex:none; margin-top:1px; stroke:var(--ink-3);
+  fill:none; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round }
+.memi b{ display:block; font-size:12.5px; font-weight:600 }
+.memi i{ display:block; font-style:normal; font-size:10.5px; color:var(--ink-3); margin-top:1px }
+.memd{ height:1px; background:var(--stroke-2); margin:6px 10px }
+.memi.out b{ color:var(--crit) }
+.memi.out svg{ stroke:var(--crit) }
+
+/* реквизиты */
+.ocinv{ display:flex; align-items:flex-end; gap:22px; flex-wrap:wrap; margin-bottom:12px }
+.ocinv i{ display:block; font-style:normal; font-size:10.5px; color:var(--ink-3); margin-bottom:5px }
+.ocinv b{ font-size:14px; font-weight:600 }
+.ocinv .ocl{ font-family:ui-monospace,SFMono-Regular,monospace; font-size:12px; color:var(--ink-2) }
+.ocinv .bt{ width:auto }
+
+/* поддержка */
+.hlpg{ display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-bottom:8px }
+.hlpc{ display:block; text-decoration:none; color:var(--ink); background:var(--panel-2);
+  border:1px solid var(--stroke-2); border-radius:var(--r2); padding:15px 17px;
+  transition:border-color .18s var(--ease) }
+a.hlpc:hover{ border-color:rgba(124,92,255,.45) }
+.hlpc b{ display:block; font-size:10.5px; font-weight:700; text-transform:uppercase;
+  letter-spacing:.05em; color:var(--ink-3); margin-bottom:7px }
+.hlpc i{ display:block; font-style:normal; font-size:14.5px; font-weight:600; margin-bottom:5px }
+.hlpc span{ font-size:11.5px; line-height:1.5; color:var(--ink-3) }
+.hlpq{ padding:11px 0; border-bottom:1px solid var(--stroke-2) }
+.hlpq:last-child{ border-bottom:0 }
+.hlpq b{ display:block; font-size:12.5px; font-weight:600; margin-bottom:4px }
+.hlpq i{ font-style:normal; font-size:11.5px; line-height:1.6; color:var(--ink-2) }
+@media (max-width:900px){
+  .hlpg{ grid-template-columns:1fr }
+  .memenu{ right:12px; left:12px; width:auto }
+}
 </style>
 </head>
 <body>
@@ -4065,7 +4153,9 @@ function genWeekFor(p, r){
       var mins=f.minutes*(1+Math.floor(r()*3));
       if(used+mins>target) mins=target-used;
       if(mins<5) break;
-      var done = d<today || (d===today && r()<.42);
+      /* в прошлых днях бывают хвосты — иначе «не закрыто за прошлые дни»
+         всегда ноль, и механику хвостов не на чем показать */
+      var done = d<today ? r()<.88 : (d===today && r()<.42);
       out.push({id:nextId("t"), title:f.name, project:cab.project, person:p.id, cab:cab.id,
         fn:f.id, minutes:mins, kind:kinds[Math.floor(r()*kinds.length)], dow:d,
         start:Math.min(19.4, 10+used/60), done:done,
@@ -10912,7 +11002,9 @@ function genWeekFor(p, r){
       var target = Math.round(NORM * (base + Math.round((r()-.5)*26)) / 100);
       if(used[d] > target) return;
       var mins = D.mins;
-      var done = d < today || (d === today && r() < .42);
+      /* в прошлых днях бывают хвосты — иначе «не закрыто за прошлые дни»
+         всегда ноль и механику хвостов не на чем показать */
+      var done = d < today ? r() < .88 : (d === today && r() < .42);
       out.push({id:nextId("t"), title:D.f.name, project:D.cab.project, person:p.id, cab:D.cab.id,
         fn:D.f.id, minutes:mins, kind:D.kind, dow:d,
         start:Math.min(19.4, 10 + used[d]/60), done:done,
@@ -17171,6 +17263,425 @@ function paintBill(){
     MODE = "demo"; buildDemo(); startScreen();
   });
 })();
+
+/* ══ 47. Прошедшие дни: видно, что не успели ════════════════════
+   Сегодня среда. Открываешь вторник — и всё выглядит одинаково:
+   сделанное и несделанное в одном списке. Виталий попросил три вещи:
+   красным подсвечивать невыполненное, отдельную кнопку «Не выполненные»
+   и повтор этих задач внизу списка — чтобы не листать вверх.        */
+
+var tdLate = false;      /* включён ли фильтр «только не выполненные» */
+
+(function(){
+  var _tl = tdList;
+  tdList = function(){
+    var list = _tl.apply(this, arguments);
+    return tdLate ? list.filter(function(t){ return !t.done; }) : list;
+  };
+})();
+
+function tdPast(){ return tdDay !== null && tdDay < dow; }
+
+(function(){
+  var _row = tdRow;
+  tdRow = function(t){
+    var h = _row.apply(this, arguments);
+    /* просроченная — та, что не закрыта в уже прошедший день */
+    if(!t.done && tdDay !== null && tdDay < dow){
+      h = h.replace('class="tdr', 'class="tdr late');
+    }
+    return h;
+  };
+})();
+
+(function(){
+  var _r = renderDayTasks;
+  renderDayTasks = function(el){
+    var v = _r.call(this, el);
+    if(!el) return v;
+
+    /* ── кнопка «Не выполненные» рядом со «Сбросить» ── */
+    var bar = el.querySelector(".tdf");
+    if(bar && !el.querySelector("#tdLateBtn")){
+      var all = (S.tasks || []).filter(function(t){
+        if(tdDay !== null && t.dow !== tdDay) return false;
+        if(tdDay === null && t.dow !== dow) return false;
+        if(tdWho && t.person !== tdWho) return false;
+        if(tdCab && t.project !== tdCab) return false;
+        if(isMgr() && t.person !== meId) return false;
+        return !t.done;
+      });
+      var b = document.createElement("button");
+      b.id = "tdLateBtn";
+      b.className = "bt sm tdlate" + (tdLate ? " on" : "") + (all.length ? " has" : "");
+      b.textContent = "Не выполненные" + (all.length ? " · " + all.length : "");
+      var clr = bar.querySelector("#tdClear");
+      if(clr) bar.insertBefore(b, clr); else bar.appendChild(b);
+    }
+
+    /* ── хвост внизу: те же задачи, но собранные в одном месте ── */
+    if(tdPast() && !tdLate){
+      var left = tdList().filter(function(t){ return !t.done; });
+      if(left.length){
+        var box = document.createElement("div");
+        box.className = "tdtail";
+        box.innerHTML =
+          '<div class="tdth">Не успели в '+DOWS[tdDay].toLowerCase()+
+            '<span>'+plural(left.length, "задача", "задачи", "задач")+
+            ' · '+hrs(minutesOf(left))+' ч</span></div>'+
+          left.map(tdRow).join("")+
+          '<div class="tdtn">Эти задачи никуда не делись: их всё ещё нужно закрыть '+
+            'или перенести. Красным — чтобы не потерялись между сделанным.</div>';
+        el.appendChild(box);
+      }
+    }
+    return v;
+  };
+  if(typeof B !== "undefined") B.tasks = renderDayTasks;
+})();
+
+document.addEventListener("click", function(e){
+  if(!e.target.closest("#tdLateBtn")) return;
+  tdLate = !tdLate;
+  render();
+});
+
+/* ══ 48. «Ответственного нет» — это не приговор, а кнопка ═══════
+   В «Требует решения» строчка «ответственного нет» была серой
+   надписью: увидел проблему и ничего с ней сделать не можешь.
+   Теперь это выбор: список сотрудников (кто свободнее — тот выше),
+   кнопка «Назначить» и сразу предложение уведомить человека.     */
+
+function asgPeople(){
+  return (S.people || []).filter(function(m){ return !m.hidden; })
+    .map(function(m){ return {m:m, pct:pctOf(m.id, dow)}; })
+    .sort(function(a, b){ return a.pct - b.pct; });
+}
+
+function asgPick(t){
+  var pl = asgPeople();
+  if(!pl.length) return '<span class="ndx">в команде пока никого нет</span>';
+  return '<span class="ndx asg">'+
+    '<select class="sel sm asgsel" data-asgsel="'+esc(t.id)+'">'+
+      '<option value="">Назначить ответственного</option>'+
+      pl.map(function(x){
+        return '<option value="'+esc(x.m.id)+'">'+esc(x.m.name)+
+          ' — '+x.pct+'% загрузки</option>'; }).join("")+
+    '</select>'+
+    '<button class="bt sm asgok" data-asgok="'+esc(t.id)+'" disabled>Назначить</button>'+
+  '</span>';
+}
+
+(function(){
+  var _nd = needDetail;
+  needDetail = function(m){
+    if(!m || m.k !== "noowner") return _nd.apply(this, arguments);
+    var list = m.list || [];
+    if(!list.length)
+      return '<div class="ndl"><div class="empty">Все задачи розданы — здесь всё в порядке</div></div>';
+    return '<div class="ndl">'+list.slice(0, 40).map(function(t){
+      var pr = project(t.project);
+      return '<div class="ndrow asgrow">'+
+        '<span class="av none">?</span>'+
+        '<span class="ndk"><b>'+esc(t.title)+'</b><i>'+(pr ? esc(pr.name) : '—')+
+          ' · '+DOW[t.dow]+'</i></span>'+
+        '<span class="ndv">'+t.minutes+' мин</span>'+
+        asgPick(t)+
+        (pr ? '<button class="bt gh2 sm" data-opencab="'+esc(pr.id)+'">Кабинет</button>' : '')+
+      '</div>'; }).join("")+
+      (list.length > 40 ? '<div class="gclm">и ещё '+(list.length - 40)+'</div>' : '')+
+    '</div>';
+  };
+})();
+
+document.addEventListener("change", function(e){
+  var s = e.target.closest ? e.target.closest("[data-asgsel]") : null;
+  if(!s) return;
+  var btn = s.parentNode.querySelector("[data-asgok]");
+  if(btn) btn.disabled = !s.value;
+});
+
+document.addEventListener("click", function(e){
+  var b = e.target.closest("[data-asgok]");
+  if(!b) return;
+  e.preventDefault(); e.stopPropagation();
+  var id = b.getAttribute("data-asgok");
+  var sel = null, all = document.querySelectorAll("[data-asgsel]");
+  for(var i = 0; i < all.length; i++){
+    if(all[i].getAttribute("data-asgsel") === id){ sel = all[i]; break; }
+  }
+  if(!sel || !sel.value) return;
+  var t = (S.tasks || []).filter(function(v){ return v.id === id; })[0];
+  var m = person(sel.value);
+  if(!t || !m) return;
+  t.person = m.id;
+  try{ saveState(); }catch(err){}
+  asgNotify(t, m);
+  try{ render(); }catch(err){}
+}, true);
+
+/* ── предложение уведомить ── */
+function asgNotify(t, m){
+  var old = document.getElementById("asgBox");
+  if(old) old.remove();
+  var tg = String(m.tg || "").replace(/^@+/, "");
+  var box = document.createElement("div");
+  box.id = "asgBox"; box.className = "asgbox";
+  box.innerHTML =
+    '<div class="asgh"><b>'+esc(m.name)+'</b> отвечает за «'+esc(t.title)+'»</div>'+
+    '<div class="asgd">Сообщить ему? Уйдёт короткое сообщение '+
+      (tg ? 'в telegram @'+esc(tg) : 'на рабочую почту')+
+      ' — задача, кабинет и день.</div>'+
+    '<div class="asgb">'+
+      '<button class="bt sm" id="asgSend">Уведомить</button>'+
+      '<button class="bt sm gh2" id="asgSkip">Не сейчас</button>'+
+    '</div>';
+  document.body.appendChild(box);
+  setTimeout(function(){ box.classList.add("on"); }, 20);
+  var kill = function(){
+    box.classList.remove("on");
+    setTimeout(function(){ if(box.parentNode) box.remove(); }, 260);
+  };
+  box.querySelector("#asgSkip").onclick = kill;
+  box.querySelector("#asgSend").onclick = function(){
+    kill();
+    var d = document.getElementById("gToast");
+    if(!d){ d = document.createElement("div"); d.id = "gToast"; d.className = "gtoast";
+      document.body.appendChild(d); }
+    d.textContent = (MODE === "demo" ? "В демо письмо не уходит — " : "") +
+      m.name + " получит сообщение о задаче";
+    d.classList.add("on");
+    clearTimeout(asgNotify._t);
+    asgNotify._t = setTimeout(function(){ d.classList.remove("on"); }, 3200);
+  };
+  clearTimeout(asgNotify._k);
+  asgNotify._k = setTimeout(function(){ if(document.getElementById("asgBox")) kill(); }, 14000);
+}
+
+/* ══ 49. Меню под именем: подписка, реквизиты, поддержка, выход ══
+   Блок с именем был витриной: аватар, имя, роль — и всё. А «Выйти»
+   висело отдельной кнопкой в шапке, где ему не место. Собираем всё
+   личное в одно меню, как принято: подписка, реквизиты агентства,
+   поддержка — и выход внизу, отдельной строкой.                  */
+
+function meMenuHTML(){
+  var adm = (typeof isAdmin === "function" && isAdmin());
+  return '<div class="memenu" id="meMenu">'+
+    '<div class="memh"><b>'+esc((A && A.email) || "Вы")+'</b>'+
+      '<i>'+esc(typeof admRoleName === "function" ? admRoleName(role) : roleName(role))+
+      (orgName() ? ' · ' + esc(orgName()) : '')+'</i></div>'+
+    '<button class="memi" data-me="tariff">'+
+      '<svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2.5"/><path d="M3 10h18"/></svg>'+
+      '<span><b>Подписка и тарифы</b><i>что платим, за что и когда</i></span></button>'+
+    '<button class="memi" data-me="orgcard">'+
+      '<svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2.5"/>'+
+      '<path d="M8 9h8M8 13h5"/></svg>'+
+      '<span><b>Реквизиты агентства</b><i>название, ИНН, код приглашений</i></span></button>'+
+    '<button class="memi" data-me="help">'+
+      '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/>'+
+      '<path d="M9.6 9.5a2.4 2.4 0 1 1 3.3 2.2c-.6.3-.9.8-.9 1.4v.4"/><path d="M12 17h.01"/></svg>'+
+      '<span><b>Поддержка</b><i>написать нам, если что-то не так</i></span></button>'+
+    (adm ? '<button class="memi" data-me="adm">'+
+      '<svg viewBox="0 0 24 24"><path d="M12 3l7 3v5.5c0 4.3-2.9 7.9-7 9.5-4.1-1.6-7-5.2-7-9.5V6z"/></svg>'+
+      '<span><b>Панель сервиса</b><i>все агентства, люди и деньги</i></span></button>' : '')+
+    '<div class="memd"></div>'+
+    '<button class="memi out" data-me="exit">'+
+      '<svg viewBox="0 0 24 24"><path d="M15 12H4m0 0l3.5-3.5M4 12l3.5 3.5"/>'+
+      '<path d="M10 7V5.5A2.5 2.5 0 0 1 12.5 3H18a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-5.5a2.5 2.5 0 0 1-2.5-2.5V17"/></svg>'+
+      '<span><b>Выйти</b><i>разлогиниться из сервиса</i></span></button>'+
+  '</div>';
+}
+
+(function(){
+  function mount(){
+    var me = document.querySelector(".bar .me");
+    if(!me || me.dataset.memenu) return;
+    me.dataset.memenu = "1";
+    me.classList.add("mebtn");
+    me.setAttribute("role", "button");
+    me.setAttribute("tabindex", "0");
+    me.insertAdjacentHTML("beforeend",
+      '<svg class="mear" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>');
+    /* отдельная кнопка выхода больше не нужна: она внутри меню */
+    var ex = document.getElementById("exitBtn");
+    if(ex) ex.style.display = "none";
+  }
+  mount();
+  setTimeout(mount, 400);
+  var _ar = applyRoleRail;
+  applyRoleRail = function(){ var v = _ar.apply(this, arguments); try{ mount(); }catch(e){} return v; };
+
+  function close(){
+    var m = document.getElementById("meMenu");
+    if(m){ m.classList.remove("on"); setTimeout(function(){ if(m.parentNode) m.remove(); }, 200); }
+  }
+  function open(){
+    var me = document.querySelector(".bar .me");
+    if(!me || document.getElementById("meMenu")) { close(); return; }
+    me.insertAdjacentHTML("afterend", meMenuHTML());
+    setTimeout(function(){
+      var m = document.getElementById("meMenu");
+      if(m) m.classList.add("on");
+    }, 10);
+  }
+
+  document.addEventListener("click", function(e){
+    var hit = e.target.closest(".bar .me");
+    if(hit){ e.stopPropagation(); open(); return; }
+    var item = e.target.closest("[data-me]");
+    if(item){
+      var what = item.getAttribute("data-me");
+      close();
+      if(what === "exit"){
+        if(typeof dropAuth === "function") dropAuth();
+        location.reload();
+        return;
+      }
+      setView(what);
+      return;
+    }
+    if(!e.target.closest("#meMenu")) close();
+  });
+})();
+
+/* ── реквизиты агентства ── */
+function renderOrgCard(){
+  var host = document.getElementById("sect");
+  if(!host) return;
+  var live = (MODE === "live" && A && A.token);
+  var inv = "";
+  try{ inv = localStorage.getItem("fo_invite") || ""; }catch(e){}
+  var can = (role === "owner" || role === "dir" || isAdmin());
+  var d = (typeof BILL !== "undefined" && BILL) || {};
+
+  host.innerHTML =
+    '<div class="gl fnone">'+
+      '<div class="gl-t"><h2>Реквизиты агентства</h2>'+
+        '<span class="m">по этим данным сервис выставляет счета и пускает людей внутрь</span></div>'+
+
+      '<div class="fnsec"><div class="fnsh">Юридическое лицо</div>'+
+        '<div class="sfr">'+
+          '<label><span>Название агентства</span>'+
+            '<input class="fi sm" id="ocName" value="'+esc(orgName() || d.name || "")+'"'+
+            (can ? '' : ' disabled')+'></label>'+
+          '<label class="nar"><span>ИНН</span>'+
+            '<input class="fi sm" id="ocInn" inputmode="numeric" placeholder="10 или 12 цифр" '+
+            'value="'+esc(d.inn || "")+'"'+(can ? '' : ' disabled')+'></label>'+
+        '</div>'+
+        '<div class="sfr">'+
+          '<label><span>Юридический адрес</span>'+
+            '<input class="fi sm" id="ocAddr" placeholder="как в выписке" value="'+esc(d.addr || "")+'"'+
+            (can ? '' : ' disabled')+'></label>'+
+          '<label class="nar"><span>Телефон</span>'+
+            '<input class="fi sm" id="ocPhone" placeholder="+7…" value="'+esc(d.phone || "")+'"'+
+            (can ? '' : ' disabled')+'></label>'+
+        '</div>'+
+        (can ? '<div class="admsave"><button class="bt sm" id="ocSave">Сохранить</button>'+
+          '<span class="admsaved" id="ocSaved"></span></div>'
+             : '<div class="fnnote">Реквизиты правит собственник или директор.</div>')+
+      '</div>'+
+
+      '<div class="fnsec"><div class="fnsh">Как попадают в агентство</div>'+
+        '<div class="ocinv">'+
+          '<div><i>Код приглашения</i><b class="invc">'+esc(d.invite_code || inv || "—")+'</b></div>'+
+          '<div><i>Ссылка для сотрудника</i>'+
+            '<b class="ocl">fo.flater.pro/?invite='+esc(d.invite_code || inv || "")+'</b></div>'+
+          '<button class="bt sm gh2" id="ocCopy">Скопировать ссылку</button>'+
+        '</div>'+
+        '<div class="fnnote">По этому коду человек попадает именно в ваше агентство и получает '+
+          'права младшего менеджера. Уровень доступа потом поднимает собственник.</div>'+
+      '</div>'+
+
+      '<div class="fnsec"><div class="fnsh">Подписка</div>'+
+        '<div class="fnnote">'+
+          (live
+            ? (typeof billTrialLeft === "function" && billTrialLeft() !== null && billTrialLeft() > 0
+                ? 'Идёт пробный период до ' + esc(billDateRu(BILL.trial_ends_at)) + '. Списаний пока нет.'
+                : 'Тариф пока не подключён — сервис работает бесплатно.')
+            : 'В демо подписка выдуманная: реальные суммы появятся в живом агентстве.')+
+        '</div>'+
+        '<div class="admsave"><button class="bt sm gh2" id="ocTar">Открыть тарифы</button></div>'+
+      '</div>'+
+    '</div>';
+}
+
+/* ── поддержка ── */
+function renderHelp(){
+  var host = document.getElementById("sect");
+  if(!host) return;
+  host.innerHTML =
+    '<div class="gl fnone">'+
+      '<div class="gl-t"><h2>Поддержка</h2>'+
+        '<span class="m">если что-то считается не так или не работает — пишите, разберём</span></div>'+
+      '<div class="hlpg">'+
+        '<a class="hlpc" href="mailto:fo@flater.pro">'+
+          '<b>Почта</b><i>fo@flater.pro</i><span>Ответим в течение рабочего дня</span></a>'+
+        '<a class="hlpc" href="https://t.me/flater_pro" target="_blank" rel="noopener">'+
+          '<b>Telegram</b><i>@flater_pro</i><span>Быстрее всего — короткие вопросы сюда</span></a>'+
+        '<div class="hlpc"><b>Что приложить</b><i>экран и время</i>'+
+          '<span>Скриншот и час, когда это случилось — по ним видно, что считал сервис</span></div>'+
+      '</div>'+
+      '<div class="fnsec"><div class="fnsh">Частое</div>'+
+        '<div class="hlpq"><b>Сотрудник не получает код на почту</b>'+
+          '<i>Проверьте папку «Спам» и что адрес написан без опечатки. Код живёт 10 минут, '+
+          'новый запрашивается кнопкой в самой форме.</i></div>'+
+        '<div class="hlpq"><b>Загрузка показывает больше 100%</b>'+
+          '<i>Значит на день назначено задач больше, чем рабочих часов. Это не ошибка — '+
+          'это предупреждение: либо снимать задачи, либо переносить.</i></div>'+
+        '<div class="hlpq"><b>Нужно поднять человеку уровень доступа</b>'+
+          '<i>Карточки команды → человек → уровень. Собственник в агентстве один, '+
+          'второго сервис не даст.</i></div>'+
+      '</div>'+
+    '</div>';
+}
+
+NAV_TITLES.orgcard = ["Реквизиты агентства", "Юрлицо, код приглашений и подписка"];
+NAV_TITLES.help    = ["Поддержка", "Как с нами связаться"];
+SEC_RENDER.orgcard = renderOrgCard;
+SEC_RENDER.help    = renderHelp;
+
+document.addEventListener("click", function(e){
+  if(e.target.closest("#ocTar")){ setView("tariff"); return; }
+  if(e.target.closest("#ocCopy")){
+    var b = document.querySelector(".ocl");
+    if(!b) return;
+    try{
+      navigator.clipboard.writeText(b.textContent);
+      e.target.closest("#ocCopy").textContent = "Скопировано";
+      setTimeout(function(){
+        var c = document.getElementById("ocCopy");
+        if(c) c.textContent = "Скопировать ссылку";
+      }, 1800);
+    }catch(err){}
+    return;
+  }
+  if(e.target.closest("#ocSave")){
+    var note = document.getElementById("ocSaved");
+    var body = {
+      name:  (document.getElementById("ocName")  || {}).value || "",
+      inn:   (document.getElementById("ocInn")   || {}).value || "",
+      addr:  (document.getElementById("ocAddr")  || {}).value || "",
+      phone: (document.getElementById("ocPhone") || {}).value || ""
+    };
+    if(MODE !== "live" || !A || !A.token){
+      if(note) note.textContent = "в демо сохранилось только на экране";
+      return;
+    }
+    if(note) note.textContent = "сохраняю…";
+    api("/me/org", {method:"POST", body:body})
+      .then(function(){
+        if(note) note.textContent = "сохранено";
+        if(typeof BILL !== "undefined" && BILL){
+          BILL.name = body.name; BILL.inn = body.inn;
+          BILL.addr = body.addr; BILL.phone = body.phone;
+        }
+        A.workspace = body.name;
+        try{ localStorage.setItem("fo_org", body.name); }catch(err){}
+      })
+      .catch(function(err){ if(note) note.textContent = err.message || "не сохранилось"; });
+    return;
+  }
+});
 
 })();
 </script>
