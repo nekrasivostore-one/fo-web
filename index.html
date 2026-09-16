@@ -18244,18 +18244,39 @@ document.addEventListener("click", function(e){
   };
 })();
 
-/* ── 2. на виджете клиента — «Карточка клиента» вместо «Кабинеты» ── */
+/* ── 2. на виджете клиента кнопка ведёт в карточку ──
+   Подпись у неё меняли и раньше, поэтому цепляться за текст нельзя:
+   заменяем по атрибуту, а сам клик перехватываем до старого
+   обработчика, который разворачивал список кабинетов.          */
 (function(){
   if(typeof cabCard !== "function") return;
   var _cc = cabCard;
   cabCard = function(pr, mine, open){
     var h = _cc.apply(this, arguments);
-    h = h.replace(
-      /<button class="bt gh2 pcb" data-prcab="([^"]*)">Кабинеты<\/button>/,
-      '<button class="bt pcb" data-opencard="$1">Карточка клиента</button>');
+    h = h.replace(/data-prcab="([^"]*)"/g, 'data-opencard="$1"');
+    h = h.replace(/(<button class="bt[^"]*"\s+data-opencard="[^"]*">)[^<]*(<\/button>)/g,
+                  '$1Карточка клиента$2');
     return h;
   };
 })();
+
+/* страховка: если где-то кнопка осталась со старым атрибутом —
+   всё равно открываем карточку, а не список кабинетов */
+document.addEventListener("click", function(e){
+  var t = e.target.closest && e.target.closest("[data-prcab]");
+  if(!t) return;
+  e.preventDefault();
+  e.stopPropagation();
+  if(e.stopImmediatePropagation) e.stopImmediatePropagation();
+  var id = t.getAttribute("data-prcab");
+  try{ if(typeof ccOpen !== "undefined") ccOpen = id; }catch(err){}
+  try{ navPush("projects"); }catch(err){}
+  setView("cards", true);
+  setTimeout(function(){
+    var el = document.querySelector(".cc2.ccx");
+    if(el) el.scrollIntoView({behavior:"smooth", block:"start"});
+  }, 220);
+}, true);
 
 /* ── 3. открытие карточки: раздел «Карточки» с раскрытым клиентом ── */
 document.addEventListener("click", function(e){
