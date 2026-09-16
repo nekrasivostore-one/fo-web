@@ -3250,6 +3250,197 @@ code.invc{ font-family:ui-monospace,SFMono-Regular,monospace; font-weight:700;
   padding:10px 16px; border-radius:11px; opacity:0; pointer-events:none;
   transition:opacity .2s var(--ease), transform .2s var(--ease) }
 .gtoast.on{ opacity:1; transform:translate(-50%,0) }
+
+/* ── 43. Админ: панель владельца сервиса ── */
+.admwarn{ border-color:rgba(255,176,32,.3); background:rgba(255,176,32,.05) }
+.admwarn > b{ display:block; font-size:13px; font-weight:600; margin-bottom:11px }
+.admsoon{ display:flex; gap:9px; flex-wrap:wrap }
+.admsb{ display:flex; flex-direction:column; gap:3px; text-align:left; cursor:pointer;
+  background:var(--panel-2); border:1px solid var(--stroke-2); border-radius:var(--r2);
+  padding:10px 13px; color:var(--ink); transition:border-color .16s var(--ease) }
+.admsb:hover{ border-color:rgba(124,92,255,.45) }
+.admsb b{ font-size:12.5px; font-weight:600 }
+.admsb i{ font-style:normal; font-size:11px; color:var(--ink-3) }
+.admsb.late{ border-color:rgba(219,74,95,.4); background:rgba(219,74,95,.07) }
+.admsb.late i{ color:var(--crit) }
+
+.admhead, .admr{ display:grid; gap:12px; align-items:center;
+  grid-template-columns:minmax(180px,1.7fr) minmax(130px,1fr) 104px 86px 58px 58px minmax(120px,1fr) 128px 18px }
+.admhead{ padding:0 12px 8px; font-size:10.5px; font-weight:700; text-transform:uppercase;
+  letter-spacing:.05em; color:var(--ink-3); border-bottom:1px solid var(--stroke-2) }
+.admhead span:nth-child(n+4):nth-child(-n+6){ text-align:center }
+.admr{ width:100%; text-align:left; background:none; border:0; border-bottom:1px solid var(--stroke-2);
+  padding:11px 12px; color:var(--ink); cursor:pointer; transition:background .15s var(--ease) }
+.admr:hover{ background:var(--neu) }
+.admr:last-child{ border-bottom:0 }
+.admn{ display:flex; flex-direction:column; gap:2px; min-width:0 }
+.admn b{ font-size:13px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
+.admn i{ font-style:normal; font-size:10.5px; color:var(--ink-3) }
+.admo{ font-size:11.5px; color:var(--ink-2); overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
+.admp{ font-size:11px; text-align:center; padding:4px 9px; border-radius:999px;
+  border:1px solid var(--stroke-2); color:var(--ink-2); background:var(--panel-2) }
+.admp.pl-own{ border-color:rgba(124,92,255,.4); color:#9B85FF }
+.admp.pl-pro{ border-color:rgba(34,176,125,.35); color:var(--ok) }
+.admp.pl-trial{ border-color:rgba(255,176,32,.35); color:var(--warn) }
+.admu{ display:flex; flex-direction:column; gap:2px; text-align:center }
+.admu b{ font-family:Unbounded,sans-serif; font-size:14px; font-weight:500; letter-spacing:-.03em }
+.admu i{ font-style:normal; font-size:10px; color:var(--ink-3) }
+.admc{ font-family:Unbounded,sans-serif; font-size:14px; font-weight:500; letter-spacing:-.03em;
+  text-align:center; color:var(--ink-2) }
+.admm{ display:flex; flex-direction:column; gap:2px; text-align:right }
+.admm b{ font-size:12.5px; font-weight:600 }
+.admm i{ font-style:normal; font-size:10px; color:var(--ink-3) }
+.adme{ display:flex; align-items:center; gap:9px }
+.adme b{ font-size:12px; color:var(--ink-2); width:34px; text-align:right }
+.admbar{ flex:1; height:7px; border-radius:99px; background:var(--stroke-2); overflow:hidden }
+.admbar i{ display:block; height:100%; border-radius:99px; transition:width .5s var(--ease) }
+.admbar i.g{ background:var(--ok) } .admbar i.y{ background:var(--warn) } .admbar i.r{ background:var(--crit) }
+.admbar.big{ height:12px }
+
+.admsave{ display:flex; align-items:center; gap:12px; margin-top:12px }
+.admsave .bt{ width:auto }
+.admsaved{ font-size:11.5px; color:var(--ink-3) }
+
+.admmg{ display:grid; grid-template-columns:repeat(4,1fr); gap:14px }
+.admmg > div{ background:var(--panel-2); border:1px solid var(--stroke-2);
+  border-radius:var(--r2); padding:13px 15px }
+.admmg i{ display:block; font-style:normal; font-size:10.5px; color:var(--ink-3); margin-bottom:6px }
+.admmg b{ font-family:Unbounded,sans-serif; font-size:17px; font-weight:500; letter-spacing:-.03em }
+.admmg b.critv{ color:var(--crit) }
+.admmg b u{ display:block; font-family:Inter,sans-serif; text-decoration:none; font-size:11px;
+  font-weight:400; color:var(--ink-3); margin-top:4px; letter-spacing:0 }
+
+.admeng{ display:flex; align-items:center; gap:14px; margin-bottom:10px }
+.admeng b{ font-family:Unbounded,sans-serif; font-size:20px; letter-spacing:-.03em; width:58px; text-align:right }
+.admengn{ font-size:12.5px; line-height:1.6; color:var(--ink-2) }
+
+.admul{ display:flex; flex-direction:column }
+.admur{ display:grid; grid-template-columns:1fr 210px; gap:14px; align-items:center;
+  padding:10px 0; border-bottom:1px solid var(--stroke-2) }
+.admur:last-child{ border-bottom:0 }
+.admue{ display:flex; flex-direction:column; gap:2px; min-width:0 }
+.admue b{ font-size:12.5px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
+.admue i{ font-style:normal; font-size:10.5px; color:var(--ink-3) }
+
+@media (max-width:1250px){
+  .admhead, .admr{ grid-template-columns:minmax(150px,1.6fr) 90px 60px minmax(100px,1fr) 110px 18px }
+  .admhead span:nth-child(2), .admr .admo,
+  .admhead span:nth-child(6), .admr .admc:last-of-type{ display:none }
+}
+@media (max-width:900px){
+  .admhead{ display:none }
+  .admr{ grid-template-columns:1fr 110px 18px }
+  .admr .admp, .admr .admu, .admr .admc, .admr .admm{ display:none }
+  .admmg{ grid-template-columns:repeat(2,1fr) }
+  .admur{ grid-template-columns:1fr }
+}
+
+/* роль в живом режиме не переключается — просто подпись «кто я» */
+.rolesel.locked{ display:flex; align-items:center }
+.roletag{ display:inline-flex; align-items:center; height:34px; padding:0 14px;
+  border:1px solid var(--stroke-2); border-radius:999px; background:var(--panel-2);
+  font-size:12.5px; font-weight:600; color:var(--ink-2); white-space:nowrap }
+
+/* пробный период и журнал входов */
+.admflag{ display:inline-block; margin-left:8px; font-size:9.5px; font-weight:700;
+  text-transform:uppercase; letter-spacing:.05em; vertical-align:middle;
+  padding:3px 7px; border-radius:999px; background:rgba(255,176,32,.14);
+  border:1px solid rgba(255,176,32,.3); color:var(--warn) }
+.trrow{ display:grid; grid-template-columns:200px 1fr; gap:18px; align-items:center;
+  margin-bottom:12px }
+.trst{ background:var(--panel-2); border:1px solid var(--stroke-2); border-radius:var(--r2);
+  padding:13px 15px }
+.trst b{ display:block; font-family:Unbounded,sans-serif; font-size:16px; font-weight:500;
+  letter-spacing:-.03em; margin-bottom:4px }
+.trst i{ font-style:normal; font-size:11px; color:var(--ink-3) }
+.trst.out{ border-color:rgba(219,74,95,.35) } .trst.out b{ color:var(--crit) }
+.trst.off b{ font-size:13px; color:var(--ink-2) }
+.trad{ display:flex; flex-direction:column; gap:8px }
+.trl{ font-size:11px; color:var(--ink-3) }
+.trbs{ display:flex; gap:8px; flex-wrap:wrap }
+.trb{ padding:8px 14px; border-radius:999px; cursor:pointer; font-size:12px; font-weight:600;
+  background:var(--panel-2); border:1px solid var(--stroke-2); color:var(--ink);
+  transition:border-color .16s var(--ease), background .16s var(--ease) }
+.trb:hover{ border-color:rgba(124,92,255,.5); background:rgba(124,92,255,.08) }
+.trhint{ font-size:11px; color:var(--ink-3) }
+
+.admip{ font-family:ui-monospace,SFMono-Regular,monospace; font-size:11px;
+  background:var(--panel-2); border:1px solid var(--stroke-2); border-radius:6px; padding:1px 6px }
+.ipl{ display:flex; flex-direction:column }
+.ipr{ display:grid; grid-template-columns:132px 1fr 120px; gap:14px; align-items:center;
+  padding:9px 0; border-bottom:1px solid var(--stroke-2) }
+.ipr:last-child{ border-bottom:0 }
+.ipe{ display:flex; flex-direction:column; gap:2px; min-width:0 }
+.ipe b{ font-size:12.5px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
+.ipe i{ font-style:normal; font-size:10.5px; color:var(--ink-3) }
+.ipw{ font-size:11.5px; color:var(--ink-3); text-align:right }
+@media (max-width:900px){
+  .trrow{ grid-template-columns:1fr }
+  .ipr{ grid-template-columns:110px 1fr }
+  .ipw{ display:none }
+}
+.trto{ display:flex; align-items:center; gap:9px; margin-top:4px }
+.trto .fi{ width:auto } .trto .bt{ width:auto }
+.dimv{ color:var(--ink-3) }
+
+/* ── 44. Тарифы: размер команды × срок ── */
+.tared{ width:auto; margin-left:auto }
+.tarsub{ font-size:12.5px; line-height:1.6; color:var(--ink-2); margin-bottom:16px }
+.tarpk{ display:grid; grid-template-columns:repeat(5,1fr); gap:12px }
+.tarp{ position:relative; display:flex; flex-direction:column; gap:6px; text-align:left;
+  cursor:pointer; padding:16px 15px 15px; border-radius:var(--r2);
+  background:var(--panel-2); border:1px solid var(--stroke-2); color:var(--ink);
+  transition:border-color .2s var(--ease), box-shadow .2s var(--ease), background .2s var(--ease) }
+.tarp:hover{ border-color:rgba(124,92,255,.4) }
+.tarp.on{ border-color:rgba(124,92,255,.55); background:rgba(124,92,255,.07);
+  box-shadow:0 18px 44px -22px rgba(124,92,255,.55) }
+.tarp.tight{ border-color:rgba(255,176,32,.35) }
+.tarbadge{ position:absolute; top:-9px; left:12px; font-size:9.5px; font-weight:700;
+  text-transform:uppercase; letter-spacing:.05em; padding:3px 8px; border-radius:999px;
+  background:#7C5CFF; color:#fff }
+.tarn{ font-size:14px; font-weight:600 }
+.tarseat{ font-size:11px; color:var(--ink-3) }
+.tarpr{ font-family:Unbounded,sans-serif; font-size:19px; font-weight:500; letter-spacing:-.03em;
+  margin-top:6px }
+.tarpr i{ display:block; font-family:Inter,sans-serif; font-style:normal; font-size:10.5px;
+  font-weight:400; color:var(--ink-3); letter-spacing:0; margin-top:2px }
+.tarinp{ margin-top:6px }
+.tarnote{ font-size:11px; color:var(--ink-3); line-height:1.45; margin-top:2px }
+.tarwarn{ font-size:10.5px; color:var(--warn) }
+
+.tarsh{ font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.05em;
+  color:var(--ink-3); margin:22px 0 10px }
+.tart{ display:grid; grid-template-columns:repeat(4,1fr); gap:12px }
+.tartb{ display:flex; flex-direction:column; gap:5px; align-items:flex-start; cursor:pointer;
+  padding:14px 15px; border-radius:var(--r2); background:var(--panel-2);
+  border:1px solid var(--stroke-2); color:var(--ink);
+  transition:border-color .2s var(--ease), background .2s var(--ease) }
+.tartb:hover{ border-color:rgba(124,92,255,.4) }
+.tartb.on{ border-color:rgba(124,92,255,.55); background:rgba(124,92,255,.07) }
+.tartb b{ font-size:13.5px; font-weight:600 }
+.tartb i{ font-style:normal; font-size:11px; color:var(--ink-3) }
+.taroff{ font-size:10.5px; font-weight:700; padding:2px 8px; border-radius:999px;
+  background:rgba(34,176,125,.14); color:var(--ok) }
+.taroff.flat{ background:var(--neu); color:var(--ink-3); font-weight:500 }
+
+.tarsum{ display:flex; align-items:center; gap:18px; margin-top:22px; padding:16px 18px;
+  border-radius:var(--r2); background:var(--panel-2); border:1px solid var(--stroke-2) }
+.tarsl{ flex:1; min-width:0 }
+.tarst{ font-size:14px; font-weight:600; margin-bottom:3px }
+.tarsd{ font-size:11.5px; color:var(--ink-3) }
+.tarsp{ display:flex; flex-direction:column; align-items:flex-end; gap:2px }
+.tarsp b{ font-family:Unbounded,sans-serif; font-size:22px; font-weight:500; letter-spacing:-.03em }
+.tarsp s{ font-size:11.5px; color:var(--ink-3) }
+.tarbuy{ width:auto; padding:12px 26px }
+.tarfoot{ margin-top:12px; font-size:11.5px; line-height:1.6; color:var(--ink-3) }
+
+@media (max-width:1100px){
+  .tarpk{ grid-template-columns:repeat(2,1fr) }
+  .tart{ grid-template-columns:repeat(2,1fr) }
+  .tarsum{ flex-direction:column; align-items:stretch }
+  .tarsp{ align-items:flex-start }
+  .tarbuy{ width:100% }
+}
 </style>
 </head>
 <body>
@@ -3349,6 +3540,7 @@ code.invc{ font-family:ui-monospace,SFMono-Regular,monospace; font-weight:700;
     <button class="ri" data-v="sales" title="Отдел продаж"><svg viewBox="0 0 24 24"><path d="M3 5h18l-6.5 8v6l-5 2v-8z"/></svg><span class="rl">Отдел продаж</span></button>
     <button class="ri" data-v="guide" title="Справочник"><svg viewBox="0 0 24 24"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H19v15H6.5A2.5 2.5 0 0 0 4 20.5z"/><path d="M4 20.5A2.5 2.5 0 0 1 6.5 18H19v3H6.5A2.5 2.5 0 0 1 4 20.5z"/><path d="M9 8h6"/></svg><span class="rl">Справочник</span></button>
     <button class="ri" data-v="reg" title="Регламенты"><svg viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2.5"/><path d="M9 8h6M9 12h6M9 16h3"/></svg><span class="rl">Регламенты</span></button>
+    <button class="ri" data-v="adm" title="Администратор сервиса" style="display:none"><svg viewBox="0 0 24 24"><path d="M12 3l7 3v5.5c0 4.3-2.9 7.9-7 9.5-4.1-1.6-7-5.2-7-9.5V6z"/><path d="M9.5 12l1.8 1.8L15 10"/></svg><span class="rl">Админ</span></button>
     <button class="ri" data-v="fns" title="Функции"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h10M4 18h13"/><circle cx="18.5" cy="12" r="2"/></svg><span class="rl">Функции</span></button>
     <button class="ri" data-v="meet" title="Планёрка"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M8 3v4M16 3v4M3 10h18M8 14h4"/></svg><span class="rl">Планёрка</span></button>
     <button class="ri" data-v="office" title="Онлайн-офис"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><circle cx="5" cy="6" r="2"/><circle cx="19" cy="6" r="2"/><circle cx="5" cy="18" r="2"/><circle cx="19" cy="18" r="2"/><path d="M6.6 7.4 10 10.4M17.4 7.4 14 10.4M6.6 16.6 10 13.6M17.4 16.6 14 13.6"/></svg><span class="rl">Онлайн-офис</span></button>
@@ -3366,7 +3558,7 @@ code.invc{ font-family:ui-monospace,SFMono-Regular,monospace; font-weight:700;
         <div class="sub" id="sub">Загружаю данные…</div>
       </div>
       <div class="grow"></div>
-      <div class="rolesel" id="roleSw"><select class="fi" id="roleSel" aria-label="Роль"><option value="owner">Собственник</option><option value="dir">Директор</option><option value="head">Руководитель</option><option value="pm">Проджект</option><option value="mgr">Менеджер главный</option><option value="jun">Менеджер младший</option><option value="asst">Ассистент</option><option value="client">Клиент агентства</option></select></div>
+      <div class="rolesel" id="roleSw"><select class="fi" id="roleSel" aria-label="Роль"><option value="admin">Администратор сервиса</option><option value="owner">Собственник</option><option value="dir">Директор</option><option value="head">Руководитель</option><option value="pm">Проджект</option><option value="mgr">Менеджер главный</option><option value="jun">Менеджер младший</option><option value="asst">Ассистент</option><option value="client">Клиент агентства</option></select></div>
       <div class="bal" id="balWrap">
         <button class="balb" id="balb" aria-expanded="false">
           <span><span class="bv">12 400 ₽</span><span class="bd"> · подписка до 8 окт</span></span>
@@ -15992,6 +16184,992 @@ document.addEventListener("click", function(e){
   bindFinish();
   /* если сборка перепривязала обработчик позже — перевешиваем свой */
   setTimeout(bindFinish, 600);
+})();
+
+/* ══ 43. АДМИН: панель владельца сервиса ═══════════════════════
+   Это не про одно агентство, а про сервис целиком: кто зарегистрировался,
+   сколько людей внутри каждого агентства, кто платит и когда следующее
+   списание, карточка юрлица и вовлечённость. Видит только админ —
+   ни собственник, ни директор сюда не попадают.
+   Данные живьём берутся из /admin/service/*, в демо — выдуманные,
+   чтобы экран можно было обсуждать, не заводя десять агентств.      */
+
+var admOpen = null, admTab = "orgs", admQ = "", admRows = null, admBusy = false;
+
+var ADM_PLANS = [
+  ["trial", "Пробный",  "бесплатно, 14 дней"],
+  ["team",  "Команда",  "по местам"],
+  ["pro",   "Агентство","полный доступ"],
+  ["own",   "Свой",     "договорная цена"]
+];
+function admPlanName(p){
+  var x = ADM_PLANS.filter(function(v){ return v[0] === p; })[0];
+  return x ? x[1] : (p || "—");
+}
+
+function admDemo(){
+  var now = Date.now(), d = 86400000;
+  return [
+    {id:"o1", name:"Flater — агентство по управлению кабинетом WB / OZON",
+     inn:"7743013901", plan:"own", invite_code:"CEF333",
+     created_at:new Date(now - 7*d).toISOString(), owner_email:"nekrasivostore@gmail.com",
+     users:6, pending:1, live_users:5, clients:4, staff:5, tasks:201,
+     paid:0, due:0, next_due:null, last_paid:null, seats_paid:6, engagement:78,
+     trial_ends_at:new Date(now + 9*d).toISOString().slice(0,10), trial_extra_days:0},
+    {id:"o2", name:"Сила бренда", inn:"5024162200", plan:"pro", invite_code:"K7QM21",
+     created_at:new Date(now - 41*d).toISOString(), owner_email:"anna@silabrand.ru",
+     users:11, pending:2, live_users:9, clients:9, staff:9, tasks:388,
+     paid:174000, due:29000, next_due:new Date(now + 6*d).toISOString().slice(0,10),
+     last_paid:new Date(now - 24*d).toISOString(), seats_paid:12, engagement:86,
+     trial_ends_at:null, trial_extra_days:0},
+    {id:"o3", name:"WB Точка роста", inn:"7728434590", plan:"team", invite_code:"R4VD08",
+     created_at:new Date(now - 19*d).toISOString(), owner_email:"pavel@wbtr.ru",
+     users:4, pending:0, live_users:4, clients:2, staff:3, tasks:96,
+     paid:38000, due:0, next_due:new Date(now + 21*d).toISOString().slice(0,10),
+     last_paid:new Date(now - 9*d).toISOString(), seats_paid:5, engagement:64,
+     trial_ends_at:null, trial_extra_days:0},
+    {id:"o4", name:"Маркет Про", inn:"", plan:"trial", invite_code:"B2HN55",
+     created_at:new Date(now - 3*d).toISOString(), owner_email:"info@marketpro.ru",
+     users:2, pending:2, live_users:0, clients:0, staff:0, tasks:0,
+     paid:0, due:0, next_due:null, last_paid:null, seats_paid:0, engagement:0,
+     trial_ends_at:new Date(now + 11*d).toISOString().slice(0,10), trial_extra_days:14,
+     trial_note:"договорились до конца октября"},
+    {id:"o5", name:"Селлер Плюс", inn:"6165201113", plan:"team", invite_code:"X9TC74",
+     created_at:new Date(now - 63*d).toISOString(), owner_email:"m.kozlov@sellerplus.ru",
+     users:7, pending:1, live_users:6, clients:5, staff:6, tasks:212,
+     paid:96000, due:24000, next_due:new Date(now - 2*d).toISOString().slice(0,10),
+     last_paid:new Date(now - 33*d).toISOString(), seats_paid:6, engagement:71,
+     trial_ends_at:null, trial_extra_days:0}
+  ];
+}
+function admDemoUsers(orgId){
+  var byOrg = {
+    o1:[["nekrasivostore@gmail.com","owner",1],["dir@flater.pro","dir",1],
+        ["veronika@flater.pro","head",1],["igor@flater.pro","pm",1],
+        ["sveta@flater.pro","mgr",1],["liza@flater.pro","asst",0]],
+    o2:[["anna@silabrand.ru","owner",1],["op@silabrand.ru","dir",1],
+        ["lead@silabrand.ru","pm",1],["m1@silabrand.ru","mgr",1],
+        ["m2@silabrand.ru","mgr",1],["a1@silabrand.ru","asst",0]],
+    o3:[["pavel@wbtr.ru","owner",1],["k@wbtr.ru","pm",1],["m@wbtr.ru","mgr",1]],
+    o4:[["info@marketpro.ru","owner",0],["b@marketpro.ru","mgr",0]],
+    o5:[["m.kozlov@sellerplus.ru","owner",1],["pm@sellerplus.ru","pm",1],
+        ["m1@sellerplus.ru","mgr",1],["m2@sellerplus.ru","jun",0]]
+  };
+  return (byOrg[orgId] || []).map(function(x, i){
+    return {id:orgId + "u" + i, email:x[0], role_code:x[1],
+      role_title:roleName(x[1]), is_active:true, first_login:!x[2],
+      last_ip:x[2] ? "31.173." + (10 + i) + "." + (40 + i * 7) : null,
+      last_seen:x[2] ? new Date(Date.now() - i * 3600000).toISOString() : null,
+      created_at:new Date(Date.now() - (i + 2) * 86400000).toISOString()};
+  });
+}
+
+function isAdmin(){ return role === "admin"; }
+function admRoleName(c){
+  return c === "admin" ? "Администратор сервиса" : roleName(c);
+}
+
+function admToast(t){
+  var d = document.getElementById("gToast");
+  if(!d){ d = document.createElement("div"); d.id = "gToast"; d.className = "gtoast";
+    document.body.appendChild(d); }
+  d.textContent = t; d.classList.add("on");
+  clearTimeout(admToast._t);
+  admToast._t = setTimeout(function(){ d.classList.remove("on"); }, 3200);
+}
+
+var ADM_ROLES = null;
+function admRoles(){
+  if(ADM_ROLES) return ADM_ROLES;
+  return [["admin","Администратор сервиса"]].concat(ROLE_LIST);
+}
+async function admLoadRoles(){
+  if(ADM_ROLES || MODE === "demo" || !A || !A.token) return;
+  try{
+    var rs = await api("/admin/service/roles");
+    if(rs && rs.length) ADM_ROLES = rs.map(function(r){ return [r.code, r.title || r.code]; });
+  }catch(e){ /* не смертельно: покажем список демо-ролей */ }
+}
+
+async function admLoad(force){
+  if(admRows && !force) return admRows;
+  if(MODE === "demo" || !A || !A.token){ admRows = admDemo(); return admRows; }
+  try{
+    await admLoadRoles();
+    admRows = await api("/admin/service/orgs");
+  }catch(e){
+    admRows = [];
+    admRows.error = e.message || "не удалось получить список агентств";
+  }
+  return admRows;
+}
+
+function admDays(iso){
+  if(!iso) return null;
+  return Math.round((new Date(iso) - Date.now()) / 86400000);
+}
+function admDate(iso){
+  if(!iso) return "—";
+  try{ return new Date(iso).toLocaleDateString("ru-RU",
+    {day:"2-digit", month:"2-digit", year:"numeric"}); }catch(e){ return "—"; }
+}
+
+var TRIAL_STEPS = [1, 3, 7, 14, 30];
+
+function trialLeft(o){
+  if(!o || !o.trial_ends_at) return null;
+  return Math.ceil((new Date(o.trial_ends_at) - Date.now()) / 86400000);
+}
+function trialMark(o){ return (+o.trial_extra_days || 0) > 0; }
+
+var admIps = null;
+
+function admDemoIps(){
+  var now = Date.now(), out = [];
+  var rows = [
+    ["nekrasivostore@gmail.com","Flater","95.24.118.7","Москва · МТС", 0.4],
+    ["anna@silabrand.ru","Сила бренда","178.140.20.92","Москва · Билайн", 2],
+    ["m1@silabrand.ru","Сила бренда","85.174.202.11","Красногорск · Ростелеком", 5],
+    ["pavel@wbtr.ru","WB Точка роста","31.173.84.6","Казань · МегаФон", 9],
+    ["m.kozlov@sellerplus.ru","Селлер Плюс","109.252.44.180","Ростов-на-Дону · Дом.ру", 26],
+    ["info@marketpro.ru","Маркет Про","45.129.56.12","неизвестно · VPN", 51],
+    ["m@wbtr.ru","WB Точка роста","31.173.84.6","Казань · МегаФон", 73]
+  ];
+  rows.forEach(function(r){
+    out.push({email:r[0], org_name:r[1], ip:r[2], place:r[3],
+      at:new Date(now - r[4] * 3600000).toISOString()});
+  });
+  return out;
+}
+function admWhen(iso){
+  if(!iso) return "—";
+  var h = Math.round((Date.now() - new Date(iso)) / 3600000);
+  if(h < 1) return "только что";
+  if(h < 24) return plural(h, "час", "часа", "часов") + " назад";
+  var d = Math.round(h / 24);
+  return plural(d, "день", "дня", "дней") + " назад";
+}
+async function admLoadIps(){
+  if(admIps) return admIps;
+  if(MODE === "demo" || !A || !A.token){ admIps = admDemoIps(); return admIps; }
+  try{ admIps = await api("/admin/service/ips?limit=40"); }
+  catch(e){ admIps = []; }
+  return admIps;
+}
+function admIpHTML(rows){
+  if(!rows || !rows.length)
+    return '<div class="empty">Входов пока не записано</div>';
+  return '<div class="ipl">'+rows.slice(0, 12).map(function(r){
+    return '<div class="ipr">'+
+      '<code class="admip">'+esc(r.ip || "—")+'</code>'+
+      '<span class="ipe"><b>'+esc(r.email || "—")+'</b>'+
+        '<i>'+esc(r.org_name || "")+(r.place ? ' · '+esc(r.place) : '')+'</i></span>'+
+      '<span class="ipw">'+admWhen(r.at)+'</span>'+
+    '</div>'; }).join("")+'</div>';
+}
+
+function renderAdm(){
+  var host = document.getElementById("sect");
+  if(!host) return;
+  if(!isAdmin()){
+    host.innerHTML = '<div class="gl"><div class="empty">Этот раздел открыт только администратору сервиса.</div></div>';
+    return;
+  }
+  if(admOpen){ renderAdmOrg(); return; }
+
+  admLoad().then(function(rows){
+    if(view !== "adm" || admOpen) return;
+    if(!admIps) admLoadIps().then(function(ips){
+      var box = document.getElementById("admIps");
+      if(box && view === "adm" && !admOpen) box.innerHTML = admIpHTML(ips);
+    });
+    var qq = admQ.toLowerCase().trim();
+    var list = rows.filter(function(o){
+      if(!qq) return true;
+      return String(o.name).toLowerCase().indexOf(qq) >= 0 ||
+             String(o.inn || "").indexOf(qq) >= 0 ||
+             String(o.owner_email || "").toLowerCase().indexOf(qq) >= 0;
+    });
+    var users = rows.reduce(function(a, o){ return a + (o.users || 0); }, 0);
+    var live  = rows.reduce(function(a, o){ return a + (o.live_users || 0); }, 0);
+    var paid  = rows.reduce(function(a, o){ return a + (+o.paid || 0); }, 0);
+    var due   = rows.reduce(function(a, o){ return a + (+o.due || 0); }, 0);
+    var eng   = rows.length
+      ? Math.round(rows.reduce(function(a, o){ return a + (o.engagement || 0); }, 0) / rows.length) : 0;
+    var soon = rows.filter(function(o){
+      var d = admDays(o.next_due); return d !== null && d <= 7; });
+    var dead = rows.filter(function(o){ return (o.engagement || 0) < 25; });
+
+    host.innerHTML =
+      '<div class="gl grsum">'+
+        '<div class="pss"><div class="l">Агентств</div><div class="v">'+rows.length+'</div>'+
+          '<div class="d">зарегистрировано в сервисе</div></div>'+
+        '<div class="pss"><div class="l">Пользователей</div><div class="v">'+users+'</div>'+
+          '<div class="d">'+live+' дошли до работы, '+(users - live)+' не завершили вход</div></div>'+
+        '<div class="pss"><div class="l">Получено</div>'+
+          (paid || due
+            ? '<div class="v">'+money0(paid)+'</div>'+
+              '<div class="d">'+(due ? 'ждём ещё ' + money0(due) : 'долгов нет')+'</div>'
+            : '<div class="v dimv">—</div><div class="d">оплат ещё не было</div>')+
+        '</div>'+
+        '<div class="pss"><div class="l">Средняя вовлечённость</div>'+
+          '<div class="v'+(eng >= 60 ? ' okv' : eng >= 30 ? ' warnv' : ' critv')+'">'+eng+'%</div>'+
+          '<div class="d">'+(dead.length
+            ? plural(dead.length, "агентство почти не живёт", "агентства почти не живут", "агентств почти не живут")
+            : 'все агентства работают')+'</div></div>'+
+      '</div>'+
+
+      (rows.error
+        ? '<div class="gl crwarn"><b>Не получил данные с сервера.</b><span>'+esc(rows.error)+'</span></div>'
+        : '')+
+
+      (soon.length
+        ? '<div class="gl admwarn"><b>'+plural(soon.length, "агентство платит", "агентства платят", "агентств платят")+
+          ' на этой неделе</b>'+
+          '<div class="admsoon">'+soon.map(function(o){
+            var d = admDays(o.next_due);
+            return '<button class="admsb'+(d < 0 ? ' late' : '')+'" data-admorg="'+esc(o.id)+'">'+
+              '<b>'+esc(o.name)+'</b>'+
+              '<i>'+(d < 0 ? 'просрочено на ' + plural(-d, "день", "дня", "дней")
+                           : d === 0 ? 'сегодня' : 'через ' + plural(d, "день", "дня", "дней"))+
+              ' · '+money0(+o.due || 0)+'</i></button>'; }).join("")+'</div></div>'
+        : '')+
+
+      '<div class="gl"><div class="gl-t"><h2>Входы в сервис</h2>'+
+        '<span class="m">с каких адресов заходят — чтобы видеть, кто живой и не делится ли доступом</span>'+
+      '</div><div id="admIps">'+admIpHTML(admIps)+'</div></div>'+
+
+      '<div class="gl"><div class="gl-t"><h2>Агентства</h2>'+
+        '<span class="m">нажмите на строку — карточка юрлица, люди и доступы</span>'+
+        '<div class="fnbar"><input class="fi sm fnq" id="admQ" placeholder="Название, ИНН или почта собственника" value="'+esc(admQ)+'"></div>'+
+      '</div>'+
+      (list.length
+        ? '<div class="admhead">'+
+            '<span>Агентство</span><span>Собственник</span><span>Тариф</span>'+
+            '<span>Люди</span><span>Клиентов</span><span>Задач</span>'+
+            '<span>Деньги</span><span>Вовлечённость</span><span></span>'+
+          '</div>'+
+          list.map(admRowHTML).join("")
+        : '<div class="empty">Ничего не найдено</div>')+
+      '</div>';
+  });
+}
+
+function admRowHTML(o){
+  var d = admDays(o.next_due), tl = trialLeft(o);
+  var eng = o.engagement || 0;
+  return '<button class="admr" data-admorg="'+esc(o.id)+'">'+
+    '<span class="admn"><b>'+esc(o.name)+
+      (trialMark(o) ? '<span class="admflag" title="Пробный период продлён вручную">триал продлён</span>' : '')+
+      '</b>'+
+      '<i>'+(o.inn ? 'ИНН '+esc(o.inn) : 'ИНН не заполнен')+
+      ' · с '+admDate(o.created_at)+
+      (tl !== null ? ' · ' + (tl > 0 ? 'триал ещё ' + plural(tl, "день", "дня", "дней")
+                                     : 'триал кончился') : '')+'</i></span>'+
+    '<span class="admo">'+esc(o.owner_email || "—")+'</span>'+
+    '<span class="admp pl-'+esc(o.plan || "")+'">'+esc(admPlanName(o.plan))+'</span>'+
+    '<span class="admu"><b>'+(o.live_users || 0)+'</b>'+
+      (o.pending ? '<i>+'+o.pending+' не вошли</i>' : '<i>все вошли</i>')+'</span>'+
+    '<span class="admc">'+(o.clients || 0)+'</span>'+
+    '<span class="admc">'+(o.tasks || 0)+'</span>'+
+    '<span class="admm">'+
+      ((+o.paid || +o.due)
+        ? '<b>'+money0(+o.paid || 0)+'</b><i>'+(d === null ? 'списаний нет'
+            : d < 0 ? 'просрочено ' + admDate(o.next_due)
+            : 'спишем ' + admDate(o.next_due))+'</i>'
+        : '<b class="dimv">—</b><i>'+(tl !== null && tl > 0 ? 'пробный период' : 'не платят')+'</i>')+
+    '</span>'+
+    '<span class="adme"><span class="admbar"><i style="width:'+eng+'%" class="'+
+      (eng >= 60 ? "g" : eng >= 30 ? "y" : "r")+'"></i></span><b>'+eng+'%</b></span>'+
+    '<svg class="fnar" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>'+
+  '</button>';
+}
+
+/* ── карточка агентства ── */
+var admUsers = null;
+
+function renderAdmOrg(){
+  var host = document.getElementById("sect");
+  var o = (admRows || []).filter(function(x){ return x.id === admOpen; })[0];
+  if(!o){ admOpen = null; renderAdm(); return; }
+
+  var draw = function(us){
+    if(view !== "adm" || admOpen !== o.id) return;
+    var d = admDays(o.next_due), tl = trialLeft(o);
+    host.innerHTML =
+      '<nav class="crumbs fncr">'+
+        '<button class="crb" id="admBack">Агентства</button><span class="crs">›</span>'+
+        '<span class="crn">'+esc(o.name)+'</span>'+
+        '<button class="crback" id="admBack2">← Назад</button>'+
+      '</nav>'+
+
+      '<div class="gl fnone">'+
+        '<div class="gl-t"><h2>'+esc(o.name)+'</h2>'+
+          '<span class="m">зарегистрировано '+admDate(o.created_at)+
+          ' · код приглашений '+esc(o.invite_code || "—")+'</span></div>'+
+
+        '<div class="fnsec"><div class="fnsh">Карточка юридического лица</div>'+
+          '<div class="sfr">'+
+            '<label><span>Название</span><input class="fi sm" data-admf="name" value="'+esc(o.name)+'"></label>'+
+            '<label class="nar"><span>ИНН</span><input class="fi sm" data-admf="inn" inputmode="numeric" placeholder="10 или 12 цифр" value="'+esc(o.inn || "")+'"></label>'+
+          '</div>'+
+          '<div class="sfr">'+
+            '<label><span>Тариф</span><select class="sel" data-admf="plan">'+
+              ADM_PLANS.map(function(p){
+                return '<option value="'+p[0]+'"'+(o.plan === p[0] ? ' selected' : '')+'>'+
+                  p[1]+' — '+p[2]+'</option>'; }).join("")+'</select></label>'+
+            '<label class="nar"><span>Оплачено мест</span>'+
+              '<input class="fi sm" type="number" min="0" data-admf="seats_paid" value="'+(o.seats_paid || 0)+'"></label>'+
+            '<label class="nar"><span>Занято мест</span>'+
+              '<input class="fi sm" value="'+(o.users || 0)+'" disabled></label>'+
+          '</div>'+
+          ((o.seats_paid || 0) && (o.users || 0) > o.seats_paid
+            ? '<div class="fnnote warn">Людей больше, чем оплаченных мест: '+
+              o.users+' против '+o.seats_paid+'. Либо продавать места, либо закрывать доступ.</div>'
+            : '')+
+          '<div class="admsave"><button class="bt sm" id="admSave">Сохранить карточку</button>'+
+            '<span class="admsaved" id="admSaved"></span></div>'+
+        '</div>'+
+
+        '<div class="fnsec"><div class="fnsh">Пробный период</div>'+
+          '<div class="trrow">'+
+            '<div class="trst'+(tl === null ? ' off' : tl > 0 ? '' : ' out')+'">'+
+              (tl === null ? '<b>Пробного периода нет</b><i>агентство на тарифе</i>'
+               : tl > 0 ? '<b>Ещё '+plural(tl, "день", "дня", "дней")+'</b><i>до '+admDate(o.trial_ends_at)+'</i>'
+                        : '<b>Закончился</b><i>'+admDate(o.trial_ends_at)+'</i>')+
+            '</div>'+
+            '<div class="trad">'+
+              '<span class="trl">Продлить на</span>'+
+              '<div class="trbs">'+TRIAL_STEPS.map(function(n){
+                return '<button class="trb" data-trial="'+n+'">'+
+                  plural(n, "день", "дня", "дней")+'</button>'; }).join("")+'</div>'+
+              '<div class="trto"><span class="trl">или до даты</span>'+
+                '<input class="fi sm" type="date" id="trDate" value="'+
+                  esc((o.trial_ends_at || "").slice(0, 10))+'">'+
+                '<button class="bt sm gh2" id="trSet">Поставить</button></div>'+
+              '<span class="trhint">от 1 дня до 30 — каждое продление помечает аккаунт</span>'+
+            '</div>'+
+          '</div>'+
+          (trialMark(o)
+            ? '<div class="fnnote warn"><b>Аккаунт помечен.</b> Пробный период продлён вручную '+
+              'на '+plural(+o.trial_extra_days || 0, "день", "дня", "дней")+
+              (o.trial_note ? ' — '+esc(o.trial_note) : '')+
+              '. Пометка остаётся в карточке навсегда: по ней видно, кто сидит на сервисе бесплатно дольше обычного.</div>'
+            : '<div class="fnnote">Продление ставит на аккаунт видимую пометку — чтобы потом не гадать, '+
+              'почему агентство третий месяц не платит.</div>')+
+          '<div class="admsave"><span class="admsaved" id="trSaved"></span></div>'+
+        '</div>'+
+
+        '<div class="fnsec"><div class="fnsh">Деньги</div>'+
+          ((+o.paid || +o.due) ? '' :
+            '<div class="fnnote">Денежных отношений с этим агентством ещё нет — '+
+            'ни оплат, ни начислений. Цифры появятся, когда агентство перейдёт на тариф.</div>')+
+          '<div class="admmg">'+
+            '<div><i>Получено всего</i><b>'+money0(+o.paid || 0)+'</b></div>'+
+            '<div><i>Ждём</i><b class="'+(+o.due ? 'critv' : '')+'">'+money0(+o.due || 0)+'</b></div>'+
+            '<div><i>Следующее списание</i><b>'+admDate(o.next_due)+
+              (d !== null ? '<u>'+(d < 0 ? 'просрочено' : d === 0 ? 'сегодня'
+                : 'через ' + plural(d, "день", "дня", "дней"))+'</u>' : '')+'</b></div>'+
+            '<div><i>Последняя оплата</i><b>'+admDate(o.last_paid)+'</b></div>'+
+          '</div>'+
+        '</div>'+
+
+        '<div class="fnsec"><div class="fnsh">Вовлечённость</div>'+
+          '<div class="admeng">'+
+            '<span class="admbar big"><i style="width:'+(o.engagement || 0)+'%" class="'+
+              ((o.engagement || 0) >= 60 ? "g" : (o.engagement || 0) >= 30 ? "y" : "r")+'"></i></span>'+
+            '<b>'+(o.engagement || 0)+'%</b>'+
+          '</div>'+
+          '<div class="admengn">'+
+            (o.live_users || 0)+' из '+(o.users || 0)+' приглашённых дошли до работы · '+
+            (o.clients || 0)+' клиентов · '+(o.staff || 0)+' в команде · '+
+            (o.tasks || 0)+' задач.'+
+            ((o.engagement || 0) < 25
+              ? ' Это почти мёртвое агентство: завели и не пользуются. Стоит позвонить, пока не ушли совсем.'
+              : (o.engagement || 0) < 60
+                ? ' Работают вполсилы — скорее всего, не завели кабинеты или не раздали роли.'
+                : ' Сервисом пользуются как задумано.')+
+          '</div>'+
+        '</div>'+
+
+        '<div class="fnsec"><div class="fnsh">Люди и доступы</div>'+
+          (us && us.length
+            ? '<div class="admul">'+us.map(function(u){
+                return '<div class="admur">'+
+                  '<span class="admue"><b>'+esc(u.email)+'</b>'+
+                    '<i>'+(u.first_login ? 'не завершил вход' : 'работает')+
+                    ' · с '+admDate(u.created_at)+
+                    (u.last_ip ? ' · вход с <code class="admip">'+esc(u.last_ip)+'</code>'+
+                      (u.last_seen ? ' ' + admDate(u.last_seen) : '') : ' · входов не было')+
+                    '</i></span>'+
+                  '<select class="sel sm" data-admrole="'+esc(u.id)+'">'+
+                    admRoles().map(function(r){
+                      return '<option value="'+esc(r[0])+'"'+(u.role_code === r[0] ? ' selected' : '')+'>'+
+                        esc(r[1])+'</option>'; }).join("")+
+                  '</select>'+
+                '</div>'; }).join("")+'</div>'+
+              '<div class="fnnote">Уровень доступа меняется здесь и действует сразу. '+
+                'Собственник у агентства один: назначить второго сервис не даст.</div>'
+            : '<div class="empty">Людей нет</div>')+
+        '</div>'+
+      '</div>';
+  };
+
+  if(MODE === "demo" || !A || !A.token){ draw(admDemoUsers(o.id)); return; }
+  if(admUsers && admUsers.org === o.id){ draw(admUsers.list); return; }
+  draw(null);
+  api("/admin/service/users?org_id=" + encodeURIComponent(o.id)).then(function(us){
+    admUsers = {org:o.id, list:us}; draw(us);
+  }).catch(function(){ draw([]); });
+}
+
+document.addEventListener("click", function(e){
+  var t;
+  if(view !== "adm") return;
+  if((t = e.target.closest("[data-admorg]"))){
+    admOpen = t.getAttribute("data-admorg"); admUsers = null; renderAdm();
+    var s = document.getElementById("sect"); if(s) s.scrollTop = 0; return; }
+  if(e.target.closest("#admBack") || e.target.closest("#admBack2")){
+    admOpen = null; renderAdm(); return; }
+  if(e.target.closest("#trSet")){
+    var f = document.getElementById("trDate");
+    var org2 = (admRows || []).filter(function(x){ return x.id === admOpen; })[0];
+    if(!f || !f.value || !org2) return;
+    var until = f.value;
+    var was = org2.trial_ends_at ? new Date(org2.trial_ends_at) : new Date();
+    var add = Math.max(0, Math.ceil((new Date(until) - was) / 86400000));
+    var n2 = document.getElementById("trSaved");
+    if(MODE === "demo" || !A || !A.token){
+      org2.trial_ends_at = until;
+      org2.trial_extra_days = (+org2.trial_extra_days || 0) + add;
+      renderAdm();
+      admToast("Пробный период до " + until + " — в демо");
+      return;
+    }
+    if(n2) n2.textContent = "ставлю…";
+    api("/admin/service/orgs/" + encodeURIComponent(org2.id) + "/trial",
+        {method:"POST", body:{until:until}})
+      .then(function(r){
+        org2.trial_ends_at = (r && r.trial_ends_at) || until;
+        if(r && typeof r.trial_extra_days === "number") org2.trial_extra_days = r.trial_extra_days;
+        else org2.trial_extra_days = (+org2.trial_extra_days || 0) + add;
+        renderAdm();
+        admToast("Пробный период поставлен до " + until);
+      })
+      .catch(function(err){ if(n2) n2.textContent = err.message || "не получилось"; });
+    return; }
+  if((t = e.target.closest("[data-trial]"))){
+    var days = +t.getAttribute("data-trial");
+    var org = (admRows || []).filter(function(x){ return x.id === admOpen; })[0];
+    if(!org) return;
+    var note = document.getElementById("trSaved");
+    var base = org.trial_ends_at && new Date(org.trial_ends_at) > new Date()
+      ? new Date(org.trial_ends_at) : new Date();
+    var apply = function(){
+      base.setDate(base.getDate() + days);
+      org.trial_ends_at = base.toISOString().slice(0, 10);
+      org.trial_extra_days = (+org.trial_extra_days || 0) + days;
+      renderAdm();
+    };
+    if(MODE === "demo" || !A || !A.token){
+      apply();
+      admToast("Продлено на " + plural(days, "день", "дня", "дней") + " — в демо");
+      return;
+    }
+    if(note) note.textContent = "продлеваю…";
+    api("/admin/service/orgs/" + encodeURIComponent(org.id) + "/trial",
+        {method:"POST", body:{days:days}})
+      .then(function(r){
+        if(r && r.trial_ends_at) org.trial_ends_at = r.trial_ends_at;
+        if(r && typeof r.trial_extra_days === "number") org.trial_extra_days = r.trial_extra_days;
+        else org.trial_extra_days = (+org.trial_extra_days || 0) + days;
+        org.trial_note = (r && r.trial_note) || org.trial_note;
+        renderAdm();
+        admToast("Пробный период продлён на " + plural(days, "день", "дня", "дней"));
+      })
+      .catch(function(err){
+        if(note) note.textContent = err.message || "не получилось продлить";
+      });
+    return; }
+  if(e.target.closest("#admSave")){
+    var o = (admRows || []).filter(function(x){ return x.id === admOpen; })[0];
+    if(!o) return;
+    var body = {};
+    ["name","inn","plan","seats_paid"].forEach(function(k){
+      var f = document.querySelector('[data-admf="'+k+'"]');
+      if(!f) return;
+      body[k] = k === "seats_paid" ? (+f.value || 0) : f.value;
+      o[k] = body[k];
+    });
+    var note = document.getElementById("admSaved");
+    if(MODE === "demo" || !A || !A.token){
+      if(note) note.textContent = "сохранено в демо";
+      return;
+    }
+    api("/admin/service/orgs/" + encodeURIComponent(o.id), {method:"POST", body:body})
+      .then(function(){ if(note) note.textContent = "сохранено"; })
+      .catch(function(err){ if(note) note.textContent = err.message || "не сохранилось"; });
+    return; }
+});
+document.addEventListener("change", function(e){
+  if(view !== "adm") return;
+  var t = e.target;
+  if(t.matches && t.matches("[data-admrole]")){
+    var uid = t.getAttribute("data-admrole"), rc = t.value;
+    if(MODE === "demo" || !A || !A.token){ admToast("В демо роль меняется только на экране"); return; }
+    api("/admin/service/users/" + encodeURIComponent(uid) + "/role",
+        {method:"POST", body:{role_code:rc}})
+      .then(function(){ admToast("Уровень доступа изменён"); admUsers = null; })
+      .catch(function(err){ admToast(err.message || "не получилось"); renderAdm(); });
+  }
+});
+document.addEventListener("input", function(e){
+  if(view !== "adm") return;
+  if(e.target.id === "admQ"){
+    admQ = e.target.value; renderAdm();
+    setTimeout(function(){
+      var i = document.getElementById("admQ");
+      if(i){ i.focus(); i.setSelectionRange(i.value.length, i.value.length); }
+    }, 30);
+  }
+});
+
+NAV_TITLES.adm = ["Администратор сервиса", "Все агентства, люди, деньги и вовлечённость"];
+SEC_RENDER.adm = renderAdm;
+
+/* кнопка на рельсе — только админу */
+(function(){
+  var _ar = applyRoleRail;
+  applyRoleRail = function(){
+    var v = _ar.apply(this, arguments);
+    var b = document.querySelector('.rail .ri[data-v="adm"]');
+    if(b) b.style.display = isAdmin() ? "" : "none";
+    if(!isAdmin() && view === "adm") setView("work");
+    return v;
+  };
+})();
+
+/* ── роль в живом режиме берётся из сессии, а не из переключателя ──
+   Переключатель ролей — инструмент демо: он нужен, чтобы посмотреть
+   сервис глазами директора или ассистента. Собственнику настоящего
+   агентства чужие роли видеть незачем и нельзя — он видит только свою.
+   Админу сервиса переключатель оставляем: ему по работе положено
+   смотреть любой уровень.                                          */
+var SRV_ROLE = {
+  admin:"admin", root:"admin", superadmin:"admin",
+  owner:"owner", founder:"owner",
+  director:"dir", dir:"dir",
+  head:"head", lead:"head", chief:"head",
+  pm:"pm", project:"pm", project_manager:"pm",
+  manager_senior:"mgr", manager:"mgr", mgr:"mgr", senior:"mgr",
+  manager_junior:"jun", junior:"jun", jun:"jun",
+  assistant:"asst", asst:"asst",
+  client_agency:"client", client:"client", client_service:"client"
+};
+var LVL_ROLE = ["admin","owner","dir","head","pm","mgr","jun","asst","client","client"];
+
+function srvRole(code, level){
+  var c = String(code || "").toLowerCase();
+  if(SRV_ROLE[c]) return SRV_ROLE[c];
+  var n = +level;
+  if(n >= 0 && n < LVL_ROLE.length) return LVL_ROLE[n];
+  return "owner";
+}
+function roleLocked(){ return MODE === "live" && A && A.token && role !== "admin"; }
+
+(function(){
+  var taken = false;
+
+  function sync(){
+    var sel = document.getElementById("roleSel"),
+        sw  = document.getElementById("roleSw");
+    /* живой режим — роль один раз приезжает из сессии */
+    if(MODE === "live" && A && A.token && !taken){
+      taken = true;
+      role = srvRole(A.role, A.level);
+      selPerson = null;
+    }
+    if(sel && sel.value !== role) sel.value = role;
+
+    if(sw){
+      var lock = roleLocked();
+      sw.classList.toggle("locked", lock);
+      if(lock){
+        /* вместо выпадающего списка — просто подпись «кто я» */
+        if(!document.getElementById("roleTag")){
+          var tag = document.createElement("span");
+          tag.className = "roletag"; tag.id = "roleTag";
+          sw.appendChild(tag);
+        }
+        document.getElementById("roleTag").textContent = admRoleName(role);
+        if(sel) sel.style.display = "none";
+      } else {
+        var t = document.getElementById("roleTag");
+        if(t) t.remove();
+        if(sel) sel.style.display = "";
+      }
+    }
+    applyRoleRail();
+  }
+
+  window.foSyncRole = sync;
+
+  /* стартовый экран — и живой, и демо — заканчивается здесь */
+  var _ss = startScreen;
+  startScreen = function(){
+    var v = _ss.apply(this, arguments);
+    setTimeout(sync, 0);
+    return v;
+  };
+  setTimeout(sync, 0);
+})();
+
+/* ══ 44. ТАРИФЫ: размер команды × срок оплаты ═══════════════════
+   В шапке висел чип с суммой и тремя строками «1 / 3 / 6 месяцев» —
+   красиво, но выбрать там было нечего. Виталий попросил кнопку
+   «Тарифы» и два уровня цены: сначала размер команды (пять пакетов),
+   потом срок — чем длиннее оплата, тем дешевле месяц.
+   Цены здесь черновые, от нынешних 4 900 ₽. Админ сервиса правит их
+   прямо на экране: это его прайс, а не мой.                        */
+
+var TAR_DEF = {
+  packs: [
+    {id:"solo",  name:"Старт",     seats:3,   note:"собственник и пара рук",           price:2900},
+    {id:"small", name:"Малая",     seats:7,   note:"команда на один-два кабинета",     price:4900},
+    {id:"mid",   name:"Средняя",   seats:15,  note:"отделы и проджект",                price:8900},
+    {id:"big",   name:"Большая",   seats:30,  note:"несколько отделов",                price:14900},
+    {id:"ag",    name:"Агентство", seats:0,   note:"без ограничения по людям",         price:24900}
+  ],
+  terms: [
+    {m:1,  off:0},
+    {m:3,  off:10},
+    {m:6,  off:20},
+    {m:12, off:30}
+  ]
+};
+
+var tarPack = "small", tarTerm = 1, tarEdit = false, tarSaved = "";
+
+function tarPlan(){
+  try{
+    var raw = localStorage.getItem("fo_tariff");
+    if(raw){
+      var v = JSON.parse(raw);
+      if(v && v.packs && v.packs.length === 5 && v.terms) return v;
+    }
+  }catch(e){}
+  return TAR_DEF;
+}
+function tarSave(v){
+  try{ localStorage.setItem("fo_tariff", JSON.stringify(v)); }catch(e){}
+}
+function tarPackOf(id){
+  var p = tarPlan().packs.filter(function(x){ return x.id === id; })[0];
+  return p || tarPlan().packs[1];
+}
+function tarTermOf(m){
+  var t = tarPlan().terms.filter(function(x){ return x.m === m; })[0];
+  return t || tarPlan().terms[0];
+}
+/* цена месяца со скидкой за срок и итог за весь период */
+function tarCalc(packId, months){
+  var p = tarPackOf(packId), t = tarTermOf(months);
+  var per = Math.round(p.price * (100 - t.off) / 100);
+  return {pack:p, term:t, perMonth:per, total:per * t.m,
+    full:p.price * t.m, save:p.price * t.m - per * t.m};
+}
+function tarMonthsWord(m){ return plural(m, "месяц", "месяца", "месяцев"); }
+function tarSeatsText(p){
+  return p.seats ? "до " + plural(p.seats, "человека", "человек", "человек") : "сколько угодно людей";
+}
+/* сколько людей в агентстве сейчас — по нему подсказываем пакет */
+function tarTeamSize(){
+  return (S.people || []).length || 0;
+}
+function tarFits(p){ return !p.seats || tarTeamSize() <= p.seats; }
+function tarAdvised(){
+  var n = tarTeamSize(), ps = tarPlan().packs;
+  for(var i = 0; i < ps.length; i++){ if(!ps[i].seats || n <= ps[i].seats) return ps[i].id; }
+  return ps[ps.length - 1].id;
+}
+
+function renderTariff(){
+  var host = document.getElementById("sect");
+  if(!host) return;
+  if(!seesMoney() && !isAdmin()){
+    host.innerHTML = '<div class="gl"><div class="empty">Тарифы видит тот, кто отвечает за деньги агентства.</div></div>';
+    return;
+  }
+  var plan = tarPlan(), n = tarTeamSize(), adv = tarAdvised();
+  var c = tarCalc(tarPack, tarTerm);
+
+  host.innerHTML =
+    '<div class="gl">'+
+      '<div class="gl-t"><h2>Тарифы</h2>'+
+        '<span class="m">сначала размер команды, потом срок оплаты — чем длиннее, тем дешевле месяц</span>'+
+        (isAdmin()
+          ? '<button class="bt sm gh2 tared" id="tarEdit">'+
+            (tarEdit ? "Готово" : "Править цены")+'</button>'
+          : '')+
+      '</div>'+
+
+      '<div class="tarsub">'+
+        (n ? 'Сейчас в агентстве '+plural(n, "человек", "человека", "человек")+
+             ' — по количеству людей подходит пакет «'+esc(tarPackOf(adv).name)+'».'
+           : 'Команду ещё не завели: выберите пакет с запасом, поменять можно в любой момент.')+
+      '</div>'+
+
+      '<div class="tarpk">'+plan.packs.map(function(p){
+        var sel = p.id === tarPack, fit = tarFits(p);
+        return '<button class="tarp'+(sel ? " on" : "")+(fit ? "" : " tight")+
+          '" data-tarpack="'+esc(p.id)+'">'+
+          (p.id === adv ? '<span class="tarbadge">по вашей команде</span>' : '')+
+          '<span class="tarn">'+esc(p.name)+'</span>'+
+          '<span class="tarseat">'+esc(tarSeatsText(p))+'</span>'+
+          (tarEdit
+            ? '<input class="fi sm tarinp" type="number" min="0" step="100" '+
+              'data-tarprice="'+esc(p.id)+'" value="'+p.price+'" onclick="event.stopPropagation()">'
+            : '<span class="tarpr">'+money0(p.price)+'<i>в месяц</i></span>')+
+          '<span class="tarnote">'+esc(p.note)+'</span>'+
+          (fit ? '' : '<span class="tarwarn">людей больше, чем мест</span>')+
+        '</button>'; }).join("")+'</div>'+
+
+      '<div class="tarsh">Срок оплаты</div>'+
+      '<div class="tart">'+plan.terms.map(function(t){
+        var cc = tarCalc(tarPack, t.m);
+        return '<button class="tartb'+(t.m === tarTerm ? " on" : "")+'" data-tarterm="'+t.m+'">'+
+          '<b>'+tarMonthsWord(t.m)+'</b>'+
+          (t.off ? '<span class="taroff">−'+t.off+'%</span>' : '<span class="taroff flat">без скидки</span>')+
+          '<i>'+money0(cc.perMonth)+' в месяц</i>'+
+        '</button>'; }).join("")+'</div>'+
+
+      '<div class="tarsum">'+
+        '<div class="tarsl">'+
+          '<div class="tarst">«'+esc(c.pack.name)+'» на '+tarMonthsWord(c.term.m)+'</div>'+
+          '<div class="tarsd">'+esc(tarSeatsText(c.pack))+' · '+money0(c.perMonth)+' в месяц'+
+            (c.save ? ' · экономия '+money0(c.save) : '')+'</div>'+
+        '</div>'+
+        '<div class="tarsp"><b>'+money0(c.total)+'</b>'+
+          (c.save ? '<s>'+money0(c.full)+'</s>' : '')+'</div>'+
+        '<button class="bt tarbuy" id="tarBuy">Оплатить</button>'+
+      '</div>'+
+      '<div class="tarfoot" id="tarFoot">'+
+        (tarSaved || 'Оплата пока принимается по счёту: нажмите «Оплатить» — сервис запомнит выбор, '+
+         'а счёт выставит собственник сервиса.')+'</div>'+
+    '</div>';
+}
+
+document.addEventListener("click", function(e){
+  var t;
+  if(view !== "tariff") return;
+  if((t = e.target.closest("[data-tarpack]"))){
+    tarPack = t.getAttribute("data-tarpack"); renderTariff(); return; }
+  if((t = e.target.closest("[data-tarterm]"))){
+    tarTerm = +t.getAttribute("data-tarterm"); renderTariff(); return; }
+  if(e.target.closest("#tarEdit")){
+    if(tarEdit){
+      /* собираем цены из полей и запоминаем */
+      var plan = JSON.parse(JSON.stringify(tarPlan()));
+      plan.packs.forEach(function(p){
+        var f = document.querySelector('[data-tarprice="'+p.id+'"]');
+        if(f) p.price = Math.max(0, +f.value || 0);
+      });
+      tarSave(plan);
+      tarSaved = "Цены сохранены. Пока они живут в этом браузере — когда появится приём оплаты, переедут на сервер.";
+    }
+    tarEdit = !tarEdit; renderTariff(); return; }
+  if(e.target.closest("#tarBuy")){
+    var c = tarCalc(tarPack, tarTerm);
+    tarSaved = "Выбрано: «"+c.pack.name+"» на "+tarMonthsWord(c.term.m)+
+      " — "+money0(c.total)+". Счёт выставит собственник сервиса, доступ не прервётся.";
+    renderTariff(); return; }
+});
+
+NAV_TITLES.tariff = ["Тарифы", "Размер команды и срок оплаты"];
+SEC_RENDER.tariff = renderTariff;
+
+/* ── кнопка «Тарифы» в чипе подписки ── */
+(function(){
+  function fill(){
+    var pop = document.getElementById("pop");
+    if(!pop || document.getElementById("tarOpen")) return;
+    var plan = tarPlan(), adv = tarPackOf(tarAdvised());
+    pop.innerHTML =
+      '<h3>Подписка</h3>'+
+      '<div class="ph">Списание раз в месяц. Оплатите вперёд — месяц выйдет дешевле.</div>'+
+      '<div class="tar">'+plan.terms.slice(0, 3).map(function(t){
+        var c = tarCalc(adv.id, t.m);
+        return '<div class="tr2"><div><div class="tl2">'+tarMonthsWord(t.m)+
+          (t.off ? ' <span class="bg2">−'+t.off+'%</span>' : '')+'</div>'+
+          '<div class="ts">'+money0(c.perMonth)+' в месяц</div></div>'+
+          '<div class="tp2"><b>'+money0(c.total)+'</b></div></div>'; }).join("")+'</div>'+
+      '<button class="bt sm" id="tarOpen" style="margin-top:12px">Тарифы</button>';
+  }
+  var _ar = applyRoleRail;
+  applyRoleRail = function(){ var v = _ar.apply(this, arguments); try{ fill(); }catch(e){} return v; };
+  setTimeout(fill, 500);
+
+  document.addEventListener("click", function(e){
+    if(!e.target.closest("#tarOpen")) return;
+    var pop = document.getElementById("pop"), b = document.getElementById("balb");
+    if(pop) pop.classList.remove("on");
+    if(b) b.setAttribute("aria-expanded", "false");
+    setView("tariff");
+  });
+})();
+
+/* ══ 45. Живой режим не выдумывает деньги ═══════════════════════
+   В шапке висело «12 400 ₽ · подписка до 8 окт» — красивая, но
+   выдуманная строка. Виталий прав: пока финансовых отношений нет,
+   писать про них нельзя. Выдуманные цифры остаются там, где им
+   место — в демо. В живом агентстве чип показывает то, что правда:
+   пробный период и его срок, а дальше — «Тарифы».               */
+
+var BILL = null, billTried = false;
+
+async function billLoad(){
+  if(MODE !== "live" || !A || !A.token) return null;
+  if(billTried) return BILL;
+  billTried = true;
+  try{ BILL = await api("/me/org"); }
+  catch(e){ BILL = {}; }
+  return BILL;
+}
+function billTrialLeft(){
+  if(!BILL || !BILL.trial_ends_at) return null;
+  return Math.ceil((new Date(BILL.trial_ends_at) - Date.now()) / 86400000);
+}
+function billDateRu(iso){
+  if(!iso) return "";
+  try{ return new Date(iso).toLocaleDateString("ru-RU", {day:"numeric", month:"long"}); }
+  catch(e){ return ""; }
+}
+/* правда ли между агентством и сервисом есть деньги */
+function billPaidAny(){ return !!(BILL && (+BILL.paid > 0 || +BILL.seats_paid > 0)); }
+
+function paintBill(){
+  var b = document.getElementById("balb");
+  if(!b) return;
+  var slot = b.querySelector("span");
+  if(!slot) return;
+  if(MODE !== "live"){ return; }        /* демо живёт своей выдуманной жизнью */
+
+  var left = billTrialLeft();
+  if(left !== null && left > 0){
+    slot.innerHTML = '<span class="bv">Пробный период</span>'+
+      '<span class="bd"> · до '+esc(billDateRu(BILL.trial_ends_at))+'</span>';
+  } else if(left !== null && left <= 0){
+    slot.innerHTML = '<span class="bv">Пробный период кончился</span>'+
+      '<span class="bd"> · выберите тариф</span>';
+  } else if(billPaidAny()){
+    slot.innerHTML = '<span class="bv">'+esc(BILL.plan_title || "Тариф")+'</span>'+
+      (BILL.paid_until ? '<span class="bd"> · до '+esc(billDateRu(BILL.paid_until))+'</span>' : '');
+  } else {
+    slot.innerHTML = '<span class="bv">Тарифы</span>'+
+      '<span class="bd"> · пока бесплатно</span>';
+  }
+}
+
+(function(){
+  /* поп-ап: в живом режиме без выдуманного списания */
+  var _fillGuard = false;
+  function popLive(){
+    if(MODE !== "live") return;
+    var pop = document.getElementById("pop");
+    if(!pop) return;
+    var h = pop.querySelector(".ph");
+    if(!h) return;
+    var left = billTrialLeft();
+    h.textContent = left !== null && left > 0
+      ? "Пробный период до " + billDateRu(BILL.trial_ends_at) + ". Списаний пока нет."
+      : billPaidAny()
+        ? "Списание раз в месяц. Оплатите вперёд — месяц выйдет дешевле."
+        : "Списаний пока нет. Ниже — сколько будет стоить, когда подключите тариф.";
+    var t = pop.querySelector("h3");
+    if(t) t.textContent = left !== null && left > 0 ? "Пробный период" : "Подписка";
+  }
+
+  var _ar = applyRoleRail;
+  applyRoleRail = function(){
+    var v = _ar.apply(this, arguments);
+    try{
+      if(MODE === "live" && !billTried){
+        billLoad().then(function(){ paintBill(); popLive(); });
+      } else { paintBill(); popLive(); }
+    }catch(e){}
+    return v;
+  };
+  setTimeout(function(){ paintBill(); popLive(); }, 700);
+})();
+
+/* ══ 46. Демо — только из-под админа ════════════════════════════
+   Через пару дней ссылка уйдёт сотрудникам. Кнопка «Посмотреть демо»
+   на экране входа им не нужна: демо — это песочница владельца сервиса,
+   а не витрина. Убираем её с гейта (остаётся служебный вход ?demo=1)
+   и заводим переключатель внутри админ-панели.                     */
+(function(){
+  /* ── 1. гейт: кнопки демо больше нет ── */
+  function hideGate(){
+    var d = document.getElementById("gDemo");
+    if(!d) return;
+    var open = false;
+    try{ open = new URLSearchParams(location.search).get("demo") === "1"; }catch(e){}
+    d.style.display = open ? "" : "none";
+    /* соседняя подпись про демо тоже ни к чему */
+    var hint = d.parentNode && d.parentNode.querySelector(".gdemoh");
+    if(hint && !open) hint.style.display = "none";
+  }
+  hideGate();
+  setTimeout(hideGate, 400);
+
+  /* ── 2. вернуться из демо в свой аккаунт ── */
+  function banner(){
+    var b = document.getElementById("demoban");
+    if(!b || document.getElementById("demoOut")) return;
+    if(!(A && A.token)) return;            /* некуда возвращаться */
+    var a = document.createElement("button");
+    a.className = "glink"; a.id = "demoOut";
+    a.style.marginLeft = "14px";
+    a.textContent = "Вернуться в свой аккаунт";
+    var reset = document.getElementById("resetDemo");
+    if(reset) b.insertBefore(a, reset); else b.appendChild(a);
+  }
+  document.addEventListener("click", function(e){
+    if(!e.target.closest("#demoOut")) return;
+    goLive();
+  });
+
+  var _ar = applyRoleRail;
+  applyRoleRail = function(){
+    var v = _ar.apply(this, arguments);
+    try{ hideGate(); if(MODE === "demo") banner(); }catch(e){}
+    return v;
+  };
+})();
+
+/* ── 3. кнопка «Открыть демо» в админ-панели ── */
+(function(){
+  var _r = renderAdm;
+  renderAdm = function(){
+    var v = _r.apply(this, arguments);
+    setTimeout(function(){
+      if(view !== "adm" || admOpen) return;
+      var t = document.querySelector("#sect .gl .gl-t");
+      if(!t || document.getElementById("admDemoBtn")) return;
+      var b = document.createElement("button");
+      b.className = "bt sm gh2"; b.id = "admDemoBtn";
+      b.style.cssText = "width:auto;margin-left:auto";
+      b.textContent = "Открыть демо";
+      t.appendChild(b);
+    }, 40);
+    return v;
+  };
+  if(typeof SEC_RENDER !== "undefined") SEC_RENDER.adm = renderAdm;
+
+  document.addEventListener("click", function(e){
+    if(!e.target.closest("#admDemoBtn")) return;
+    MODE = "demo"; buildDemo(); startScreen();
+  });
 })();
 
 })();
