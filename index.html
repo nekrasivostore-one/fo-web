@@ -3210,6 +3210,46 @@ code.invc{ font-family:ui-monospace,SFMono-Regular,monospace; font-weight:700;
   .ccdg{ grid-template-columns:1fr }
   .ccbtns{ flex-direction:column }
 }
+
+/* ── 42. Форма регистрации: ошибки у полей, светофор пароля, таймер ── */
+.ferr{ font-size:12px; color:var(--crit); margin:-6px 0 0; min-height:0;
+  max-height:0; overflow:hidden; opacity:0;
+  transition:max-height .2s var(--ease), opacity .2s var(--ease), margin .2s var(--ease) }
+.ferr.on{ max-height:44px; opacity:1; margin:-4px 0 8px }
+.fi.bad{ border-color:var(--crit) }
+
+.pwm{ display:flex; align-items:center; gap:10px; margin:-2px 0 12px;
+  max-height:0; overflow:hidden; opacity:0;
+  transition:max-height .2s var(--ease), opacity .2s var(--ease), margin .2s var(--ease) }
+.pwm.on{ max-height:30px; opacity:1; margin:2px 0 12px }
+.pwb{ display:flex; gap:4px; flex:none }
+.pwb i{ width:26px; height:5px; border-radius:99px; background:var(--stroke);
+  transition:background .25s var(--ease) }
+.pwt{ font-size:11.5px; color:var(--ink-3) }
+.pwm.r .pwb i:nth-child(-n+1){ background:var(--crit) }
+.pwm.y .pwb i:nth-child(-n+2){ background:var(--warn) }
+.pwm.g[data-n="3"] .pwb i:nth-child(-n+3){ background:var(--ok) }
+.pwm.g[data-n="4"] .pwb i{ background:var(--ok) }
+.pwm.r .pwt{ color:var(--crit) }
+.pwm.y .pwt{ color:var(--warn) }
+.pwm.g .pwt{ color:var(--ok) }
+
+.coderow{ display:flex; align-items:center; justify-content:space-between; gap:12px;
+  margin:-2px 0 14px; flex-wrap:wrap }
+.codet{ font-size:11.5px; color:var(--ink-3) }
+.codet.soon{ color:var(--warn) }
+.codet.out{ color:var(--crit) }
+.codeb{ font-family:inherit; font-size:12px; font-weight:600; color:#7C5CFF;
+  background:none; border:0; padding:4px 0; cursor:pointer;
+  text-decoration:underline; text-underline-offset:3px }
+.codeb:hover:not(:disabled){ color:#9B85FF }
+.codeb:disabled{ color:var(--ink-3); cursor:default; text-decoration:none }
+
+.gtoast{ position:fixed; left:50%; bottom:26px; transform:translate(-50%,14px); z-index:9000;
+  background:var(--ink); color:var(--ground); font-size:13px; font-weight:600;
+  padding:10px 16px; border-radius:11px; opacity:0; pointer-events:none;
+  transition:opacity .2s var(--ease), transform .2s var(--ease) }
+.gtoast.on{ opacity:1; transform:translate(-50%,0) }
 </style>
 </head>
 <body>
@@ -15715,6 +15755,243 @@ document.addEventListener("click", function(e){
       setView("work");
     }
   };
+})();
+
+/* ══ 42. Форма регистрации: ошибки по полям, сила пароля, таймер кода ══
+   Было три беды разом:
+   1. Одна строка ошибки на два поля — «Код — шесть цифр» вылезала под
+      паролем, и человек думал, что дело в пароле.
+   2. Никакого способа переслать код: он истёк — и всё, тупик.
+   3. Непонятно, сколько код живёт.
+   Плюс подсказка по паролю светофором: любой пароль от 10 символов
+   принимается, но сразу видно, насколько он крепкий.
+   (Причина «код неверен или истёк» на свежем коде была на сервере —
+   поиск аккаунта по почте возвращал произвольный из нескольких.)   */
+(function(){
+  var CODE_TTL = 10 * 60;          /* сколько живёт код, секунд */
+  var RESEND_WAIT = 45;            /* пауза между отправками, секунд */
+  var tEnd = 0, rEnd = 0, tick = null;
+
+  function el(id){ return document.getElementById(id); }
+
+  /* ── разметка: место под ошибку у каждого поля ── */
+  function slot(afterId, id){
+    if(el(id)) return el(id);
+    var a = el(afterId); if(!a) return null;
+    var d = document.createElement("div");
+    d.className = "ferr"; d.id = id;
+    a.parentNode.insertBefore(d, a.nextSibling);
+    return d;
+  }
+  function fErr(id, msg){
+    var d = el(id); if(!d) return;
+    d.textContent = msg || "";
+    d.classList.toggle("on", !!msg);
+    var f = d.previousElementSibling;
+    if(f && f.classList) f.classList.toggle("bad", !!msg);
+  }
+  function clearErrs(){
+    fErr("errCode", ""); fErr("errPwd", "");
+    var g = el("errUp3"); if(g){ g.textContent = ""; g.classList.remove("on"); }
+  }
+
+  /* ── сила пароля: светофор ── */
+  function pwScore(p){
+    if(!p) return {n:0, w:"", c:""};
+    var n = 0;
+    if(/[a-zа-я]/.test(p)) n++;
+    if(/[A-ZА-Я]/.test(p)) n++;
+    if(/[0-9]/.test(p))    n++;
+    if(/[^A-Za-zА-Яа-я0-9]/.test(p)) n++;
+    if(p.length >= 16) n++;
+    if(p.length < 10) n = Math.min(n, 1);
+    /* совсем простое не считаем крепким, даже если длинное */
+    if(/^(.)\1+$/.test(p) || /^(123|qwe|пар|abc)/i.test(p)) n = 1;
+    return n <= 1 ? {n:1, w:"слабый — его подберут", c:"r"}
+         : n === 2 ? {n:2, w:"так себе — добавьте цифру или знак", c:"y"}
+         : n === 3 ? {n:3, w:"нормальный", c:"g"}
+                   : {n:4, w:"хороший", c:"g"};
+  }
+  function paintPw(){
+    var i = el("upPwd"), m = el("pwMeter");
+    if(!i || !m) return;
+    var p = i.value || "";
+    if(!p){ m.className = "pwm"; m.innerHTML = ""; return; }
+    var s = pwScore(p);
+    var short = p.length < 10;
+    m.className = "pwm on " + (short ? "r" : s.c);
+    m.innerHTML =
+      '<span class="pwb"><i></i><i></i><i></i><i></i></span>'+
+      '<span class="pwt">'+(short
+        ? 'нужно ещё ' + (10 - p.length) + ' ' +
+          (function(k){ var a = k % 100, b = a % 10;
+            return (a > 10 && a < 20) ? "символов" : b === 1 ? "символ"
+                 : (b >= 2 && b <= 4) ? "символа" : "символов"; })(10 - p.length)
+        : s.w)+'</span>';
+    m.setAttribute("data-n", short ? 1 : s.n);
+  }
+
+  /* ── таймер жизни кода и пауза на переотправку ── */
+  function paintTimer(){
+    var t = el("codeTimer"), b = el("codeResend");
+    if(!t || !b) return;
+    var now = Date.now() / 1000;
+    var left = Math.max(0, Math.round(tEnd - now));
+    var wait = Math.max(0, Math.round(rEnd - now));
+    if(left > 0){
+      var mm = Math.floor(left / 60), ss = left % 60;
+      t.textContent = "код действует ещё " + mm + ":" + (ss < 10 ? "0" : "") + ss;
+      t.className = "codet" + (left < 60 ? " soon" : "");
+    } else {
+      t.textContent = "код истёк — отправьте новый";
+      t.className = "codet out";
+    }
+    b.disabled = wait > 0;
+    b.textContent = wait > 0
+      ? "Отправить ещё раз через " + wait
+      : "Отправить код ещё раз";
+  }
+  function startTimer(){
+    tEnd = Date.now() / 1000 + CODE_TTL;
+    rEnd = Date.now() / 1000 + RESEND_WAIT;
+    if(tick) clearInterval(tick);
+    tick = setInterval(paintTimer, 1000);
+    paintTimer();
+  }
+
+  /* ── собираем блок под полем кода ── */
+  function build(){
+    var step = el("stUp3");
+    if(!step || el("codeResend")) return;
+    slot("upCode2", "errCode");
+    slot("upPwd", "errPwd");
+
+    var pw = el("upPwd");
+    if(pw && !el("pwMeter")){
+      var m = document.createElement("div");
+      m.className = "pwm"; m.id = "pwMeter";
+      var host = el("errPwd") || pw;
+      host.parentNode.insertBefore(m, host.nextSibling);
+    }
+
+    var row = document.createElement("div");
+    row.className = "coderow";
+    row.innerHTML =
+      '<span class="codet" id="codeTimer">код действует 10 минут</span>'+
+      '<button type="button" class="codeb" id="codeResend">Отправить код ещё раз</button>';
+    var ec = el("errCode");
+    if(ec) ec.parentNode.insertBefore(row, ec.nextSibling);
+
+    /* в поле кода пропускаем только цифры, вставка из письма работает */
+    var ci = el("upCode2");
+    if(ci){
+      ci.addEventListener("input", function(){
+        var v = (this.value || "").replace(/\D+/g, "").slice(0, 6);
+        if(v !== this.value) this.value = v;
+        fErr("errCode", "");
+        if(v.length === 6){ var p = el("upPwd"); if(p && !p.value) p.focus(); }
+      });
+    }
+    if(pw) pw.addEventListener("input", function(){ paintPw(); fErr("errPwd", ""); });
+
+    el("codeResend").onclick = async function(){
+      var b = this;
+      b.disabled = true; b.textContent = "Отправляю…";
+      clearErrs();
+      try{
+        var r = await api("/auth/start", {method:"POST", body:{email:A.email}});
+        startTimer();
+        var ci2 = el("upCode2");
+        if(r && r.code_shown && ci2){ ci2.value = r.code_shown; }
+        else if(ci2){ ci2.value = ""; ci2.focus(); }
+        toast2("Новый код отправлен на " + A.email);
+      }catch(e){
+        rEnd = 0; paintTimer();
+        fErr("errCode", e.message || "Не получилось отправить код");
+      }
+    };
+  }
+
+  function toast2(t){
+    var d = el("gToast");
+    if(!d){
+      d = document.createElement("div");
+      d.id = "gToast"; d.className = "gtoast";
+      document.body.appendChild(d);
+    }
+    d.textContent = t;
+    d.classList.add("on");
+    clearTimeout(toast2._t);
+    toast2._t = setTimeout(function(){ d.classList.remove("on"); }, 3200);
+  }
+
+  /* разметку ставим сразу — шаг всё равно спрятан, зато ничего
+     не зависит от того, успела ли перехватиться gShow */
+  build();
+  setTimeout(build, 300);
+
+  /* ── показали третий шаг — заводим таймер ── */
+  var _gShow = gShow;
+  gShow = function(id){
+    var v = _gShow.apply(this, arguments);
+    if(id === "stUp3"){ build(); clearErrs(); startTimer(); paintPw(); }
+    return v;
+  };
+  /* наружу — чтобы можно было проверить форму, не дёргая сервер */
+  try{ window.foRegStep = function(){ build(); clearErrs(); startTimer(); paintPw();
+    var st = document.getElementById("stUp3"); if(st) st.hidden = false; }; }catch(e){}
+
+  /* ── завершение регистрации: ошибка встаёт под своим полем ── */
+  function bindFinish(){
+    var b = el("btnUp3");
+    if(!b) return;
+    b.onclick = async function(){
+      var me = this;
+      var ci = el("upCode2"), pi = el("upPwd");
+      var c = (ci ? ci.value : "").replace(/\D+/g, "");
+      var pw = pi ? pi.value : "";
+      clearErrs();
+
+      if(c.length !== 6){
+        fErr("errCode", c.length
+          ? "В коде шесть цифр, у вас " + c.length
+          : "Впишите код из письма");
+        if(ci) ci.focus();
+        return;
+      }
+      if(pw.length < 10){
+        fErr("errPwd", "Пароль — минимум 10 символов, сейчас " + pw.length);
+        if(pi) pi.focus();
+        return;
+      }
+
+      busy(me, true);
+      try{
+        var r = await api("/auth/verify", {method:"POST",
+          body:{email:A.email, code:c, new_password:pw}});
+        if(tick) clearInterval(tick);
+        saveSession(r);
+        await goLive();
+      }catch(e){
+        busy(me, false, "Завершить регистрацию");
+        var msg = String(e.message || "");
+        if(/код|code/i.test(msg)){
+          fErr("errCode", /истёк|истек|expired/i.test(msg)
+            ? "Код истёк — отправьте новый кнопкой ниже"
+            : msg);
+          if(ci){ ci.select(); ci.focus(); }
+        } else if(/парол|password/i.test(msg)){
+          fErr("errPwd", msg);
+          if(pi) pi.focus();
+        } else {
+          gErr("errUp3", msg);
+        }
+      }
+    };
+  }
+  bindFinish();
+  /* если сборка перепривязала обработчик позже — перевешиваем свой */
+  setTimeout(bindFinish, 600);
 })();
 
 })();
