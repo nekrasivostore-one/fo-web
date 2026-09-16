@@ -18262,6 +18262,47 @@ document.addEventListener("click", function(e){
   NAV_TITLES.cards = ["Карточка клиента", "Платёж, артикулы, функции и контакты"];
 })();
 
+/* ══ 57. «Карточка сотрудника» наконец нажимается ═══════════════
+   Кнопка рисовалась с §40, а обработчика у неё не было ни одного:
+   нажимаешь — и ничего. Само раскрытие карточки в сервисе есть
+   (блок .mcardw под сеткой), просто до него никто не доводил.
+   Теперь кнопка раскрывает карточку на месте и сворачивает её
+   повторным нажатием — так же, как у карточки клиента.          */
+(function(){
+  /* подпись меняется по состоянию, иначе непонятно, что нажатие сделает */
+  if(typeof personCard === "function"){
+    var _pc = personCard;
+    personCard = function(m, open){
+      var h = _pc.apply(this, arguments);
+      try{
+        if(typeof manCardOpen !== "undefined" && m && manCardOpen === m.id){
+          h = h.replace(
+            /(<button class="bt gh2 ccgo" data-mancard="[^"]*">)[^<]*(<\/button>)/,
+            '$1Свернуть карточку$2');
+        }
+      }catch(e){}
+      return h;
+    };
+  }
+})();
+
+document.addEventListener("click", function(e){
+  var t = e.target.closest && e.target.closest("[data-mancard]");
+  if(!t) return;
+  e.preventDefault();
+  e.stopPropagation();
+  if(e.stopImmediatePropagation) e.stopImmediatePropagation();
+  var id = t.getAttribute("data-mancard");
+  try{
+    manCardOpen = (manCardOpen === id) ? null : id;
+  }catch(err){ return; }
+  try{ render(); }catch(err){}
+  setTimeout(function(){
+    var el = document.querySelector(".mcardw");
+    if(el) el.scrollIntoView({behavior:"smooth", block:"nearest"});
+  }, 220);
+}, true);
+
 })();
 </script>
 </body>
