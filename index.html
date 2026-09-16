@@ -18012,6 +18012,65 @@ window.foRoleState = function(){
   if(typeof SEC_RENDER !== "undefined") SEC_RENDER.fns = renderFns;
 })();
 
+/* ══ 54. Переход в демо и обратно — прямо из меню под именем ═════
+   Кнопка «Открыть демо» жила в панели сервиса, и это неудобно:
+   чтобы вернуться, надо было искать ссылку в жёлтой полосе. Теперь
+   это один пункт меню, который меняет надпись по месту: из рабочего
+   аккаунта — «Перейти в демо-режим», из демо — «Вернуться в админ-
+   режим». В демо пункт виден при любой выбранной роли, иначе,
+   переключившись на ассистента, из демо было бы не выйти.        */
+
+function canDemoSwitch(){
+  if(MODE === "demo") return !!(A && A.token);   /* выйти можно всегда */
+  return typeof canOpenDemo === "function" ? canOpenDemo() : false;
+}
+
+(function(){
+  if(typeof meMenuHTML !== "function") return;
+  var _mm = meMenuHTML;
+  meMenuHTML = function(){
+    var h = _mm.apply(this, arguments);
+    if(!canDemoSwitch()) return h;
+    var toDemo = MODE !== "demo";
+    var item =
+      '<button class="memi" data-me="demoswitch">'+
+        '<svg viewBox="0 0 24 24">'+
+          (toDemo
+            ? '<path d="M4 6h16v10H4z"/><path d="M9 20h6M12 16v4"/><path d="M9.5 8.5l3.5 2.5-3.5 2.5z"/>'
+            : '<path d="M10 6H5a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h5"/><path d="M14 12h7m0 0l-3-3m3 3l-3 3"/>')+
+        '</svg>'+
+        '<span><b>'+(toDemo ? 'Перейти в демо-режим' : 'Вернуться в админ-режим')+'</b>'+
+        '<i>'+(toDemo
+          ? 'песочница на данных Флатера — роли, цифры, что угодно'
+          : 'выйти из песочницы в свой рабочий аккаунт')+'</i></span>'+
+      '</button>';
+    return h.indexOf('<div class="memd"></div>') >= 0
+      ? h.replace('<div class="memd"></div>', item + '<div class="memd"></div>')
+      : h + item;
+  };
+})();
+
+/* перехватываем раньше общего обработчика меню, иначе он уведёт в setView */
+document.addEventListener("click", function(e){
+  var b = e.target.closest && e.target.closest('[data-me="demoswitch"]');
+  if(!b) return;
+  e.preventDefault();
+  e.stopPropagation();
+  if(e.stopImmediatePropagation) e.stopImmediatePropagation();
+
+  var m = document.getElementById("meMenu");
+  if(m){ m.classList.remove("on"); setTimeout(function(){ if(m.parentNode) m.remove(); }, 200); }
+
+  if(MODE === "demo"){
+    goLive();
+  } else {
+    if(!canDemoSwitch()) return;
+    MODE = "demo";
+    buildDemo();
+    startScreen();
+  }
+}, true);
+
 })();
 </script>
 </body>
