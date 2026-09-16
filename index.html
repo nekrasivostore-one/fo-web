@@ -17988,6 +17988,30 @@ window.foRoleState = function(){
   setTimeout(clean, 900);
 })();
 
+/* «Ничего не найдено» в пустом справочнике звучит как сбой поиска.
+   В новом агентстве функций просто ещё нет — так и говорим. */
+(function(){
+  var _rf = renderFns;
+  renderFns = function(){
+    var v = _rf.apply(this, arguments);
+    try{
+      var host = document.getElementById("sect");
+      if(!host) return v;
+      var q = document.getElementById("fnQ");
+      var searching = q && q.value && q.value.trim();
+      if(searching) return v;
+      host.querySelectorAll(".empty").forEach(function(e){
+        if(/ничего не найдено/i.test(e.textContent || "")){
+          e.textContent = "Функций пока нет. Заведите первую кнопкой «Своя функция» — "+
+            "из них потом собираются задачи по кабинетам.";
+        }
+      });
+    }catch(e){}
+    return v;
+  };
+  if(typeof SEC_RENDER !== "undefined") SEC_RENDER.fns = renderFns;
+})();
+
 })();
 </script>
 </body>
