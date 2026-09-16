@@ -3529,6 +3529,16 @@ a.hlpc:hover{ border-color:rgba(124,92,255,.45) }
   .hlpg{ grid-template-columns:1fr }
   .memenu{ right:12px; left:12px; width:auto }
 }
+
+/* шапка: блок с именем не переносится на вторую строку */
+.bar{ flex-wrap:nowrap }
+.bar .me{ flex:none }
+.bar .me .mn{ white-space:nowrap }
+.rolesel.locked{ display:flex; align-items:center }
+.rolesel.locked .gsl, .rolesel.locked select{ display:none !important }
+@media (max-width:1200px){
+  .bar{ flex-wrap:wrap }
+}
 </style>
 </head>
 <body>
@@ -16841,81 +16851,6 @@ SEC_RENDER.adm = renderAdm;
   };
 })();
 
-/* ── роль в живом режиме берётся из сессии, а не из переключателя ──
-   Переключатель ролей — инструмент демо: он нужен, чтобы посмотреть
-   сервис глазами директора или ассистента. Собственнику настоящего
-   агентства чужие роли видеть незачем и нельзя — он видит только свою.
-   Админу сервиса переключатель оставляем: ему по работе положено
-   смотреть любой уровень.                                          */
-var SRV_ROLE = {
-  admin:"admin", root:"admin", superadmin:"admin",
-  owner:"owner", founder:"owner",
-  director:"dir", dir:"dir",
-  head:"head", lead:"head", chief:"head",
-  pm:"pm", project:"pm", project_manager:"pm",
-  manager_senior:"mgr", manager:"mgr", mgr:"mgr", senior:"mgr",
-  manager_junior:"jun", junior:"jun", jun:"jun",
-  assistant:"asst", asst:"asst",
-  client_agency:"client", client:"client", client_service:"client"
-};
-var LVL_ROLE = ["admin","owner","dir","head","pm","mgr","jun","asst","client","client"];
-
-function srvRole(code, level){
-  var c = String(code || "").toLowerCase();
-  if(SRV_ROLE[c]) return SRV_ROLE[c];
-  var n = +level;
-  if(n >= 0 && n < LVL_ROLE.length) return LVL_ROLE[n];
-  return "owner";
-}
-function roleLocked(){ return MODE === "live" && A && A.token && role !== "admin"; }
-
-(function(){
-  var taken = false;
-
-  function sync(){
-    var sel = document.getElementById("roleSel"),
-        sw  = document.getElementById("roleSw");
-    /* живой режим — роль один раз приезжает из сессии */
-    if(MODE === "live" && A && A.token && !taken){
-      taken = true;
-      role = srvRole(A.role, A.level);
-      selPerson = null;
-    }
-    if(sel && sel.value !== role) sel.value = role;
-
-    if(sw){
-      var lock = roleLocked();
-      sw.classList.toggle("locked", lock);
-      if(lock){
-        /* вместо выпадающего списка — просто подпись «кто я» */
-        if(!document.getElementById("roleTag")){
-          var tag = document.createElement("span");
-          tag.className = "roletag"; tag.id = "roleTag";
-          sw.appendChild(tag);
-        }
-        document.getElementById("roleTag").textContent = admRoleName(role);
-        if(sel) sel.style.display = "none";
-      } else {
-        var t = document.getElementById("roleTag");
-        if(t) t.remove();
-        if(sel) sel.style.display = "";
-      }
-    }
-    applyRoleRail();
-  }
-
-  window.foSyncRole = sync;
-
-  /* стартовый экран — и живой, и демо — заканчивается здесь */
-  var _ss = startScreen;
-  startScreen = function(){
-    var v = _ss.apply(this, arguments);
-    setTimeout(sync, 0);
-    return v;
-  };
-  setTimeout(sync, 0);
-})();
-
 /* ══ 44. ТАРИФЫ: размер команды × срок оплаты ═══════════════════
    В шапке висел чип с суммой и тремя строками «1 / 3 / 6 месяцев» —
    красиво, но выбрать там было нечего. Виталий попросил кнопку
@@ -17194,27 +17129,10 @@ function paintBill(){
   setTimeout(function(){ paintBill(); popLive(); }, 700);
 })();
 
-/* ══ 46. Демо — только из-под админа ════════════════════════════
-   Через пару дней ссылка уйдёт сотрудникам. Кнопка «Посмотреть демо»
-   на экране входа им не нужна: демо — это песочница владельца сервиса,
-   а не витрина. Убираем её с гейта (остаётся служебный вход ?demo=1)
-   и заводим переключатель внутри админ-панели.                     */
+/* ══ 46. Демо: возврат в свой аккаунт и кнопка в панели сервиса ══
+   Правила «кому можно демо» живут в §50 — здесь только две вещи:
+   ссылка «вернуться» в жёлтой полосе демо и кнопка в админ-панели. */
 (function(){
-  /* ── 1. гейт: кнопки демо больше нет ── */
-  function hideGate(){
-    var d = document.getElementById("gDemo");
-    if(!d) return;
-    var open = false;
-    try{ open = new URLSearchParams(location.search).get("demo") === "1"; }catch(e){}
-    d.style.display = open ? "" : "none";
-    /* соседняя подпись про демо тоже ни к чему */
-    var hint = d.parentNode && d.parentNode.querySelector(".gdemoh");
-    if(hint && !open) hint.style.display = "none";
-  }
-  hideGate();
-  setTimeout(hideGate, 400);
-
-  /* ── 2. вернуться из демо в свой аккаунт ── */
   function banner(){
     var b = document.getElementById("demoban");
     if(!b || document.getElementById("demoOut")) return;
@@ -17226,20 +17144,15 @@ function paintBill(){
     var reset = document.getElementById("resetDemo");
     if(reset) b.insertBefore(a, reset); else b.appendChild(a);
   }
-  document.addEventListener("click", function(e){
-    if(!e.target.closest("#demoOut")) return;
-    goLive();
-  });
-
   var _ar = applyRoleRail;
   applyRoleRail = function(){
     var v = _ar.apply(this, arguments);
-    try{ hideGate(); if(MODE === "demo") banner(); }catch(e){}
+    try{ if(MODE === "demo") banner(); }catch(e){}
     return v;
   };
 })();
 
-/* ── 3. кнопка «Открыть демо» в админ-панели ── */
+/* кнопка «Открыть демо» в панели сервиса */
 (function(){
   var _r = renderAdm;
   renderAdm = function(){
@@ -17257,11 +17170,6 @@ function paintBill(){
     return v;
   };
   if(typeof SEC_RENDER !== "undefined") SEC_RENDER.adm = renderAdm;
-
-  document.addEventListener("click", function(e){
-    if(!e.target.closest("#admDemoBtn")) return;
-    MODE = "demo"; buildDemo(); startScreen();
-  });
 })();
 
 /* ══ 47. Прошедшие дни: видно, что не успели ════════════════════
@@ -17682,6 +17590,258 @@ document.addEventListener("click", function(e){
     return;
   }
 });
+
+/* ══ 50. Роли и демо: одно жёсткое правило ══════════════════════
+   Правило Виталия, дословно: переключаться между ролями можно
+   только в демо-режиме, а демо-режим есть только у админа. В живом
+   агентстве свою роль видит каждый — и больше ничью. Даже админ
+   в живом режиме сидит в своей роли: чтобы посмотреть сервис
+   глазами проджекта, он идёт в демо.                            */
+
+var SRV_ROLE = {
+  admin:"admin", root:"admin", superadmin:"admin",
+  owner:"owner", founder:"owner",
+  director:"dir", dir:"dir",
+  head:"head", lead:"head", chief:"head",
+  pm:"pm", project:"pm", project_manager:"pm",
+  manager_senior:"mgr", manager:"mgr", mgr:"mgr", senior:"mgr",
+  manager_junior:"jun", junior:"jun", jun:"jun",
+  assistant:"asst", asst:"asst",
+  client_agency:"client", client:"client", client_service:"client"
+};
+var LVL_ROLE = ["admin","owner","dir","head","pm","mgr","jun","asst","client","client"];
+
+function srvRole(code, level){
+  var c = String(code == null ? "" : code).toLowerCase();
+  if(SRV_ROLE[c]) return SRV_ROLE[c];
+  var n = parseInt(level, 10);
+  if(!isNaN(n) && n >= 0 && n < LVL_ROLE.length) return LVL_ROLE[n];
+  return "owner";
+}
+function myRoleName(c){
+  return c === "admin" ? "Администратор сервиса" : roleName(c);
+}
+/* живой режим — это когда за спиной настоящий аккаунт */
+function isLive(){ return MODE === "live" && !!(A && A.token); }
+/* переключаться между ролями можно только в демо */
+function canSwitchRole(){ return !isLive(); }
+/* демо открывает только админ (или служебная ссылка ?demo=1) */
+function canOpenDemo(){
+  if(typeof isAdmin === "function" && isAdmin()) return true;
+  try{ return new URLSearchParams(location.search).get("demo") === "1"; }catch(e){ return false; }
+}
+
+(function(){
+  var taken = false;
+
+  function paint(){
+    var sw  = document.getElementById("roleSw"),
+        sel = document.getElementById("roleSel");
+
+    /* роль приезжает из сессии ровно один раз за вход */
+    if(isLive() && !taken){
+      taken = true;
+      role = srvRole(A.role, A.level);
+      selPerson = null;
+    }
+    if(!isLive()) taken = false;
+
+    if(!sw) return;
+
+    if(canSwitchRole()){
+      /* демо: полноценный переключатель */
+      sw.classList.remove("locked");
+      var tag = document.getElementById("roleTag");
+      if(tag) tag.remove();
+      if(sel){
+        sel.style.display = "";
+        if(sel.value !== role) sel.value = role;
+      }
+    } else {
+      /* живой режим: только своя роль, подписью */
+      sw.classList.add("locked");
+      if(sel) sel.style.display = "none";
+      var t = document.getElementById("roleTag");
+      if(!t){
+        t = document.createElement("span");
+        t.className = "roletag"; t.id = "roleTag";
+        sw.appendChild(t);
+      }
+      var want = myRoleName(role);
+      if(t.textContent !== want) t.textContent = want;
+    }
+
+    /* подпись под именем в шапке — тоже своя, а не из вёрстки */
+    var mr = document.getElementById("meRole");
+    if(mr && isLive() && mr.textContent !== myRoleName(role)) mr.textContent = myRoleName(role);
+  }
+
+  window.foRole = paint;
+
+  /* перерисовываем на каждом проходе по правам — это дёшево и не даёт
+     шапке разъехаться после смены режима */
+  var _ar = applyRoleRail;
+  applyRoleRail = function(){
+    try{ paint(); }catch(e){}
+    return _ar.apply(this, arguments);
+  };
+
+  var _ss = startScreen;
+  startScreen = function(){
+    var v = _ss.apply(this, arguments);
+    setTimeout(function(){ try{ paint(); applyRoleRail(); }catch(e){} }, 0);
+    return v;
+  };
+  setTimeout(paint, 0);
+  setTimeout(paint, 500);
+})();
+
+/* ── демо только у админа ──────────────────────────────────────
+   Кнопка на экране входа убрана вместе с абзацем про демо: через
+   пару дней ссылка уйдёт сотрудникам, им там делать нечего.     */
+(function(){
+  function hideGate(){
+    var d = document.getElementById("gDemo");
+    var open = false;
+    try{ open = new URLSearchParams(location.search).get("demo") === "1"; }catch(e){}
+    if(d) d.style.display = open ? "" : "none";
+    /* абзац-пояснение и разделитель «или» рядом с кнопкой */
+    var gate = document.getElementById("gate");
+    if(!gate || open) return;
+    var all = gate.querySelectorAll("p, .ghint, .gor, .gdemoh, .gsep");
+    for(var i = 0; i < all.length; i++){
+      if(/демо-режим/i.test(all[i].textContent || "")) all[i].style.display = "none";
+    }
+  }
+  hideGate();
+  setTimeout(hideGate, 400);
+  setTimeout(hideGate, 1200);
+
+  /* кнопка «Открыть демо» в панели сервиса — только админу */
+  document.addEventListener("click", function(e){
+    if(!e.target.closest("#admDemoBtn")) return;
+    if(!canOpenDemo()) return;
+    MODE = "demo";
+    buildDemo();
+    startScreen();
+  });
+
+  /* возврат из демо в свой аккаунт */
+  document.addEventListener("click", function(e){
+    if(!e.target.closest("#demoOut")) return;
+    goLive();
+  });
+})();
+
+/* ── диагностика: что сервис думает про мою роль ──
+   Только чтение. Нужна, когда «у меня не переключается» — одна
+   строка в консоли браузера отвечает на вопрос без догадок.   */
+window.foRoleState = function(){
+  return {mode: MODE, role: role, roleName: myRoleName(role),
+    live: isLive(), canSwitch: canSwitchRole(),
+    canDemo: canOpenDemo(), srv: A ? (A.role || "") : "", lvl: A ? A.level : null};
+};
+
+/* ══ 51. Истёкшая сессия больше не выглядит как «ничего не работает» ══
+   Симптом был такой: человек открывает сервис, экраны нарисованы,
+   а кнопки будто мертвы — нажимаешь раздел, ничего не происходит.
+   На деле сервер отвечал 401 на каждый запрос: токен протух. Сервис
+   молча глотал ошибку и оставался с пустым экраном.
+   Теперь: сначала пробуем тихо обновить токен, и только если не
+   вышло — честно говорим «сессия истекла» и возвращаем на вход.   */
+(function(){
+  var refreshing = null;     /* один общий запрос на обновление */
+  var kicked = false;        /* чтобы не выкидывать дважды подряд */
+
+  function looksExpired(msg, status){
+    if(status === 401) return true;
+    return /401|токен|сесси|not authenticated|unauthorized/i.test(String(msg || ""));
+  }
+
+  function backToGate(msg){
+    if(kicked) return;
+    kicked = true;
+    try{ dropAuth(); }catch(e){}
+    MODE = "demo";
+    var boot = document.getElementById("boot");
+    if(boot) boot.hidden = true;
+    var scr = document.getElementById("screen"), sec = document.getElementById("sect");
+    if(scr) scr.hidden = true;
+    if(sec) sec.hidden = true;
+    var gate = document.getElementById("gate");
+    if(gate) gate.hidden = false;
+    try{ gTab("in"); }catch(e){}
+    try{ gErr("errIn", msg || "Сессия истекла — войдите заново"); }catch(e){}
+  }
+  window.foKick = backToGate;
+
+  var _api = api;
+  api = function(path, opt){
+    var p = String(path || "");
+    /* сам вход и обновление токена через эту логику не гоняем */
+    var isAuth = /\/auth\/(login|start|verify|refresh|register|workspace|invite)/.test(p);
+    return _api(path, opt).catch(function(e){
+      var msg = e && e.message;
+      if(isAuth || !A || !A.token || !looksExpired(msg)) throw e;
+
+      if(!refreshing){
+        refreshing = _api("/auth/refresh", {method:"POST", body:{refresh:A.refresh}})
+          .then(function(r){
+            if(!r || !r.access) throw new Error("не обновился");
+            A.token = r.access;
+            if(r.refresh) A.refresh = r.refresh;
+            if(r.role) A.role = r.role;
+            if(typeof r.level === "number") A.level = r.level;
+            try{ saveAuth(); }catch(x){}
+            kicked = false;
+            return true;
+          })
+          .catch(function(){ return false; })
+          .then(function(ok){ refreshing = null; return ok; });
+      }
+      return refreshing.then(function(ok){
+        if(!ok){
+          backToGate("Сессия истекла — войдите заново");
+          throw e;
+        }
+        return _api(path, opt);        /* один повтор с новым токеном */
+      });
+    });
+  };
+})();
+
+/* ── если живые данные не приехали, показываем причину, а не пустоту ── */
+(function(){
+  var _gl = goLive;
+  goLive = function(){
+    var r = _gl.apply(this, arguments);
+    setTimeout(function(){
+      var boot = document.getElementById("boot");
+      var scr  = document.getElementById("screen");
+      var sec  = document.getElementById("sect");
+      var gate = document.getElementById("gate");
+      /* всё скрыто и гейт закрыт — значит загрузка молча провалилась */
+      if(boot && boot.hidden && gate && gate.hidden &&
+         scr && scr.hidden && sec && sec.hidden){
+        boot.hidden = false;
+        boot.innerHTML =
+          '<div style="font-size:13px;line-height:1.6;color:var(--ink-2)">'+
+          '<b>Не получилось прочитать данные агентства.</b><br>'+
+          'Чаще всего это протухший вход. Нажмите «Войти заново» — '+
+          'данные никуда не делись, сервис просто попросит пароль.'+
+          '<div style="margin-top:12px;display:flex;gap:9px">'+
+          '<button class="bt sm" id="bootRetry" style="width:auto">Попробовать ещё раз</button>'+
+          '<button class="bt sm gh2" id="bootOut" style="width:auto">Войти заново</button>'+
+          '</div></div>';
+      }
+    }, 2500);
+    return r;
+  };
+  document.addEventListener("click", function(e){
+    if(e.target.closest("#bootRetry")){ goLive(); return; }
+    if(e.target.closest("#bootOut")){ window.foKick("Войдите заново"); return; }
+  });
+})();
 
 })();
 </script>
