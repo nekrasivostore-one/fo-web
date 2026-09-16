@@ -18207,6 +18207,61 @@ document.addEventListener("click", function(e){
   setTimeout(paintDemo, 700);
 })();
 
+/* ══ 56. Клиенты — один раздел, и с виджета открывается карточка ══
+   Было две кнопки на рельсе: «Мои клиенты» и «Карточки клиентов» —
+   про одно и то же, только с разных сторон. И кнопка на виджете
+   вываливала список кабинетов вместо карточки клиента.
+   Теперь: раздел один, а карточка — второй уровень внутри него.  */
+
+/* ── 1. на рельсе остаётся «Мои клиенты» ── */
+(function(){
+  var _ar = applyRoleRail;
+  applyRoleRail = function(){
+    var v = _ar.apply(this, arguments);
+    try{
+      var b = document.querySelector('.rail .ri[data-v="cards"]');
+      if(b) b.style.display = "none";
+    }catch(e){}
+    return v;
+  };
+})();
+
+/* ── 2. на виджете клиента — «Карточка клиента» вместо «Кабинеты» ── */
+(function(){
+  if(typeof cabCard !== "function") return;
+  var _cc = cabCard;
+  cabCard = function(pr, mine, open){
+    var h = _cc.apply(this, arguments);
+    h = h.replace(
+      /<button class="bt gh2 pcb" data-prcab="([^"]*)">Кабинеты<\/button>/,
+      '<button class="bt pcb" data-opencard="$1">Карточка клиента</button>');
+    return h;
+  };
+})();
+
+/* ── 3. открытие карточки: раздел «Карточки» с раскрытым клиентом ── */
+document.addEventListener("click", function(e){
+  var t = e.target.closest && e.target.closest("[data-opencard]");
+  if(!t) return;
+  e.preventDefault();
+  e.stopPropagation();
+  if(e.stopImmediatePropagation) e.stopImmediatePropagation();
+  var id = t.getAttribute("data-opencard");
+  try{ if(typeof ccOpen !== "undefined") ccOpen = id; }catch(err){}
+  try{ navPush("projects"); }catch(err){}
+  setView("cards", true);
+  setTimeout(function(){
+    var el = document.querySelector(".cc2.ccx");
+    if(el) el.scrollIntoView({behavior:"smooth", block:"start"});
+  }, 220);
+}, true);
+
+/* крошки: карточка открылась из «Моих клиентов», туда и возвращаемся */
+(function(){
+  if(typeof NAV_TITLES === "undefined") return;
+  NAV_TITLES.cards = ["Карточка клиента", "Платёж, артикулы, функции и контакты"];
+})();
+
 })();
 </script>
 </body>
