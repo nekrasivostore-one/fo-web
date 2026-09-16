@@ -17923,12 +17923,19 @@ window.foRoleState = function(){
       за агентство, сколько стоит его работа, сервис не должен.
       Деньги в сервисе живут в одном месте — в тарифах на сервис.  */
 (function(){
-  /* каталог функций подсаживается только в демо */
+  /* оба каталога подсаживаются только в демо: общий и платный */
   if(typeof fnsSeed === "function"){
     var _seed = fnsSeed;
     fnsSeed = function(){
       if(MODE !== "demo") return;
       return _seed.apply(this, arguments);
+    };
+  }
+  if(typeof fnsSeedPaid === "function"){
+    var _paid = fnsSeedPaid;
+    fnsSeedPaid = function(){
+      if(MODE !== "demo") return;
+      return _paid.apply(this, arguments);
     };
   }
 })();
@@ -17958,6 +17965,27 @@ window.foRoleState = function(){
   }
   document.addEventListener("click", function(){ setTimeout(strip, 60); });
   setTimeout(strip, 800);
+})();
+
+/* ── разовая уборка: в живом агентстве не должно остаться следов демо ──
+   Если человек до этого заходил в демо, каталог мог осесть в памяти
+   браузера и всплыть уже в его собственном агентстве. Вычищаем. */
+(function(){
+  function clean(){
+    if(MODE !== "live" || !(A && A.token)) return;
+    if(typeof S === "undefined" || !S) return;
+    var was = (S.fns || []).length;
+    S.fns = (S.fns || []).filter(function(f){
+      return !/^(fx|fp)\d+$/.test(String(f.id || ""));   /* подсаженные каталогом */
+    });
+    S.fnsExtra = false; S.fnsPaidSeeded = false;
+    if(was !== S.fns.length && typeof view !== "undefined" && view === "fns"){
+      try{ renderFns(); }catch(e){}
+    }
+  }
+  var _ar = applyRoleRail;
+  applyRoleRail = function(){ var v = _ar.apply(this, arguments); try{ clean(); }catch(e){} return v; };
+  setTimeout(clean, 900);
 })();
 
 })();
