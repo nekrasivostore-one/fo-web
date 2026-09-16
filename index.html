@@ -17912,6 +17912,54 @@ window.foRoleState = function(){
   };
 })();
 
+/* ══ 53. Чужие функции и цены — только в демо ═══════════════════
+   Две вещи, которые нельзя было оставлять:
+   1. Новое агентство открывало «Функции» и видело двадцать чужих
+      позиций. Их подмешивал демо-каталог, который работал в любом
+      режиме. Теперь живое агентство видит ровно свои функции — те,
+      что само завело. Каталог остаётся в демо, как и договаривались.
+   2. В сервисе стояла цена функции и сумма всего списка. Это прайс
+      агентства для его клиентов, сервису он не принадлежит и решать
+      за агентство, сколько стоит его работа, сервис не должен.
+      Деньги в сервисе живут в одном месте — в тарифах на сервис.  */
+(function(){
+  /* каталог функций подсаживается только в демо */
+  if(typeof fnsSeed === "function"){
+    var _seed = fnsSeed;
+    fnsSeed = function(){
+      if(MODE !== "demo") return;
+      return _seed.apply(this, arguments);
+    };
+  }
+})();
+
+(function(){
+  /* цена функции уходит с экрана: ни за штуку, ни за весь список */
+  if(typeof renderFns !== "function") return;
+  var _rf = renderFns;
+  renderFns = function(){
+    var v = _rf.apply(this, arguments);
+    try{
+      var host = document.getElementById("sect");
+      if(host) host.querySelectorAll(".fnprice").forEach(function(e){ e.remove(); });
+    }catch(e){}
+    return v;
+  };
+  if(typeof SEC_RENDER !== "undefined") SEC_RENDER.fns = renderFns;
+})();
+
+/* поле «цена» в карточке функции тоже убираем — его там быть не должно */
+(function(){
+  function strip(){
+    var f = document.querySelector('[data-fnc="price"]');
+    if(!f) return;
+    var lab = f.closest("label") || f.parentNode;
+    if(lab) lab.remove();
+  }
+  document.addEventListener("click", function(){ setTimeout(strip, 60); });
+  setTimeout(strip, 800);
+})();
+
 })();
 </script>
 </body>
