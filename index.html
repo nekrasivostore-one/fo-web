@@ -17752,10 +17752,17 @@ function canOpenDemo(){
     /* абзац-пояснение и разделитель «или» рядом с кнопкой */
     var gate = document.getElementById("gate");
     if(!gate || open) return;
-    var all = gate.querySelectorAll("p, .ghint, .gor, .gdemoh, .gsep");
+    /* абзац под кнопкой — у него класс .gfoot; плюс любой другой
+       текстовый узел, где упомянут демо-режим */
+    var all = gate.querySelectorAll(".gfoot, p, .ghint, .gor, .gdemoh, .gsep, .gl.gc > div");
     for(var i = 0; i < all.length; i++){
-      if(/демо-режим/i.test(all[i].textContent || "")) all[i].style.display = "none";
+      var el = all[i];
+      if(el.children.length) continue;                 /* только листья */
+      if(/демо-режим/i.test(el.textContent || "")) el.style.display = "none";
     }
+    /* разделитель «или» без кнопки под ним тоже ни к чему */
+    var or = gate.querySelector(".gor, .gsep");
+    if(or && !or.children.length && /^\s*или\s*$/i.test(or.textContent || "")) or.style.display = "none";
   }
   hideGate();
   setTimeout(hideGate, 400);
