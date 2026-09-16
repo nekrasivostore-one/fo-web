@@ -3158,6 +3158,58 @@ code.invc{ font-family:ui-monospace,SFMono-Regular,monospace; font-weight:700;
 .prcled{ font-size:12px; line-height:1.55; color:#9B85FF; background:rgba(124,92,255,.08);
   border-radius:10px; padding:9px 12px; margin-bottom:11px }
 .cmpbar b{ background:var(--panel); padding:0 3px; border-radius:4px }
+
+/* ── 40. Карточка менеджера в языке клиентской (D35) ── */
+.cc2.mgc .ccfill.hot{ border-color:rgba(219,74,95,.4); color:var(--crit) }
+.cc2.mgc .pcl{ margin-top:10px; display:flex; flex-direction:column; gap:5px }
+.cc2.mgc .pcr{ display:flex; align-items:center; gap:8px; font-size:11.5px; color:var(--ink-2) }
+.cc2.mgc .pcr .dot{ width:7px; height:7px; border-radius:50%; flex:none }
+.cc2.mgc .pcr .k{ flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
+.cc2.mgc .pcr .v{ color:var(--ink-3) }
+.cc2.mgc .pcr.more{ color:var(--ink-3); padding-left:15px }
+.ccbtns{ display:flex; gap:8px; margin-top:12px }
+.ccbtns .bt{ width:auto; flex:1 1 auto; padding:9px 12px; font-size:12px }
+.ccst.no{ background:rgba(219,74,95,.14); color:var(--crit) }
+
+/* ── D36 · клиентская карточка раскрывается на месте ── */
+.ccgrid{ align-items:start }
+.cc2{ transition:box-shadow .3s var(--ease), border-color .3s var(--ease) }
+.cc2.ccx{ grid-column:1 / -1; border-color:rgba(124,92,255,.4);
+  box-shadow:0 1px 0 rgba(255,255,255,.14) inset, 0 28px 70px -26px rgba(124,92,255,.5) }
+.ccdet{ margin-top:16px; border-top:1px solid var(--stroke-2); padding-top:16px;
+  animation:ccIn .34s var(--ease) both }
+@keyframes ccIn{
+  from{ opacity:0; transform:translateY(-10px); clip-path:inset(0 0 100% 0) }
+  to  { opacity:1; transform:none;             clip-path:inset(0 0 0 0) }
+}
+.ccdg{ display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-bottom:16px }
+.ccdc{ background:var(--panel-2); border:1px solid var(--stroke-2); border-radius:var(--r2);
+  padding:13px 15px }
+.ccdh{ font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.05em;
+  color:var(--ink-3); margin-bottom:10px }
+.ccdr{ display:flex; justify-content:space-between; gap:12px; align-items:baseline;
+  padding:6px 0; border-bottom:1px solid var(--stroke-2) }
+.ccdr:last-child{ border-bottom:0 }
+.ccdr span{ font-size:11.5px; color:var(--ink-3) }
+.ccdr b{ font-size:12.5px; font-weight:600; text-align:right }
+.ccdr b.mono{ font-family:ui-monospace,SFMono-Regular,monospace; letter-spacing:.04em }
+.ccdp{ display:flex; align-items:center; gap:9px; padding:5px 0 }
+.ccdp b{ flex:1; min-width:0; font-size:12.5px; font-weight:600;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
+.ccdp i{ font-style:normal; font-size:11.5px; color:var(--ink-3) }
+.ccdfn{ margin-bottom:14px }
+.ccdb{ margin-bottom:10px }
+.ccdb i{ display:block; font-style:normal; font-size:11px; color:var(--ink-3); margin-bottom:6px }
+.ccdt2{ display:inline-block; font-size:11.5px; color:var(--ink-2); background:var(--panel-2);
+  border:1px solid var(--stroke-2); border-radius:999px; padding:4px 11px; margin:0 5px 5px 0 }
+.ccdt2.dim{ color:var(--ink-3) }
+.ccdb2{ display:flex; gap:8px; flex-wrap:wrap }
+.ccdb2 .bt{ width:auto }
+
+@media (max-width:1100px){
+  .ccdg{ grid-template-columns:1fr }
+  .ccbtns{ flex-direction:column }
+}
 </style>
 </head>
 <body>
@@ -15447,6 +15499,199 @@ document.addEventListener("change", function(e){
   if(e.target.id === "cmpA"){ cmpA = e.target.value; renderRate(); }
   if(e.target.id === "cmpB"){ cmpB = e.target.value; renderRate(); }
 });
+
+/* ══ 40. КАРТОЧКИ: визуал менеджера и раскрытие клиентских ═══════
+   D35 · карточка менеджера должна выглядеть как карточка клиента —
+         та же сетка чисел, тот же ритм. Смыслы разные: у клиента
+         деньги и артикулы, у менеджера — часы и задачи.
+   D36 · клиентская карточка раскрывается на месте, с анимацией,
+         остальные просто сдвигаются вниз — без ухода на другой экран. */
+
+/* ── D35 · карточка менеджера в языке клиентской ── */
+function mgrFill(m){
+  /* заполненность карточки сотрудника — тем же принципом, что у клиента */
+  var base = [
+    [!!m.name,    "имя"],
+    [!!m.role,    "должность"],
+    [!!m.tg,      "telegram"],
+    [!!m.pay,     "оклад"],
+    [!!m.hoursDay || m.hoursDay === 0, "часов в день"],
+    [!!(m.cat && (m.cat.A || m.cat.B || m.cat.C)), "компетенции"]
+  ];
+  var got = base.filter(function(x){ return x[0]; }).length;
+  return {total:Math.round(got / base.length * 100),
+    miss:base.filter(function(x){ return !x[0]; }).map(function(x){ return x[1]; })};
+}
+
+personCard = function(m, open){
+  var wk  = weekOf(m.id);
+  var td  = tasksOf(function(t){ return t.person === m.id && t.dow === today; });
+  var all = tasksOf(function(t){ return t.person === m.id; });
+  var p   = pctOf(m.id, dow);
+  var prs = projectsOfPerson(m.id);
+  var left = minutesOf(td.filter(function(t){ return !t.done; }));
+  var f = mgrFill(m);
+  var g = gradeOf(m);
+  var wkH = minutesOf(all) / 60;
+  var norm = (m.hoursDay || 8) * 5;
+  var wkPct = norm ? Math.round(wkH / norm * 100) : 0;
+  var late = all.filter(function(t){ return !t.done && t.dow < today; }).length;
+  var uniq = {};
+  all.forEach(function(t){ uniq[(t.project || "") + "|" + (t.fn || t.title || "")] = 1; });
+  var money = seesMoney();
+
+  return '<section class="gl cc2 pc mgc'+(open ? " open" : "")+'" data-openperson="'+esc(m.id)+'">'+
+    '<div class="cch">'+
+      '<div class="av" style="background:'+m.color+'">'+esc(m.av)+'</div>'+
+      '<div class="cct"><div class="n">'+esc(m.name)+'</div>'+
+        '<div class="r">'+esc(m.role || "Сотрудник")+
+          (g.name && g.name.toLowerCase() !== String(m.role || "").toLowerCase()
+            ? ' · грейд «' + esc(g.name) + '»' : '')+
+          (m.tg ? ' · @' + esc(String(m.tg).replace(/^@+/, "")) : '')+'</div></div>'+
+      '<div class="ccfill'+(p > 110 ? ' hot' : p >= 85 ? ' full' : '')+'" title="Загрузка сегодня">'+
+        '<b>'+p+'%</b><i>сегодня</i></div>'+
+    '</div>'+
+
+    '<div class="ccnums">'+
+      '<div class="ccn1"><b>'+td.filter(function(t){ return t.done; }).length+' / '+td.length+'</b>'+
+        '<span>сделано сегодня</span></div>'+
+      '<div class="ccn1"><b>'+hrs(left)+' ч</b><span>осталось сегодня</span></div>'+
+      '<div class="ccn1"><b>'+Object.keys(uniq).length+'</b><span>уникальных задач</span></div>'+
+      '<div class="ccn1"><b>'+all.length+'</b><span>задач за неделю</span></div>'+
+      '<div class="ccn1"><b>'+hrs(wkH * 60)+' ч</b><span>часов за неделю</span></div>'+
+      '<div class="ccn1"><b'+(wkPct > 120 ? ' style="color:var(--crit)"' : '')+'>'+wkPct+'%</b>'+
+        '<span>загрузка недели</span></div>'+
+      '<div class="ccn1"><b'+(late ? ' style="color:var(--crit)"' : '')+'>'+late+'</b>'+
+        '<span>просрочено</span></div>'+
+      '<div class="ccn1"><b>'+prs.length+'</b><span>кабинетов ведёт</span></div>'+
+    '</div>'+
+
+    miniBars(wk)+
+
+    '<div class="ccbar2"><div class="ccp"><i data-w="'+Math.min(100, wkPct / 2)+'"></i></div>'+
+      '<span class="ccst '+(wkPct > 120 ? 'no' : wkPct >= 85 ? 'ok' : 'wait')+'">'+
+        (wkPct > 120 ? 'перегружен' : wkPct >= 85 ? 'в норме' : 'есть запас')+'</span>'+
+      '<span class="ccdt">'+(money && m.pay ? money0(m.pay) + ' в месяц' : 'вилка «' + esc(g.name) + '»')+'</span></div>'+
+
+    '<div class="pcl">'+(prs.length
+      ? prs.slice(0, 4).map(function(x){
+          return '<div class="pcr"><span class="dot" style="background:'+x.p.color+'"></span>'+
+            '<span class="k">'+esc(x.p.name)+'</span><span class="v">'+hrs(x.min)+' ч</span></div>'; }).join("")+
+        (prs.length > 4 ? '<div class="pcr more">и ещё '+(prs.length - 4)+'</div>' : '')
+      : '<div class="empty">Задач на неделе нет</div>')+'</div>'+
+
+    (f.miss.length
+      ? '<div class="ccn warn2">В карточке не хватает: '+esc(f.miss.slice(0, 3).join(", "))+
+        (f.miss.length > 3 ? ' и ещё ' + (f.miss.length - 3) : '')+'</div>'
+      : '<div class="ccn ok2">Карточка заполнена — сервис считает по ней честно</div>')+
+
+    '<div class="ccbtns">'+
+      '<button class="bt gh2 ccgo" data-mancard="'+esc(m.id)+'">Карточка сотрудника</button>'+
+      (open
+        ? '<button class="bt gh2" data-pegantt="'+esc(m.id)+'">'+
+          (peGantt ? "Свернуть гант" : "Показать гант")+'</button>'
+        : '<button class="bt gh2" data-peopengantt="'+esc(m.id)+'">Показать гант</button>')+
+    '</div>'+
+  '</section>';
+};
+
+/* ── D36 · клиентская карточка раскрывается на месте ── */
+var ccOpen = null;
+
+function ccDetail(pr){
+  var n = cabNumbers(pr), f = cardFill(pr);
+  var money = seesMoney();
+  var team = peopleOfProject(pr.id);
+  var rows = planOf(pr.id);
+  var byB = {1:[], 2:[], 3:[]};
+  rows.forEach(function(r){ byB[r.block || 2].push(r); });
+  var tg = String(pr.tg || "").replace(/^@+/, "");
+
+  return '<div class="ccdet">'+
+    '<div class="ccdg">'+
+      '<div class="ccdc"><div class="ccdh">Контакты</div>'+
+        '<div class="ccdr"><span>Собственник</span><b>'+(pr.owner ? esc(pr.owner) : '—')+'</b></div>'+
+        '<div class="ccdr"><span>Telegram</span><b>'+(tg ? '@' + esc(tg) : '—')+'</b></div>'+
+        '<div class="ccdr"><span>Телефон</span><b>'+(pr.phone ? esc(pr.phone) : '—')+'</b></div>'+
+        '<div class="ccdr"><span>Код кабинета</span><b class="mono">'+esc(pr.code || "—")+'</b></div>'+
+      '</div>'+
+      '<div class="ccdc"><div class="ccdh">Деньги</div>'+
+        '<div class="ccdr"><span>Платёж</span><b>'+(money ? (n.amount ? money0(n.amount) : '—') : 'скрыто')+'</b></div>'+
+        '<div class="ccdr"><span>Дата</span><b>'+(pr.payDate ? dateRu(pr.payDate) : '—')+'</b></div>'+
+        '<div class="ccdr"><span>Часов в неделю</span><b>'+hrs(n.h * 60)+' ч</b></div>'+
+        '<div class="ccdr"><span>Стоимость часа</span><b>'+
+          (money && n.amount && n.h ? money0(Math.round(n.amount / (n.h * 4.33))) : '—')+'</b></div>'+
+      '</div>'+
+      '<div class="ccdc"><div class="ccdh">Кто ведёт</div>'+
+        (team.length
+          ? team.slice(0, 5).map(function(x){
+              return '<div class="ccdp"><span class="av2" style="background:'+x.p.color+'">'+
+                esc(x.p.av || "")+'</span><b>'+esc(x.p.name)+'</b><i>'+hrs(x.min)+' ч</i></div>'; }).join("")
+          : '<div class="empty">Ответственных нет</div>')+
+      '</div>'+
+    '</div>'+
+    '<div class="ccdfn"><div class="ccdh">Что делаем в кабинете</div>'+
+      (rows.length
+        ? [1,2,3].map(function(b){
+            if(!byB[b].length) return '';
+            return '<div class="ccdb"><i>'+esc(BLOCKS[b])+' · '+byB[b].length+'</i>'+
+              byB[b].slice(0, 6).map(function(r){
+                return '<span class="ccdt2">'+esc(r.title)+'</span>'; }).join("")+
+              (byB[b].length > 6 ? '<span class="ccdt2 dim">и ещё '+(byB[b].length - 6)+'</span>' : '')+
+            '</div>'; }).join("")
+        : '<div class="empty">Функции в кабинете не заданы</div>')+
+    '</div>'+
+    (f.miss.length
+      ? '<div class="ccn warn2">Не хватает: '+esc(f.miss.join(", "))+'</div>' : '')+
+    '<div class="ccdb2">'+
+      '<button class="bt" data-opencab="'+esc(pr.id)+'">Открыть кабинет →</button>'+
+      '<button class="bt gh2" data-ccclose="1">Свернуть</button>'+
+    '</div>'+
+  '</div>';
+}
+
+(function(){
+  var _cc = clientCard;
+  clientCard = function(pr){
+    var h = _cc.call(this, pr);
+    var open = ccOpen === pr.id;
+    /* кнопка «Открыть кабинет» больше не единственный путь:
+       сначала карточка разворачивается на месте */
+    h = h.replace(
+      /<button class="bt gh2 ccgo" data-opencab="[^"]*">[^<]*<\/button>/,
+      '<div class="ccbtns">'+
+        '<button class="bt gh2 ccgo" data-ccopen="'+esc(pr.id)+'">'+
+          (open ? 'Свернуть карточку' : 'Раскрыть карточку')+'</button>'+
+        '<button class="bt gh2" data-opencab="'+esc(pr.id)+'">Открыть кабинет →</button>'+
+      '</div>');
+    if(open){
+      h = h.replace('<section class="gl cc2"', '<section class="gl cc2 ccx"');
+      h = h.replace('</section>', ccDetail(pr) + '</section>');
+    }
+    return h;
+  };
+})();
+
+/* перехватываем на фазе погружения: сама карточка помечена data-opencab
+   и иначе увела бы на экран кабинета раньше, чем сработает раскрытие */
+document.addEventListener("click", function(e){
+  var t;
+  if((t = e.target.closest("[data-ccopen]"))){
+    e.preventDefault(); e.stopPropagation();
+    if(e.stopImmediatePropagation) e.stopImmediatePropagation();
+    var id = t.getAttribute("data-ccopen");
+    ccOpen = ccOpen === id ? null : id;
+    renderCards();
+    if(ccOpen){
+      var el = document.querySelector('.cc2.ccx');
+      if(el) el.scrollIntoView({behavior:"smooth", block:"nearest"});
+    }
+    return; }
+  if(e.target.closest("[data-ccclose]")){
+    e.preventDefault(); e.stopPropagation();
+    if(e.stopImmediatePropagation) e.stopImmediatePropagation();
+    ccOpen = null; renderCards(); return; }
+}, true);
 
 })();
 </script>
