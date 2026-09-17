@@ -20967,6 +20967,178 @@ window.foLiveState = function(){
           задачВсего: (S.tasks||[]).length};
 };
 
+/* ══ 69. Задача уходит на сервер ════════════════════════════════
+   §113б В API сервиса нет «создать задачу». Задачи там рождаются
+        из функций: функция с цикличностью → назначена сотруднику →
+        /tasks/generate раскладывает её по дням. Экран постановки
+        работал мимо этой логики, поэтому в живом агентстве задача
+        жила только на экране.
+
+        Теперь при постановке цикличной задачи сервис делает всё три
+        шага сам и честно говорит, что получилось. Разовая задача
+        остаётся у вас на экране и переживает перезагрузку — сервер
+        такие пока не хранит, и я об этом пишу прямо, а не молчу.   */
+
+function foEmpFns(){ if(!S.empFns) S.empFns = {}; return S.empFns; }
+
+/* отмеченные дни недели: где-то массив, где-то словарь — приводим к списку */
+function foDaysList(){
+  try{
+    if(typeof ntDays === "undefined" || !ntDays) return [];
+    if(ntDays instanceof Array) return ntDays.slice();
+    return Object.keys(ntDays)
+      .filter(function(k){ return ntDays[k]; })
+      .map(function(k){ return +k; })
+      .filter(function(n){ return !isNaN(n); });
+  }catch(e){ return []; }
+}
+
+function foFnCycle(cyc, dow, days){
+  if(cyc === "daily")   return {cycle_kind:"daily",  cycle_n:1, cycle_weekdays:null};
+  if(cyc === "weekly")  return {cycle_kind:"weekly", cycle_n:1, cycle_weekdays:[dow]};
+  if(cyc === "biweekly")return {cycle_kind:"weekly", cycle_n:2, cycle_weekdays:[dow]};
+  if(cyc === "monthly") return {cycle_kind:"monthly",cycle_n:1, cycle_weekdays:null};
+  if(cyc === "several") return {cycle_kind:"weekly", cycle_n:1,
+                                cycle_weekdays:(days && days.length ? days : [dow])};
+  return null;                   /* разовая — сервер такие не хранит */
+}
+
+/* функция на сервере: берём существующую или заводим */
+function foFnEnsure(title, minutes, cyc, dow, days){
+  var fns = (S.fns || []);
+  var have = fns.filter(function(f){
+    return String(f.name || "").trim().toLowerCase() === String(title).trim().toLowerCase();
+  })[0];
+  if(have && have.id) return Promise.resolve(have.id);
+
+  var c = foFnCycle(cyc, dow, days) || {cycle_kind:"weekly", cycle_n:1, cycle_weekdays:[dow]};
+  var body = {
+    code: "FO" + Date.now().toString(36).toUpperCase(),
+    name: String(title).trim(),
+    norm_minutes: Math.max(1, Math.min(2880, +minutes || 30)),
+    block_id: 1, unit: "cabinet",
+    cycle_kind: c.cycle_kind
+  };
+  if(c.cycle_n) body.cycle_n = c.cycle_n;
+  if(c.cycle_weekdays && c.cycle_weekdays.length) body.cycle_weekdays = c.cycle_weekdays;
+
+  return api("/refs/functions", {method:"POST", body:body}).then(function(r){
+    var id = (r && (r.id || r.fn_id)) || null;
+    if(id){
+      S.fns = S.fns || [];
+      S.fns.push({id:id, code:body.code, name:body.name, minutes:body.norm_minutes});
+      try{ saveState(); }catch(e){}
+    }
+    return id;
+  });
+}
+
+/* что человек умеет — список заменяется целиком, поэтому копим свой */
+function foAllowFn(empId, fnId){
+  if(!empId || !fnId) return Promise.resolve(false);
+  var map = foEmpFns();
+  var list = (map[empId] || []).slice();
+  if(list.indexOf(fnId) < 0) list.push(fnId);
+  return api("/refs/employees/" + encodeURIComponent(empId) + "/functions",
+             {method:"PUT", body:list})
+    .then(function(){ map[empId] = list; try{ saveState(); }catch(e){} return true; })
+    .catch(function(){ return false; });
+}
+
+/* ── постановка задачи в живом агентстве ── */
+(function(){
+  if(typeof ntPlace !== "function") return;
+  var _np = ntPlace;
+  ntPlace = function(){
+    var before = {};
+    try{ ntCollect(); }catch(e){}
+    try{
+      before = {
+        title: String(ntState.title || "").trim(),
+        person: ntState.person || "",
+        cyc: ntState.cycle || "once",
+        dow: (ntState.dow != null && ntState.dow !== "") ? +ntState.dow : dow,
+        min: +ntState.min || 30,
+        days: foDaysList()
+      };
+    }catch(e){
+      before = null;
+      window.foNtLog = window.foNtLog || [];
+      window.foNtLog.push({шаг:"сбор не удался", ошибка:String(e && e.message || e)});
+    }
+
+    var v = _np.apply(this, arguments);        /* экран отрабатывает как прежде */
+
+    window.foNtLog = window.foNtLog || [];
+    window.foNtLog.push({шаг:"обёртка", live:foLive(), before:before});
+
+    if(!foLive() || !before || !before.title) return v;
+
+    if(!foFnCycle(before.cyc, before.dow, before.days)){
+      /* разовая: сервер такие не принимает — говорим прямо */
+      try{ toast("Разовая задача сохранена у вас и переживёт перезагрузку. "+
+        "На сервере такие пока не хранятся — цикличная уйдёт в агентство целиком"); }catch(e){}
+      return v;
+    }
+    if(!before.person){
+      try{ toast("Задача без ответственного осталась на экране — "+
+        "назначьте человека, и она уйдёт в агентство"); }catch(e){}
+      return v;
+    }
+
+    window.foNtLog.push({шаг:"шлём на сервер", цикл:before.cyc, кто:before.person});
+    foFnEnsure(before.title, before.min, before.cyc, before.dow, before.days)
+      .then(function(fnId){
+        if(!fnId) throw new Error("функция не завелась");
+        return foAllowFn(before.person, fnId);
+      })
+      .then(function(){
+        return api("/tasks/generate", {method:"POST"});
+      })
+      .then(function(){
+        try{ toast("Задача ушла в агентство — сервис разложил её по дням"); }catch(e){}
+        return loadLive();
+      })
+      .then(function(){ try{ render(); }catch(e){} })
+      .catch(function(err){
+        try{ toast("На сервер не ушло: " + (err.message || "не ответил") +
+          ". У вас на экране задача осталась"); }catch(e){}
+      });
+
+    return v;
+  };
+})();
+
+/* ── §116 смена ответственного и снятие с задачи ── */
+(function(){
+  /* передача задачи другому человеку уходит на сервер */
+  if(typeof patch === "function"){
+    var _p = patch;
+    patch = function(id, data){
+      var v = _p.apply(this, arguments);
+      try{
+        if(!foLive() || !data || !("person" in data)) return v;
+        var t = (S.tasks || []).filter(function(x){ return x.id === id; })[0];
+        if(!t || !t.rid) return v;
+        if(data.person){
+          api("/tasks/" + encodeURIComponent(t.rid) + "/transfer?to_employee_id=" +
+              encodeURIComponent(data.person) + "&reason=" + encodeURIComponent("сменили ответственного"),
+              {method:"POST"})
+            .then(function(){ try{ toast("Ответственный сменён в агентстве"); }catch(e){} })
+            .catch(function(err){ try{ toast("Смена не ушла на сервер: " + (err.message||"")); }catch(e){} });
+        }
+      }catch(e){}
+      return v;
+    };
+  }
+})();
+
+window.foTaskState = function(){
+  return {живой: foLive(), задач: (S.tasks||[]).length,
+          серверных: (S.tasks||[]).filter(function(t){ return !!t.rid; }).length,
+          функцийУлюдей: foEmpFns()};
+};
+
 })();
 </script>
 </body>
