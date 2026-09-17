@@ -20822,6 +20822,143 @@ window.foAccess = function(){
   return {обещано: foPromised(), сервер: SRV_USERS, ошибка: SRV_USERS_ERR};
 };
 
+/* ══ 68. В живом агентстве ничего не пропадает ══════════════════
+   §113 «Задача создаётся — но не сохраняется». Так и было: функция
+        saveState() в живом режиме выходит первой же строкой и не
+        делает ничего — весь фронт писался под демо. А сервер при
+        каждой загрузке перезаписывал людей, кабинеты, функции и
+        задачи своими данными, стирая всё, что человек внёс руками.
+
+        Теперь в живом режиме состояние переживает перезагрузку:
+        сохраняется то, чего сервер не отдаёт, и накладывается
+        обратно после его ответа. Серверные данные при этом главные —
+        имена и списки берутся у него, а наши дополнения ложатся
+        сверху по тем же id.                                        */
+
+var LIVE_KEEP = ["plan","arts","access","roleCfg","fnCfg","placed","accSeeded",
+                 "projectCode","fns2","logs","meet","office","growth"];
+var PERSON_BASE  = {id:1,name:1,role:1,av:1,color:1,ord:1,workday:1};
+var PROJECT_BASE = {id:1,name:1,av:1,color:1,ord:1,cabinets:1,articles:1};
+var FN_BASE      = {id:1,code:1,name:1,minutes:1};
+
+function foLiveKey(){
+  var em = "";
+  try{ em = (A && A.email) || ""; }catch(e){}
+  return "fo_live_v1_" + (em || "x");
+}
+function foExtra(obj, base){
+  var out = null;
+  for(var k in obj){
+    if(!Object.prototype.hasOwnProperty.call(obj, k)) continue;
+    if(base[k]) continue;
+    var v = obj[k];
+    if(typeof v === "function") continue;
+    if(out === null) out = {};
+    out[k] = v;
+  }
+  return out;
+}
+function foMapExtra(list, base){
+  var m = {};
+  (list || []).forEach(function(o){
+    if(!o || !o.id) return;
+    var x = foExtra(o, base);
+    if(x) m[o.id] = x;
+  });
+  return m;
+}
+
+function foLiveSave(){
+  if(!foLive()) return;
+  try{
+    var d = {v:1, at:Date.now()};
+    LIVE_KEEP.forEach(function(k){ if(S[k] !== undefined) d[k] = S[k]; });
+    /* задачи, которых на сервере нет: у серверных есть rid */
+    d.tasksLocal = (S.tasks || []).filter(function(t){ return t && !t.rid; });
+    /* дополнения к тому, что приходит с сервера */
+    d.peopleX   = foMapExtra(S.people,   PERSON_BASE);
+    d.projectsX = foMapExtra(S.projects, PROJECT_BASE);
+    d.fnsX      = foMapExtra(S.fns,      FN_BASE);
+    d.cabsX     = foMapExtra(S.cabs,     {id:1,name:1,project:1,ord:1});
+    localStorage.setItem(foLiveKey(), JSON.stringify(d));
+  }catch(e){
+    /* место в браузере кончилось — работаем дальше, но честно скажем один раз */
+    if(!foLiveSave._told){
+      foLiveSave._told = true;
+      try{ toast("Браузеру не хватило места сохранить — освободите память сайта"); }catch(x){}
+    }
+  }
+}
+
+function foLiveRestore(){
+  if(!foLive()) return;
+  var d = null;
+  try{ d = JSON.parse(localStorage.getItem(foLiveKey()) || "null"); }catch(e){}
+  if(!d) return;
+
+  LIVE_KEEP.forEach(function(k){ if(d[k] !== undefined) S[k] = d[k]; });
+
+  if(!S.tasks) S.tasks = [];
+  var have = {};
+  S.tasks.forEach(function(t){ if(t && t.id) have[t.id] = 1; });
+  (d.tasksLocal || []).forEach(function(t){ if(t && t.id && !have[t.id]) S.tasks.push(t); });
+
+  function put(list, map){
+    if(!map) return;
+    (list || []).forEach(function(o){
+      var x = map[o.id];
+      if(!x) return;
+      for(var k in x){ if(Object.prototype.hasOwnProperty.call(x, k)) o[k] = x[k]; }
+    });
+  }
+  put(S.people,   d.peopleX);
+  put(S.projects, d.projectsX);
+  put(S.fns,      d.fnsX);
+  put(S.cabs,     d.cabsX);
+}
+
+/* saveState в живом режиме больше не пустая */
+(function(){
+  if(typeof saveState !== "function") return;
+  var _ss = saveState;
+  saveState = function(){
+    var v = _ss.apply(this, arguments);
+    try{ foLiveSave(); }catch(e){}
+    return v;
+  };
+})();
+
+/* после ответа сервера возвращаем своё поверх */
+(function(){
+  if(typeof loadLive !== "function") return;
+  var _ll = loadLive;
+  loadLive = function(){
+    var pr = _ll.apply(this, arguments);
+    try{
+      return pr.then(function(r){
+        try{ foLiveRestore(); }catch(e){}
+        return r;
+      });
+    }catch(e){ return pr; }
+  };
+})();
+
+/* уходят со страницы — дописываем на всякий случай */
+window.addEventListener("beforeunload", function(){ try{ foLiveSave(); }catch(e){} });
+document.addEventListener("visibilitychange", function(){
+  if(document.visibilityState === "hidden"){ try{ foLiveSave(); }catch(e){} }
+});
+/* и раз в полминуты, чтобы не терять при закрытии вкладки силой */
+setInterval(function(){ try{ foLiveSave(); }catch(e){} }, 30000);
+
+window.foLiveState = function(){
+  var raw = "";
+  try{ raw = localStorage.getItem(foLiveKey()) || ""; }catch(e){}
+  return {ключ: foLiveKey(), байт: raw.length,
+          задачСвоих: ((S.tasks||[]).filter(function(t){ return !t.rid; })).length,
+          задачВсего: (S.tasks||[]).length};
+};
+
 })();
 </script>
 </body>
