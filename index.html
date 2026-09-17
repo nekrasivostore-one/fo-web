@@ -3716,6 +3716,10 @@ body.noadd [data-addmode]{ display:none !important; }
 /* ══ 62. Карточки сотрудников по уровню доступа ════════════════ */
 [data-mancard].nocard{ display:none !important; }
 #teamSync{ margin-right:8px; }
+
+/* ══ 63. Кто я в шапке ═════════════════════════════════════════ */
+.me .mn .mesub{ color:var(--ink-3, #8A8EA8); font-weight:500; font-size:12px; }
+.acctpart{ margin-bottom:10px; }
 </style>
 </head>
 <body>
@@ -20006,6 +20010,241 @@ function foIsMe(id){
       try{ toast(err.message || "не обновилось"); }catch(x){}
     });
   }, true);
+})();
+
+/* ══ 63. Живой режим не выдумывает человека ════════════════════
+   §101 Виктория зашла по коду агентства и увидела в шапке «Виталий»,
+        а в «Моём аккаунте» — чужую почту, «Собственник» и агентство.
+        Причина: если сервер не отдал карточку аккаунта, фронт брал
+        демо-заглушку. В живом режиме так нельзя: берём только то,
+        что известно точно — почту из входа, роль из токена, агентство
+        из шапки. Чего не знаем — пишем прочерк.
+   §102 «Мои клиенты» и «Моя команда» — так это выглядит у собственника.
+        Менеджеру это не его клиенты: у всех ниже директора разделы
+        называются «Клиенты агентства» и «Команда агентства».         */
+
+/* ── §101 кто я на самом деле ── */
+function foMailName(){
+  var m = "";
+  try{ m = String((A && A.email) || ""); }catch(e){}
+  if(!m) return "";
+  var n = m.split("@")[0].replace(/[._-]+/g, " ").trim();
+  return n ? n.charAt(0).toUpperCase() + n.slice(1) : "";
+}
+
+foMeName = function(){
+  if(ACC && ACC.name) return ACC.name;
+  try{ var n = localStorage.getItem("fo_name"); if(n) return n; }catch(e){}
+  if(foLive()) return foMailName() || "Вы";
+  var el = document.getElementById("meName");
+  if(el) return String(el.textContent || "").split("·")[0].trim() || "Вы";
+  return "Вы";
+};
+
+/* в живом режиме карточка аккаунта собирается из достоверного */
+accDemo = function(){
+  if(foLive()){
+    var em = "";
+    try{ em = (A && A.email) || ""; }catch(e){}
+    return {email: em, name: foMeName(), phone: "",
+            role_code: role,
+            role_title: (typeof myRoleName === "function" ? myRoleName(role) : roleName(role)),
+            org_name: (typeof orgName === "function" ? orgName() : "") || "",
+            created_at: null, has_password: true, partial: true};
+  }
+  return {email: (A && A.email) || "demo@flater.pro",
+          name: foMeName(), phone: "", role_code: role,
+          role_title: (typeof myRoleName === "function" ? myRoleName(role) : roleName(role)),
+          org_name: (typeof orgName === "function" ? orgName() : "") || "Flater",
+          created_at: null, has_password: true, demo: true};
+};
+
+/* шапка: имя и почта вместо заглушки «Виталий · 000001» */
+foPaintMe = function(){
+  var n = foMeName();
+  var el = document.getElementById("meName");
+  if(el){
+    var sub = foLive()
+      ? (function(){ try{ return (A && A.email) || ""; }catch(e){ return ""; } })()
+      : "демо";
+    el.innerHTML = esc(n) +
+      (sub ? ' <span class="mesub">· ' + esc(sub) + '</span>' : "");
+  }
+  var av = document.getElementById("meAv");
+  if(av) av.textContent = foInitials(n);
+};
+
+/* красим сразу, как только known: вход, загрузка, смена роли */
+(function(){
+  function kick(){ try{ foPaintMe(); }catch(e){} }
+  [300, 900, 2000, 4000].forEach(function(ms){ setTimeout(kick, ms); });
+  if(typeof applyRoleRail === "function"){
+    var _ar = applyRoleRail;
+    applyRoleRail = function(){ var v = _ar.apply(this, arguments); kick(); return v; };
+  }
+  if(typeof loadLive === "function"){
+    var _ll = loadLive;
+    loadLive = function(){
+      var pr = _ll.apply(this, arguments);
+      try{ pr.then(kick, function(){}); }catch(e){}
+      return pr;
+    };
+  }
+})();
+
+/* в «Моём аккаунте» честно говорим, если сервер не отдал карточку */
+(function(){
+  if(typeof renderAcct !== "function") return;
+  var _ra = renderAcct;
+  renderAcct = function(){
+    _ra.apply(this, arguments);
+    try{
+      if(!foLive() || !ACC || !ACC.partial) return;
+      var host = document.getElementById("sect");
+      var box = host && host.querySelector(".acctw .fnsec");
+      if(!box || host.querySelector(".acctpart")) return;
+      box.insertAdjacentHTML("afterbegin",
+        '<div class="fnnote acctpart">Часть данных сервис пока не отдаёт: '+
+        'дата регистрации и телефон появятся, когда доедет серверная часть. '+
+        'Почта и уровень доступа — настоящие, из вашего входа.</div>');
+    }catch(e){}
+  };
+  try{ if(typeof SEC_RENDER === "object" && SEC_RENDER) SEC_RENDER.acct = renderAcct; }catch(e){}
+})();
+
+/* ── §102 чьи это клиенты и чья команда ── */
+var FO_OWN_VIEW = {admin:1, owner:1, dir:1};
+function foOwnWording(){ return !!FO_OWN_VIEW[role]; }
+
+(function(){
+  var MINE = {people:"Моя команда", projects:"Мои клиенты"};
+  var THEIRS = {people:"Команда агентства", projects:"Клиенты агентства"};
+  var SUB = {
+    people:  ["Кто чем занят на этой неделе", "Кто чем занят в агентстве на этой неделе"],
+    projects:["Что происходит по каждому кабинету", "Что происходит по кабинетам агентства"]
+  };
+
+  function words(){
+    var own = foOwnWording();
+    ["people", "projects"].forEach(function(v){
+      var name = own ? MINE[v] : THEIRS[v];
+      try{
+        if(typeof NAV_TITLES === "object" && NAV_TITLES && NAV_TITLES[v]){
+          NAV_TITLES[v][0] = name;
+          NAV_TITLES[v][1] = own ? SUB[v][0] : SUB[v][1];
+        }
+      }catch(e){}
+      var b = document.querySelector('.rail .ri[data-v="' + v + '"]');
+      if(b){
+        var k = b.querySelector(".k") || b.querySelector("span:last-child");
+        if(k && k.textContent !== name) k.textContent = name;
+        else if(!k && b.textContent.trim() !== name) b.textContent = name;
+      }
+    });
+    /* заголовок открытого раздела */
+    try{
+      if((view === "people" || view === "projects") && typeof setTitles === "function"){
+        var h = document.querySelector("#sect h1, .sect-h h1, .crumbs .cur");
+        if(h && NAV_TITLES[view]) h.textContent = NAV_TITLES[view][0];
+      }
+    }catch(e){}
+  }
+  words();
+  [400, 1200, 2500].forEach(function(ms){ setTimeout(words, ms); });
+  if(typeof applyRoleRail === "function"){
+    var _ar = applyRoleRail;
+    applyRoleRail = function(){ var v = _ar.apply(this, arguments); words(); return v; };
+  }
+  if(typeof setView === "function"){
+    var _sv = setView;
+    setView = function(){ words(); var v = _sv.apply(this, arguments); words(); return v; };
+  }
+  if(typeof render === "function"){
+    var _r = render;
+    render = function(){ var v = _r.apply(this, arguments); words(); return v; };
+  }
+  /* «Моя команда» в шапке раздела и в крошках */
+  if(typeof teamHead === "function"){
+    var _th = teamHead;
+    teamHead = function(){
+      var h = _th.apply(this, arguments);
+      if(foOwnWording()) return h;
+      try{ return h.replace("Кто чем занят на этой неделе", "Кто чем занят в агентстве на этой неделе"); }
+      catch(e){ return h; }
+    };
+  }
+})();
+
+/* ══ 64. Форма нового кабинета больше не теряет заполненное ═════
+   §104 Нажал «+ Ещё задача» — и всё, что вписано в шапке кабинета
+        (название, собственник, телефон, сумма, артикулы, таблица),
+        исчезало. Причина: эти поля нигде не хранились, они жили
+        только в разметке, а каждая новая строка задачи перерисовывала
+        форму целиком. Теперь значения снимаются перед перерисовкой
+        и возвращаются после неё.                                   */
+
+var NC_KEEP = {};
+var NC_FIELDS = ["ncName","ncOwner","ncTg","ncPhone","ncAmt","ncPay","ncArt",
+                 "ncSheet","ncArtTotal","ncArtList"];
+
+function ncGrab(){
+  NC_FIELDS.forEach(function(id){
+    var el = document.getElementById(id);
+    if(el) NC_KEEP[id] = el.value;
+  });
+}
+function ncPut(){
+  NC_FIELDS.forEach(function(id){
+    var el = document.getElementById(id);
+    if(el && NC_KEEP[id] !== undefined && NC_KEEP[id] !== "") el.value = NC_KEEP[id];
+  });
+}
+function ncForget(){ NC_KEEP = {}; }
+
+(function(){
+  if(typeof renderNewCab !== "function") return;
+  var _rc = renderNewCab;
+  renderNewCab = function(){
+    ncGrab();                       /* снимаем то, что человек уже вписал */
+    var v = _rc.apply(this, arguments);
+    ncPut();                        /* и возвращаем на место */
+    return v;
+  };
+  try{ if(typeof SEC_RENDER === "object" && SEC_RENDER) SEC_RENDER.newcab = renderNewCab; }catch(e){}
+
+  /* открыли форму заново — начинаем с чистого листа */
+  document.addEventListener("click", function(e){
+    if(!e.target.closest) return;
+    if(e.target.closest("#raccAdd") || e.target.closest("[data-addmode]") ||
+       e.target.closest("#ncCancel") || e.target.closest("#ncBack")) ncForget();
+  }, true);
+
+  /* сохранили кабинет — поля больше не нужны */
+  document.addEventListener("click", function(e){
+    if(e.target.closest && e.target.closest("#ncSave")) setTimeout(ncForget, 50);
+  });
+
+  /* печатает человек — держим свежую копию, даже если перерисует что-то ещё */
+  document.addEventListener("input", function(e){
+    var t = e.target;
+    if(t && t.id && NC_FIELDS.indexOf(t.id) >= 0) NC_KEEP[t.id] = t.value;
+  });
+  document.addEventListener("change", function(e){
+    var t = e.target;
+    if(t && t.id && NC_FIELDS.indexOf(t.id) >= 0) NC_KEEP[t.id] = t.value;
+  });
+})();
+
+/* то же самое у формы нового менеджера: строка задачи не должна
+   стирать имя, должность и телеграм */
+(function(){
+  if(typeof renderNewMan !== "function" || typeof nmCollect !== "function") return;
+  var _rm = renderNewMan;
+  renderNewMan = function(){
+    try{ if(document.getElementById("nmName")) nmCollect(); }catch(e){}
+    return _rm.apply(this, arguments);
+  };
+  try{ if(typeof SEC_RENDER === "object" && SEC_RENDER) SEC_RENDER.newman = renderNewMan; }catch(e){}
 })();
 
 })();
