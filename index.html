@@ -3664,6 +3664,49 @@ label .fnote, .edf .fnote, .fnote{
 .invnote{
   margin:6px 0 2px; font-size:12.5px; line-height:1.4; opacity:.7;
 }
+
+/* ══ 60. Мой аккаунт и права по ролям ══════════════════════════ */
+
+/* §92 ниже проджекта не заводят кабинеты и людей */
+body.noadd #raccAddMan,
+body.noadd #raccAdd,
+body.noadd #teamAddMan,
+body.noadd #cabAdd,
+body.noadd #addCab,
+body.noadd #addCab2,
+body.noadd #aodAdd,
+body.noadd [data-addmode]{ display:none !important; }
+
+/* §90 мой аккаунт */
+.acctw .accgrid{
+  display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));
+  gap:10px; margin:2px 0 2px;
+}
+.acctw .accc{
+  border:1px solid var(--line, rgba(130,130,150,.22));
+  border-radius:12px; padding:10px 12px;
+  background:rgba(130,130,150,.05);
+}
+.acctw .accc i{ display:block; font-style:normal; font-size:11.5px; opacity:.62;
+  text-transform:uppercase; letter-spacing:.04em; }
+.acctw .accc b{ display:block; font-size:14.5px; font-weight:650; margin-top:3px;
+  word-break:break-word; }
+.acctw .accc u{ display:block; text-decoration:none; font-size:11.5px; opacity:.55; margin-top:4px; }
+.acctw .admsave{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-top:10px; }
+.acctw .admsaved{ font-size:12.5px; opacity:.72; }
+
+/* §89 персональная ссылка */
+.invlink .invl .invtx{ font-size:12.5px; opacity:.72; flex:1 1 180px; }
+.invsend [data-invoff]{ margin-left:auto; width:auto; flex:0 0 auto; }
+
+/* отчёт шага деплоя */
+.stepbox{ margin-top:14px; }
+.steptx{
+  margin:10px 0 0; padding:12px 14px; border-radius:10px; max-height:460px; overflow:auto;
+  background:rgba(130,130,150,.07); border:1px solid rgba(130,130,150,.2);
+  font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:11.5px; line-height:1.55;
+  white-space:pre-wrap; word-break:break-word;
+}
 </style>
 </head>
 <body>
@@ -19004,6 +19047,605 @@ window.foInv = function(){
   return {live: foLive(), code: foInviteCode(), url: foInviteUrl(),
           clean: foCodeClean, acc: FO_ACC_ROLES.map(function(x){ return x[0]; })};
 };
+
+/* ══ 60. Мой аккаунт, приглашения с уровнем, права по ролям ═════
+   §88 Уровень доступа выдаёт СЕРВЕР — из приглашения, а не браузер.
+   §89 Ссылка персональная и одноразовая: вошёл один — погасла.
+   §90 Вкладка «Мой аккаунт»: регистрация, почта, телефон, имя,
+       смена пароля по коду с рабочей почты. На любой роли.
+   §91 Блока выдачи доступов нет вовсе у ролей без права выдавать.
+   §92 Ниже проджекта нельзя заводить кабинеты и менеджеров.      */
+
+/* ── кто что может ─────────────────────────────────────────── */
+var FO_ADD_OK = {admin:1, owner:1, dir:1, head:1, pm:1};
+function foCanAdd(){ return !!FO_ADD_OK[role]; }
+function foCanGrant(){
+  if(role === "admin" || role === "owner" || role === "dir") return true;
+  try{ if(typeof canGrant === "function") return !!canGrant(); }catch(e){}
+  return false;
+}
+
+/* ── аккаунт и уровни с сервера ────────────────────────────── */
+var ACC = null, ACC_ERR = "", SRV_ROLES = null;
+
+function accDemo(){
+  return {email: (A && A.email) || "vitaly@flater.pro",
+          name: foMeName(), phone: "", role_code: role,
+          role_title: (typeof myRoleName === "function" ? myRoleName(role) : roleName(role)),
+          org_name: (typeof orgName === "function" ? orgName() : "") || "Flater",
+          created_at: null, has_password: true, demo: true};
+}
+function accLoad(cb){
+  if(!foLive()){ ACC = accDemo(); if(cb) cb(); return; }
+  api("/refs/me/account").then(function(d){
+    ACC = d; ACC_ERR = "";
+    try{ if(d.name) localStorage.setItem("fo_name", d.name); }catch(e){}
+    foPaintMe();
+    if(cb) cb();
+  }).catch(function(e){
+    ACC_ERR = e.message || "не удалось прочитать аккаунт";
+    ACC = ACC || accDemo(); ACC.demo = false;
+    if(cb) cb();
+  });
+}
+function rolesLoad(cb){
+  if(!foLive() || SRV_ROLES){ if(cb) cb(); return; }
+  api("/refs/roles").then(function(rs){
+    if(rs && rs.length) SRV_ROLES = rs;
+    if(cb) cb();
+  }).catch(function(){ if(cb) cb(); });
+}
+
+/* какие уровни этот человек может выдать: всё ниже себя,
+   никогда — собственника и администратора сервиса */
+function foGrantable(){
+  var mine = ["admin","owner","dir","head","pm","mgr","jun","asst","client"].indexOf(role);
+  if(mine < 0) mine = 1;
+  if(SRV_ROLES && SRV_ROLES.length){
+    var myLvl = 1;
+    SRV_ROLES.forEach(function(r){ if(r.code === role) myLvl = +r.level; });
+    return SRV_ROLES.filter(function(r){ return +r.level > Math.max(1, myLvl); })
+      .map(function(r){ return [r.code, foRoleLine(r.code, r.title)]; });
+  }
+  return FO_ACC_ROLES.filter(function(o){
+    var i = ["admin","owner","dir","head","pm","mgr","jun","asst","client"].indexOf(o[0]);
+    return i > Math.max(1, mine);
+  });
+}
+function foRoleLine(code, title){
+  var known = FO_ACC_ROLES.filter(function(x){ return x[0] === code; })[0];
+  if(known) return known[1];
+  return title || code;
+}
+
+/* ── имя человека: видно в шапке на любой роли ──────────────── */
+function foMeName(){
+  try{ var n = localStorage.getItem("fo_name"); if(n) return n; }catch(e){}
+  if(ACC && ACC.name) return ACC.name;
+  var el = document.getElementById("meName");
+  if(el) return String(el.textContent || "").split("·")[0].trim();
+  return "Вы";
+}
+function foInitials(n){
+  var p = String(n || "").trim().split(/\s+/).filter(Boolean);
+  if(!p.length) return "ВЫ";
+  return (p[0].charAt(0) + (p[1] ? p[1].charAt(0) : "")).toUpperCase();
+}
+function foPaintMe(){
+  var n = foMeName();
+  var el = document.getElementById("meName");
+  if(el){
+    var tail = el.querySelector("span");
+    el.textContent = n + " ";
+    if(tail) el.appendChild(tail);
+  }
+  var av = document.getElementById("meAv");
+  if(av) av.textContent = foInitials(n);
+}
+
+/* ── §90 раздел «Мой аккаунт» ──────────────────────────────── */
+var pwdStep = 0, pwdNote = "", accNote = "";
+
+function accDateRu(v){
+  if(!v) return "—";
+  try{
+    var d = new Date(v);
+    if(isNaN(d)) return "—";
+    return d.toLocaleDateString("ru-RU", {day:"numeric", month:"long", year:"numeric"});
+  }catch(e){ return "—"; }
+}
+
+function renderAcct(){
+  var host = document.getElementById("sect");
+  if(!host) return;
+  if(!ACC){ accLoad(function(){ if(view === "acct") renderAcct(); }); }
+  var d = ACC || accDemo();
+  var live = foLive();
+
+  host.innerHTML =
+    '<div class="gl fnone acctw">'+
+      '<div class="gl-t"><h2>Мой аккаунт</h2>'+
+        '<span class="m">чем вы входите в сервис и как вас видит команда</span></div>'+
+
+      (ACC_ERR ? '<div class="gerr on">'+esc(ACC_ERR)+'</div>' : '')+
+
+      '<div class="fnsec"><div class="fnsh">Регистрация</div>'+
+        '<div class="accgrid">'+
+          '<div class="accc"><i>Рабочая почта</i><b>'+esc(d.email || "—")+'</b>'+
+            '<u>по ней приходит код входа</u></div>'+
+          '<div class="accc"><i>Уровень доступа</i><b>'+esc(d.role_title || roleName(d.role_code || role))+'</b>'+
+            '<u>его выдаёт '+(d.role_code === "owner" ? "сам сервис при регистрации" : "собственник агентства")+'</u></div>'+
+          '<div class="accc"><i>Агентство</i><b>'+esc(d.org_name || "—")+'</b>'+
+            '<u>вы работаете внутри него</u></div>'+
+          '<div class="accc"><i>В сервисе с</i><b>'+esc(accDateRu(d.created_at))+'</b>'+
+            '<u>'+(live ? "дата регистрации" : "в демо даты нет")+'</u></div>'+
+        '</div>'+
+      '</div>'+
+
+      '<div class="fnsec"><div class="fnsh">Как вас видно</div>'+
+        '<div class="sfr">'+
+          '<label><span>Имя</span>'+
+            '<input class="fi sm" id="acName" placeholder="Как к вам обращаться" '+
+            'value="'+esc(d.name || foMeName())+'"></label>'+
+          '<label class="nar"><span>Телефон</span>'+
+            '<input class="fi sm" id="acPhone" placeholder="+7…" value="'+esc(d.phone || "")+'"></label>'+
+        '</div>'+
+        '<div class="admsave"><button class="bt sm" id="acSave">Сохранить</button>'+
+          '<span class="admsaved" id="acSaved">'+esc(accNote)+'</span></div>'+
+        '<div class="fnnote">Имя сразу меняется в шапке и в списке команды — на любой роли.</div>'+
+      '</div>'+
+
+      '<div class="fnsec"><div class="fnsh">Пароль</div>'+
+        (live
+          ? (pwdStep === 0
+              ? '<div class="fnnote">Чтобы сменить пароль, сервис пришлёт код на '+
+                  '<b>'+esc(d.email || "вашу почту")+'</b>. Без кода пароль не меняется.</div>'+
+                '<div class="admsave"><button class="bt sm" id="pwStart">Получить код на почту</button>'+
+                  '<span class="admsaved" id="pwNote">'+esc(pwdNote)+'</span></div>'
+              : '<div class="sfr">'+
+                  '<label class="nar"><span>Код из письма</span>'+
+                    '<input class="fi sm" id="pwCode" inputmode="numeric" maxlength="6" placeholder="6 цифр"></label>'+
+                  '<label><span>Новый пароль</span>'+
+                    '<input class="fi sm" id="pwNew" type="password" placeholder="не короче 8 символов"></label>'+
+                '</div>'+
+                '<div class="admsave"><button class="bt sm" id="pwSet">Сменить пароль</button>'+
+                  '<button class="bt sm gh2" id="pwAgain">Прислать код ещё раз</button>'+
+                  '<span class="admsaved" id="pwNote">'+esc(pwdNote)+'</span></div>')
+          : '<div class="fnnote">В демо пароль менять не на чем: демо не связано с живым аккаунтом.</div>')+
+      '</div>'+
+    '</div>';
+}
+
+document.addEventListener("click", function(e){
+  var t;
+
+  if(e.target.closest("#acSave")){
+    var nm = String((document.getElementById("acName")||{}).value || "").trim();
+    var ph = String((document.getElementById("acPhone")||{}).value || "").trim();
+    var note = document.getElementById("acSaved");
+    if(nm.length < 2){
+      var f = document.getElementById("acName");
+      if(f){ f.classList.add("fbad"); foFieldNote(f, "Имя короче двух символов"); f.focus(); }
+      return;
+    }
+    try{ localStorage.setItem("fo_name", nm); }catch(x){}
+    if(ACC){ ACC.name = nm; ACC.phone = ph; }
+    foPaintMe();
+    if(!foLive()){ if(note) note.textContent = "в демо сохранилось только на экране"; return; }
+    if(note) note.textContent = "сохраняю…";
+    api("/refs/me/account", {method:"POST", body:{name:nm, phone:ph}})
+      .then(function(){ if(note) note.textContent = "сохранено"; })
+      .catch(function(err){ if(note) note.textContent = err.message || "не сохранилось"; });
+    return;
+  }
+
+  if((t = e.target.closest("#pwStart")) || (t = e.target.closest("#pwAgain"))){
+    var b = t, n2 = document.getElementById("pwNote");
+    if(n2) n2.textContent = "отправляю…";
+    b.disabled = true;
+    api("/refs/me/password/code", {method:"POST"})
+      .then(function(r){
+        pwdStep = 1;
+        pwdNote = r && r.mail_sent
+          ? "код отправлен на " + (r.email || "почту")
+          : (r && r.code_shown
+              ? "почта не ответила — код: " + r.code_shown
+              : "код выписан");
+        renderAcct();
+      })
+      .catch(function(err){
+        b.disabled = false;
+        pwdNote = err.message || "не отправилось";
+        if(n2) n2.textContent = pwdNote;
+      });
+    return;
+  }
+
+  if(e.target.closest("#pwSet")){
+    var cd = String((document.getElementById("pwCode")||{}).value || "").trim();
+    var np = String((document.getElementById("pwNew")||{}).value || "");
+    var n3 = document.getElementById("pwNote");
+    if(cd.length < 4){
+      var fc = document.getElementById("pwCode");
+      if(fc){ fc.classList.add("fbad"); foFieldNote(fc, "Впишите код из письма"); fc.focus(); }
+      return;
+    }
+    if(np.length < 8){
+      var fp = document.getElementById("pwNew");
+      if(fp){ fp.classList.add("fbad"); foFieldNote(fp, "Не короче восьми символов"); fp.focus(); }
+      return;
+    }
+    if(n3) n3.textContent = "меняю…";
+    api("/refs/me/password", {method:"POST", body:{code:cd, password:np}})
+      .then(function(){
+        pwdStep = 0; pwdNote = "пароль сменён — в следующий раз входите новым";
+        renderAcct();
+        try{ toast("Пароль сменён"); }catch(x){}
+      })
+      .catch(function(err){ if(n3) n3.textContent = err.message || "не сменился"; });
+    return;
+  }
+});
+document.addEventListener("input", function(e){
+  var t = e.target;
+  if(t && (t.id === "acName" || t.id === "pwCode" || t.id === "pwNew")){
+    t.classList.remove("fbad"); foFieldNote(t, "");
+  }
+});
+
+NAV_TITLES.acct = ["Мой аккаунт", "Регистрация, имя, телефон и пароль"];
+SEC_RENDER.acct = renderAcct;
+
+/* пункт меню — первым, до подписки */
+(function(){
+  if(typeof meMenuHTML !== "function") return;
+  var _mm = meMenuHTML;
+  meMenuHTML = function(){
+    var h = _mm.apply(this, arguments);
+    var item = '<button class="memi" data-me="acct">'+
+      '<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.4"/>'+
+      '<path d="M5 20c.9-3.4 3.6-5.2 7-5.2s6.1 1.8 7 5.2"/></svg>'+
+      '<span><b>Мой аккаунт</b><i>почта, имя, телефон и пароль</i></span></button>';
+    return h.replace('<button class="memi" data-me="tariff">', item + '<button class="memi" data-me="tariff">');
+  };
+})();
+
+/* имя в шапке рисуем сразу, как только известен аккаунт */
+(function(){
+  function kick(){ try{ foPaintMe(); }catch(e){} }
+  setTimeout(function(){ accLoad(kick); rolesLoad(); }, 1800);
+  setTimeout(kick, 3000);
+})();
+
+/* ── §92 ниже проджекта не заводят кабинеты и людей ────────── */
+(function(){
+  function paint(){
+    try{
+      document.body.classList.toggle("noadd", !foCanAdd());
+    }catch(e){}
+  }
+  paint();
+  setTimeout(paint, 900);
+  if(typeof applyRoleRail === "function"){
+    var _ar = applyRoleRail;
+    applyRoleRail = function(){ var v = _ar.apply(this, arguments); paint(); return v; };
+  }
+  if(typeof render === "function"){
+    var _r = render;
+    render = function(){ var v = _r.apply(this, arguments); paint(); return v; };
+  }
+  /* даже если кнопка где-то осталась — она не сработает */
+  document.addEventListener("click", function(e){
+    if(foCanAdd()) return;
+    var t = e.target.closest && e.target.closest(
+      "#raccAddMan, #raccAdd, #teamAddMan, #cabAdd, #addCab, #addCab2, #aodAdd, [data-addmode]");
+    if(!t) return;
+    e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();
+    try{ toast("Заводить кабинеты и людей может проджект и выше"); }catch(x){}
+  }, true);
+  /* и разделы заведения закрыты напрямую */
+  if(typeof setView === "function"){
+    var _sv = setView;
+    setView = function(v){
+      if(!foCanAdd() && (v === "newman" || v === "newcab" || v === "setup")){
+        try{ toast("Заводить кабинеты и людей может проджект и выше"); }catch(x){}
+        return;
+      }
+      return _sv.apply(this, arguments);
+    };
+  }
+})();
+
+/* ── §88–89 персональное приглашение с уровнем ─────────────── */
+var invMade = {};    /* id человека → выданное приглашение */
+
+function foInviteFor(m){
+  var id = m && m.id;
+  if(id && invMade[id]) return invMade[id];
+  if(m && m.inviteUrl && m.inviteToken) return {url:m.inviteUrl, token:m.inviteToken, role:m.acc};
+  return null;
+}
+
+/* блок «Доступ в сервис» — только у тех, кто вправе выдавать */
+foInviteBlock = function(m, forNew){
+  /* §91 нет права выдавать доступы — нет и поля */
+  if(!foCanGrant()) return "";
+  var list = foGrantable();
+  if(!list.length) list = FO_ACC_ROLES;
+  var cur = forNew ? (list[list.length-1] || ["jun"])[0] : (m && m.acc) || (list[list.length-1] || ["jun"])[0];
+  var made = forNew ? null : foInviteFor(m);
+
+  var sel = '<label class="edf"><span>Уровень доступа</span>'+
+    '<select class="fi sm"'+(forNew
+      ? ' id="nmAcc"'
+      : ' data-ed="man" data-edid="'+esc(m.id)+'" data-edk="acc"')+'>'+
+    list.map(function(o){
+      return '<option value="'+esc(o[0])+'"'+(String(o[0])===String(cur)?' selected':'')+'>'+
+        esc(o[1])+'</option>'; }).join("")+'</select></label>';
+
+  var right;
+  if(forNew){
+    right = '<div class="edf wide invlink"><span>Ссылка-приглашение</span>'+
+      '<div class="invl empty">Выдам одноразовую ссылку, как только сохраните карточку</div></div>';
+  } else if(made){
+    right = '<div class="edf wide invlink"><span>Персональная ссылка · одноразовая</span>'+
+      '<div class="invl"><code>'+esc(made.url)+'</code>'+
+      '<button type="button" class="bt gh2 sm" data-copy="'+esc(made.url)+'">Копировать</button>'+
+      '</div></div>';
+  } else {
+    right = '<div class="edf wide invlink"><span>Ссылка-приглашение</span>'+
+      '<div class="invl"><span class="invtx">Нажмите — выпишу ссылку под выбранный уровень</span>'+
+      '<button type="button" class="bt sm" data-invnew="'+esc(m.id)+'">Выдать приглашение</button>'+
+      '</div></div>';
+  }
+
+  var send = (made && !forNew)
+    ? '<div class="invsend">Отправить: '+
+        '<a class="bt gh2 sm" target="_blank" rel="noopener" href="https://t.me/share/url?url='+
+          encodeURIComponent(made.url)+'&text='+
+          encodeURIComponent("Вас зовут в агентство. Ссылка одноразовая, уровень доступа: "+
+            foAccName(made.role || cur))+'">Telegram</a>'+
+        (m && m.mail
+          ? '<a class="bt gh2 sm" href="mailto:'+esc(m.mail)+'?subject='+
+              encodeURIComponent("Приглашение в агентство")+'&body='+
+              encodeURIComponent("Заходите по ссылке: "+made.url)+'">Почта</a>'
+          : '')+
+        '<button type="button" class="bt gh2 sm" data-invoff="'+esc(m.id)+'">Отозвать</button>'+
+      '</div>'
+    : '';
+
+  return '<div class="edr invrow">'+ sel + right +'</div>'+ send +
+    '<div class="invnote">Ссылка одноразовая: вошёл один человек — она погасла. '+
+    'Уровень доступа выдаёт сервер, из самого приглашения.</div>';
+};
+
+/* выдать и отозвать */
+(function(){
+  function localToken(){
+    return (Math.random().toString(36).slice(2,8) + Math.random().toString(36).slice(2,8)).toUpperCase();
+  }
+  document.addEventListener("click", function(e){
+    var t = e.target.closest && e.target.closest("[data-invnew]");
+    if(t){
+      e.preventDefault(); e.stopPropagation();
+      var id = t.getAttribute("data-invnew");
+      var m = null; try{ m = person(id); }catch(x){}
+      if(!m) return;
+      var box = t.closest(".edr") || document;
+      var sel = box.querySelector('[data-edk="acc"]');
+      var rc = (sel && sel.value) || m.acc || "jun";
+      t.disabled = true; t.textContent = "выписываю…";
+      if(!foLive()){
+        var tok = localToken();
+        invMade[id] = {url:"https://fo.flater.pro/?invite="+foInviteCode()+"&i="+tok, token:tok, role:rc};
+        m.acc = rc; m.inviteToken = tok; m.inviteUrl = invMade[id].url; m.invitedAt = Date.now();
+        try{ saveState(); }catch(x){}
+        render();
+        return;
+      }
+      api("/refs/invites", {method:"POST", body:{role_code:rc, name:m.name || "", email:m.mail || "", person_ref:id}})
+        .then(function(r){
+          invMade[id] = {url:r.url, token:r.token, role:rc};
+          m.acc = rc; m.inviteToken = r.token; m.inviteUrl = r.url; m.invitedAt = Date.now();
+          try{ saveState(); }catch(x){}
+          render();
+          try{ toast("Приглашение выписано — ссылка одноразовая"); }catch(x){}
+        })
+        .catch(function(err){
+          t.disabled = false; t.textContent = "Выдать приглашение";
+          try{ toast(err.message || "не выписалось"); }catch(x){}
+        });
+      return;
+    }
+    var o = e.target.closest && e.target.closest("[data-invoff]");
+    if(o){
+      e.preventDefault(); e.stopPropagation();
+      var id2 = o.getAttribute("data-invoff");
+      var made = invMade[id2];
+      var m2 = null; try{ m2 = person(id2); }catch(x){}
+      function drop(){
+        delete invMade[id2];
+        if(m2){ m2.inviteToken = null; m2.inviteUrl = null; }
+        try{ saveState(); }catch(x){}
+        render();
+      }
+      if(!foLive() || !made){ drop(); return; }
+      api("/refs/invites/"+encodeURIComponent(made.token)+"/revoke", {method:"POST"})
+        .then(function(){ drop(); try{ toast("Приглашение отозвано"); }catch(x){} })
+        .catch(function(err){ try{ toast(err.message || "не отозвалось"); }catch(x){} });
+      return;
+    }
+  }, true);
+})();
+
+/* при заведении нового человека приглашение выписывается сразу */
+(function(){
+  if(typeof demoAddEmp !== "function") return;
+  var _da = demoAddEmp;
+  demoAddEmp = function(){
+    var p = _da.apply(this, arguments);
+    try{
+      if(p && p.id && foCanGrant()){
+        var sel = document.getElementById("nmAcc");
+        var rc = (sel && sel.value) || p.acc || "jun";
+        p.acc = rc;
+        if(foLive()){
+          api("/refs/invites", {method:"POST", body:{role_code:rc, name:p.name || "", person_ref:p.id}})
+            .then(function(r){
+              invMade[p.id] = {url:r.url, token:r.token, role:rc};
+              p.inviteToken = r.token; p.inviteUrl = r.url; p.invitedAt = Date.now();
+              try{ saveState(); }catch(x){}
+              render();
+            }).catch(function(){});
+        }
+      }
+    }catch(e){}
+    return p;
+  };
+})();
+
+/* ── §88 вход по персональной ссылке ───────────────────────── */
+(function(){
+  function tok(){
+    try{ return (new URLSearchParams(location.search).get("i") || "").trim(); }
+    catch(e){ return ""; }
+  }
+  var T = tok();
+  if(!T) return;
+  window.foInviteToken = T;
+
+  function paint(kind, html){
+    ["stUp1","stUp2"].forEach(function(step, n){
+      var st = document.getElementById(step);
+      if(!st) return;
+      var id = n ? "invHello" : "invHello1";
+      var b = document.getElementById(id);
+      if(!b){
+        b = document.createElement("div");
+        b.id = id; b.className = "invhello";
+        var hint = st.querySelector(".ghint");
+        if(hint && hint.parentNode) hint.parentNode.insertBefore(b, hint);
+        else st.insertBefore(b, st.firstChild);
+      }
+      if(!kind){ b.className = "invhello"; b.innerHTML = ""; return; }
+      b.className = "invhello on " + kind;
+      b.innerHTML = html;
+    });
+  }
+
+  setTimeout(function(){
+    api("/auth/invite-token/" + encodeURIComponent(T)).then(function(r){
+      var nm = (r && r.org_name) || "";
+      var rt = foAccName(r && r.role_code) || (r && r.role_title) || "";
+      paint("ok", "Приветствуем вас в агентстве <b>" + esc(nm) + "</b>!<br>" +
+        "<i>Вам открывают доступ на уровне «" + esc(rt) + "». " +
+        "Ссылка одноразовая — введите свою рабочую почту.</i>");
+      /* поле кода агентства здесь уже ни при чём */
+      var st2 = document.getElementById("stUp2");
+      if(st2) st2.dataset.byToken = "1";
+    }).catch(function(e){
+      var msg = String((e && e.message) || "");
+      if(/Failed to fetch|NetworkError|Load failed/i.test(msg)) return;
+      paint("bad", "Это приглашение больше не действует: " + esc(msg) +
+        "<br><i>Попросите собственника выписать новое.</i>");
+      window.foInviteToken = "";
+    });
+  }, 400);
+
+  /* регистрация идёт по токену: роль выдаёт сервер */
+  function hook(){
+    var b = document.getElementById("btnUp2");
+    if(!b || b.dataset.tokHook) return;
+    b.dataset.tokHook = "1";
+    var prev = b.onclick;
+    b.onclick = async function(){
+      if(!window.foInviteToken){ if(prev) return prev.apply(this, arguments); return; }
+      var btn = this;
+      busy(btn, true);
+      try{
+        var r = await api("/auth/invite-accept", {method:"POST",
+          body:{token: window.foInviteToken, email: A.email}});
+        A.workspace = r.workspace || "";
+        try{
+          localStorage.setItem("fo_org", A.workspace);
+        }catch(e){}
+        fillStep3(r, 'Приветствуем вас в агентстве <b>'+esc(r.workspace)+'</b>!');
+        gShow("stUp3"); busy(btn, false, "Продолжить");
+      }catch(e){ busy(btn, false, "Продолжить"); gErr("errUp2", e.message); }
+    };
+  }
+  setTimeout(hook, 600);
+  setTimeout(hook, 2000);
+})();
+
+
+/* §91 заголовок «Доступ в сервис» уходит вместе с блоком */
+(function(){
+  if(typeof edManForm === "function"){
+    var _ef = edManForm;
+    edManForm = function(m){
+      var h = _ef.apply(this, arguments);
+      if(foCanGrant()) return h;
+      try{ return h.replace('<div class="edg">Доступ в сервис</div>', ""); }catch(e){ return h; }
+    };
+  }
+  if(typeof renderNewMan === "function"){
+    var _rn = renderNewMan;
+    renderNewMan = function(){
+      _rn.apply(this, arguments);
+      try{
+        var host = document.getElementById("sect");
+        var w = host && host.querySelector(".invwrap");
+        if(w && !w.querySelector("#nmAcc")) w.remove();
+      }catch(e){}
+    };
+    try{ if(typeof SEC_RENDER === "object" && SEC_RENDER) SEC_RENDER.newman = renderNewMan; }catch(e){}
+  }
+})();
+
+/* диагностика */
+window.foWho = function(){
+  return {role: role, canAdd: foCanAdd(), canGrant: foCanGrant(),
+          name: foMeName(), acc: ACC, roles: SRV_ROLES,
+          grantable: foGrantable().map(function(x){ return x[0]; })};
+};
+
+/* ── состояние сервера в панели админа ─────────────────────────
+   Механизм деплоя односторонний: файлы едут на сервер, а прочитать
+   их оттуда нечем. Отчёт последнего шага виден здесь — вместо
+   похода в консоль.                                             */
+var STEP_TX = "";
+(function(){
+  if(typeof renderAdm !== "function") return;
+  var _ra = renderAdm;
+  renderAdm = function(){
+    _ra.apply(this, arguments);
+    try{
+      var host = document.getElementById("sect");
+      if(!host || host.querySelector(".stepbox")) return;
+      host.insertAdjacentHTML("beforeend",
+        '<div class="gl stepbox"><div class="gl-t"><h2>Состояние сервера</h2>'+
+          '<span class="m">что сделал последний шаг деплоя — без консоли</span>'+
+          '<button class="bt gh2 sm" id="stepLoad">Показать</button></div>'+
+          (STEP_TX ? '<pre class="steptx">'+esc(STEP_TX)+'</pre>' : '')+
+        '</div>');
+    }catch(e){}
+  };
+  try{ if(typeof SEC_RENDER === "object" && SEC_RENDER) SEC_RENDER.adm = renderAdm; }catch(e){}
+
+  document.addEventListener("click", function(e){
+    if(!e.target.closest || !e.target.closest("#stepLoad")) return;
+    var b = e.target.closest("#stepLoad");
+    b.disabled = true; b.textContent = "читаю…";
+    api("/refs/step").then(function(r){
+      STEP_TX = (r && r.text) || "отчёта нет";
+      render();
+    }).catch(function(err){
+      STEP_TX = "не прочиталось: " + (err.message || "");
+      render();
+    });
+  });
+})();
 
 })();
 </script>
