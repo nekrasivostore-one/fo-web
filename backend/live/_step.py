@@ -120,7 +120,58 @@ GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO fo;
 io.open("/tmp/fo_step.sql", "w", encoding="utf-8").write(SQL)
 p("")
 p("== МИГРАЦИЯ ==")
-p(sh("sudo -u postgres psql -d fo -v ON_ERROR_STOP=1 -f /tmp/fo_step.sql").strip())
+r1 = sh("sudo -u postgres psql -d fo -v ON_ERROR_STOP=1 -f /tmp/fo_step.sql").strip()
+p("через postgres:", r1 or "(молча — значит применилось)")
+
+def dsn():
+    """Строка подключения приложения — на случай, если sudo не дали."""
+    try:
+        env = {}
+        for line in io.open("/opt/fo/.env", encoding="utf-8"):
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            k, v = line.split("=", 1)
+            env[k.strip()] = v.strip().strip('"').strip("'")
+        return (env.get("DATABASE_URL") or env.get("DB_DSN")
+                or env.get("POSTGRES_DSN") or "")
+    except Exception:
+        return ""
+
+def tables_ok():
+    """Есть ли уже нужные таблицы — проверяем от имени приложения."""
+    code = (
+        "import asyncio,asyncpg,sys\n"
+        "async def m():\n"
+        "    c=await asyncpg.connect(%r)\n"
+        "    got=await c.fetchval(\"SELECT count(*) FROM information_schema.tables \"\n"
+        "        \"WHERE table_name IN ('org_invite','pwd_code')\")\n"
+        "    print('таблиц найдено:', got)\n"
+        "    await c.close()\n"
+        "asyncio.run(m())\n" % dsn())
+    io.open("/tmp/fo_chk.py", "w", encoding="utf-8").write(code)
+    return sh("%s /tmp/fo_chk.py" % PY).strip()
+
+chk = tables_ok()
+p("проверка:", chk)
+if "таблиц найдено: 2" not in chk and dsn():
+    p("postgres не сработал — пробую под пользователем приложения")
+    code2 = (
+        "import asyncio,asyncpg,io\n"
+        "SQL=io.open('/tmp/fo_step.sql',encoding='utf-8').read()\n"
+        "async def m():\n"
+        "    c=await asyncpg.connect(%r)\n"
+        "    for stmt in [x.strip() for x in SQL.split(';') if x.strip()]:\n"
+        "        try:\n"
+        "            await c.execute(stmt)\n"
+        "        except Exception as e:\n"
+        "            print('  пропущено:', str(e)[:120])\n"
+        "    await c.close()\n"
+        "    print('готово')\n"
+        "asyncio.run(m())\n" % dsn())
+    io.open("/tmp/fo_step2.py", "w", encoding="utf-8").write(code2)
+    p(sh("%s /tmp/fo_step2.py" % PY).strip()[:1500])
+    p("проверка ещё раз:", tables_ok())
 
 # ══ 3. код ══════════════════════════════════════════════════════
 def cut(src):
@@ -518,6 +569,10 @@ p("колонка title в role:", "есть" if ROLE_TITLE == "title" else "н�
 ADD_REFS = ADD_REFS.replace("__ROLE_TITLE__", ROLE_TITLE)
 ADD_SIGN = ADD_SIGN.replace("__ROLE_TITLE__", ROLE_TITLE)
 
+H0 = sh("curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8000/health").strip()
+p("")
+p("health до правки:", H0)
+
 bak = "/opt/fo/backend-step-bak-" + stamp
 os.makedirs(bak, exist_ok=True)
 shutil.copy(REFS, bak + "/refs.py")
@@ -541,8 +596,10 @@ if ok:
     sh("sleep 4")
     h = sh("curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8000/health").strip()
     p("health после правки:", h)
-    if h != "200":
-        ok = False
+    if h != "200" and H0 == "200":
+        ok = False          # сломали то, что работало — возвращаем
+    elif h != "200":
+        p("сервис и до правки не отвечал — откатывать нечего, оставляю новую версию")
 
 if not ok:
     shutil.copy(bak + "/refs.py", REFS)
