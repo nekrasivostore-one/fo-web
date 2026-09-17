@@ -17,7 +17,7 @@ REFS = APP + "/routers/refs.py"
 SIGN = APP + "/routers/signup.py"
 MAIN = APP + "/main.py"
 PY   = "/opt/fo/venv/bin/python"
-MARK = "FO-STEP-ACCOUNT-INVITES-v1"
+MARK = "FO-STEP-ACCOUNT-INVITES"
 stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
 out = []
 def p(*a): out.append(" ".join(str(x) for x in a))
@@ -36,6 +36,14 @@ p(sh("sudo -u postgres psql -d fo -Atc \"SELECT code||' | '||level||' | '||coale
 p("")
 p("== КОЛОНКИ app_user ==")
 p(sh("sudo -u postgres psql -d fo -Atc \"SELECT string_agg(column_name,', ' ORDER BY ordinal_position) FROM information_schema.columns WHERE table_name='app_user'\"").strip())
+
+p("")
+p("== ТАБЛИЦЫ ==")
+p(sh("sudo -u postgres psql -d fo -Atc \"SELECT string_agg(table_name,', ' ORDER BY table_name) FROM information_schema.tables WHERE table_schema='public'\"").strip())
+
+p("")
+p("== ТАБЛИЦА СОТРУДНИКОВ ==")
+p(sh("sudo -u postgres psql -d fo -Atc \"SELECT t.table_name||': '||string_agg(c.column_name,', ' ORDER BY c.ordinal_position) FROM information_schema.tables t JOIN information_schema.columns c ON c.table_name=t.table_name WHERE t.table_schema='public' AND t.table_name IN ('employee','employees','emp','staff','person','people','member','members') GROUP BY t.table_name\"").strip() or "(не нашёл)")
 
 p("")
 p("== КОЛОНКИ org ==")
@@ -115,15 +123,18 @@ p("== МИГРАЦИЯ ==")
 p(sh("sudo -u postgres psql -d fo -v ON_ERROR_STOP=1 -f /tmp/fo_step.sql").strip())
 
 # ══ 3. код ══════════════════════════════════════════════════════
-if MARK in refs_src and MARK in sign_src:
-    p("")
-    p("== КОД ==")
-    p("уже дописан раньше — файлы не трогаю")
-    print("\n".join(out)); sys.exit(0)
+def cut(src):
+    """Старый блок шага срезаем целиком — он всегда в конце файла."""
+    i = src.find("# " + chr(9552)*2 + " " + MARK)
+    if i < 0:
+        i = src.find(MARK)
+        if i >= 0:
+            i = src.rfind("\n", 0, i)
+    return src[:i] if i >= 0 else src
 
 ADD_REFS = r'''
 
-# ══ FO-STEP-ACCOUNT-INVITES-v1 ═══════════════════════════════════
+# ══ FO-STEP-ACCOUNT-INVITES ══════════════════════════════════════
 # Мой аккаунт и персональные приглашения с уровнем доступа.
 # Дописано шагом деплоя: перевезти refs.py целиком нечем — прочитать
 # его с сервера механизм не умеет, поэтому правка идёт дописыванием.
@@ -369,7 +380,7 @@ async def fo_step_report(p: Principal = Depends(max_level(0))):
 
 ADD_SIGN = r'''
 
-# ══ FO-STEP-ACCOUNT-INVITES-v1 ═══════════════════════════════════
+# ══ FO-STEP-ACCOUNT-INVITES ══════════════════════════════════════
 # Вход по персональному приглашению: уровень доступа выдаёт сервер,
 # из приглашения, а не браузер. Приглашение одноразовое.
 from pydantic import BaseModel as _FoBM2
@@ -392,6 +403,57 @@ async def fo_invite_peek(token: str):
         raise HTTPException(410, "Этим приглашением уже воспользовались")
     return {"org_name": r["org_name"], "role_code": r["role_code"],
             "role_title": r["role_title"] or r["role_code"], "name": r["name"]}
+
+
+async def _fo_link_employee(conn, org_id, uid, name, email):
+    """Кто зашёл по приглашению — сразу виден в команде, доступах и задачах.
+
+    Регистрация заводит человека в app_user, а списки команды и
+    ответственных сервис берёт из таблицы сотрудников. Без связки
+    собственник нового человека просто не увидит."""
+    tbl = None
+    for cand in ("employee", "employees", "staff", "member", "people", "person"):
+        if await conn.fetchval("SELECT to_regclass($1)", "public." + cand):
+            tbl = cand
+            break
+    if not tbl:
+        return None
+    cols = set(r["column_name"] for r in await conn.fetch(
+        "SELECT column_name FROM information_schema.columns WHERE table_name=$1", tbl))
+    if "org_id" not in cols or "name" not in cols:
+        return None
+    nm = (name or "").strip() or (email or "").split("@")[0]
+
+    if "user_id" in cols:
+        got = await conn.fetchval("SELECT id FROM " + tbl + " WHERE user_id=$1", uid)
+        if got:
+            return got
+    row = None
+    if email and "email" in cols:
+        row = await conn.fetchrow(
+            "SELECT id FROM " + tbl + " WHERE org_id=$1 AND lower(email)=lower($2) LIMIT 1",
+            org_id, email)
+    if not row and nm:
+        row = await conn.fetchrow(
+            "SELECT id FROM " + tbl + " WHERE org_id=$1 AND lower(name)=lower($2) LIMIT 1",
+            org_id, nm)
+    if row:
+        if "user_id" in cols:
+            await conn.execute("UPDATE " + tbl + " SET user_id=$2 WHERE id=$1", row["id"], uid)
+        if "is_active" in cols:
+            await conn.execute("UPDATE " + tbl + " SET is_active=true WHERE id=$1", row["id"])
+        return row["id"]
+
+    names, vals = ["org_id", "name"], [org_id, nm]
+    if "user_id" in cols:
+        names.append("user_id"); vals.append(uid)
+    if "email" in cols and email:
+        names.append("email"); vals.append(email)
+    if "is_active" in cols:
+        names.append("is_active"); vals.append(True)
+    q = ("INSERT INTO " + tbl + " (" + ", ".join(names) + ") VALUES (" +
+         ", ".join("$%d" % (i + 1) for i in range(len(vals))) + ") RETURNING id")
+    return await conn.fetchval(q, *vals)
 
 
 class FoAcceptIn(_FoBM2):
@@ -432,8 +494,15 @@ async def fo_invite_accept(body: FoAcceptIn):
             await conn.execute(
                 "UPDATE org_invite SET used_at=now(), used_by=$2 WHERE token=$1", tok, uid)
             code2, sent = await _issue_code(conn, uid, mail, "first_login")
+
+        # связываем с карточкой сотрудника — иначе собственник его не увидит
+        linked = None
+        try:
+            linked = await _fo_link_employee(conn, inv["org_id"], uid, inv["name"] or "", mail)
+        except Exception:
+            linked = None
     out = {"ok": True, "workspace": inv["org_name"], "role_code": inv["role_code"],
-           "next": "verify", "mail_sent": sent}
+           "linked": bool(linked), "next": "verify", "mail_sent": sent}
     if not sent:
         out["code_shown"] = code2
     return out
@@ -454,10 +523,8 @@ os.makedirs(bak, exist_ok=True)
 shutil.copy(REFS, bak + "/refs.py")
 shutil.copy(SIGN, bak + "/signup.py")
 
-if MARK not in refs_src:
-    io.open(REFS, "w", encoding="utf-8").write(refs_src.rstrip("\n") + "\n" + ADD_REFS)
-if MARK not in sign_src:
-    io.open(SIGN, "w", encoding="utf-8").write(sign_src.rstrip("\n") + "\n" + ADD_SIGN)
+io.open(REFS, "w", encoding="utf-8").write(cut(refs_src).rstrip("\n") + "\n" + ADD_REFS)
+io.open(SIGN, "w", encoding="utf-8").write(cut(sign_src).rstrip("\n") + "\n" + ADD_SIGN)
 
 p("")
 p("== КОД ==")
