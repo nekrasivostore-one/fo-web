@@ -20868,8 +20868,11 @@ function foMapExtra(list, base){
   return m;
 }
 
+var foRestored = false;
+
 function foLiveSave(){
-  if(!foLive()) return;
+  /* пока своё не вернули — не затираем сохранённое пустым состоянием */
+  if(!foLive() || !foRestored) return;
   try{
     var d = {v:1, at:Date.now()};
     LIVE_KEEP.forEach(function(k){ if(S[k] !== undefined) d[k] = S[k]; });
@@ -20891,9 +20894,10 @@ function foLiveSave(){
 }
 
 function foLiveRestore(){
-  if(!foLive()) return;
+  if(!foLive() || foRestored) return;
   var d = null;
   try{ d = JSON.parse(localStorage.getItem(foLiveKey()) || "null"); }catch(e){}
+  foRestored = true;
   if(!d) return;
 
   LIVE_KEEP.forEach(function(k){ if(d[k] !== undefined) S[k] = d[k]; });
@@ -20915,6 +20919,7 @@ function foLiveRestore(){
   put(S.projects, d.projectsX);
   put(S.fns,      d.fnsX);
   put(S.cabs,     d.cabsX);
+  try{ render(); }catch(e){}
 }
 
 /* saveState в живом режиме больше не пустая */
@@ -20942,6 +20947,9 @@ function foLiveRestore(){
     }catch(e){ return pr; }
   };
 })();
+
+/* подстраховка: если loadLive почему-то не дошёл — возвращаем сами */
+setTimeout(function(){ try{ if(foLive() && !foRestored) foLiveRestore(); }catch(e){} }, 3500);
 
 /* уходят со страницы — дописываем на всякий случай */
 window.addEventListener("beforeunload", function(){ try{ foLiveSave(); }catch(e){} });
