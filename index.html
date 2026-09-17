@@ -19363,6 +19363,7 @@ SEC_RENDER.acct = renderAcct;
 
 /* ── §88–89 персональное приглашение с уровнем ─────────────── */
 var invMade = {};    /* id человека → выданное приглашение */
+var invErr = "";     /* почему не выписалось — говорим вслух */
 
 function foInviteFor(m){
   var id = m && m.id;
@@ -19388,10 +19389,20 @@ foInviteBlock = function(m, forNew){
       return '<option value="'+esc(o[0])+'"'+(String(o[0])===String(cur)?' selected':'')+'>'+
         esc(o[1])+'</option>'; }).join("")+'</select></label>';
 
+  if(forNew) made = invMade["__new"] || null;
+
   var right;
   if(forNew){
-    right = '<div class="edf wide invlink"><span>Ссылка-приглашение</span>'+
-      '<div class="invl empty">Выдам одноразовую ссылку, как только сохраните карточку</div></div>';
+    right = made
+      ? '<div class="edf wide invlink"><span>Персональная ссылка · одноразовая</span>'+
+          '<div class="invl"><code>'+esc(made.url)+'</code>'+
+          '<button type="button" class="bt gh2 sm" data-copy="'+esc(made.url)+'">Копировать</button>'+
+          '</div></div>'
+      : '<div class="edf wide invlink"><span>Ссылка-приглашение</span>'+
+          '<div class="invl"><span class="invtx">'+
+          (invErr ? esc(invErr) : 'Нажмите — выпишу ссылку под выбранный уровень')+'</span>'+
+          '<button type="button" class="bt sm" data-invnew="__new">Выдать ссылку</button>'+
+          '</div></div>';
   } else if(made){
     right = '<div class="edf wide invlink"><span>Персональная ссылка · одноразовая</span>'+
       '<div class="invl"><code>'+esc(made.url)+'</code>'+
@@ -19426,6 +19437,14 @@ foInviteBlock = function(m, forNew){
 
 /* выдать и отозвать */
 (function(){
+  function paintInv(btn, made){
+    var box = btn.closest(".invlink");
+    if(!box){ try{ render(); }catch(e){} return; }
+    box.innerHTML = '<span>Персональная ссылка · одноразовая</span>'+
+      '<div class="invl"><code>'+esc(made.url)+'</code>'+
+      '<button type="button" class="bt gh2 sm" data-copy="'+esc(made.url)+'">Копировать</button>'+
+      '</div>';
+  }
   function localToken(){
     return (Math.random().toString(36).slice(2,8) + Math.random().toString(36).slice(2,8)).toUpperCase();
   }
@@ -19434,31 +19453,59 @@ foInviteBlock = function(m, forNew){
     if(t){
       e.preventDefault(); e.stopPropagation();
       var id = t.getAttribute("data-invnew");
-      var m = null; try{ m = person(id); }catch(x){}
-      if(!m) return;
+      var isNew = (id === "__new");
+      var m = null;
+      if(!isNew){ try{ m = person(id); }catch(x){} if(!m) return; }
+
       var box = t.closest(".edr") || document;
-      var sel = box.querySelector('[data-edk="acc"]');
-      var rc = (sel && sel.value) || m.acc || "jun";
-      t.disabled = true; t.textContent = "выписываю…";
-      if(!foLive()){
-        var tok = localToken();
-        invMade[id] = {url:"https://fo.flater.pro/?invite="+foInviteCode()+"&i="+tok, token:tok, role:rc};
-        m.acc = rc; m.inviteToken = tok; m.inviteUrl = invMade[id].url; m.invitedAt = Date.now();
-        try{ saveState(); }catch(x){}
-        render();
+      var sel = isNew ? document.getElementById("nmAcc") : box.querySelector('[data-edk="acc"]');
+      var rc = (sel && sel.value) || (m && m.acc) || "jun";
+      var nm = isNew
+        ? String((document.getElementById("nmName") || {}).value || "").trim()
+        : (m.name || "");
+      var ml = isNew ? "" : (m.mail || "");
+
+      if(isNew && !nm){
+        var fn = document.getElementById("nmName");
+        if(fn){
+          fn.classList.add("fbad");
+          foFieldNote(fn, "Впишите имя — приглашение выписывается на человека");
+          try{ fn.scrollIntoView({block:"center", behavior:"smooth"}); }catch(x){}
+          setTimeout(function(){ try{ fn.focus(); }catch(x){} }, 260);
+        }
+        try{ toast("Впишите имя — поле наверху карточки"); }catch(x){}
         return;
       }
-      api("/refs/invites", {method:"POST", body:{role_code:rc, name:m.name || "", email:m.mail || "", person_ref:id}})
-        .then(function(r){
-          invMade[id] = {url:r.url, token:r.token, role:rc};
-          m.acc = rc; m.inviteToken = r.token; m.inviteUrl = r.url; m.invitedAt = Date.now();
-          try{ saveState(); }catch(x){}
-          render();
-          try{ toast("Приглашение выписано — ссылка одноразовая"); }catch(x){}
-        })
+
+      invErr = "";
+      t.disabled = true; t.textContent = "выписываю…";
+
+      function done(made){
+        invMade[isNew ? "__new" : id] = made;
+        if(m){
+          m.acc = rc; m.inviteToken = made.token; m.inviteUrl = made.url; m.invitedAt = Date.now();
+        }
+        try{ saveState(); }catch(x){}
+        if(isNew) paintInv(t, made);   /* в форме не перерисовываем — потеряются поля */
+        else render();
+        try{ toast("Приглашение выписано — ссылка одноразовая"); }catch(x){}
+      }
+
+      if(!foLive()){
+        var tok = localToken();
+        done({url:"https://fo.flater.pro/?invite="+foInviteCode()+"&i="+tok, token:tok, role:rc});
+        return;
+      }
+      api("/refs/invites", {method:"POST",
+          body:{role_code:rc, name:nm, email:ml, person_ref:(isNew ? "" : id)}})
+        .then(function(r){ done({url:r.url, token:r.token, role:rc}); })
         .catch(function(err){
-          t.disabled = false; t.textContent = "Выдать приглашение";
-          try{ toast(err.message || "не выписалось"); }catch(x){}
+          t.disabled = false; t.textContent = "Выдать ссылку";
+          invErr = "Не выписалось: " + (err.message || "сервер не ответил");
+          var tx = (t.closest(".invl") || {}).querySelector
+            ? t.closest(".invl").querySelector(".invtx") : null;
+          if(tx) tx.textContent = invErr;
+          try{ toast(invErr); }catch(x){}
         });
       return;
     }
@@ -19494,14 +19541,29 @@ foInviteBlock = function(m, forNew){
         var sel = document.getElementById("nmAcc");
         var rc = (sel && sel.value) || p.acc || "jun";
         p.acc = rc;
-        if(foLive()){
+
+        /* ссылку уже выписали прямо в форме — просто закрепляем за человеком */
+        var pre = invMade["__new"];
+        if(pre){
+          invMade[p.id] = pre; delete invMade["__new"];
+          p.inviteToken = pre.token; p.inviteUrl = pre.url; p.invitedAt = Date.now();
+          p.acc = pre.role || rc;
+        } else if(foLive()){
           api("/refs/invites", {method:"POST", body:{role_code:rc, name:p.name || "", person_ref:p.id}})
             .then(function(r){
               invMade[p.id] = {url:r.url, token:r.token, role:rc};
               p.inviteToken = r.token; p.inviteUrl = r.url; p.invitedAt = Date.now();
               try{ saveState(); }catch(x){}
               render();
-            }).catch(function(){});
+            }).catch(function(err){
+              invErr = "Ссылку не выписал: " + (err.message || "сервер не ответил");
+              try{ toast(invErr); }catch(x){}
+            });
+        } else {
+          var tk = (Math.random().toString(36).slice(2,8) +
+                    Math.random().toString(36).slice(2,8)).toUpperCase();
+          invMade[p.id] = {url:"https://fo.flater.pro/?invite="+foInviteCode()+"&i="+tk, token:tk, role:rc};
+          p.inviteToken = tk; p.inviteUrl = invMade[p.id].url; p.invitedAt = Date.now();
         }
       }
     }catch(e){}
@@ -19595,6 +19657,15 @@ foInviteBlock = function(m, forNew){
 })();
 
 
+/* новая форма — чистая: заготовка приглашения от прошлого раза не липнет */
+(function(){
+  document.addEventListener("click", function(e){
+    if(e.target.closest && (e.target.closest("#raccAddMan") || e.target.closest("#teamAddMan"))){
+      delete invMade["__new"]; invErr = "";
+    }
+  }, true);
+})();
+
 /* §91 заголовок «Доступ в сервис» уходит вместе с блоком */
 (function(){
   if(typeof edManForm === "function"){
@@ -19668,6 +19739,151 @@ var STEP_TX = "";
       render();
     });
   });
+})();
+
+/* ══ 61. «Доступы»: ссылка настоящая, а не выдуманная ══════════
+   §97 Кнопка «Создать аккаунт и получить ссылку» выписывала свой
+       случайный код (KWPVO5SO). Сервер такого кода не знает — человек
+       переходил и видел «Такого кода нет» и никакого агентства.
+       Теперь этот экран выписывает то же серверное одноразовое
+       приглашение, что и карточка сотрудника: ссылка с уровнем
+       доступа внутри.
+   §98 У кода агентства прямо написано, каким уровнем он пускает.  */
+
+/* ── ссылка: персональная, если есть токен ── */
+inviteUrl = function(r){
+  var base = "https://fo.flater.pro/?invite=" + (foInviteCode() || "");
+  if(r && r.token) return base + "&i=" + r.token;
+  return base;
+};
+
+/* ── текст приглашения: агентство и уровень, без выдуманного логина ── */
+(function(){
+  if(typeof sendLink !== "function") return;
+  sendLink = function(k, r){
+    var digits = String(r.val || "").replace(/\D/g, "");
+    var org = "";
+    try{ org = orgName() || ""; }catch(e){}
+    var url = inviteUrl(r);
+    var txt = "Вас зовут в агентство" + (org ? " «" + org + "»" : "") +
+      ". Уровень доступа: " + roleName(r.role) + "." +
+      (r.token ? " Ссылка одноразовая — по ней зайдёте только вы: " : " Ссылка для входа: ") + url;
+    if(k === "wa")  return "https://wa.me/" + digits + "?text=" + encodeURIComponent(txt);
+    if(k === "tg")  return "https://t.me/share/url?url=" + encodeURIComponent(url) +
+                           "&text=" + encodeURIComponent(txt);
+    if(k === "max") return "https://max.ru/share?text=" + encodeURIComponent(txt);
+    return "mailto:" + encodeURIComponent(r.via === "mail" ? r.val : "") +
+      "?subject=" + encodeURIComponent("Приглашение в агентство" + (org ? " «" + org + "»" : "")) +
+      "&body=" + encodeURIComponent(txt);
+  };
+})();
+
+/* ── в карточке выданного доступа — уровень и настоящий код ── */
+(function(){
+  if(typeof accFresh !== "function") return;
+  var _af = accFresh;
+  accFresh = function(){
+    var h = _af.apply(this, arguments);
+    if(!h) return h;
+    var r = accList().filter(function(x){ return x.id === accJustMade; })[0];
+    if(!r) return h;
+    try{
+      /* «Логин» ничего не открывает: вход по почте и коду из письма */
+      h = h.replace(/<label><span>Логин<\/span>[\s\S]*?<\/label>/,
+        '<label><span>Уровень доступа</span><div class="accv"><code>'+
+          esc(roleName(r.role))+'</code></div></label>');
+      h = h.replace(/<label><span>Код приглашения<\/span>[\s\S]*?<\/label>/,
+        '<label><span>Приглашение</span><div class="accv"><code>'+
+          esc(r.token ? "одноразовое · " + r.token : "выписываю…")+'</code>'+
+          (r.token ? '<button class="bt gh2 sm" data-copy="'+esc(r.token)+'">Копировать</button>' : '')+
+        '</div></label>');
+      h = h.replace('<label class="acclink"><span>Ссылка для входа</span>',
+        '<label class="acclink"><span>Ссылка для входа · одноразовая</span>');
+      if(r.err){
+        h = h.replace('</div>' + "\n", '</div>');
+        h = h.replace('<div class="accfg">',
+          '<div class="gerr on">'+esc(r.err)+'</div><div class="accfg">');
+      }
+    }catch(e){}
+    return h;
+  };
+})();
+
+/* ── сам выпуск приглашения после создания аккаунта ── */
+(function(){
+  function issue(){
+    var r = accList().filter(function(x){ return x.id === accJustMade; })[0];
+    if(!r || r.token || r.busy) return;
+    r.busy = true; r.err = "";
+    function done(tok){
+      r.busy = false; r.token = tok; r.code = foInviteCode() || r.code;
+      try{ saveState(); }catch(e){}
+      if(view === "acc") renderAcc();
+    }
+    if(!foLive()){
+      done((Math.random().toString(36).slice(2,8) +
+            Math.random().toString(36).slice(2,8)).toUpperCase());
+      return;
+    }
+    api("/refs/invites", {method:"POST", body:{
+      role_code: r.role,
+      name: r.name || "",
+      email: r.via === "mail" ? (r.val || "") : "",
+      person_ref: r.id
+    }}).then(function(res){ done(res.token); })
+      .catch(function(err){
+        r.busy = false;
+        r.err = "Приглашение не выписалось: " + (err.message || "сервер не ответил") +
+          ". Ссылку пока не отправляйте — по ней не зайти.";
+        if(view === "acc") renderAcc();
+        try{ toast(r.err); }catch(e){}
+      });
+  }
+  document.addEventListener("click", function(e){
+    if(!e.target.closest || !e.target.closest("#accGrant")) return;
+    setTimeout(issue, 0);
+  });
+  /* доступ, выданный раньше, тоже донаберёт приглашение при открытии */
+  document.addEventListener("click", function(e){
+    if(!e.target.closest || !e.target.closest("[data-accshow]")) return;
+    setTimeout(issue, 0);
+  });
+})();
+
+/* ── §97 собственника через этот экран не назначают ── */
+(function(){
+  if(typeof accGrantForm !== "function") return;
+  var _gf = accGrantForm;
+  accGrantForm = function(){
+    var h = _gf.apply(this, arguments);
+    try{
+      h = h.replace(/<option value="owner"[^>]*>[^<]*<\/option>/, "");
+      h = h.replace('<span class="m">по почте или по телефону — что удобнее человеку</span>',
+        '<span class="m">ссылка одноразовая и уже с уровнем доступа внутри</span>');
+    }catch(e){}
+    return h;
+  };
+  if(typeof accState === "object" && accState && accState.role === "owner") accState.role = "mgr";
+})();
+
+/* ── §98 у кода агентства написано, каким уровнем он пускает ── */
+(function(){
+  if(typeof accCodeBlock !== "function") return;
+  var _cb = accCodeBlock;
+  accCodeBlock = function(){
+    var h = _cb.apply(this, arguments);
+    try{
+      h = h.replace('<i>по нему в проект попадает любая роль — даже без вашего приглашения</i>',
+        '<i>общий вход: пускает ассистентом, уровень поднимаете вы</i>');
+      h = h.replace('<i>по нему человек попадает в ваше агентство и дальше получает роль от вас</i>',
+        '<i>общий вход: пускает ассистентом, уровень поднимаете вы</i>');
+      h = h.replace(/<div class="accn">/,
+        '<div class="accn"><b>Кто зашёл по этому коду — попадает ассистентом</b>, '+
+        'самым низким уровнем: видит только свои задачи. Чтобы человек сразу зашёл '+
+        'нужным уровнем, выдайте ему персональную ссылку выше — в ней уровень уже зашит. ');
+    }catch(e){}
+    return h;
+  };
 })();
 
 })();
