@@ -19500,11 +19500,18 @@ foInviteBlock = function(m, forNew){
           body:{role_code:rc, name:nm, email:ml, person_ref:(isNew ? "" : id)}})
         .then(function(r){ done({url:r.url, token:r.token, role:rc}); })
         .catch(function(err){
-          t.disabled = false; t.textContent = "Выдать ссылку";
-          invErr = "Не выписалось: " + (err.message || "сервер не ответил");
-          var tx = (t.closest(".invl") || {}).querySelector
-            ? t.closest(".invl").querySelector(".invtx") : null;
-          if(tx) tx.textContent = invErr;
+          /* персональная не вышла — отдаём общую, но говорим об этом прямо */
+          var base = foInviteUrl();
+          invErr = "Персональная не выписалась (" + (err.message || "сервер не ответил") +
+            "). Ссылка общая: человек зайдёт ассистентом, уровень поднимете в карточке.";
+          if(base){
+            if(isNew) paintInv(t, {url:base, token:"", role:rc});
+            else { invMade[id] = {url:base, token:"", role:rc}; render(); }
+          } else {
+            t.disabled = false; t.textContent = "Выдать ссылку";
+            var tx = t.closest(".invl") ? t.closest(".invl").querySelector(".invtx") : null;
+            if(tx) tx.textContent = invErr;
+          }
           try{ toast(invErr); }catch(x){}
         });
       return;
@@ -19731,13 +19738,27 @@ var STEP_TX = "";
     if(!e.target.closest || !e.target.closest("#stepLoad")) return;
     var b = e.target.closest("#stepLoad");
     b.disabled = true; b.textContent = "читаю…";
+    /* сначала пробуем эндпоинт; его может не быть — тогда читаем файл
+       отчёта напрямую из веб-корня, он кладётся туда самим шагом */
+    function viaFile(why){
+      fetch("/fo-step.txt?t=" + Date.now())
+        .then(function(r){ return r.ok ? r.text() : Promise.reject(new Error("файла нет")); })
+        .then(function(tx){ STEP_TX = tx; render(); })
+        .catch(function(e2){
+          STEP_TX = "Отчёта нет.\n\n" +
+            "Через API: " + why + "\n" +
+            "Файлом /fo-step.txt: " + (e2.message || "не открылся") + "\n\n" +
+            "Значит серверный шаг ещё не выполнялся. Проверить на сервере:\n" +
+            "  systemctl status fo-backend-pull.timer\n" +
+            "  tail -40 /opt/fo/backend-pull.log\n" +
+            "  /opt/fo/fo-backend-pull.sh && cat /opt/fo/web/fo-step.txt";
+          render();
+        });
+    }
     api("/refs/step").then(function(r){
       STEP_TX = (r && r.text) || "отчёта нет";
       render();
-    }).catch(function(err){
-      STEP_TX = "не прочиталось: " + (err.message || "");
-      render();
-    });
+    }).catch(function(err){ viaFile(err.message || "не ответил"); });
   });
 })();
 
@@ -19833,8 +19854,9 @@ inviteUrl = function(r){
     }}).then(function(res){ done(res.token); })
       .catch(function(err){
         r.busy = false;
-        r.err = "Приглашение не выписалось: " + (err.message || "сервер не ответил") +
-          ". Ссылку пока не отправляйте — по ней не зайти.";
+        r.err = "Персональное приглашение не выписалось: " + (err.message || "сервер не ответил") +
+          ". Ссылка ниже — общая, по ней человек зайдёт ассистентом, " +
+          "уровень поднимете в его карточке.";
         if(view === "acc") renderAcc();
         try{ toast(r.err); }catch(e){}
       });
