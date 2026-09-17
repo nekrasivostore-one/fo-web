@@ -20463,6 +20463,117 @@ function fnSave(id){
   });
 })();
 
+/* ══ 66. Собственник — не сотрудник ═════════════════════════════
+   §110 При регистрации агентства заводилась карточка сотрудника на
+        самого собственника: он попадал в «Мою команду», в списки
+        ответственных и в загрузку. Это неверно. Собственник задач
+        сверху не получает — ему приходят только согласования, а его
+        карточку не видит ни одна роль.                             */
+
+var OWNER_CARDS = {};
+
+function foOwnerLocal(){
+  try{ return String((A && A.email) || "").split("@")[0].toLowerCase(); }catch(e){ return ""; }
+}
+function foMarkOwnerCard(m){
+  if(!m || !m.id) return false;
+  OWNER_CARDS[m.id] = true;
+  m.hidden = true;
+  m.isOwnerCard = true;
+  return true;
+}
+function isOwnerCard(m){
+  return !!(m && (OWNER_CARDS[m.id] || m.isOwnerCard));
+}
+
+/* кого считать карточкой собственника */
+function foScanOwner(){
+  var list = (typeof S !== "undefined" && S && S.people) ? S.people : [];
+  if(!list.length) return;
+
+  /* 1. своя собственная карточка — знаем точно по почте */
+  if(role === "owner" || role === "admin"){
+    var loc = foOwnerLocal(), mail = "";
+    try{ mail = String((A && A.email) || "").toLowerCase(); }catch(e){}
+    list.forEach(function(m){
+      var nm = String(m.name || "").toLowerCase();
+      var em = String(m.mail || m.email || "").toLowerCase();
+      if((mail && em === mail) || (loc && nm === loc)) foMarkOwnerCard(m);
+    });
+  }
+
+  /* 2. по данным сервиса — чтобы и остальные роли её не видели */
+  if(!foLive() || foScanOwner._asked) return;
+  foScanOwner._asked = true;
+  api("/admin/users").then(function(us){
+    if(!us || !us.length) return;
+    var owners = us.filter(function(u){
+      var lvl = +(u.level != null ? u.level : 9);
+      var rc = String(u.role_code || u.role || "").toLowerCase();
+      return lvl <= 1 || rc === "owner" || rc === "admin";
+    });
+    var keys = {};
+    owners.forEach(function(u){
+      var em = String(u.email || "").toLowerCase();
+      if(em){ keys[em] = 1; keys[em.split("@")[0]] = 1; }
+      var nm = String(u.name || u.full_name || u.display_name || "").toLowerCase();
+      if(nm) keys[nm] = 1;
+    });
+    var hit = false;
+    list.forEach(function(m){
+      var nm = String(m.name || "").toLowerCase();
+      var em = String(m.mail || m.email || "").toLowerCase();
+      if(keys[nm] || (em && keys[em])) hit = foMarkOwnerCard(m) || hit;
+    });
+    if(hit){ try{ render(); }catch(e){} }
+  }).catch(function(){});
+}
+
+/* карточка собственника выпадает из всех списков */
+(function(){
+  if(typeof visiblePeople === "function"){
+    var _vp = visiblePeople;
+    visiblePeople = function(){
+      var l = _vp.apply(this, arguments) || [];
+      return l.filter(function(m){ return !isOwnerCard(m); });
+    };
+  }
+  if(typeof manCardHTML === "function"){
+    var _mc = manCardHTML;
+    manCardHTML = function(m){
+      if(isOwnerCard(m)){
+        return '<div class="mcard"><div class="empty">Собственник — не сотрудник: '+
+          'задач сверху он не получает, к нему приходят только согласования. '+
+          'Карточки у него нет.</div></div>';
+      }
+      return _mc.apply(this, arguments);
+    };
+  }
+  function scan(){ try{ foScanOwner(); }catch(e){} }
+  [600, 1800, 4000].forEach(function(ms){ setTimeout(scan, ms); });
+  if(typeof loadLive === "function"){
+    var _ll = loadLive;
+    loadLive = function(){
+      var pr = _ll.apply(this, arguments);
+      try{ pr.then(function(){ scan(); try{ render(); }catch(e){} }, function(){}); }catch(e){}
+      return pr;
+    };
+  }
+  if(typeof render === "function"){
+    var _r = render;
+    render = function(){
+      try{ foScanOwner(); }catch(e){}
+      return _r.apply(this, arguments);
+    };
+  }
+})();
+
+window.foOwnerCards = function(){
+  return {ids: Object.keys(OWNER_CARDS),
+          люди: ((typeof S !== "undefined" && S && S.people) || []).map(function(m){
+            return m.name + (isOwnerCard(m) ? " · собственник, скрыт" : ""); })};
+};
+
 })();
 </script>
 </body>
