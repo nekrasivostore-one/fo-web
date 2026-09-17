@@ -3712,6 +3712,10 @@ body.noadd [data-addmode]{ display:none !important; }
 #stUp2.bytoken label[for="upCode"],
 #stUp2.bytoken #upCode,
 #stUp2.bytoken .ghint{ display:none !important; }
+
+/* ══ 62. Карточки сотрудников по уровню доступа ════════════════ */
+[data-mancard].nocard{ display:none !important; }
+#teamSync{ margin-right:8px; }
 </style>
 </head>
 <body>
@@ -19906,6 +19910,102 @@ inviteUrl = function(r){
     }catch(e){}
     return h;
   };
+})();
+
+/* ══ 62. Карточки сотрудников — по уровню доступа ═══════════════
+   §99 Карточки менеджеров видит тот, у кого есть на это право:
+       собственник, директор, руководитель и проджект. Менеджер и
+       ниже видят только свою — чужие зарплаты и доступы им ни к чему.
+   §100 Кнопка «Обновить команду»: человек, зашедший по приглашению,
+       появляется у собственника без перезагрузки страницы.        */
+
+var FO_CARDS_OK = {admin:1, owner:1, dir:1, head:1, pm:1};
+function foCanSeeCards(){ return !!FO_CARDS_OK[role]; }
+function foIsMe(id){
+  try{ return !!id && typeof meId !== "undefined" && String(meId) === String(id); }
+  catch(e){ return false; }
+}
+
+/* чужую карточку не открыть — ни кнопкой, ни мимо неё */
+(function(){
+  function paint(){
+    try{
+      var off = !foCanSeeCards();
+      document.body.classList.toggle("nocards", off);
+      /* свою карточку человек открывает всегда — прячем только чужие */
+      var list = document.querySelectorAll("[data-mancard]");
+      for(var i = 0; i < list.length; i++){
+        var id = list[i].getAttribute("data-mancard");
+        list[i].classList.toggle("nocard", off && !foIsMe(id));
+      }
+    }catch(e){}
+  }
+  paint();
+  setTimeout(paint, 900);
+  if(typeof applyRoleRail === "function"){
+    var _ar = applyRoleRail;
+    applyRoleRail = function(){ var v = _ar.apply(this, arguments); paint(); return v; };
+  }
+  if(typeof render === "function"){
+    var _r = render;
+    render = function(){ var v = _r.apply(this, arguments); paint(); return v; };
+  }
+  document.addEventListener("click", function(e){
+    if(foCanSeeCards()) return;
+    var t = e.target.closest && e.target.closest("[data-mancard]");
+    if(!t) return;
+    var id = t.getAttribute("data-mancard");
+    if(foIsMe(id)) return;                       /* свою — можно */
+    e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();
+    try{ toast("Карточки сотрудников открывает проджект и выше"); }catch(x){}
+  }, true);
+})();
+
+/* свою карточку показываем, чужие кнопки убираем */
+(function(){
+  if(typeof manCardHTML !== "function") return;
+  var _mc = manCardHTML;
+  manCardHTML = function(m){
+    if(!foCanSeeCards() && m && !foIsMe(m.id)){
+      return '<div class="mcard"><div class="empty">Карточку этого человека открывает '+
+        'проджект и выше — у вашего уровня доступа такого права нет.</div></div>';
+    }
+    return _mc.apply(this, arguments);
+  };
+})();
+
+/* ── §100 обновить команду, не перезагружая страницу ── */
+(function(){
+  if(typeof teamHead !== "function") return;
+  var _th = teamHead;
+  teamHead = function(){
+    var h = _th.apply(this, arguments);
+    try{
+      return h.replace('<button class="secadd" id="teamAddMan">',
+        '<button class="bt gh2 sm" id="teamSync" title="Подтянуть тех, кто зашёл по приглашению">'+
+        'Обновить команду</button><button class="secadd" id="teamAddMan">');
+    }catch(e){ return h; }
+  };
+  document.addEventListener("click", function(e){
+    var b = e.target.closest && e.target.closest("#teamSync");
+    if(!b) return;
+    e.preventDefault(); e.stopPropagation();
+    if(!foLive()){ try{ toast("В демо команда выдуманная — обновлять нечего"); }catch(x){} return; }
+    b.disabled = true; b.textContent = "обновляю…";
+    var was = (S.people || []).length;
+    loadLive().then(function(){
+      try{ render(); }catch(x){}
+      var now = (S.people || []).length;
+      try{
+        toast(now > was
+          ? "Прибавилось людей: " + (now - was)
+          : "Новых пока нет — человек ещё не завершил вход");
+      }catch(x){}
+    }).catch(function(err){
+      b.disabled = false; b.textContent = "Обновить команду";
+      try{ toast(err.message || "не обновилось"); }catch(x){}
+    });
+  }, true);
 })();
 
 })();
