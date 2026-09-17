@@ -3707,6 +3707,11 @@ body.noadd [data-addmode]{ display:none !important; }
   font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:11.5px; line-height:1.55;
   white-space:pre-wrap; word-break:break-word;
 }
+
+/* по персональной ссылке код агентства не спрашиваем */
+#stUp2.bytoken label[for="upCode"],
+#stUp2.bytoken #upCode,
+#stUp2.bytoken .ghint{ display:none !important; }
 </style>
 </head>
 <body>
@@ -19514,6 +19519,17 @@ foInviteBlock = function(m, forNew){
   if(!T) return;
   window.foInviteToken = T;
 
+  /* по персональной ссылке код агентства вводить не нужно */
+  function hideCode(){
+    var st = document.getElementById("stUp2");
+    if(st) st.classList.add("bytoken");
+    var f = document.getElementById("upCode");
+    if(f) f.value = "";
+  }
+  hideCode();
+  setTimeout(hideCode, 300);
+  setTimeout(hideCode, 900);
+
   function paint(kind, html){
     ["stUp1","stUp2"].forEach(function(step, n){
       var st = document.getElementById(step);
@@ -19540,15 +19556,15 @@ foInviteBlock = function(m, forNew){
       paint("ok", "Приветствуем вас в агентстве <b>" + esc(nm) + "</b>!<br>" +
         "<i>Вам открывают доступ на уровне «" + esc(rt) + "». " +
         "Ссылка одноразовая — введите свою рабочую почту.</i>");
-      /* поле кода агентства здесь уже ни при чём */
-      var st2 = document.getElementById("stUp2");
-      if(st2) st2.dataset.byToken = "1";
+      hideCode();
     }).catch(function(e){
       var msg = String((e && e.message) || "");
       if(/Failed to fetch|NetworkError|Load failed/i.test(msg)) return;
       paint("bad", "Это приглашение больше не действует: " + esc(msg) +
-        "<br><i>Попросите собственника выписать новое.</i>");
+        "<br><i>Попросите собственника выписать новое — или войдите по коду агентства.</i>");
       window.foInviteToken = "";
+      var st3 = document.getElementById("stUp2");
+      if(st3) st3.classList.remove("bytoken");
     });
   }, 400);
 
@@ -19618,11 +19634,13 @@ var STEP_TX = "";
 (function(){
   if(typeof renderAdm !== "function") return;
   var _ra = renderAdm;
-  renderAdm = function(){
-    _ra.apply(this, arguments);
+  function plant(){
     try{
+      if(typeof view !== "undefined" && view !== "adm") return;
+      if(typeof admOpen !== "undefined" && admOpen) return;
       var host = document.getElementById("sect");
       if(!host || host.querySelector(".stepbox")) return;
+      if(!host.querySelector(".gl")) return;      /* панель ещё не отрисовалась */
       host.insertAdjacentHTML("beforeend",
         '<div class="gl stepbox"><div class="gl-t"><h2>Состояние сервера</h2>'+
           '<span class="m">что сделал последний шаг деплоя — без консоли</span>'+
@@ -19630,6 +19648,11 @@ var STEP_TX = "";
           (STEP_TX ? '<pre class="steptx">'+esc(STEP_TX)+'</pre>' : '')+
         '</div>');
     }catch(e){}
+  }
+  renderAdm = function(){
+    _ra.apply(this, arguments);
+    /* панель наполняется ответом сервера — досаживаем блок после неё */
+    [60, 500, 1400, 2600].forEach(function(ms){ setTimeout(plant, ms); });
   };
   try{ if(typeof SEC_RENDER === "object" && SEC_RENDER) SEC_RENDER.adm = renderAdm; }catch(e){}
 
