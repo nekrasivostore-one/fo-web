@@ -3720,6 +3720,16 @@ body.noadd [data-addmode]{ display:none !important; }
 /* ══ 63. Кто я в шапке ═════════════════════════════════════════ */
 .me .mn .mesub{ color:var(--ink-3, #8A8EA8); font-weight:500; font-size:12px; }
 .acctpart{ margin-bottom:10px; }
+
+/* ══ 65. Сохранение функции ════════════════════════════════════ */
+.fnsavebar{
+  display:flex; gap:12px; align-items:center; flex-wrap:wrap;
+  margin:16px 0 8px; padding:12px 14px; border-radius:12px;
+  border:1px solid rgba(124,92,255,.22); background:rgba(124,92,255,.05);
+}
+.fnsavenote{ font-size:12.5px; opacity:.72; }
+.fnsavenote.warn{ color:#B87A0C; opacity:1; font-weight:600; }
+.fnsavehint{ font-size:12px; opacity:.55; flex:1 1 220px; }
 </style>
 </head>
 <body>
@@ -20245,6 +20255,212 @@ function ncForget(){ NC_KEEP = {}; }
     return _rm.apply(this, arguments);
   };
   try{ if(typeof SEC_RENDER === "object" && SEC_RENDER) SEC_RENDER.newman = renderNewMan; }catch(e){}
+})();
+
+/* ══ 65. Функции: выбор, сохранение, никаких дублей ═════════════
+   §106 Цикличность не выбиралась. Обработчик change у выпадающих
+        списков карточки функции только перерисовывал экран, но не
+        записывал выбранное — значение писал обработчик input, а
+        кастомный список его не шлёт. Теперь пишет и change.
+   §107 Вернули «Несколько раз в неделю» — дни отмечаются рядом.
+   §105 У функции появилась кнопка «Сохранить функцию»: в живом
+        агентстве она уходит на сервер, а не только в браузер.
+        Двух функций с одним названием больше не завести.          */
+
+/* ── §107 ── */
+(function(){
+  try{
+    if(typeof CYCLES !== "undefined" && CYCLES &&
+       !CYCLES.some(function(x){ return x[0] === "wdays"; })){
+      CYCLES.splice(3, 0, ["wdays", "Несколько раз в неделю"]);
+    }
+  }catch(e){}
+})();
+
+/* ── §106 выбор в списке доходит до функции ── */
+document.addEventListener("change", function(e){
+  var t = e.target;
+  if(typeof view === "undefined" || view !== "fns") return;
+  if(typeof fnOpen === "undefined" || !fnOpen) return;
+  if(!(t.matches && t.matches("[data-fnc]"))) return;
+  var f = fnById(fnOpen); if(!f) return;
+  var k = t.getAttribute("data-fnc"), c = fnCfg(f);
+  var v = (k === "price") ? (+t.value || 0) : t.value;
+  if(c[k] === v) return;
+  c[k] = v;
+  try{ saveState(); }catch(x){}
+  fnDirty[f.id] = true;
+  renderFns();
+});
+/* дни недели и галочки тоже помечают функцию несохранённой */
+document.addEventListener("click", function(e){
+  if(typeof view === "undefined" || view !== "fns") return;
+  if(typeof fnOpen === "undefined" || !fnOpen) return;
+  if(!e.target.closest) return;
+  if(e.target.closest("[data-fnday]") || e.target.closest("[data-fncat]") ||
+     e.target.closest("[data-fnck]")  || e.target.closest("[data-fnreg]")){
+    fnDirty[fnOpen] = true;
+  }
+}, true);
+document.addEventListener("input", function(e){
+  if(typeof view === "undefined" || view !== "fns") return;
+  if(typeof fnOpen === "undefined" || !fnOpen) return;
+  var t = e.target;
+  if(t && t.matches && (t.matches("[data-fnc]") || t.matches("[data-fnname]"))) fnDirty[fnOpen] = true;
+});
+
+/* ── §105 сохранение функции ── */
+var fnDirty = {}, fnSaving = {}, fnSaved = {};
+
+function fnSameName(name, selfId){
+  var n = String(name || "").trim().toLowerCase();
+  if(!n) return null;
+  var list = (typeof S !== "undefined" && S && S.fns) ? S.fns : [];
+  for(var i = 0; i < list.length; i++){
+    var f = list[i];
+    if(f.id === selfId) continue;
+    var own = "";
+    try{ own = (fnCfg(f).own || "").trim().toLowerCase(); }catch(e){}
+    if(String(f.name || "").trim().toLowerCase() === n || (own && own === n)) return f;
+  }
+  return null;
+}
+
+function fnCycleForServer(c){
+  var k = c.cyc || "none";
+  if(k === "wdays") return {cycle_kind:"weekly", cycle_n:null, cycle_weekdays:(c.days || []).slice()};
+  if(k === "weekly")   return {cycle_kind:"weekly",   cycle_n:1, cycle_weekdays:(c.days||[]).slice()};
+  if(k === "biweekly") return {cycle_kind:"weekly",   cycle_n:2, cycle_weekdays:(c.days||[]).slice()};
+  if(k === "daily")    return {cycle_kind:"daily",    cycle_n:1, cycle_weekdays:null};
+  if(k === "monthly")  return {cycle_kind:"monthly",  cycle_n:1, cycle_weekdays:null};
+  return {cycle_kind:"none", cycle_n:null, cycle_weekdays:null};
+}
+
+function fnSave(id){
+  var f = fnById(id); if(!f) return;
+  var c = fnCfg(f);
+  var name = (c.own || f.name || "").trim();
+  if(name.length < 2){
+    try{ toast("Впишите название функции"); }catch(e){}
+    var el = document.querySelector('[data-fnname="'+id+'"], [data-fnc="own"]');
+    if(el){ el.classList.add("fbad"); foFieldNote(el, "Без названия функцию не сохранить"); el.focus(); }
+    return;
+  }
+  var dup = fnSameName(name, id);
+  if(dup){
+    try{ toast("Функция «" + name + "» уже есть — двух одинаковых не бывает"); }catch(e){}
+    var el2 = document.querySelector('[data-fnname="'+id+'"], [data-fnc="own"]');
+    if(el2){ el2.classList.add("fbad"); foFieldNote(el2, "Такая функция уже заведена — назовите иначе"); el2.focus(); }
+    return;
+  }
+  f.name = name;
+  try{ saveState(); }catch(e){}
+
+  if(!foLive()){
+    fnDirty[id] = false; fnSaved[id] = Date.now(); renderFns();
+    try{ toast("Сохранено. В демо — только в этом браузере"); }catch(e){}
+    return;
+  }
+  fnSaving[id] = true; renderFns();
+  var cyc = fnCycleForServer(c);
+  var body = {
+    code: String(f.code || f.id || ("FO-" + Date.now())).slice(0, 32),
+    name: name,
+    norm_minutes: Math.max(1, Math.min(2880, +f.minutes || +c.minutes || 30)),
+    block_id: +c.blockId || 1,
+    unit: "cabinet",
+    cycle_kind: cyc.cycle_kind
+  };
+  if(cyc.cycle_n != null) body.cycle_n = cyc.cycle_n;
+  if(cyc.cycle_weekdays && cyc.cycle_weekdays.length) body.cycle_weekdays = cyc.cycle_weekdays;
+
+  api("/refs/functions", {method:"POST", body:body})
+    .then(function(r){
+      fnSaving[id] = false; fnDirty[id] = false; fnSaved[id] = Date.now();
+      if(r && r.id) f.rid = r.id;
+      try{ saveState(); }catch(e){}
+      renderFns();
+      try{ toast("Функция сохранена в агентстве"); }catch(e){}
+    })
+    .catch(function(err){
+      fnSaving[id] = false;
+      renderFns();
+      try{ toast("Не сохранилось: " + (err.message || "сервер не ответил")); }catch(e){}
+    });
+}
+
+/* кнопка внизу карточки функции */
+(function(){
+  if(typeof fnCardHTML === "function"){
+    var _fc = fnCardHTML;
+    fnCardHTML = function(f){
+      var h = _fc.apply(this, arguments);
+      try{ return h.replace(/(<button[^>]*data-fndel[^>]*>)/, fnSaveBar(f) + "$1"); }
+      catch(e){ return h; }
+    };
+  }
+  /* запасной путь: сажаем панель в конец карточки после отрисовки */
+  if(typeof renderFns === "function"){
+    var _rf = renderFns;
+    renderFns = function(){
+      var v = _rf.apply(this, arguments);
+      try{ plantBar(); }catch(e){}
+      return v;
+    };
+    try{ if(typeof SEC_RENDER === "object" && SEC_RENDER) SEC_RENDER.fns = renderFns; }catch(e){}
+  }
+
+  function plantBar(){
+    if(typeof view === "undefined" || view !== "fns" || !fnOpen) return;
+    var host = document.getElementById("sect");
+    if(!host || host.querySelector(".fnsavebar")) return;
+    var f = fnById(fnOpen); if(!f) return;
+    var del = host.querySelector("[data-fndel]");
+    var box = document.createElement("div");
+    box.innerHTML = fnSaveBar(f);
+    var node = box.firstChild;
+    if(del && del.parentNode) del.parentNode.insertBefore(node, del);
+    else host.appendChild(node);
+  }
+
+  window.fnSaveBar = function(f){
+    var id = f.id;
+    var busy = !!fnSaving[id];
+    var dirty = !!fnDirty[id];
+    var when = fnSaved[id];
+    var note = busy ? "сохраняю…"
+      : dirty ? "есть несохранённые правки"
+      : when ? "сохранено" : "";
+    return '<div class="fnsavebar">'+
+      '<button class="bt'+(busy?' off':'')+'" data-fnsave="'+esc(id)+'"'+(busy?' disabled':'')+'>'+
+        (busy ? "Сохраняю…" : "Сохранить функцию")+'</button>'+
+      '<span class="fnsavenote'+(dirty?" warn":"")+'">'+esc(note)+'</span>'+
+      '<span class="fnsavehint">Пока не нажали — правки живут только на этом экране.</span>'+
+    '</div>';
+  };
+
+  document.addEventListener("click", function(e){
+    var t = e.target.closest && e.target.closest("[data-fnsave]");
+    if(!t) return;
+    e.preventDefault(); e.stopPropagation();
+    fnSave(t.getAttribute("data-fnsave"));
+  }, true);
+})();
+
+/* ── §105 дубли не заводятся и при создании ── */
+(function(){
+  document.addEventListener("input", function(e){
+    var t = e.target;
+    if(!t || !t.matches) return;
+    if(!t.matches("[data-fnname], [data-fnc='own']")) return;
+    t.classList.remove("fbad"); foFieldNote(t, "");
+    var id = t.getAttribute("data-fnname") || fnOpen;
+    var dup = fnSameName(t.value, id);
+    if(dup){
+      t.classList.add("fbad");
+      foFieldNote(t, "Функция «" + String(t.value).trim() + "» уже заведена");
+    }
+  });
 })();
 
 })();
