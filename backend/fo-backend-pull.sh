@@ -24,6 +24,37 @@ if curl -fsSL "${RAW%/live}/fo-backend-pull.sh?t=$(date +%s)" -o "$TMP/self.sh" 
   fi
 fi
 
+# ── разовый шаг: скрипт, который правит то, что целиком не перевезёшь ──
+# Механизм односторонний: файлы едут на сервер, прочитать их отсюда нечем.
+# Поэтому есть _step.py — он правит файлы НА сервере и пишет отчёт, который
+# видно в панели админа. Запускается один раз на каждую новую метку _step.id.
+STEPSTATE="/opt/fo/.backend-step.state"
+REPORT="/opt/fo/web/fo-step.txt"
+if curl -fsSL "$RAW/_step.id?t=$(date +%s)" -o "$TMP/step.id" 2>/dev/null; then
+  SID=$(tr -d " \t\r\n" < "$TMP/step.id")
+  CUR=$(cat "$STEPSTATE" 2>/dev/null || echo "")
+  if [ -n "$SID" ] && [ "$SID" != "$CUR" ]; then
+    if curl -fsSL "$RAW/_step.py?t=$(date +%s)" -o "$TMP/step.py" 2>/dev/null; then
+      echo "$SID" > "$STEPSTATE"        # метку пишем ДО запуска: шаг не повторяется
+      say "шаг $SID: запускаю"
+      mkdir -p /opt/fo/web
+      {
+        echo "шаг $SID"
+        echo "запуск $(date '+%F %T')"
+        echo "---"
+        "$PY" "$TMP/step.py" 2>&1
+        echo "---"
+        echo "код выхода: $?"
+      } > "$REPORT" 2>&1
+      cp "$REPORT" /opt/fo/step-last.txt 2>/dev/null
+      sed -n '1,200p' "$REPORT" >> "$LOG"
+      say "шаг $SID: завершён"
+    else
+      say "шаг $SID: сам скрипт не скачался"
+    fi
+  fi
+fi
+
 curl -fsSL "$RAW/manifest.txt?t=$(date +%s)" -o "$TMP/manifest.txt" 2>/dev/null || { say "манифест не скачался"; exit 0; }
 # комментарии и пустые строки выкидываем, остальное должно быть путями
 grep -vE '^[[:space:]]*(#|$)' "$TMP/manifest.txt" > "$TMP/list.txt" || true
