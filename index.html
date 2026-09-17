@@ -3603,6 +3603,67 @@ a.hlpc:hover{ border-color:rgba(124,92,255,.45) }
 @media (max-width:900px){
   .edf, .edf.wide{ flex:1 1 100% }
 }
+
+/* ══ 59. Инвайт, приветствие агентства, ошибки у поля ══════════ */
+
+/* §84 приветствие агентства на экране входа по коду */
+.invhello{ display:none; }
+.invhello.on{
+  display:block; margin:0 0 10px; padding:11px 13px;
+  border-radius:12px; font-size:13.5px; line-height:1.45;
+  border:1px solid rgba(124,92,255,.28);
+  background:linear-gradient(135deg, rgba(124,92,255,.10), rgba(0,179,154,.08));
+  color:var(--tx, #1d2129);
+}
+.invhello.on b{ font-weight:650; }
+.invhello.on i{ font-style:normal; opacity:.72; font-size:12.5px; }
+.invhello.wait{
+  border-color:rgba(130,130,150,.24);
+  background:rgba(130,130,150,.07); opacity:.8;
+}
+.invhello.bad{
+  border-color:rgba(219,74,95,.35);
+  background:rgba(219,74,95,.08);
+}
+
+/* §85 ошибка рядом с полем, а не в другом конце формы */
+.fi.fbad, input.fbad, .fbad{
+  border-color:#DB4A5F !important;
+  box-shadow:0 0 0 3px rgba(219,74,95,.14) !important;
+}
+label .fnote, .edf .fnote, .fnote{
+  display:block !important; margin-top:5px !important;
+  font-size:12px !important; color:#DB4A5F !important;
+  line-height:1.3 !important; letter-spacing:0 !important;
+  text-transform:none !important; font-weight:500 !important; opacity:1 !important;
+}
+
+/* §86 доступ в сервис: роль + ссылка-приглашение */
+.invwrap{ margin:14px 0 4px; }
+.edr.invrow{ align-items:flex-start; }
+.invlink .invl{
+  display:flex; gap:8px; align-items:center; flex-wrap:wrap;
+  padding:7px 9px; border-radius:10px;
+  border:1px dashed rgba(124,92,255,.35);
+  background:rgba(124,92,255,.05);
+}
+.invlink .invl code{
+  font-size:12.5px; word-break:break-all; flex:1 1 200px; min-width:0; opacity:.9;
+}
+.invlink .invl .bt{ flex:0 0 auto; width:auto; min-width:0; }
+.invlink .invl.empty{
+  border-style:solid; border-color:rgba(130,130,150,.25);
+  background:rgba(130,130,150,.06); font-size:12.5px; opacity:.75;
+}
+.invsend{
+  display:flex; gap:8px; align-items:center; flex-wrap:wrap;
+  margin:8px 0 2px; font-size:12.5px; opacity:.85;
+}
+.invsend a{ text-decoration:none; flex:0 0 auto; width:auto; min-width:0;
+  display:inline-flex; align-items:center; justify-content:center; padding:5px 12px; }
+.invnote{
+  margin:6px 0 2px; font-size:12.5px; line-height:1.4; opacity:.7;
+}
 </style>
 </head>
 <body>
@@ -18517,6 +18578,432 @@ function edCliForm(pr){
     if(e.target.closest && e.target.closest(".edbox")) e.stopPropagation();
   }, true);
 })();
+
+/* ══ 59. Инвайт по-настоящему ═══════════════════════════════════
+   §83 Код агентства. Браузер выдумывал свой код FO-XXXXX-XXXX и
+       показывал его как код для приглашений. Сервер такого кода не
+       знал и отвечал ошибкой валидации — её и видел человек сырым
+       JSON. Теперь в живом режиме код приходит только с сервера,
+       ошибки переводятся на человеческий язык.
+   §84 Приветствие. Кто заходит по инвайту — ещё до регистрации
+       видит, в какое агентство его позвали.
+   §85 «Добавить в команду». Поле имени наверху, ошибка внизу —
+       человек её не связывал с полем. Теперь ведём прямо к полю.
+   §86 Уровень доступа и ссылка-приглашение прямо в карточке.   */
+
+/* ── общее ── */
+function foLive(){
+  try{ return typeof isLive === "function" ? isLive() : false; }catch(e){ return false; }
+}
+function foInviteCode(){
+  if(foLive()){
+    try{ return String(localStorage.getItem("fo_invite") || "").trim(); }catch(e){ return ""; }
+  }
+  try{ return projectCode(); }catch(e){ return ""; }
+}
+function foInviteUrl(){
+  var c = foInviteCode();
+  return c ? ("https://fo.flater.pro/?invite=" + c) : "";
+}
+
+/* ═══ §83.1 в живом режиме код только серверный ═══ */
+(function(){
+  if(typeof projectCode !== "function") return;
+  var _pc = projectCode;
+  projectCode = function(){
+    if(foLive()){
+      try{ return String(localStorage.getItem("fo_invite") || "").trim(); }catch(e){ return ""; }
+    }
+    return _pc.apply(this, arguments);
+  };
+})();
+
+/* код агентства подтягиваем с сервера сразу после входа */
+(function(){
+  var pulled = false;
+  function pull(){
+    if(pulled || !foLive()) return;
+    try{
+      api("/refs/org").then(function(o){
+        if(!o || !o.invite_code) return;
+        pulled = true;
+        try{ localStorage.setItem("fo_invite", String(o.invite_code)); }catch(e){}
+        var host = document.getElementById("sect");
+        if(host && host.querySelector(".acccode, .invlink")){
+          try{ render(); }catch(e){}
+        }
+      }).catch(function(){});
+    }catch(e){}
+  }
+  setTimeout(pull, 1500);
+  setTimeout(pull, 6000);
+  window.foPullInvite = pull;
+})();
+
+/* ═══ §83.2 блок кода: не выдумываем и не меняем сами ═══ */
+(function(){
+  if(typeof accCodeBlock !== "function") return;
+  var _cb = accCodeBlock;
+  accCodeBlock = function(){
+    if(!foLive()) return _cb.apply(this, arguments);
+    var c = foInviteCode();
+    if(!c){
+      return '<div class="gl acccode"><div class="acch"><b>Код агентства</b>'+
+        '<i>его выдаёт сервис — сейчас подтянем</i></div>'+
+        '<div class="accn">Код ещё не пришёл с сервера. Обновите страницу — он появится '+
+        'здесь и в ссылке-приглашении.</div></div>';
+    }
+    var h = _cb.apply(this, arguments);
+    /* в живом агентстве код живёт на сервере — браузер его не перевыдаёт */
+    h = h.replace(/<button class="bt gh2 sm" id="accNewCode">[^<]*<\/button>/, "");
+    h = h.replace("Смена кода не выкидывает тех, кто уже внутри — она закрывает вход по старому коду.",
+      "Этот код знает сервис — по нему человек попадает именно в ваше агентство.");
+    return h;
+  };
+  /* в живом режиме кнопка смены кода не должна перерисовывать код локально */
+  document.addEventListener("click", function(e){
+    if(!foLive()) return;
+    if(e.target.closest && e.target.closest("#accNewCode")){
+      e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();
+      try{ toast("Код агентства выдаёт сервис — сменить его можно через поддержку"); }catch(x){}
+    }
+  }, true);
+})();
+
+/* ═══ §83.3 ошибки сервера — по-человечески ═══ */
+(function(){
+  var FIELD = {
+    invite_code:"код агентства", email:"почта", password:"пароль", code:"код",
+    org_name:"название агентства", name:"имя", phone:"телефон", tg:"телеграм"
+  };
+  function one(it){
+    var loc = (it.loc || []).filter(function(x){
+      return x !== "body" && x !== "query" && x !== "path" && typeof x !== "number"; });
+    var key = loc[loc.length - 1];
+    var f = FIELD[key] || key || "поле";
+    var t = String(it.type || ""), ctx = it.ctx || {};
+    if(t === "string_too_long")
+      return "Слишком длинный " + f + ": не больше " + ctx.max_length + " символов. " +
+             "Код агентства — шесть символов, его даёт собственник.";
+    if(t === "string_too_short")
+      return "Слишком короткий " + f + ": не меньше " + ctx.min_length + " символов.";
+    if(t === "missing")       return "Не заполнено: " + f + ".";
+    if(t.indexOf("email")>=0) return "Почта написана с ошибкой.";
+    if(it.msg)                return "Поле «" + f + "» заполнено неверно.";
+    return "Поле «" + f + "» заполнено неверно.";
+  }
+  function human(raw){
+    var s = String(raw == null ? "" : raw).trim();
+    if(s.charAt(0) !== "[" && s.charAt(0) !== "{") return s;
+    var d = null; try{ d = JSON.parse(s); }catch(e){ return s; }
+    var arr = (d instanceof Array) ? d
+            : (d && d.detail instanceof Array) ? d.detail : null;
+    if(!arr || !arr.length) return (d && typeof d.detail === "string") ? d.detail : s;
+    var out = [], seen = {};
+    arr.forEach(function(it){
+      var tx = one(it || {});
+      if(!seen[tx]){ seen[tx] = 1; out.push(tx); }
+    });
+    return out.join(" ");
+  }
+  window.foHumanError = human;
+  if(typeof api !== "function") return;
+  var _api = api;
+  api = function(path, opt){
+    return _api(path, opt).catch(function(e){
+      var tx = human(e && e.message);
+      if(tx && e && tx !== e.message){
+        var e2 = new Error(tx);
+        e2.status = e.status; e2.raw = e.message;
+        throw e2;
+      }
+      throw e;
+    });
+  };
+})();
+
+/* ═══ §83.4 поле кода: принимаем и ссылку целиком ═══ */
+function foCodeClean(v){
+  var s = String(v == null ? "" : v).trim();
+  var m = s.match(/[?&]invite=([^&\s]+)/i);
+  if(m) s = m[1];
+  return s.replace(/[^A-Za-z0-9]/g, "").toUpperCase().slice(0, 12);
+}
+
+/* ═══ §84 приветствие агентства на входе по инвайту ═══ */
+(function(){
+  var cache = {}, timer = null, last = "";
+
+  /* приветствие показываем и на первом окне (почта), и на окне кода */
+  function box(step, id){
+    var st = document.getElementById(step);
+    if(!st) return null;
+    var b = document.getElementById(id);
+    if(!b){
+      b = document.createElement("div");
+      b.id = id;
+      b.className = "invhello";
+      var hint = st.querySelector(".ghint");
+      if(hint && hint.parentNode) hint.parentNode.insertBefore(b, hint);
+      else st.insertBefore(b, st.firstChild);
+    }
+    return b;
+  }
+  function paint(kind, text){
+    [box("stUp1", "invHello1"), box("stUp2", "invHello")].forEach(function(b){
+      if(!b) return;
+      if(!kind){ b.className = "invhello"; b.innerHTML = ""; return; }
+      b.className = "invhello on " + kind;
+      b.innerHTML = text;
+    });
+  }
+  function nameOf(r){
+    if(!r) return "";
+    return String(r.org_name || r.workspace || r.name ||
+      (r.org && (r.org.name || r.org.org_name)) || "").trim();
+  }
+
+  function look(code){
+    if(!code || code.length < 4){ paint(null); return; }
+    if(cache[code] !== undefined){ show(code, cache[code]); return; }
+    paint("wait", "Проверяем код…");
+    api("/auth/invite/" + encodeURIComponent(code)).then(function(r){
+      cache[code] = nameOf(r) || "";
+      show(code, cache[code]);
+    }).catch(function(e){
+      /* сеть не дошла — молчим; сервер ответил «нет» — говорим прямо */
+      var msg = String((e && e.message) || "");
+      var offline = (e instanceof TypeError) ||
+        /Failed to fetch|NetworkError|Load failed|ошибка 5\d\d/i.test(msg);
+      if(offline){ paint(null); return; }
+      cache[code] = null; show(code, null);
+    });
+  }
+  function show(code, name){
+    if(foCodeClean((document.getElementById("upCode")||{}).value) !== code) return;
+    if(name === null){
+      paint("bad", "Такого кода нет. Проверьте его у собственника агентства — " +
+        "код из шести символов или ссылка-приглашение целиком.");
+      return;
+    }
+    if(!name){ paint(null); return; }
+    paint("ok", "Приветствуем вас в агентстве <b>" + esc(name) + "</b>!<br>" +
+      "<i>Осталось подтвердить почту — и вы окажетесь в его рабочем пространстве.</i>");
+  }
+
+  function kick(){
+    var f = document.getElementById("upCode"); if(!f) return;
+    var c = foCodeClean(f.value);
+    if(c === last) return;
+    last = c;
+    clearTimeout(timer);
+    timer = setTimeout(function(){ look(c); }, 350);
+  }
+
+  document.addEventListener("input", function(e){
+    if(e.target && e.target.id === "upCode") kick();
+  });
+  document.addEventListener("change", function(e){
+    if(e.target && e.target.id === "upCode"){
+      /* вставили ссылку целиком — оставляем чистый код */
+      var c = foCodeClean(e.target.value);
+      if(c && c !== e.target.value) e.target.value = c;
+      kick();
+    }
+  });
+  /* пришли по ссылке ?invite= — здороваемся сразу */
+  setTimeout(function(){
+    var f = document.getElementById("upCode");
+    if(f && String(f.value||"").trim()){
+      f.value = foCodeClean(f.value);
+      kick();
+    }
+  }, 350);
+
+  /* и на третьем шаге здороваемся так же тепло */
+  if(typeof fillStep3 === "function"){
+    var _f3 = fillStep3;
+    fillStep3 = function(r, txt){
+      try{
+        if(txt && /Вы вступаете в/.test(txt)){
+          txt = txt.replace(/Вы вступаете в <b>(.*?)<\/b>\./,
+            "Приветствуем вас в агентстве <b>$1</b>!");
+        }
+      }catch(e){}
+      return _f3.call(this, r, txt);
+    };
+  }
+})();
+
+/* ═══ §85 «Добавить в команду» ведёт к пустому полю ═══ */
+function foFieldNote(el, text){
+  if(!el) return;
+  var lab = el.closest("label") || el.parentNode;
+  if(!lab) return;
+  var n = lab.querySelector(".fnote");
+  if(!n){
+    n = document.createElement("span");
+    n.className = "fnote";
+    lab.appendChild(n);
+  }
+  n.textContent = text || "";
+  n.style.display = text ? "" : "none";
+}
+(function(){
+  document.addEventListener("click", function(e){
+    var b = e.target.closest && e.target.closest("#nmSave");
+    if(!b) return;
+    var f = document.getElementById("nmName");
+    if(!f || String(f.value || "").trim()) return;
+    e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();
+    f.classList.add("fbad");
+    foFieldNote(f, "Без имени человека не завести");
+    try{ f.scrollIntoView({block:"center", behavior:"smooth"}); }catch(x){}
+    setTimeout(function(){ try{ f.focus(); }catch(x){} }, 260);
+    try{ toast("Впишите имя — поле наверху карточки"); }catch(x){}
+  }, true);
+
+  document.addEventListener("input", function(e){
+    var t = e.target;
+    if(t && t.id === "nmName" && String(t.value||"").trim()){
+      t.classList.remove("fbad"); foFieldNote(t, "");
+    }
+  });
+})();
+
+/* ═══ §86 уровень доступа и ссылка-приглашение ═══ */
+var FO_ACC_ROLES = [
+  ["dir",    "Директор — видит всё агентство"],
+  ["head",   "Руководитель — своё направление"],
+  ["pm",     "Проджект — свои кабинеты"],
+  ["mgr",    "Менеджер главный — свои кабинеты и задачи"],
+  ["jun",    "Менеджер младший — свои задачи"],
+  ["asst",   "Ассистент — только свои задачи"],
+  ["client", "Клиент агентства — только свой кабинет"]
+];
+function foAccName(code){
+  var r = FO_ACC_ROLES.filter(function(x){ return x[0] === code; })[0];
+  if(r) return r[1].split(" — ")[0];
+  try{ return roleName(code); }catch(e){ return code || "Менеджер младший"; }
+}
+function foAccOf(m){ return (m && m.acc) || "jun"; }
+
+/* блок «Доступ в сервис» — и в форме заведения, и в карточке */
+function foInviteBlock(m, forNew){
+  var url = foInviteUrl();
+  var cur = forNew ? "jun" : foAccOf(m);
+  var sel = '<label class="edf"><span>Уровень доступа</span>'+
+    '<select class="fi sm"'+(forNew
+      ? ' id="nmAcc"'
+      : ' data-ed="man" data-edid="'+esc(m.id)+'" data-edk="acc"')+'>'+
+    FO_ACC_ROLES.map(function(o){
+      return '<option value="'+o[0]+'"'+(o[0]===cur?' selected':'')+'>'+esc(o[1])+'</option>';
+    }).join("")+'</select></label>';
+
+  var link = url
+    ? '<div class="edf wide invlink"><span>Ссылка-приглашение</span>'+
+        '<div class="invl"><code>'+esc(url)+'</code>'+
+        '<button type="button" class="bt gh2 sm" data-copy="'+esc(url)+'">Копировать</button>'+
+        '</div></div>'
+    : '<div class="edf wide invlink"><span>Ссылка-приглашение</span>'+
+        '<div class="invl empty">Код агентства ещё не пришёл с сервера — обновите страницу</div></div>';
+
+  var send = (url && !forNew)
+    ? '<div class="invsend">Отправить: '+
+        '<a class="bt gh2 sm" target="_blank" rel="noopener" href="https://t.me/share/url?url='+
+          encodeURIComponent(url)+'&text='+
+          encodeURIComponent("Вас зовут в агентство. Заходите по ссылке — уровень доступа: "+
+            foAccName(cur))+'">Telegram</a>'+
+        (m && m.mail
+          ? '<a class="bt gh2 sm" href="mailto:'+esc(m.mail)+'?subject='+
+              encodeURIComponent("Приглашение в агентство")+'&body='+
+              encodeURIComponent("Заходите по ссылке: "+url)+'">Почта</a>'
+          : '')+
+      '</div>'
+    : '';
+
+  return '<div class="edr invrow">'+ sel + link +'</div>'+ send +
+    '<div class="invnote">По ссылке человек попадает в ваше агентство. '+
+    'Уровень доступа, который вы выбрали здесь, — тот, под которым он будет работать.</div>';
+}
+
+/* — в форме заведения нового менеджера — */
+(function(){
+  if(typeof renderNewMan !== "function") return;
+  var _rn = renderNewMan;
+  renderNewMan = function(){
+    _rn.apply(this, arguments);
+    try{
+      var host = document.getElementById("sect");
+      var foot = host && host.querySelector(".newone .sfb");
+      if(!foot || host.querySelector("#nmAcc")) return;
+      var w = document.createElement("div");
+      w.className = "invwrap";
+      w.innerHTML = '<div class="sfh">Доступ в сервис</div>' + foInviteBlock(null, true);
+      foot.parentNode.insertBefore(w, foot);
+      try{ enhanceSelects(w); }catch(e){}
+    }catch(e){}
+  };
+  /* карта разделов держит ссылку на старую функцию — перевешиваем */
+  try{ if(typeof SEC_RENDER === "object" && SEC_RENDER) SEC_RENDER.newman = renderNewMan; }catch(e){}
+})();
+
+/* уровень доступа и ссылка закрепляются за человеком при сохранении */
+(function(){
+  if(typeof demoAddEmp !== "function") return;
+  var _da = demoAddEmp;
+  demoAddEmp = function(){
+    var p = _da.apply(this, arguments);
+    try{
+      var s = document.getElementById("nmAcc");
+      if(p && !p.acc) p.acc = (s && s.value) || "jun";
+      if(p && !p.invitedAt){
+        p.invitedAt = Date.now();
+        p.inviteUrl = foInviteUrl();
+      }
+      /* карточка нового человека открывается сразу — со ссылкой-приглашением */
+      if(p && document.getElementById("nmAcc")) manCardOpen = p.id;
+    }catch(e){}
+    return p;
+  };
+})();
+
+/* в живом агентстве человек заводится на сервере, а не только в браузере */
+(function(){
+  document.addEventListener("click", function(e){
+    if(!(e.target.closest && e.target.closest("#nmSave"))) return;
+    if(!foLive()) return;
+    var f = document.getElementById("nmName");
+    var n = f ? String(f.value||"").trim() : "";
+    if(!n) return;
+    var tgEl = document.getElementById("nmTg");
+    var tg = tgEl ? String(tgEl.value||"").replace(/^@+/,"").trim() : "";
+    api("/refs/employees", {method:"POST", body:{name:n, tg:tg}})
+      .then(function(){ try{ toast(n + " записан в агентство"); }catch(x){} })
+      .catch(function(err){
+        try{ toast("В агентстве не сохранилось: " + err.message); }catch(x){}
+      });
+  });
+})();
+
+/* — в карточке сотрудника — */
+(function(){
+  if(typeof edManForm !== "function") return;
+  var _ef = edManForm;
+  edManForm = function(m){
+    var h = _ef.apply(this, arguments);
+    try{
+      var add = '<div class="edg">Доступ в сервис</div>' + foInviteBlock(m, false);
+      return h.replace(/<\/div>\s*$/, add + '</div>');
+    }catch(e){ return h; }
+  };
+})();
+
+/* диагностика без консоли сервера: window.foInv в браузере */
+window.foInv = function(){
+  return {live: foLive(), code: foInviteCode(), url: foInviteUrl(),
+          clean: foCodeClean, acc: FO_ACC_ROLES.map(function(x){ return x[0]; })};
+};
 
 })();
 </script>
