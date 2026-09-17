@@ -3730,6 +3730,27 @@ body.noadd [data-addmode]{ display:none !important; }
 .fnsavenote{ font-size:12.5px; opacity:.72; }
 .fnsavenote.warn{ color:#B87A0C; opacity:1; font-weight:600; }
 .fnsavehint{ font-size:12px; opacity:.55; flex:1 1 220px; }
+
+/* ══ 67. Настоящие доступы ═════════════════════════════════════ */
+.srvacc{ margin-bottom:14px; }
+.srvacc .sur{
+  display:grid; grid-template-columns:minmax(160px,1.4fr) auto minmax(180px,1fr) auto;
+  gap:12px; align-items:center; padding:10px 12px;
+  border-top:1px solid rgba(130,130,150,.16);
+}
+.srvacc .sur:first-of-type{ border-top:0; }
+.srvacc .sur.off{ opacity:.55; }
+.srvacc .sun b{ display:block; font-size:14.5px; font-weight:650; }
+.srvacc .sun i{ display:block; font-style:normal; font-size:12px; opacity:.6; }
+.srvacc .suboss{ font-size:13px; font-weight:600; opacity:.8; }
+.srvacc .sudim{ font-size:12px; opacity:.5; }
+.srvacc .tago,.srvacc .tagw,.srvacc .tagn{
+  font-size:11.5px; font-weight:600; padding:3px 9px; border-radius:8px; white-space:nowrap;
+}
+.srvacc .tago{ background:rgba(18,148,106,.12); color:#12946A; }
+.srvacc .tagw{ background:rgba(184,122,12,.14); color:#B87A0C; }
+.srvacc .tagn{ background:rgba(217,59,85,.12); color:#D93B55; }
+@media (max-width:760px){ .srvacc .sur{ grid-template-columns:1fr; gap:6px; } }
 </style>
 </head>
 <body>
@@ -20572,6 +20593,233 @@ window.foOwnerCards = function(){
   return {ids: Object.keys(OWNER_CARDS),
           люди: ((typeof S !== "undefined" && S && S.people) || []).map(function(m){
             return m.name + (isOwnerCard(m) ? " · собственник, скрыт" : ""); })};
+};
+
+/* ══ 67. Доступы по-настоящему ══════════════════════════════════
+   §111 Раздел «Доступы» показывал выдуманный список из браузера.
+        У сервиса всё есть штатно: /admin/users отдаёт людей с их
+        уровнем и блокировками, /admin/users/{id}/level меняет
+        уровень, /ban и /unban закрывают и возвращают вход.
+   §112 Обещанный уровень. Начальник заводит карточку и выбирает,
+        каким уровнем человек войдёт. Человек регистрируется по коду
+        агентства — и сервис сам поднимает ему обещанный уровень,
+        как только он появляется в списке.                          */
+
+var SRV_USERS = null, SRV_USERS_ERR = "", srvUsersBusy = false;
+
+function foPromised(){
+  try{ return JSON.parse(localStorage.getItem("fo_promised") || "{}"); }catch(e){ return {}; }
+}
+function foPromise(key, roleCode){
+  if(!key || !roleCode) return;
+  var p = foPromised();
+  p[String(key).toLowerCase()] = roleCode;
+  try{ localStorage.setItem("fo_promised", JSON.stringify(p)); }catch(e){}
+}
+function foPromiseDrop(key){
+  var p = foPromised();
+  delete p[String(key || "").toLowerCase()];
+  try{ localStorage.setItem("fo_promised", JSON.stringify(p)); }catch(e){}
+}
+
+function srvUsersLoad(cb){
+  if(!foLive()){ if(cb) cb(); return; }
+  if(srvUsersBusy) return;
+  srvUsersBusy = true;
+  api("/admin/users").then(function(us){
+    srvUsersBusy = false;
+    SRV_USERS = us || []; SRV_USERS_ERR = "";
+    foPromiseApply();
+    if(cb) cb(); else { try{ if(view === "acc") renderAcc(); }catch(e){} }
+  }).catch(function(e){
+    srvUsersBusy = false;
+    SRV_USERS = SRV_USERS || [];
+    SRV_USERS_ERR = e.message || "не прочиталось";
+    if(cb) cb(); else { try{ if(view === "acc") renderAcc(); }catch(x){} }
+  });
+}
+
+/* уровень, обещанный при заведении карточки, выдаётся сам */
+function foPromiseApply(){
+  if(!foLive() || !SRV_USERS || !SRV_USERS.length) return;
+  var p = foPromised();
+  if(!Object.keys(p).length) return;
+  SRV_USERS.forEach(function(u){
+    var em = String(u.email || "").toLowerCase();
+    var nm = String(u.name || u.full_name || "").toLowerCase();
+    var want = p[em] || p[em.split("@")[0]] || p[nm];
+    if(!want) return;
+    var have = String(u.role_code || u.role || "").toLowerCase();
+    if(have === want){ foPromiseDrop(em); foPromiseDrop(nm); return; }
+    api("/admin/users/" + encodeURIComponent(u.id) + "/level",
+        {method:"POST", body:{role_code: want, reason:"уровень, обещанный при заведении карточки"}})
+      .then(function(){
+        foPromiseDrop(em); foPromiseDrop(nm);
+        u.role_code = want;
+        try{ toast((u.name || u.email) + " — уровень выдан: " + foAccName(want)); }catch(e){}
+        try{ if(view === "acc") renderAcc(); }catch(e){}
+      })
+      .catch(function(){});
+  });
+}
+
+function srvUsersHTML(){
+  if(!foLive()) return "";
+  if(SRV_USERS === null){
+    srvUsersLoad();
+    return '<div class="gl srvacc"><div class="gl-t"><h2>Люди в агентстве</h2>'+
+      '<span class="m">читаю с сервера…</span></div></div>';
+  }
+  var list = SRV_USERS || [];
+  var opts = [];
+  try{ opts = foGrantable(); }catch(e){}
+  if(!opts || !opts.length) opts = FO_ACC_ROLES;
+
+  var rows = list.map(function(u){
+    var rc = String(u.role_code || u.role || "").toLowerCase();
+    var lvl = +(u.level != null ? u.level : 9);
+    var isBoss = (lvl <= 1 || rc === "owner" || rc === "admin");
+    var blocked = !!(u.blocked || u.banned || u.is_banned);
+    var pend = !!u.first_login;
+    return '<div class="sur'+(blocked?" off":"")+'">'+
+      '<div class="sun"><b>'+esc(u.name || u.full_name || String(u.email||"").split("@")[0])+'</b>'+
+        '<i>'+esc(u.email || "—")+'</i></div>'+
+      '<div class="sust">'+
+        (pend ? '<span class="tagw">ещё не завершил вход</span>'
+              : blocked ? '<span class="tagn">вход закрыт</span>'
+                        : '<span class="tago">в работе</span>')+
+      '</div>'+
+      '<div class="sulv">'+
+        (isBoss
+          ? '<span class="suboss">'+esc(foAccName(rc) || rc)+'</span>'
+          : '<select class="fi sm" data-sulv="'+esc(u.id)+'">'+
+              opts.map(function(o){
+                return '<option value="'+esc(o[0])+'"'+(o[0]===rc?' selected':'')+'>'+
+                  esc(o[1])+'</option>'; }).join("")+
+            '</select>')+
+      '</div>'+
+      '<div class="suact">'+
+        (isBoss ? '<span class="sudim">собственника не трогаем</span>'
+                : (blocked
+                    ? '<button class="bt gh2 sm" data-suon="'+esc(u.id)+'">Вернуть вход</button>'
+                    : '<button class="bt gh2 sm" data-suoff="'+esc(u.id)+'">Закрыть вход</button>'))+
+      '</div>'+
+    '</div>';
+  }).join("");
+
+  return '<div class="gl srvacc"><div class="gl-t"><h2>Люди в агентстве</h2>'+
+      '<span class="m">настоящие аккаунты сервиса — уровень действует сразу</span>'+
+      '<button class="bt gh2 sm" id="suSync">Обновить</button></div>'+
+    (SRV_USERS_ERR ? '<div class="gerr on">'+esc(SRV_USERS_ERR)+'</div>' : '')+
+    (rows || '<div class="empty">Пока в агентстве только вы. Дайте человеку код агентства — '+
+      'он появится здесь, как только зарегистрируется.</div>')+
+    '<div class="fnnote">Уровень действует сразу: человек увидит ровно то, что ему положено. '+
+    'Собственник в агентстве один — его уровень отсюда не меняется.</div></div>';
+}
+
+(function(){
+  if(typeof renderAcc !== "function") return;
+  var _ra = renderAcc;
+  renderAcc = function(){
+    _ra.apply(this, arguments);
+    try{
+      if(!foLive()) return;
+      var host = document.getElementById("sect");
+      if(!host || host.querySelector(".srvacc")) return;
+      host.insertAdjacentHTML("afterbegin", srvUsersHTML());
+      try{ enhanceSelects(host.querySelector(".srvacc")); }catch(e){}
+    }catch(e){}
+  };
+  try{ if(typeof SEC_RENDER === "object" && SEC_RENDER) SEC_RENDER.acc = renderAcc; }catch(e){}
+
+  document.addEventListener("change", function(e){
+    var t = e.target;
+    if(!t || !t.matches || !t.matches("[data-sulv]")) return;
+    var id = t.getAttribute("data-sulv"), rc = t.value;
+    t.disabled = true;
+    api("/admin/users/" + encodeURIComponent(id) + "/level",
+        {method:"POST", body:{role_code: rc, reason:"выдал собственник"}})
+      .then(function(){
+        (SRV_USERS || []).forEach(function(u){ if(String(u.id) === String(id)) u.role_code = rc; });
+        t.disabled = false;
+        try{ toast("Уровень выдан: " + foAccName(rc)); }catch(x){}
+      })
+      .catch(function(err){
+        t.disabled = false;
+        try{ toast("Не выдалось: " + (err.message || "сервер не ответил")); }catch(x){}
+        SRV_USERS = null; srvUsersLoad();
+      });
+  });
+
+  document.addEventListener("click", function(e){
+    if(!e.target.closest) return;
+    if(e.target.closest("#suSync")){
+      e.preventDefault(); SRV_USERS = null; srvUsersLoad(); return;
+    }
+    var off = e.target.closest("[data-suoff]");
+    if(off){
+      e.preventDefault();
+      var id1 = off.getAttribute("data-suoff");
+      off.disabled = true;
+      api("/admin/users/" + encodeURIComponent(id1) + "/ban",
+          {method:"POST", body:{kind:"block", reason:"вход закрыл собственник"}})
+        .then(function(){ SRV_USERS = null; srvUsersLoad(); try{ toast("Вход закрыт"); }catch(x){} })
+        .catch(function(err){ off.disabled = false; try{ toast(err.message || "не вышло"); }catch(x){} });
+      return;
+    }
+    var on = e.target.closest("[data-suon]");
+    if(on){
+      e.preventDefault();
+      var id2 = on.getAttribute("data-suon");
+      on.disabled = true;
+      api("/admin/users/" + encodeURIComponent(id2) + "/unban", {method:"POST"})
+        .then(function(){ SRV_USERS = null; srvUsersLoad(); try{ toast("Вход вернули"); }catch(x){} })
+        .catch(function(err){ on.disabled = false; try{ toast(err.message || "не вышло"); }catch(x){} });
+      return;
+    }
+  }, true);
+
+  setTimeout(function(){ if(foLive()) srvUsersLoad(function(){}); }, 2500);
+})();
+
+/* ── §112 обещание уровня при выдаче приглашения ── */
+(function(){
+  document.addEventListener("click", function(e){
+    var t = e.target.closest && e.target.closest("[data-invnew]");
+    if(!t) return;
+    setTimeout(function(){
+      try{
+        var id = t.getAttribute("data-invnew");
+        var isNew = (id === "__new");
+        var sel = isNew ? document.getElementById("nmAcc")
+                        : document.querySelector('[data-edk="acc"]');
+        var rc = sel && sel.value;
+        if(!rc) return;
+        var m = isNew ? null : person(id);
+        var nm = isNew ? String((document.getElementById("nmName")||{}).value || "").trim()
+                       : ((m || {}).name || "");
+        var ml = isNew ? "" : ((m || {}).mail || "");
+        if(nm) foPromise(nm, rc);
+        if(ml) foPromise(ml, rc);
+      }catch(x){}
+    }, 120);
+  }, true);
+
+  document.addEventListener("click", function(e){
+    if(!e.target.closest || !e.target.closest("#accGrant")) return;
+    setTimeout(function(){
+      try{
+        var r = accList().filter(function(x){ return x.id === accJustMade; })[0];
+        if(!r || !r.role) return;
+        if(r.name) foPromise(r.name, r.role);
+        if(r.via === "mail" && r.val) foPromise(r.val, r.role);
+      }catch(x){}
+    }, 120);
+  });
+})();
+
+window.foAccess = function(){
+  return {обещано: foPromised(), сервер: SRV_USERS, ошибка: SRV_USERS_ERR};
 };
 
 })();
