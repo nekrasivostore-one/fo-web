@@ -3760,6 +3760,13 @@ body.noadd [data-addmode]{ display:none !important; }
 }
 .srvflag b{ font-size:12px; font-weight:700; color:#D93B55; }
 .srvflag i{ font-size:11px; font-style:normal; opacity:.75; }
+#nameGate{position:fixed;inset:0;z-index:9999;background:rgba(20,24,40,.45);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;padding:16px}
+#nameGate .ngc{background:var(--card,#fff);border-radius:18px;padding:28px 26px 22px;width:min(440px,100%);box-shadow:0 20px 60px rgba(0,0,0,.25)}
+#nameGate .ngh{font-size:22px;font-weight:700;margin-bottom:6px}
+#nameGate .ngs{color:var(--mute,#6b7280);font-size:13px;line-height:1.4;margin-bottom:16px}
+#nameGate .fi{width:100%;box-sizing:border-box;font-size:16px;padding:12px 14px;margin-bottom:8px}
+#nameGate .ngerr{min-height:18px;font-size:12px;color:var(--crit,#d33);margin-bottom:10px}
+#nameGate .bt{width:100%;padding:12px}
 </style>
 </head>
 <body>
@@ -21867,6 +21874,153 @@ function foBelowPm(){
 })();
 
 window.foBelowPm = foBelowPm;
+
+/* ===== add74: сессия не слетает через час + имена вместо ников (С8) =====
+
+   1) СЕССИЯ. Слой 51 обновлял токен запросом с телом {refresh: …}, а сервер
+      по карте API принимает refresh ТОЛЬКО в адресной строке:
+      POST /auth/refresh?refresh=…  Обновление никогда не срабатывало, и через
+      час любая сессия умирала с «Сессия истекла». Пункт 65 «сессия 14 дней».
+
+   2) ИМЕНА. Везде показывались куски почты (iharyemelyanenka, vika134012).
+      Правило Виталия: показывать только имена; человек называет себя первым
+      делом при входе. Имя хранится на сервере (display_name) и им же
+      переименовывается карточка сотрудника - это делает шаг v4.
+      Из браузера ключ fo_name убираем: браузер - не хранилище.               */
+
+/* ── 1. обновление токена по-настоящему ── */
+(function(){
+  if(typeof api !== "function") return;
+  var busy = null, kicked = false;
+
+  function expired(e){
+    var m = String((e && e.message) || "");
+    return (e && e.status === 401) || /401|токен|сесси|not authenticated|unauthorized/i.test(m);
+  }
+  function raw(path, opt){
+    /* прямой вызов без всех перехватчиков: fetch с токеном */
+    opt = opt || {};
+    var h = {"Content-Type":"application/json"};
+    try{ if(A && A.token) h.Authorization = "Bearer " + A.token; }catch(e){}
+    return fetch(path, {method: opt.method || "GET", headers: h,
+                        body: opt.body ? JSON.stringify(opt.body) : undefined})
+      .then(function(r){
+        return r.text().then(function(t){
+          var j = null; try{ j = t ? JSON.parse(t) : null; }catch(x){}
+          if(!r.ok){ var er = new Error((j && j.detail) ? (typeof j.detail === "string" ? j.detail : JSON.stringify(j.detail)) : t); er.status = r.status; throw er; }
+          return j;
+        });
+      });
+  }
+  function doRefresh(){
+    if(busy) return busy;
+    var rt = ""; try{ rt = (A && A.refresh) || ""; }catch(e){}
+    if(!rt){ busy = Promise.resolve(false); return busy; }
+    busy = fetch("/auth/refresh?refresh=" + encodeURIComponent(rt), {method:"POST"})
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(j){
+        var tok = j && (j.access || j.access_token || j.token);
+        if(!tok) return false;
+        A.token = tok;
+        var nr = j.refresh || j.refresh_token; if(nr) A.refresh = nr;
+        if(j.role) A.role = j.role;
+        if(typeof j.level === "number") A.level = j.level;
+        try{ saveAuth(); }catch(x){}
+        kicked = false;
+        return true;
+      })
+      .catch(function(){ return false; })
+      .then(function(ok){ busy = null; return ok; });
+  }
+
+  var _api = api;
+  api = function(path, opt){
+    var p = String(path || "");
+    var isAuth = /\/auth\/(login|start|verify|refresh|register|workspace|invite)/.test(p);
+    return _api(path, opt).catch(function(e){
+      if(isAuth || !A || !A.token || !expired(e)) throw e;
+      return doRefresh().then(function(ok){
+        if(!ok){
+          if(!kicked){ kicked = true; try{ if(typeof foKick === "function") foKick("Сессия истекла — войдите заново"); }catch(x){} }
+          throw e;
+        }
+        return raw(path, opt);
+      });
+    });
+  };
+
+  /* профилактика: раз в 20 минут обновляем токен заранее, пока он ещё жив */
+  setInterval(function(){
+    try{ if(A && A.token && A.refresh) doRefresh(); }catch(e){}
+  }, 20 * 60 * 1000);
+  window.foRefresh = doRefresh;
+})();
+
+/* ── 2. имя только с сервера; fo_name из браузера вычищаем ── */
+(function(){
+  try{ localStorage.removeItem("fo_name"); }catch(e){}
+  if(typeof foMeName === "function"){
+    foMeName = function(){
+      if(ACC && ACC.name && String(ACC.name).trim().length >= 2) return String(ACC.name).trim();
+      var em = ""; try{ em = (A && A.email) || ""; }catch(e){}
+      return em ? em.split("@")[0] : "Вы";
+    };
+  }
+  if(typeof accLoad === "function"){
+    var _al = accLoad;
+    accLoad = function(cb){
+      return _al.call(this, function(){
+        try{ localStorage.removeItem("fo_name"); }catch(e){}
+        try{ askNameIfMissing(); }catch(e){}
+        if(cb) cb();
+      });
+    };
+  }
+})();
+
+/* ── 3. «Как вас зовут?» — первым делом, пока имени нет ── */
+var NAME_GATE_ON = false;
+function askNameIfMissing(){
+  if(typeof foLive === "function" && !foLive()) return;
+  if(!ACC || ACC.demo) return;
+  var nm = String(ACC.name || "").trim();
+  if(nm.length >= 2) return;
+  if(NAME_GATE_ON || document.getElementById("nameGate")) return;
+  NAME_GATE_ON = true;
+  var box = document.createElement("div");
+  box.id = "nameGate";
+  box.innerHTML =
+    '<div class="ngc">'+
+      '<div class="ngh">Как вас зовут?</div>'+
+      '<div class="ngs">Имя увидит вся команда — в задачах, в ганте, в карточках. Почту показывать не будем.</div>'+
+      '<input class="fi" id="ngName" placeholder="Имя и фамилия" autocomplete="name">'+
+      '<div class="ngerr" id="ngErr"></div>'+
+      '<button class="bt pri" id="ngSave">Продолжить</button>'+
+    '</div>';
+  document.body.appendChild(box);
+  setTimeout(function(){ var i = document.getElementById("ngName"); if(i) i.focus(); }, 60);
+}
+document.addEventListener("click", function(e){
+  if(!e.target.closest || !e.target.closest("#ngSave")) return;
+  var f = document.getElementById("ngName"), er = document.getElementById("ngErr");
+  var nm = String((f || {}).value || "").trim();
+  if(nm.length < 2){ if(er) er.textContent = "Впишите имя — хотя бы два символа"; if(f) f.focus(); return; }
+  if(er) er.textContent = "сохраняю…";
+  api("/refs/me/account", {method:"POST", body:{name: nm}})
+    .then(function(){
+      if(ACC) ACC.name = nm;
+      try{ foPaintMe(); }catch(x){}
+      var g = document.getElementById("nameGate"); if(g) g.remove();
+      NAME_GATE_ON = false;
+      try{ if(typeof loadLive === "function") loadLive().then(function(){ try{ render(); }catch(x){} }); }catch(x){}
+    })
+    .catch(function(err){ if(er) er.textContent = (err && err.message) || "не сохранилось — попробуйте ещё раз"; });
+}, true);
+document.addEventListener("keydown", function(e){
+  if(e.key === "Enter" && e.target && e.target.id === "ngName"){
+    var b = document.getElementById("ngSave"); if(b) b.click();
+  }
+});
 
 })();
 </script>
