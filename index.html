@@ -3810,6 +3810,29 @@ body.noadd [data-addmode]{ display:none !important; }
 .fo-ask label{ display:flex; align-items:center; gap:6px; cursor:pointer }
 .fo-err{ margin-top:10px; padding:8px 10px; border-radius:10px; background:rgba(219,74,95,.12); color:#c2394f; font-size:12.5px }
 .fo-btns{ display:flex; justify-content:flex-end; gap:8px; margin-top:16px }
+
+/* ===== add79: функции кабинета в карточке клиента ===== */
+.fo-cabfn .ccdh{ display:flex; align-items:baseline; gap:10px }
+.fo-cabfn .ccdh .fo-sub{ font-size:11px; font-weight:500; color:var(--ink-3); text-transform:none; letter-spacing:0 }
+.fo-cabfn .ccdh .fo-sub em{ color:#c2394f; font-style:normal }
+.fo-fnr{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; padding:7px 0; border-top:1px solid rgba(120,120,140,.14) }
+.fo-fnr:first-of-type{ border-top:none }
+.fo-fnr .fo-fnn{ flex:1 1 220px; min-width:180px; font-size:13px; font-weight:600 }
+.fo-fnr.ro b{ flex:1 1 220px; font-size:13px; font-weight:600 }
+.fo-fnr.ro i{ font-style:normal; font-size:12px; color:var(--ink-3) }
+.fo-fnr.ro i em{ color:#c2394f; font-style:normal }
+.fo-fnr .sel.sm, .fo-fnadd .sel.sm{ padding:6px 9px; font-size:12px; border-radius:10px; max-width:190px }
+.fo-min{ display:inline-flex; align-items:center; gap:4px; font-size:11.5px; color:var(--ink-3) }
+.fo-min .fi.sm{ width:64px; padding:6px 8px; font-size:12px }
+.fo-days{ display:inline-flex; gap:3px }
+.fo-day{ width:26px; height:24px; border-radius:7px; border:1px solid rgba(120,120,140,.28); background:transparent; color:var(--ink-3); font-size:10.5px; cursor:pointer; padding:0 }
+.fo-day.on{ background:#7C5CFF; border-color:#7C5CFF; color:#fff; font-weight:700 }
+.fo-x{ width:26px; height:26px; border-radius:8px; border:1px solid rgba(120,120,140,.28); background:transparent; color:var(--ink-3); font-size:15px; line-height:1; cursor:pointer }
+.fo-x:hover{ color:#c2394f; border-color:#c2394f }
+.fo-fnadd{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:10px; padding:10px 12px; border-radius:12px; background:rgba(124,92,255,.07) }
+.fo-fnadd .fo-addsel{ flex:1 1 220px; min-width:180px; max-width:none }
+.fo-fnadd .bt.sm{ padding:6px 12px; font-size:12px }
+.fo-hint{ flex-basis:100%; font-size:11px; color:var(--ink-3); margin-top:2px }
 </style>
 </head>
 <body>
@@ -22787,6 +22810,335 @@ document.addEventListener("click", function(e){
 })();
 
 window.foReviewState = function(){ return {ждут: (FO_REVIEWS||[]).length, мои: foMyReviews().length, строк: Object.keys(FO_ROWS).length}; };
+
+/* ===== add79: единая карточка клиента — функции с сервера, чаты, без переходов (С2, 125, 131, 144, 145)
+   Карточка клиента в живом режиме читает функции кабинета с сервера
+   (GET /refs/cabinets/{id}/functions) и правит их на месте:
+   ответственный, цикл, дни, минуты, добавить, убрать — каждое изменение
+   уходит в POST /refs/cabinets/{id}/functions/add (одна функция, остальные
+   не трогает), и сервер тут же досводит задачи. Виджет и цифры карточки
+   считают с сервера, а не из демо-плана. Чаты клиента и рабочий (МПВ) —
+   поля карточки на сервере (fo_card). Кнопки «Открыть кабинет →» нет.   */
+
+var FO_CABFN = {};       /* clientId → {cab: id, cabs:[...], rows:[...], at: ts} */
+var FO_FNS = {};         /* fnId → базовая функция с сервера (цикл, дни, норматив) */
+
+var FO_CYC = [["daily","Каждый день"],["weekly","Раз в неделю"],["biweekly","Раз в 2 недели"],["monthly","Раз в месяц"],["none","Разовая / без цикла"]];
+var FO_DOW = ["Пн","Вт","Ср","Чт","Пт","Сб","Вс"];
+
+function foCycLabel(k, n){
+  if(k === "weekly" && +n === 2) k = "biweekly";
+  var x = FO_CYC.filter(function(c){ return c[0] === k; })[0];
+  return x ? x[1] : (k || "—");
+}
+function foCycEff(r){ /* действующий цикл строки: проектный поверх базового */
+  var k = r.cycle_kind || r.base_cycle_kind || "weekly";
+  var n = (r.cycle_n != null ? r.cycle_n : r.base_cycle_n);
+  if(k === "weekly" && +n === 2) k = "biweekly";
+  return k;
+}
+function foDaysEff(r){ return (r.cycle_weekdays && r.cycle_weekdays.length ? r.cycle_weekdays : (r.base_cycle_weekdays || [])).slice(); }
+function foMinEff(r){ return +(r.minutes || r.norm_minutes || 30); }
+function foWeekMin(r){ /* минут в неделю по циклу — для «кто ведёт» и часов */
+  var k = foCycEff(r), m = foMinEff(r), d = foDaysEff(r);
+  if(k === "daily") return m * (d.length || 5);
+  if(k === "weekly") return m * Math.max(1, d.length || 1);
+  if(k === "biweekly") return m * Math.max(1, d.length || 1) / 2;
+  if(k === "monthly") return m / 4.33;
+  return 0;
+}
+
+function foFnsLoad(){
+  if(typeof foAuthed === "function" && !foAuthed()) return Promise.resolve();
+  return api("/refs/functions").then(function(list){
+    FO_FNS = {};
+    (list || []).forEach(function(f){ if(f && f.id) FO_FNS[String(f.id)] = f; });
+  }).catch(function(){});
+}
+
+function foCabFnLoad(clientId){
+  if(!clientId) return Promise.resolve(null);
+  return api("/refs/clients/" + encodeURIComponent(clientId) + "/cabinets").then(function(cabs){
+    cabs = cabs || [];
+    var cab = cabs[0] ? cabs[0].id : null;
+    if(!cab){ FO_CABFN[clientId] = {cab:null, cabs:cabs, rows:[], at:Date.now()}; return FO_CABFN[clientId]; }
+    return api("/refs/cabinets/" + encodeURIComponent(cab) + "/functions").then(function(rows){
+      FO_CABFN[clientId] = {cab:cab, cabs:cabs, rows:rows || [], at:Date.now()};
+      return FO_CABFN[clientId];
+    });
+  }).catch(function(){ FO_CABFN[clientId] = FO_CABFN[clientId] || {cab:null, cabs:[], rows:[], at:0, err:true}; return FO_CABFN[clientId]; });
+}
+
+function foCabFnAll(){
+  var ids = (S.projects || []).map(function(p){ return p.id; });
+  return Promise.all(ids.map(foCabFnLoad)).then(function(){
+    /* кабинеты клиентов — в S.cabs, даже если на неделе у них нет задач (131: «0 каб») */
+    try{
+      S.cabs = S.cabs || [];
+      var have = {}; S.cabs.forEach(function(c){ have[String(c.id)] = 1; });
+      ids.forEach(function(cid){
+        var d = FO_CABFN[cid]; if(!d) return;
+        (d.cabs || []).forEach(function(c){
+          if(have[String(c.id)]) return;
+          have[String(c.id)] = 1;
+          S.cabs.push({id:c.id, name:c.name, project:cid, ord:S.cabs.length});
+        });
+      });
+    }catch(e){}
+  });
+}
+
+(function(){
+  if(typeof loadLive !== "function") return;
+  var _ll = loadLive;
+  loadLive = function(){
+    var self = this, args = arguments;
+    return _ll.apply(self, args).then(function(v){
+      return Promise.all([foFnsLoad(), foCabFnAll()]).then(function(){ return v; }, function(){ return v; });
+    });
+  };
+})();
+
+/* ── цифры виджета и карточки: с сервера ── */
+function foRowsOf(clientId){ var d = FO_CABFN[clientId]; return d ? (d.rows || []) : null; }
+
+(function(){
+  if(typeof cabNumbers === "function"){
+    var _cn = cabNumbers;
+    cabNumbers = function(pr){
+      var n = _cn.apply(this, arguments);
+      try{
+        if(typeof foLive === "function" && foLive()){
+          var rows = foRowsOf(pr.id);
+          if(rows){
+            n.fns = rows.length;
+            n.cyc = rows.filter(function(r){ return foCycEff(r) !== "none"; }).length;
+            n.noOwner = rows.filter(function(r){ return !r.employee_id; }).length;
+            var emp = {}; rows.forEach(function(r){ if(r.employee_id) emp[String(r.employee_id)] = 1; });
+            n.team = Object.keys(emp).length;
+            if(!n.h) n.h = rows.reduce(function(a, r){ return a + foWeekMin(r); }, 0) / 60;
+          }
+        }
+      }catch(e){}
+      return n;
+    };
+  }
+  if(typeof peopleOfProject === "function"){
+    var _pp = peopleOfProject;
+    peopleOfProject = function(prid){
+      var v = _pp.apply(this, arguments);
+      try{
+        if(typeof foLive === "function" && foLive()){
+          var rows = foRowsOf(prid);
+          if(rows && rows.length){
+            var m = {};
+            rows.forEach(function(r){ if(r.employee_id) m[String(r.employee_id)] = (m[String(r.employee_id)] || 0) + foWeekMin(r); });
+            var out = (S.people || []).filter(function(p){ return m[String(p.id)]; })
+              .map(function(p){ return {p:p, min:Math.round(m[String(p.id)])}; })
+              .sort(function(a, b){ return b.min - a.min; });
+            if(out.length) return out;
+          }
+        }
+      }catch(e){}
+      return v;
+    };
+  }
+})();
+
+/* ── чаты в данных клиента (144): чат с клиентом, рабочий чат МПВ ── */
+(function(){
+  if(typeof edCliForm !== "function") return;
+  var _f = edCliForm;
+  edCliForm = function(pr){
+    var h = _f.apply(this, arguments);
+    if(!h) return h;
+    try{
+      var add = '<div class="edg">Чаты Telegram</div>'+
+        edRow([
+          edText("cli", pr.id, "chatClient", "Чат с клиентом", pr.chatClient, {ph:"название или ссылка на чат", wide:true}),
+          edText("cli", pr.id, "chatTeam",   "Рабочий чат с командой (МПВ)", pr.chatTeam, {ph:"название или ссылка на чат", wide:true})
+        ]);
+      return h.replace(/<\/div>\s*$/, add + '</div>');
+    }catch(e){ return h; }
+  };
+})();
+
+/* ── блок «Функции кабинета» ── */
+function foPeopleOpts(sel){
+  return '<option value="">— ответственный —</option>' + (S.people || []).map(function(p){
+    return '<option value="'+esc(p.id)+'"'+(String(sel || "") === String(p.id) ? ' selected' : '')+'>'+esc(p.name)+'</option>'; }).join("");
+}
+function foCycOpts(sel){
+  return FO_CYC.map(function(c){ return '<option value="'+c[0]+'"'+(sel === c[0] ? ' selected' : '')+'>'+c[1]+'</option>'; }).join("");
+}
+function foDaysHTML(days, show){
+  return '<span class="fo-days"'+(show ? '' : ' hidden')+'>'+FO_DOW.map(function(d, i){
+    return '<button type="button" class="fo-day'+(days.indexOf(i) >= 0 ? ' on' : '')+'" data-foday="'+i+'">'+d+'</button>'; }).join("")+'</span>';
+}
+
+function foCabFnBlock(pr){
+  var d = FO_CABFN[pr.id];
+  var ro = (typeof foBelowPm === "function") ? foBelowPm() : false;
+  if(!d){
+    foCabFnLoad(pr.id).then(function(){ try{ renderCards(); }catch(e){} });
+    return '<div class="ccdfn fo-cabfn"><div class="ccdh">Функции кабинета</div><div class="empty">Загружаю с сервера…</div></div>';
+  }
+  var rows = d.rows || [];
+  var week = rows.reduce(function(a, r){ return a + foWeekMin(r); }, 0);
+  var head = '<div class="ccdh">Функции кабинета <span class="fo-sub">'+rows.length+' · '+hrs(week)+' ч в неделю'+
+    (d.cab ? '' : ' · <em>кабинет на сервере не найден</em>')+'</span></div>';
+
+  var list = rows.length ? rows.map(function(r){
+    var cyc = foCycEff(r), days = foDaysEff(r), min = foMinEff(r);
+    var emp = (S.people || []).filter(function(p){ return String(p.id) === String(r.employee_id); })[0];
+    if(ro){
+      return '<div class="fo-fnr ro"><b>'+esc(r.name)+'</b><i>'+(emp ? esc(emp.name) : (r.employee_name ? esc(r.employee_name) : '<em>без ответственного</em>'))+
+        ' · '+esc(foCycLabel(cyc))+(days.length && cyc !== "daily" && cyc !== "monthly" ? ' · '+days.map(function(i){ return FO_DOW[i]; }).join(", ") : '')+
+        ' · '+min+' мин</i></div>';
+    }
+    return '<div class="fo-fnr" data-fofn="'+esc(r.fn_id)+'" data-focli="'+esc(pr.id)+'">'+
+      '<b class="fo-fnn" title="'+esc(r.code || "")+'">'+esc(r.name)+'</b>'+
+      '<select class="sel sm" data-fok="employee_id">'+foPeopleOpts(r.employee_id)+'</select>'+
+      '<select class="sel sm" data-fok="cycle_kind">'+foCycOpts(cyc)+'</select>'+
+      foDaysHTML(days, cyc === "weekly" || cyc === "biweekly")+
+      '<label class="fo-min"><input class="fi sm" type="number" min="1" max="2880" data-fok="minutes" value="'+min+'"><span>мин</span></label>'+
+      '<button class="fo-x" data-fodel="'+esc(r.fn_id)+'" title="Убрать из кабинета">×</button>'+
+    '</div>';
+  }).join("") : '<div class="empty">Функций в кабинете пока нет'+(ro ? '' : ' — добавьте ниже, задачи родятся сразу')+'</div>';
+
+  var addRow = ro ? '' :
+    '<div class="fo-fnadd" data-focli="'+esc(pr.id)+'">'+
+      '<select class="sel sm fo-addsel" data-foa="fn_id"><option value="">+ функция из справочника…</option>'+
+        (S.fns || []).filter(function(f){ return !rows.some(function(r){ return String(r.fn_id) === String(f.id); }); })
+          .map(function(f){ return '<option value="'+esc(f.id)+'">'+esc(f.name)+'</option>'; }).join("")+
+      '</select>'+
+      '<select class="sel sm" data-foa="employee_id">'+foPeopleOpts("")+'</select>'+
+      '<select class="sel sm" data-foa="cycle_kind">'+foCycOpts("weekly")+'</select>'+
+      foDaysHTML([], true)+
+      '<label class="fo-min"><input class="fi sm" type="number" min="1" max="2880" data-foa="minutes" value="30"><span>мин</span></label>'+
+      '<button class="bt sm" data-foadd="1">Добавить</button>'+
+      '<div class="fo-hint">Функция = задача: как только назначили — задачи у ответственного на две недели вперёд. Базовые настройки функции подставляются сами.</div>'+
+    '</div>';
+
+  return '<div class="ccdfn fo-cabfn">'+head+list+addRow+'</div>';
+}
+
+(function(){
+  if(typeof ccDetail !== "function") return;
+  var _cd = ccDetail;
+  ccDetail = function(pr){
+    var h = _cd.apply(this, arguments);
+    if(typeof foLive === "function" && !foLive()) return h;
+    try{
+      var box = document.createElement("div");
+      box.innerHTML = h;
+      var old = box.querySelector(".ccdfn");
+      var wrap = document.createElement("div"); wrap.innerHTML = foCabFnBlock(pr);
+      if(old) old.parentNode.replaceChild(wrap.firstChild, old);
+      else { var det = box.querySelector(".ccdet"); if(det) det.appendChild(wrap.firstChild); }
+      /* С2: карточка одна, без «Открыть кабинет →» */
+      box.querySelectorAll('[data-opencab]').forEach(function(b){ if(b.tagName === "BUTTON") b.parentNode.removeChild(b); });
+      return box.innerHTML;
+    }catch(e){ return h; }
+  };
+})();
+
+/* ── правки строк: каждое изменение уходит на сервер ── */
+function foRowBody(row){
+  var get = function(k){ var el = row.querySelector('[data-fok="'+k+'"], [data-foa="'+k+'"]'); return el ? el.value : ""; };
+  var cyc = get("cycle_kind") || "weekly";
+  var days = Array.prototype.map.call(row.querySelectorAll(".fo-day.on"), function(b){ return +b.getAttribute("data-foday"); });
+  var body = {fn_id: row.getAttribute("data-fofn") || get("fn_id"), minutes: Math.max(1, Math.min(2880, +get("minutes") || 30))};
+  var emp = get("employee_id"); if(emp) body.employee_id = emp;
+  if(cyc === "biweekly"){ body.cycle_kind = "weekly"; body.cycle_n = 2; }
+  else { body.cycle_kind = cyc; body.cycle_n = 1; }
+  if((cyc === "weekly" || cyc === "biweekly") && days.length) body.cycle_weekdays = days;
+  if(cyc === "daily" && days.length) body.cycle_weekdays = days;
+  return body;
+}
+
+function foCabFnSend(clientId, body, note){
+  var d = FO_CABFN[clientId];
+  if(!d || !d.cab){ try{ toast("У клиента нет кабинета на сервере"); }catch(e){} return Promise.resolve(); }
+  return api("/refs/cabinets/" + encodeURIComponent(d.cab) + "/functions/add", {method:"POST", body: body})
+    .then(function(r){
+      var z = (r && r.задачи) || {};
+      try{ toast((note || "Сохранено") + (z.создано != null ? " · задач: +" + z.создано + (z.переведено ? ", переведено " + z.переведено : "") + (z.снято ? ", снято " + z.снято : "") : "")); }catch(e){}
+      return foCabFnLoad(clientId);
+    })
+    .then(function(){ return (typeof loadLive === "function" ? loadLive() : Promise.resolve()); })
+    .then(function(){ try{ render(); }catch(e){} try{ renderCards(); }catch(e){} })
+    .catch(function(err){ try{ toast("Не сохранилось: " + (err && err.message || "сервер не ответил")); }catch(e){} });
+}
+
+document.addEventListener("change", function(e){
+  var el = e.target;
+  if(!el || !el.matches || !el.matches(".fo-fnr [data-fok]")) return;
+  var row = el.closest(".fo-fnr"); if(!row) return;
+  if(el.getAttribute("data-fok") === "cycle_kind"){
+    var days = row.querySelector(".fo-days");
+    if(days) days.hidden = !(el.value === "weekly" || el.value === "biweekly");
+    if(!days.hidden && !row.querySelector(".fo-day.on")){ /* без дня — не шлём, ждём выбора */ return; }
+  }
+  foCabFnSend(row.getAttribute("data-focli"), foRowBody(row), "Функция обновлена");
+});
+
+/* клики внутри блока: ловим на захвате, чтобы секция карточки не открывала старый экран кабинета */
+document.addEventListener("click", function(e){
+  var host = e.target.closest && e.target.closest(".fo-cabfn");
+  if(!host) return;
+  e.stopPropagation();
+  var b;
+  if((b = e.target.closest(".fo-day"))){
+    e.preventDefault();
+    b.classList.toggle("on");
+    var row = b.closest(".fo-fnr");
+    if(row) foCabFnSend(row.getAttribute("data-focli"), foRowBody(row), "Дни обновлены");
+    return;
+  }
+  if((b = e.target.closest("[data-fodel]"))){
+    e.preventDefault();
+    var r2 = b.closest(".fo-fnr"), cid = r2.getAttribute("data-focli"), d = FO_CABFN[cid];
+    if(!d || !d.cab) return;
+    b.disabled = true;
+    api("/refs/cabinets/" + encodeURIComponent(d.cab) + "/functions/" + encodeURIComponent(b.getAttribute("data-fodel")) + "/remove", {method:"POST"})
+      .then(function(r){ var z = (r && r.задачи) || {}; try{ toast("Функция убрана из кабинета" + (z.снято ? " · задач снято: " + z.снято : "")); }catch(x){} return foCabFnLoad(cid); })
+      .then(function(){ return loadLive(); })
+      .then(function(){ try{ render(); }catch(x){} try{ renderCards(); }catch(x){} })
+      .catch(function(err){ b.disabled = false; try{ toast("Не убралось: " + (err.message || "")); }catch(x){} });
+    return;
+  }
+  if((b = e.target.closest("[data-foadd]"))){
+    e.preventDefault();
+    var row3 = b.closest(".fo-fnadd"), cid3 = row3.getAttribute("data-focli");
+    var body = foRowBody(row3);
+    if(!body.fn_id){ try{ toast("Выберите функцию из справочника"); }catch(x){} row3.querySelector(".fo-addsel").focus(); return; }
+    if(!body.employee_id){ try{ toast("Назначьте ответственного — задача должна у кого-то появиться"); }catch(x){} row3.querySelector('[data-foa="employee_id"]').focus(); return; }
+    if((body.cycle_kind === "weekly") && !body.cycle_weekdays){ try{ toast("Отметьте дни недели"); }catch(x){} return; }
+    b.disabled = true;
+    foCabFnSend(cid3, body, "Функция в кабинете");
+    return;
+  }
+}, true);
+
+/* выбрали функцию в строке добавления — подставляем её базовые настройки (С3) */
+document.addEventListener("change", function(e){
+  var el = e.target;
+  if(!el || !el.matches || !el.matches(".fo-fnadd [data-foa=\"fn_id\"]")) return;
+  var f = FO_FNS[String(el.value)]; if(!f) return;
+  var row = el.closest(".fo-fnadd");
+  var cyc = f.cycle_kind || "weekly"; if(cyc === "weekly" && +f.cycle_n === 2) cyc = "biweekly";
+  var cs = row.querySelector('[data-foa="cycle_kind"]'); if(cs){ cs.value = FO_CYC.some(function(c){ return c[0] === cyc; }) ? cyc : "weekly"; }
+  var days = row.querySelector(".fo-days");
+  if(days){
+    days.hidden = !(cyc === "weekly" || cyc === "biweekly");
+    var set = f.cycle_weekdays || [];
+    days.querySelectorAll(".fo-day").forEach(function(b){ b.classList.toggle("on", set.indexOf(+b.getAttribute("data-foday")) >= 0); });
+  }
+  var mi = row.querySelector('[data-foa="minutes"]'); if(mi && f.norm_minutes) mi.value = f.norm_minutes;
+});
+
+window.foCabFnState = function(id){ return id ? FO_CABFN[id] : Object.keys(FO_CABFN).map(function(k){ var d = FO_CABFN[k]; return {client:k, cab:d.cab, функций:(d.rows||[]).length}; }); };
 
 })();
 </script>
