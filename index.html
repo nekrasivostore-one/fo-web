@@ -22142,10 +22142,25 @@ window.foCabFnPush = cabFnPush;
 var FO_ME = null;                                    /* {id, role_code, level} с сервера */
 
 function foMeLoad(){
-  if(typeof foLive === "function" && !foLive()) return Promise.resolve(null);
+  var tok = ""; try{ tok = (A && A.token) || ""; }catch(e){}
+  if(!tok) return Promise.resolve(null);
   return api("/refs/me/account").then(function(a){ FO_ME = a || null; return FO_ME; })
     .catch(function(){ return null; });
 }
+
+/* страховка: MODE выставляется позже loadLive - добираем позже и перерисовываем */
+[1500, 4000, 9000].forEach(function(ms){
+  setTimeout(function(){
+    var had = !!FO_ME;
+    (FO_ME ? Promise.resolve(FO_ME) : foMeLoad()).then(function(){
+      if(!FO_ME) return;
+      var before = null; try{ before = meId; }catch(e){}
+      foBindMe();
+      var after = null; try{ after = meId; }catch(e){}
+      if(!had || before !== after){ try{ render(); }catch(e){} }
+    });
+  }, ms);
+});
 
 /* пересчитать meId и пометить собственника по user_id */
 function foBindMe(){
