@@ -755,6 +755,68 @@ async def fo_cab_fns_put(cab_id: str, body: list[FoCabFnItem], p: Principal = De
     return {"ok": True, "функций": len(fn_ids), "задачи": _sync}
 
 
+@router.post("/cabinets/{cab_id}/functions/add")
+async def fo_cab_fn_add(cab_id: str, it: FoCabFnItem, p: Principal = Depends(max_level(4))):
+    """Одна функция в кабинет: добавить или обновить, остальные не трогая.
+    Задачи досводятся сразу. Уровень: РМ и выше (С5). Три пути (145) ведут сюда."""
+    fid = (it.fn_id or "").strip()
+    if not fid:
+        raise HTTPException(400, "не указана функция")
+    async with pool().acquire() as c:
+        await _fo_cab_of(c, cab_id, p.org_id)
+        ok = await c.fetchval("SELECT 1 FROM fn WHERE id=$1::uuid AND org_id=$2", fid, p.org_id)
+        if not ok:
+            raise HTTPException(400, "функция не из этого агентства")
+        emp = (it.employee_id or "").strip() or None
+        if emp:
+            ok = await c.fetchval("SELECT 1 FROM employee WHERE id=$1::uuid AND org_id=$2", emp, p.org_id)
+            if not ok:
+                raise HTTPException(400, "сотрудник не из этого агентства")
+        _old = {}
+        _r = await c.fetchrow(
+            """SELECT cf.cabinet_id, cf.fn_id, g.employee_id FROM cabinet_fn cf
+               LEFT JOIN fo_cabinet_fn_cfg g ON g.cabinet_id=cf.cabinet_id AND g.fn_id=cf.fn_id
+               WHERE cf.cabinet_id=$1::uuid AND cf.fn_id=$2::uuid""", cab_id, fid)
+        if _r:
+            _old[(_r["cabinet_id"], _r["fn_id"])] = _r["employee_id"]
+        async with c.transaction():
+            await c.execute("DELETE FROM cabinet_fn WHERE cabinet_id=$1::uuid AND fn_id=$2::uuid", cab_id, fid)
+            await c.execute(
+                "INSERT INTO cabinet_fn (cabinet_id, fn_id, cycle_n) VALUES ($1::uuid, $2::uuid, $3) "
+                "ON CONFLICT DO NOTHING", cab_id, fid, it.cycle_n)
+            await c.execute("DELETE FROM fo_cabinet_fn_cfg WHERE cabinet_id=$1::uuid AND fn_id=$2::uuid", cab_id, fid)
+            if emp:
+                await c.execute(
+                    "INSERT INTO employee_fn (employee_id, fn_id, allowed) VALUES ($1::uuid, $2::uuid, true) "
+                    "ON CONFLICT DO NOTHING", emp, fid)
+            await c.execute(
+                """INSERT INTO fo_cabinet_fn_cfg
+                     (cabinet_id, fn_id, org_id, employee_id, minutes, cycle_kind, cycle_n, cycle_weekdays)
+                   VALUES ($1::uuid, $2::uuid, $3, $4::uuid, $5, $6, $7, $8)""",
+                cab_id, fid, p.org_id, emp,
+                (max(1, min(2880, int(it.minutes))) if it.minutes else None),
+                (it.cycle_kind or None), it.cycle_n, it.cycle_weekdays)
+        try:
+            _sync = await _fo_sync_tasks(c, p.org_id, cab_id, 14, _old)
+        except Exception as _e:
+            _sync = {"ошибка": str(_e)[:200]}
+    return {"ok": True, "задачи": _sync}
+
+
+@router.post("/cabinets/{cab_id}/functions/{fn_id}/remove")
+async def fo_cab_fn_remove(cab_id: str, fn_id: str, p: Principal = Depends(max_level(4))):
+    """Убрать функцию из кабинета: будущие несделанные задачи по ней снимаются."""
+    async with pool().acquire() as c:
+        await _fo_cab_of(c, cab_id, p.org_id)
+        await c.execute("DELETE FROM cabinet_fn WHERE cabinet_id=$1::uuid AND fn_id=$2::uuid", cab_id, fn_id)
+        await c.execute("DELETE FROM fo_cabinet_fn_cfg WHERE cabinet_id=$1::uuid AND fn_id=$2::uuid", cab_id, fn_id)
+        try:
+            _sync = await _fo_sync_tasks(c, p.org_id, cab_id, 14, None)
+        except Exception as _e:
+            _sync = {"ошибка": str(_e)[:200]}
+    return {"ok": True, "задачи": _sync}
+
+
 @router.get("/clients/{client_id}/cabinets")
 async def fo_client_cabs(client_id: str, p: Principal = Depends(current)):
     async with pool().acquire() as c:
@@ -1413,7 +1475,7 @@ else:
     p("")
     p("== ПРОВЕРКА ЭНДПОИНТОВ ==")
     for u in ("/refs/roles", "/refs/cards", "/refs/tasks/once", "/refs/invites",
-              "/refs/me/account", "/refs/tasks/sync", "/auth/invite-token/zzz"):
+              "/refs/me/account", "/refs/tasks/sync", "/refs/cabinets/x/functions/add", "/auth/invite-token/zzz"):
         p("  %-26s %s" % (u, sh("curl -s -o /dev/null -w '%%{http_code}' http://127.0.0.1:8000%s" % u).strip()))
     p("(401/403 — эндпоинт есть и просит вход; 404 — не встал)")
     p("ГОТОВО: хранение переехало на сервер")
