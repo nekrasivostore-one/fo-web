@@ -21652,6 +21652,71 @@ window.foServer = function(){
           разовыхЗадач: SRV_ONCE ? SRV_ONCE.length : null};
 };
 
+/* ===== add72: поля карточки кабинета уезжают на сервер =====
+   Было: при сохранении кабинета на сервер уходило только название.
+   Собственник, телефон, телеграм, сумма, дата платежа, число артикулов
+   и ссылка на таблицу оставались только в браузере и терялись.
+   Стало: после того как сервер завёл клиента, эти поля досылаются
+   карточкой — и возвращаются при следующей загрузке.                */
+
+var CAB_FIELDS = [
+  ["ncOwner",  "owner"],
+  ["ncTg",     "tg"],
+  ["ncPhone",  "phone"],
+  ["ncAmt",    "amount"],
+  ["ncPay",    "payDate"],
+  ["ncArt",    "articles"],
+  ["ncSheet",  "sheet"]
+];
+
+function cabGrab(){
+  var d = {}, any = false;
+  CAB_FIELDS.forEach(function(p){
+    var el = document.getElementById(p[0]);
+    if(!el) return;
+    var v = String(el.value == null ? "" : el.value).trim();
+    if(p[1] === "tg") v = v.replace(/^@+/, "");
+    if(p[1] === "amount" || p[1] === "articles") v = v === "" ? null : (+v || 0);
+    if(v === "" || v === null) return;
+    d[p[1]] = v; any = true;
+  });
+  return any ? d : null;
+}
+
+/* ждём, пока сервер покажет клиента с таким названием, и дописываем поля */
+function cabPush(name, data, tries){
+  if(!data) return;
+  tries = tries == null ? 12 : tries;
+  if(tries <= 0){
+    try{ console.warn("[FO] клиент «" + name + "» не появился на сервере — поля карточки не сохранены"); }catch(e){}
+    return;
+  }
+  api("/refs/clients").then(function(list){
+    var hit = null;
+    (list || []).forEach(function(c){
+      if(String(c.name || "").trim() === String(name).trim()) hit = c;
+    });
+    if(!hit){ setTimeout(function(){ cabPush(name, data, tries - 1); }, 900); return; }
+    cardSave("client", hit.id, data);
+    cardSave("cab",    hit.id, data);
+    try{ console.log("[FO] поля карточки кабинета сохранены на сервере:", Object.keys(data).join(", ")); }catch(e){}
+  }).catch(function(){
+    setTimeout(function(){ cabPush(name, data, tries - 1); }, 900);
+  });
+}
+
+document.addEventListener("click", function(e){
+  if(!e.target.closest || !e.target.closest("#ncSave")) return;
+  if(typeof foLive === "function" && !foLive()) return;
+  var nm = String((document.getElementById("ncName") || {}).value || "").trim();
+  if(!nm) return;
+  var d = cabGrab();
+  if(!d) return;
+  setTimeout(function(){ cabPush(nm, d); }, 1200);
+}, true);
+
+window.foCabPush = cabPush;
+
 })();
 </script>
 </body>
