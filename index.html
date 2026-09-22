@@ -3751,6 +3751,15 @@ body.noadd [data-addmode]{ display:none !important; }
 .srvacc .tagw{ background:rgba(184,122,12,.14); color:#B87A0C; }
 .srvacc .tagn{ background:rgba(217,59,85,.12); color:#D93B55; }
 @media (max-width:760px){ .srvacc .sur{ grid-template-columns:1fr; gap:6px; } }
+
+/* ══ 71. Честная плашка о сохранении ═══════════════════════════ */
+.srvflag{
+  display:flex; flex-direction:column; gap:1px; padding:5px 11px; border-radius:10px;
+  background:rgba(217,59,85,.12); border:1px solid rgba(217,59,85,.3);
+  max-width:320px; line-height:1.25;
+}
+.srvflag b{ font-size:12px; font-weight:700; color:#D93B55; }
+.srvflag i{ font-size:11px; font-style:normal; opacity:.75; }
 </style>
 </head>
 <body>
@@ -21137,6 +21146,496 @@ window.foTaskState = function(){
   return {живой: foLive(), задач: (S.tasks||[]).length,
           серверных: (S.tasks||[]).filter(function(t){ return !!t.rid; }).length,
           функцийУлюдей: foEmpFns()};
+};
+
+/* ══ 70. Кабинет и клиент живут на сервере ══════════════════════
+   §118 Кабинет заводился только в браузере. Сервер о нём не знал и
+        при следующей загрузке стирал. Теперь при сохранении сервис
+        заводит клиента и его кабинет на сервере, а задачи из формы
+        превращает в функции с цикличностью и назначает людям —
+        именно так задачи и рождаются в этом сервисе.
+   §119 Всё, что сервер не принимает (собственник, телефон, сумма,
+        таблица), сервис не делает вид, что сохранил: говорит прямо,
+        что эти поля пока живут только у вас, и держит их при себе,
+        пока на сервере не появятся нужные поля.                    */
+
+var CAB_SENDING = false;
+
+function foCabExtraNote(){
+  return "Собственник, телефон, сумма и таблица пока остаются у вас: "+
+    "на сервере для них ещё нет полей. Название кабинета, клиент и задачи ушли в агентство.";
+}
+
+/* задачи из формы кабинета → функции с цикличностью и ответственным */
+function foCabTasks(rows, clientName){
+  var jobs = (rows || []).filter(function(r){
+    return r && String(r.title || "").trim() && r.person;
+  });
+  if(!jobs.length) return Promise.resolve(0);
+
+  var done = 0;
+  return jobs.reduce(function(chain, r){
+    return chain.then(function(){
+      var cyc = r.kind === "urg" ? "once" : (r.cycle || "weekly");
+      var c = foFnCycle(cyc, 0, []);
+      if(!c) return null;                        /* разовую сервер не примет */
+      return foFnEnsure(String(r.title).trim(), +r.minutes || 30, cyc, 0, [])
+        .then(function(fnId){
+          if(!fnId) return null;
+          return foAllowFn(r.person, fnId).then(function(){ done++; });
+        })
+        .catch(function(){ return null; });
+    });
+  }, Promise.resolve()).then(function(){ return done; });
+}
+
+(function(){
+  /* перехватываем сохранение до того, как отработает старый обработчик */
+  document.addEventListener("click", function(e){
+    if(!e.target.closest || !e.target.closest("#ncSave")) return;
+    if(!foLive()) return;                        /* в демо всё как было */
+    if(CAB_SENDING) return;
+
+    var nm = String((document.getElementById("ncName") || {}).value || "").trim();
+    if(!nm) return;                              /* пустое имя ловит старый код */
+
+    var rows = (typeof ncTasks !== "undefined" && ncTasks) ? ncTasks.slice() : [];
+    CAB_SENDING = true;
+
+    api("/refs/clients", {method:"POST", body:{name: nm}})
+      .then(function(cl){
+        var cid = cl && (cl.id || cl.client_id);
+        if(!cid) throw new Error("клиент не завёлся");
+        return api("/refs/clients/" + encodeURIComponent(cid) +
+                   "/cabinets?name=" + encodeURIComponent(nm), {method:"POST"})
+          .then(function(){ return cid; })
+          .catch(function(){ return cid; });     /* клиент есть — уже полдела */
+      })
+      .then(function(){
+        return foCabTasks(rows, nm);
+      })
+      .then(function(n){
+        if(n) return api("/tasks/generate", {method:"POST"}).then(function(){ return n; });
+        return n;
+      })
+      .then(function(n){
+        return loadLive().then(function(){ return n; });
+      })
+      .then(function(n){
+        CAB_SENDING = false;
+        try{ render(); }catch(x){}
+        try{ toast("Кабинет «" + nm + "» заведён в агентстве" +
+          (n ? " · задач на людях: " + n : "")); }catch(x){}
+        try{ toast(foCabExtraNote()); }catch(x){}
+      })
+      .catch(function(err){
+        CAB_SENDING = false;
+        try{ toast("Кабинет на сервер не ушёл: " + (err.message || "сервер не ответил") +
+          ". У вас на экране он остался — повторите сохранение"); }catch(x){}
+      });
+  });
+})();
+
+/* ── §119 то, чего сервер не знает, не исчезает при загрузке ── */
+(function(){
+  if(typeof foLiveSave !== "function" || typeof foLiveRestore !== "function") return;
+
+  var _fs = foLiveSave;
+  foLiveSave = function(){
+    try{
+      /* записи, заведённые у нас и ещё не признанные сервером */
+      var d = null;
+      try{ d = JSON.parse(localStorage.getItem(foLiveKey()) || "null"); }catch(e){}
+      _fs.apply(this, arguments);
+      var cur = null;
+      try{ cur = JSON.parse(localStorage.getItem(foLiveKey()) || "null"); }catch(e){}
+      if(!cur) return;
+      cur.localProjects = (S.projects || []).filter(function(p){ return p && p.local; });
+      cur.localPeople   = (S.people   || []).filter(function(m){ return m && m.local; });
+      cur.localCabs     = (S.cabs     || []).filter(function(c){ return c && c.local; });
+      try{ localStorage.setItem(foLiveKey(), JSON.stringify(cur)); }catch(e){}
+    }catch(e){ try{ _fs.apply(this, arguments); }catch(x){} }
+  };
+
+  var _fr = foLiveRestore;
+  foLiveRestore = function(){
+    var v = _fr.apply(this, arguments);
+    try{
+      var d = null;
+      try{ d = JSON.parse(localStorage.getItem(foLiveKey()) || "null"); }catch(e){}
+      if(!d) return v;
+      function merge(list, add){
+        if(!add || !add.length) return;
+        var have = {};
+        (list || []).forEach(function(o){ if(o && o.id) have[o.id] = 1;
+                                          if(o && o.name) have["n:"+String(o.name).toLowerCase()] = 1; });
+        add.forEach(function(o){
+          if(!o || !o.id) return;
+          if(have[o.id] || have["n:"+String(o.name||"").toLowerCase()]) return;
+          list.push(o);
+        });
+      }
+      merge(S.projects, d.localProjects);
+      merge(S.people,   d.localPeople);
+      merge(S.cabs,     d.localCabs);
+    }catch(e){}
+    return v;
+  };
+})();
+
+/* всё, что заводится на экране, помечаем как ещё не признанное сервером */
+(function(){
+  if(typeof addCabinet === "function"){
+    var _ac = addCabinet;
+    addCabinet = function(){
+      var pr = _ac.apply(this, arguments);
+      try{ if(pr && foLive()) pr.local = true; }catch(e){}
+      return pr;
+    };
+  }
+  if(typeof demoAddEmp === "function"){
+    var _da = demoAddEmp;
+    demoAddEmp = function(){
+      var p = _da.apply(this, arguments);
+      try{ if(p && foLive()) p.local = true; }catch(e){}
+      return p;
+    };
+  }
+})();
+
+/* ══ 71. Всё хранится на сервере ════════════════════════════════
+   Правило проекта: браузер — не хранилище. Раньше карточки, функции
+   и разовые задачи оседали в браузере: у каждого свой, команда чужого
+   не видела, чистка браузера стирала работу. Теперь:
+
+     карточки сотрудника, клиента, функции и кабинета → /refs/cards
+     разовые задачи                                   → /refs/tasks/once
+     цикличные задачи                                 → функции сервиса
+     приглашения с уровнем                            → /refs/invites
+
+   В браузере остаётся только вход, тема и демо.                  */
+
+var SRV_CARDS = null, SRV_ONCE = null, SRV_STORE_OK = null, SRV_STORE_WHY = "";
+var cardQueue = {}, cardTimer = null;
+
+/* ── карточки ── */
+function cardKey(kind, id){ return kind + ":" + id; }
+
+function cardsLoad(){
+  if(!foLive()) return Promise.resolve();
+  return api("/refs/cards").then(function(rows){
+    SRV_CARDS = {};
+    (rows || []).forEach(function(r){
+      SRV_CARDS[cardKey(r.kind, r.ref_id)] = r.data || {};
+    });
+    SRV_STORE_OK = true; SRV_STORE_WHY = "";
+    cardsApply();
+  }).catch(function(e){
+    SRV_CARDS = SRV_CARDS || {};
+    SRV_STORE_OK = false;
+    SRV_STORE_WHY = e.message || "сервер не ответил";
+  });
+}
+
+/* раскладываем серверные поля по людям, клиентам и функциям */
+function cardsApply(){
+  if(!SRV_CARDS) return;
+  function put(list, kind){
+    (list || []).forEach(function(o){
+      var d = SRV_CARDS[cardKey(kind, o.id)];
+      if(!d) return;
+      for(var k in d){ if(Object.prototype.hasOwnProperty.call(d, k)) o[k] = d[k]; }
+    });
+  }
+  try{
+    put(S.people,   "employee");
+    put(S.projects, "client");
+    put(S.cabs,     "cab");
+    (S.fns || []).forEach(function(f){
+      var d = SRV_CARDS[cardKey("fn", f.id)];
+      if(!d) return;
+      if(!S.fnCfg) S.fnCfg = {};
+      S.fnCfg[f.id] = Object.assign(S.fnCfg[f.id] || {}, d);
+      if(d.minutes) f.minutes = d.minutes;
+      if(d.own) f.own = d.own;
+    });
+  }catch(e){}
+}
+
+/* правка карточки уходит на сервер — пачкой, чтобы не дёргать на каждую букву */
+function cardSave(kind, id, patch){
+  if(!foLive() || !id || !patch) return;
+  var k = cardKey(kind, id);
+  cardQueue[k] = cardQueue[k] || {kind:kind, id:id, data:{}};
+  Object.assign(cardQueue[k].data, patch);
+  if(SRV_CARDS){ SRV_CARDS[k] = Object.assign(SRV_CARDS[k] || {}, patch); }
+  clearTimeout(cardTimer);
+  cardTimer = setTimeout(cardFlush, 600);
+}
+
+function cardFlush(){
+  var keys = Object.keys(cardQueue);
+  if(!keys.length) return;
+  keys.forEach(function(k){
+    var q = cardQueue[k];
+    delete cardQueue[k];
+    api("/refs/cards", {method:"POST", body:{kind:q.kind, ref_id:String(q.id), data:q.data}})
+      .then(function(){ srvMark(true); })
+      .catch(function(err){
+        srvMark(false, err.message);
+        try{ toast("Не сохранилось на сервере: " + (err.message || "нет ответа")); }catch(e){}
+      });
+  });
+}
+window.addEventListener("beforeunload", function(){ try{ cardFlush(); }catch(e){} });
+
+function srvMark(ok, why){
+  SRV_STORE_OK = !!ok;
+  SRV_STORE_WHY = ok ? "" : (why || "");
+  try{ paintStoreFlag(); }catch(e){}
+}
+
+/* ── честная плашка: сохраняем на сервер или нет ── */
+function paintStoreFlag(){
+  if(!foLive()) return;
+  var bar = document.querySelector(".bar");
+  if(!bar) return;
+  var el = document.getElementById("srvFlag");
+  if(SRV_STORE_OK !== false){ if(el) el.remove(); return; }
+  if(!el){
+    el = document.createElement("div");
+    el.id = "srvFlag"; el.className = "srvflag";
+    bar.appendChild(el);
+  }
+  el.innerHTML = '<b>Сервер не отвечает</b><i>' + esc(SRV_STORE_WHY || "") +
+    ' — правки сейчас не сохраняются</i>';
+}
+
+/* ── карточки сотрудника и клиента: сохранение на сервер ── */
+(function(){
+  var NUM = {pay:1, payDay:1, bonusPct:1, finePct:1, hoursDay:1, target:1,
+             maxArt:1, amount:1, articles:1, minutes:1};
+  document.addEventListener("change", onEd, true);
+  document.addEventListener("blur",   onEd, true);
+  function onEd(e){
+    var el = e.target;
+    if(!el || !el.matches || !el.matches("[data-ed]")) return;
+    if(!foLive()) return;
+    var who = el.getAttribute("data-ed"),
+        id  = el.getAttribute("data-edid"),
+        key = el.getAttribute("data-edk");
+    if(!who || !id || !key) return;
+    var v = el.value;
+    if(NUM[key]) v = v === "" ? null : Math.max(0, +v || 0);
+    else v = String(v).trim();
+    if(key === "tg") v = String(v).replace(/^@+/, "");
+    var patch = {}; patch[key] = v;
+    cardSave(who === "man" ? "employee" : "client", id, patch);
+  }
+})();
+
+/* ── карточка функции: всё, что правится, уходит на сервер ── */
+(function(){
+  function send(){
+    if(!foLive() || typeof fnOpen === "undefined" || !fnOpen) return;
+    var f = null; try{ f = fnById(fnOpen); }catch(e){}
+    if(!f) return;
+    var c = null; try{ c = fnCfg(f); }catch(e){}
+    if(!c) return;
+    var d = {};
+    ["own","grp","cat","cyc","days","regKind","regText","regLink","regShot",
+     "appr","apprBy","key","paid","blockId"].forEach(function(k){
+      if(c[k] !== undefined) d[k] = c[k];
+    });
+    d.minutes = +f.minutes || 30;
+    d.name = f.name || "";
+    cardSave("fn", f.id, d);
+  }
+  document.addEventListener("change", function(e){
+    if(e.target && e.target.matches && e.target.matches("[data-fnc]")) setTimeout(send, 60);
+  });
+  document.addEventListener("blur", function(e){
+    if(e.target && e.target.matches && e.target.matches("[data-fnc], [data-fnname]")) setTimeout(send, 60);
+  }, true);
+  document.addEventListener("click", function(e){
+    if(!e.target.closest) return;
+    if(e.target.closest("[data-fnday], [data-fncat], [data-fnck], [data-fnreg], [data-fnsave]"))
+      setTimeout(send, 120);
+  }, true);
+  window.foFnPush = send;
+})();
+
+/* ── разовые задачи: на сервере, а не на экране ── */
+function onceLoad(){
+  if(!foLive()) return Promise.resolve();
+  return api("/refs/tasks/once").then(function(rows){
+    SRV_ONCE = rows || [];
+    onceApply();
+    SRV_STORE_OK = true;
+  }).catch(function(e){
+    SRV_ONCE = SRV_ONCE || [];
+    SRV_STORE_OK = false; SRV_STORE_WHY = e.message || "";
+  });
+}
+
+function onceApply(){
+  if(!SRV_ONCE || !S.tasks) return;
+  /* убираем прошлую порцию разовых и кладём свежую с сервера */
+  S.tasks = S.tasks.filter(function(t){ return !t.onceId; });
+  SRV_ONCE.forEach(function(r){
+    S.tasks.push({
+      id: "once" + r.id, onceId: r.id, rid: null,
+      title: r.title, project: r.client_id || "", person: r.employee_id || "",
+      cab: "", fn: r.fn_id || "", minutes: +r.minutes || 30,
+      kind: r.kind === "urg" ? "urg" : "fix",
+      dow: (r.dow != null ? +r.dow : 0), start: 10,
+      done: !!r.done, spentSec: 0, comment: r.note || "", link: "",
+      approver: "Без согласования", status: "", cycle: "once",
+      createdAt: r.created_at ? +new Date(r.created_at) : Date.now()
+    });
+  });
+}
+
+function onceNew(body){
+  return api("/refs/tasks/once", {method:"POST", body:body})
+    .then(function(r){
+      SRV_ONCE = SRV_ONCE || [];
+      SRV_ONCE.unshift(r);
+      onceApply();
+      try{ render(); }catch(e){}
+      srvMark(true);
+      return r;
+    })
+    .catch(function(err){
+      srvMark(false, err.message);
+      try{ toast("Задача не сохранилась: " + (err.message || "сервер не ответил")); }catch(e){}
+      throw err;
+    });
+}
+
+function oncePatch(onceId, patch){
+  return api("/refs/tasks/once/" + encodeURIComponent(onceId), {method:"POST", body:patch})
+    .then(function(r){
+      (SRV_ONCE || []).forEach(function(x, i){ if(String(x.id) === String(onceId)) SRV_ONCE[i] = r; });
+      srvMark(true);
+      return r;
+    })
+    .catch(function(err){ srvMark(false, err.message); throw err; });
+}
+
+/* ── постановка задачи: разовая уходит в fo_task_once ── */
+(function(){
+  if(typeof ntPlace !== "function") return;
+  var _np = ntPlace;
+  ntPlace = function(){
+    if(!foLive()) return _np.apply(this, arguments);
+    var before = null;
+    try{
+      ntCollect();
+      before = {
+        title: String(ntState.title || "").trim(),
+        person: ntState.person || "",
+        project: ntState.project || ((S.projects[0] || {}).id || ""),
+        cyc: ntState.cycle || "once",
+        dow: (ntState.dow != null && ntState.dow !== "") ? +ntState.dow : dow,
+        min: +ntState.min || 30,
+        fn: ntState.fn || ""
+      };
+    }catch(e){ before = null; }
+
+    var isOnce = !before || !foFnCycle(before.cyc, before.dow, []);
+    if(!isOnce) return _np.apply(this, arguments);   /* цикличную делает §69 */
+
+    if(!before || !before.title){ return _np.apply(this, arguments); }
+
+    /* разовую не рисуем локально — сохраняем и перечитываем с сервера */
+    onceNew({
+      title: before.title,
+      client_id: before.project || null,
+      employee_id: before.person || null,
+      fn_id: before.fn || null,
+      dow: before.dow,
+      minutes: before.min,
+      kind: before.cyc === "once_urg" ? "urg" : "once"
+    }).then(function(){
+      try{ toast("Задача сохранена в агентстве"); }catch(e){}
+      try{ ntReset(true); }catch(e){}
+      try{ render(); }catch(e){}
+    }).catch(function(){});
+    return;
+  };
+})();
+
+/* отметка о выполнении разовой задачи уходит на сервер */
+(function(){
+  if(typeof patch !== "function") return;
+  var _p = patch;
+  patch = function(id, data){
+    var t = null;
+    try{ t = (S.tasks || []).filter(function(x){ return x.id === id; })[0]; }catch(e){}
+    var v = _p.apply(this, arguments);
+    try{
+      if(!foLive() || !t || !t.onceId || !data) return v;
+      var body = {};
+      if("done" in data)    body.done = !!data.done;
+      if("person" in data)  body.employee_id = data.person || null;
+      if("dow" in data)     body.dow = +data.dow;
+      if("minutes" in data) body.minutes = +data.minutes;
+      if("comment" in data) body.note = data.comment;
+      if("title" in data)   body.title = data.title;
+      if(Object.keys(body).length) oncePatch(t.onceId, body).catch(function(){});
+    }catch(e){}
+    return v;
+  };
+})();
+
+/* снять задачу совсем */
+function onceRemove(onceId){
+  return api("/refs/tasks/once/" + encodeURIComponent(onceId) + "/remove", {method:"POST"})
+    .then(function(){
+      SRV_ONCE = (SRV_ONCE || []).filter(function(x){ return String(x.id) !== String(onceId); });
+      onceApply();
+      try{ render(); }catch(e){}
+    });
+}
+window.foOnceRemove = onceRemove;
+
+/* ── загрузка: сервер — единственный источник ── */
+(function(){
+  if(typeof loadLive !== "function") return;
+  var _ll = loadLive;
+  loadLive = function(){
+    var pr = _ll.apply(this, arguments);
+    try{
+      return pr.then(function(r){
+        return Promise.all([cardsLoad(), onceLoad()]).then(function(){
+          try{ cardsApply(); onceApply(); paintStoreFlag(); }catch(e){}
+          try{ render(); }catch(e){}
+          return r;
+        });
+      });
+    }catch(e){ return pr; }
+  };
+})();
+
+/* ── браузер больше не хранилище ── */
+(function(){
+  /* глушим прежнее локальное сохранение живого режима */
+  try{ if(typeof foLiveSave === "function") foLiveSave = function(){}; }catch(e){}
+  try{ if(typeof foLiveRestore === "function") foLiveRestore = function(){}; }catch(e){}
+  /* и подчищаем то, что успело туда лечь */
+  try{
+    for(var i = localStorage.length - 1; i >= 0; i--){
+      var k = localStorage.key(i);
+      if(k && (k.indexOf("fo_live_") === 0 || k === "fo_promised")) localStorage.removeItem(k);
+    }
+  }catch(e){}
+})();
+
+window.foServer = function(){
+  return {живой: foLive(), сохранение: SRV_STORE_OK, почему: SRV_STORE_WHY,
+          карточек: SRV_CARDS ? Object.keys(SRV_CARDS).length : null,
+          разовыхЗадач: SRV_ONCE ? SRV_ONCE.length : null};
 };
 
 })();
