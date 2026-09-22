@@ -113,6 +113,14 @@ for _t in ("cabinet_fn", "employee_fn", "task"):
 p("cabinet_fn строк: " + sh("sudo -u postgres psql -d fo -Atc 'SELECT count(*) FROM cabinet_fn'").strip())
 p("employee_fn строк: " + sh("sudo -u postgres psql -d fo -Atc 'SELECT count(*) FROM employee_fn'").strip())
 p("")
+p("== ГЕНЕРАТОР: ПОЛНЫЙ ТЕКСТ generate_day ==")
+try:
+    _g = io.open(APP + "/services/generator.py", encoding="utf-8").read().splitlines()
+    for i, l in enumerate(_g[:80]):
+        p("%3d  %s" % (i+1, l.rstrip()[:170]))
+except Exception as e:
+    p("generator.py:", e)
+p("")
 p("== ЧТО НА СЕРВЕРЕ ==")
 p("роли:", sh("sudo -u postgres psql -d fo -Atc \"SELECT string_agg(code||'/'||level,', ' ORDER BY level) FROM role\"").strip() or "(не прочиталось)")
 p("таблицы:", sh("sudo -u postgres psql -d fo -Atc \"SELECT string_agg(table_name,', ' ORDER BY table_name) FROM information_schema.tables WHERE table_schema='public'\"").strip())
