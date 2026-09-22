@@ -694,6 +694,63 @@ async def fo_client_cabs(client_id: str, p: Principal = Depends(current)):
     return [{"id": str(r["id"]), "name": r["name"], "client_id": str(r["client_id"])} for r in rows]
 
 
+# ── задачи: снять и пересобрать (сценарий 5, С4) ──────────────────
+# В API нет ни удаления, ни отмены сгенерированной задачи - только
+# «сделано» и «передать». Отстранение от задачи было невозможно.
+# Здесь: снятие задачи (status='removed') и пересборка дня по кабинету -
+# старые несделанные задачи генератора снимаются и рождаются заново
+# по текущим настройкам кабинета.
+
+@router.post("/tasks/{task_id}/remove")
+async def fo_task_remove(task_id: str, p: Principal = Depends(max_level(5))):
+    """Снять задачу. Сделанные не трогаем. Уровень: главный менеджер и выше."""
+    async with pool().acquire() as c:
+        r = await c.fetchrow(
+            "SELECT id, status FROM task WHERE id=$1::uuid AND org_id=$2", task_id, p.org_id)
+        if not r:
+            raise HTTPException(404, "задача не найдена")
+        if r["status"] == "done":
+            raise HTTPException(409, "задача уже сделана - снять нельзя")
+        await c.execute(
+            "UPDATE task SET status='removed', moved_reason=COALESCE(moved_reason,'снята') "
+            "WHERE id=$1::uuid AND org_id=$2", task_id, p.org_id)
+    return {"ok": True}
+
+
+@router.post("/tasks/regenerate")
+async def fo_tasks_regen(day: str | None = None, cabinet_id: str | None = None,
+                         p: Principal = Depends(max_level(4))):
+    """Пересобрать день: снять несделанные задачи генератора (по кабинету или все)
+    и сгенерировать заново. Уровень: РМ и выше."""
+    import datetime as _dt
+    try:
+        d = _dt.date.fromisoformat(day) if day else _dt.date.today()
+    except Exception:
+        raise HTTPException(400, "день в формате ГГГГ-ММ-ДД")
+    async with pool().acquire() as c:
+        if cabinet_id:
+            n = await c.execute(
+                "UPDATE task SET status='removed', moved_reason='пересборка' "
+                "WHERE org_id=$1 AND plan_date=$2 AND source='generator' AND status<>'done' "
+                "AND cabinet_id=$3::uuid", p.org_id, d, cabinet_id)
+        else:
+            n = await c.execute(
+                "UPDATE task SET status='removed', moved_reason='пересборка' "
+                "WHERE org_id=$1 AND plan_date=$2 AND source='generator' AND status<>'done'",
+                p.org_id, d)
+        _gen = None
+        for _m in ("..services.generator", "app.services.generator", "services.generator"):
+            try:
+                _gen = _fo_il.import_module(_m, package=__package__ if _m.startswith(".") else None).generate_day
+                break
+            except Exception:
+                continue
+        if not _gen:
+            raise HTTPException(500, "генератор не найден")
+        res = await _gen(c, p.org_id, d)
+    return {"ok": True, "снято": n, "создано": res.get("создано задач") if isinstance(res, dict) else res}
+
+
 # ── Мой аккаунт ──────────────────────────────────────────────────
 
 @router.get("/me/account")
