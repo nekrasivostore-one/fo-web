@@ -123,6 +123,17 @@ p(sh("grep -n 'def \\|INSERT\\|FROM\\|chat' /opt/fo/backend/app/routers/routing.
 p("cabinet_fn строк: " + sh("sudo -u postgres psql -d fo -Atc 'SELECT count(*) FROM cabinet_fn'").strip())
 p("employee_fn строк: " + sh("sudo -u postgres psql -d fo -Atc 'SELECT count(*) FROM employee_fn'").strip())
 p("")
+p("== SECURITY / DEPS / MAIN (разведка для режима тени) ==")
+for _f, _lim in (("security.py", 120), ("deps.py", 140), ("main.py", 90)):
+    try:
+        _src = io.open(APP + "/" + _f, encoding="utf-8").read().splitlines()
+        p("--- " + _f + " (%d строк)" % len(_src))
+        for i, l in enumerate(_src[:_lim]):
+            if l.strip():
+                p("%4d  %s" % (i+1, l.rstrip()[:150]))
+    except Exception as e:
+        p(_f + ":", e)
+p("")
 p("== ГЕНЕРАТОР: ПОЛНЫЙ ТЕКСТ generate_day ==")
 try:
     _g = io.open(APP + "/services/generator.py", encoding="utf-8").read().splitlines()
