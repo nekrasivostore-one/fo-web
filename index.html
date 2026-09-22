@@ -21321,8 +21321,12 @@ var cardQueue = {}, cardTimer = null;
 /* ── карточки ── */
 function cardKey(kind, id){ return kind + ":" + id; }
 
+function foAuthed(){
+  try{ return !!(A && A.token); }catch(e){ return false; }
+}
+
 function cardsLoad(){
-  if(!foLive()) return Promise.resolve();
+  if(!foAuthed()) return Promise.resolve();
   return api("/refs/cards").then(function(rows){
     SRV_CARDS = {};
     (rows || []).forEach(function(r){
@@ -21364,7 +21368,7 @@ function cardsApply(){
 
 /* правка карточки уходит на сервер — пачкой, чтобы не дёргать на каждую букву */
 function cardSave(kind, id, patch){
-  if(!foLive() || !id || !patch) return;
+  if(!foAuthed() || !id || !patch) return;
   var k = cardKey(kind, id);
   cardQueue[k] = cardQueue[k] || {kind:kind, id:id, data:{}};
   Object.assign(cardQueue[k].data, patch);
@@ -21467,7 +21471,7 @@ function paintStoreFlag(){
 
 /* ── разовые задачи: на сервере, а не на экране ── */
 function onceLoad(){
-  if(!foLive()) return Promise.resolve();
+  if(!foAuthed()) return Promise.resolve();
   return api("/refs/tasks/once").then(function(rows){
     SRV_ONCE = rows || [];
     onceApply();
@@ -21630,6 +21634,16 @@ window.foOnceRemove = onceRemove;
       if(k && (k.indexOf("fo_live_") === 0 || k === "fo_promised")) localStorage.removeItem(k);
     }
   }catch(e){}
+})();
+
+/* страховка: если к моменту загрузки режим ещё не был живым */
+(function(){
+  function kick(){
+    if(!foAuthed()) return;
+    if(SRV_CARDS === null) cardsLoad().then(function(){ try{ render(); }catch(e){} });
+    if(SRV_ONCE === null)  onceLoad().then(function(){ try{ render(); }catch(e){} });
+  }
+  [2500, 6000, 12000].forEach(function(ms){ setTimeout(kick, ms); });
 })();
 
 window.foServer = function(){
