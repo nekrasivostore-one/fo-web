@@ -75,6 +75,24 @@ try:
         if i < len(_a): p("auth.py %3d  %s" % (i+1, _a[i].rstrip()[:150]))
 except Exception as e: p("auth.py:", e)
 p("")
+p("== СЕССИЯ: 30 ДНЕЙ (правка 127) ==")
+try:
+    _cfg = APP + "/config.py"
+    _src = io.open(_cfg, encoding="utf-8").read()
+    _new = _src
+    _new = re.sub(r"(refresh_ttl_days\s*:\s*int\s*=\s*)\d+", r"\g<1>30", _new, count=1)
+    _new = re.sub(r"(access_ttl_min\s*:\s*int\s*=\s*)\d+", r"\g<1>120", _new, count=1)
+    if _new != _src:
+        shutil.copy(_cfg, _cfg + ".bak-" + stamp)
+        io.open(_cfg, "w", encoding="utf-8").write(_new)
+        p("config.py: refresh_ttl_days -> 30, access_ttl_min -> 120 (копия config.py.bak-" + stamp + ")")
+    else:
+        p("config.py: уже 30/120 или строки не нашлись - ничего не менял")
+    for l in _new.splitlines():
+        if "refresh_ttl_days" in l or "access_ttl_min" in l: p("  " + l.strip())
+except Exception as e:
+    p("config.py не тронут:", e)
+p("")
 p("== ЧТО НА СЕРВЕРЕ ==")
 p("роли:", sh("sudo -u postgres psql -d fo -Atc \"SELECT string_agg(code||'/'||level,', ' ORDER BY level) FROM role\"").strip() or "(не прочиталось)")
 p("таблицы:", sh("sudo -u postgres psql -d fo -Atc \"SELECT string_agg(table_name,', ' ORDER BY table_name) FROM information_schema.tables WHERE table_schema='public'\"").strip())
