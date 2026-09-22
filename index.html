@@ -23210,6 +23210,16 @@ document.addEventListener("input", function(e){
   if(nv !== v){ var p = el.selectionStart; el.value = nv; try{ el.setSelectionRange(Math.max(0, p - (v.length - nv.length)), Math.max(0, p - (v.length - nv.length))); }catch(x){} }
 });
 
+/* живой режим ничего не выдумывает: демо-замеры скорости в живом агентстве не сеем (164) */
+(function(){
+  if(typeof speedSeed !== "function") return;
+  var _s = speedSeed;
+  speedSeed = function(){
+    if(typeof foLive === "function" && foLive()){ S.speedSeeded = true; return; }
+    return _s.apply(this, arguments);
+  };
+})();
+
 /* ===== add81: артикулы и чаты в карточке клиента — на сервере (138–141, 144, 114)
    Артикулы: GET /refs/cabinets/{id}/articles, массовое внесение
    POST …/articles/bulk, ответственный/дни/категория — POST /refs/articles/{id}/owner.
