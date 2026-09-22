@@ -20961,8 +20961,13 @@ window.foAccess = function(){
         имена и списки берутся у него, а наши дополнения ложатся
         сверху по тем же id.                                        */
 
-var LIVE_KEEP = ["plan","arts","access","roleCfg","fnCfg","placed","accSeeded",
-                 "projectCode","fns2","logs","meet","office","growth"];
+/* 22.09 (123): всё, что уже живёт на сервере, из браузера убрано —
+   задачи (fo_task_once, генератор), артикулы (article), план кабинета
+   (cabinet_fn), настройки функций и карточки (fo_card). В браузере
+   временно остаются только разделы, у которых сервера ещё нет
+   (доступы, планёрка, офис, рост, журнал) — до их переезда. */
+var LIVE_KEEP = ["access","roleCfg","placed","accSeeded",
+                 "projectCode","logs","meet","office","growth"];
 var PERSON_BASE  = {id:1,name:1,role:1,av:1,color:1,ord:1,workday:1};
 var PROJECT_BASE = {id:1,name:1,av:1,color:1,ord:1,cabinets:1,articles:1};
 var FN_BASE      = {id:1,code:1,name:1,minutes:1};
@@ -21002,13 +21007,7 @@ function foLiveSave(){
   try{
     var d = {v:1, at:Date.now()};
     LIVE_KEEP.forEach(function(k){ if(S[k] !== undefined) d[k] = S[k]; });
-    /* задачи, которых на сервере нет: у серверных есть rid */
-    d.tasksLocal = (S.tasks || []).filter(function(t){ return t && !t.rid; });
-    /* дополнения к тому, что приходит с сервера */
-    d.peopleX   = foMapExtra(S.people,   PERSON_BASE);
-    d.projectsX = foMapExtra(S.projects, PROJECT_BASE);
-    d.fnsX      = foMapExtra(S.fns,      FN_BASE);
-    d.cabsX     = foMapExtra(S.cabs,     {id:1,name:1,project:1,ord:1});
+    /* задачи, карточки, функции, артикулы — на сервере; в браузер не пишем */
     localStorage.setItem(foLiveKey(), JSON.stringify(d));
   }catch(e){
     /* место в браузере кончилось — работаем дальше, но честно скажем один раз */
@@ -21027,24 +21026,8 @@ function foLiveRestore(){
   if(!d) return;
 
   LIVE_KEEP.forEach(function(k){ if(d[k] !== undefined) S[k] = d[k]; });
-
-  if(!S.tasks) S.tasks = [];
-  var have = {};
-  S.tasks.forEach(function(t){ if(t && t.id) have[t.id] = 1; });
-  (d.tasksLocal || []).forEach(function(t){ if(t && t.id && !have[t.id]) S.tasks.push(t); });
-
-  function put(list, map){
-    if(!map) return;
-    (list || []).forEach(function(o){
-      var x = map[o.id];
-      if(!x) return;
-      for(var k in x){ if(Object.prototype.hasOwnProperty.call(x, k)) o[k] = x[k]; }
-    });
-  }
-  put(S.people,   d.peopleX);
-  put(S.projects, d.projectsX);
-  put(S.fns,      d.fnsX);
-  put(S.cabs,     d.cabsX);
+  /* старые браузерные задачи, карточки и настройки функций не возвращаем —
+     они на сервере, а стёртая копия из браузера затирала бы серверную */
   try{ render(); }catch(e){}
 }
 
