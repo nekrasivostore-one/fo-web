@@ -3862,6 +3862,21 @@ body.noadd [data-addmode]{ display:none !important; }
 .fo-chatadd{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:10px; padding:10px 12px; border-radius:12px; background:rgba(124,92,255,.07) }
 .fo-chatadd .fi.sm{ flex:1 1 160px; padding:6px 9px; font-size:12px }
 .fo-chatadd .sel.sm{ padding:6px 9px; font-size:12px; border-radius:10px }
+
+/* ===== add82: режим тени ===== */
+#foShadowBan{ position:fixed; left:0; right:0; top:0; z-index:950; display:flex; align-items:center; gap:12px; padding:8px 16px;
+  background:#1f1b2e; color:#fff; font-size:12.5px; box-shadow:0 4px 18px rgba(0,0,0,.35) }
+#foShadowBan > b{ background:#FFB020; color:#1f1b2e; padding:2px 8px; border-radius:999px; font-size:11px; letter-spacing:.04em; text-transform:uppercase }
+#foShadowBan span{ flex:1; opacity:.92 }
+#foShadowBan span b{ color:#fff }
+#foShadowBan .bt{ padding:5px 12px; font-size:12px; background:#fff; color:#1f1b2e }
+body.fo-shadow{ padding-top:38px }
+.fo-shl{ max-height:52vh; overflow:auto; margin-top:10px }
+.fo-shorg{ padding:8px 0; border-top:1px solid rgba(120,120,140,.14) }
+.fo-shorg > b{ display:block; font-size:12px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-3); margin-bottom:4px }
+.fo-shrow{ display:flex; align-items:center; justify-content:space-between; gap:10px; padding:5px 0; font-size:13px }
+.fo-shrow i{ font-style:normal; font-size:11.5px; color:var(--ink-3) }
+.fo-shrow .bt{ padding:4px 10px; font-size:11.5px }
 </style>
 </head>
 <body>
@@ -23520,6 +23535,149 @@ document.addEventListener("change", function(e){
 
 window.foArtsState = function(id){ return id ? FO_ARTS[id] : Object.keys(FO_ARTS).map(function(k){ return {client:k, артикулов:(FO_ARTS[k].rows||[]).length}; }); };
 window.foParseArts = foParseArts;
+
+/* ===== add82: режим тени у админа (134, 136) ================================
+   Админ смотрит сервис глазами любого человека любого агентства: в панели
+   сервиса у каждого человека кнопка «Тень», плюс общий выбор «Режим тени».
+   Сервер выдаёт доступ от имени человека (POST /refs/admin/shadow), фронт
+   держит метку X-FO-Shadow — с ней сервер отклоняет любую запись: тень
+   только смотрит. Свой вход админа откладывается и возвращается кнопкой
+   «Вернуться в админа». Три режима: админ · тень · демо.                  */
+
+var FO_SHADOW_KEY = "fo_shadow_v1", FO_ADMIN_BACK = "fo_admin_back_v1";
+
+function foShadow(){ try{ return JSON.parse(localStorage.getItem(FO_SHADOW_KEY) || "null"); }catch(e){ return null; } }
+function foShadowOn(){ return !!foShadow(); }
+
+/* метка тени на каждом запросе — сервер не даст ничего записать */
+(function(){
+  var prev = api;
+  api = function(path, opt){
+    try{ if(foShadowOn()){ opt = opt || {}; opt.headers = opt.headers || {}; opt.headers["X-FO-Shadow"] = "1"; } }catch(e){}
+    return prev(path, opt);
+  };
+})();
+
+function foShadowEnter(userId){
+  return api("/refs/admin/shadow", {method:"POST", body:{user_id: String(userId)}}).then(function(r){
+    if(!r || !r.access) throw new Error("сервер не выдал доступ");
+    try{ localStorage.setItem(FO_ADMIN_BACK, JSON.stringify(A)); }catch(e){}
+    var u = r.user || {};
+    try{ localStorage.setItem(FO_SHADOW_KEY, JSON.stringify({email:u.email, name:u.name, role:u.role, level:u.level, org:u.org_name, at:Date.now()})); }catch(e){}
+    A.token = r.access; A.refresh = ""; A.role = u.role || ""; A.level = (u.level != null ? u.level : 9); A.email = u.email || "";
+    saveAuth();
+    location.reload();
+  }).catch(function(err){ try{ toast("Тень не открылась: " + (err.message || "")); }catch(e){} });
+}
+
+function foShadowLeave(){
+  var back = null;
+  try{ back = JSON.parse(localStorage.getItem(FO_ADMIN_BACK) || "null"); }catch(e){}
+  try{ localStorage.removeItem(FO_SHADOW_KEY); localStorage.removeItem(FO_ADMIN_BACK); }catch(e){}
+  if(back && back.token){ A = back; saveAuth(); }
+  else dropAuth();
+  location.reload();
+}
+window.foShadowLeave = foShadowLeave;
+
+/* слетела сессия в тени — возвращаемся в админа, а не на форму входа */
+(function(){
+  if(typeof window.foKick !== "function") return;
+  var _k = window.foKick;
+  window.foKick = function(){ if(foShadowOn()) return foShadowLeave(); return _k.apply(this, arguments); };
+})();
+
+/* полоса тени */
+function foShadowBanner(){
+  var s = foShadow(); if(!s) return;
+  if(document.getElementById("foShadowBan")) return;
+  var b = document.createElement("div");
+  b.id = "foShadowBan";
+  b.innerHTML = '<b>Режим тени</b><span>смотрю как <b>'+esc(s.name || s.email || "")+'</b> · '+esc(s.role || "")+' · '+esc(s.org || "")+' · только смотреть, изменения сервер не примет</span>'+
+    '<button class="bt sm" id="foShadowOut">Вернуться в админа</button>';
+  document.body.appendChild(b);
+  document.body.classList.add("fo-shadow");
+}
+document.addEventListener("click", function(e){ if(e.target.closest && e.target.closest("#foShadowOut")) foShadowLeave(); });
+setTimeout(foShadowBanner, 400);
+setInterval(foShadowBanner, 3000);
+
+/* ── выбор, чьими глазами смотреть ── */
+var FO_PEOPLE = null;
+function foShadowPicker(){
+  var old = document.getElementById("foShadowPick"); if(old) old.remove();
+  var box = document.createElement("div"); box.id = "foShadowPick"; box.className = "fo-modal";
+  box.innerHTML = '<div class="fo-box"><div class="fo-h"><b>Режим тени — чьими глазами смотреть</b><span>агентство → человек</span></div>'+
+    '<input class="fi" id="foShadowQ" placeholder="Поиск: агентство, имя, почта">'+
+    '<div id="foShadowList" class="fo-shl"><div class="empty">Загружаю людей…</div></div>'+
+    '<div class="fo-btns"><button class="bt gh2" id="foShadowCancel">Отмена</button></div></div>';
+  document.body.appendChild(box);
+  var draw = function(){
+    var q = String((document.getElementById("foShadowQ") || {}).value || "").toLowerCase().trim();
+    var list = (FO_PEOPLE || []).filter(function(u){ return !q || (u.org_name + " " + u.name + " " + u.email + " " + u.role).toLowerCase().indexOf(q) >= 0; });
+    var byOrg = {}; list.forEach(function(u){ (byOrg[u.org_name] = byOrg[u.org_name] || []).push(u); });
+    var host = document.getElementById("foShadowList"); if(!host) return;
+    host.innerHTML = Object.keys(byOrg).length ? Object.keys(byOrg).map(function(on){
+      return '<div class="fo-shorg"><b>'+esc(on)+'</b>'+byOrg[on].map(function(u){
+        return '<div class="fo-shrow"><span>'+esc(u.name || "—")+' <i>'+esc(u.email)+' · '+esc(u.role)+'</i></span>'+
+          '<button class="bt sm" data-foshadow="'+esc(u.id)+'">Смотреть</button></div>'; }).join("")+'</div>'; }).join("")
+      : '<div class="empty">Никого не нашлось</div>';
+  };
+  (FO_PEOPLE ? Promise.resolve(FO_PEOPLE) : api("/refs/admin/people").then(function(r){ FO_PEOPLE = r || []; return FO_PEOPLE; }))
+    .then(draw).catch(function(err){ var h = document.getElementById("foShadowList"); if(h) h.innerHTML = '<div class="empty">'+esc(err.message || "не загрузилось")+'</div>'; });
+  box.addEventListener("input", function(e){ if(e.target.id === "foShadowQ") draw(); });
+  box.addEventListener("click", function(e){
+    if(e.target === box || e.target.closest("#foShadowCancel")){ box.remove(); return; }
+    var b = e.target.closest("[data-foshadow]");
+    if(b){ b.disabled = true; b.textContent = "Открываю…"; foShadowEnter(b.getAttribute("data-foshadow")); }
+  });
+}
+
+/* кнопки в панели сервиса: «Режим тени» рядом с «Открыть демо», «Тень» у каждого человека */
+(function(){
+  if(typeof renderAdm !== "function") return;
+  var _r = renderAdm;
+  renderAdm = function(){
+    var v = _r.apply(this, arguments);
+    setTimeout(function(){
+      if(typeof view !== "undefined" && view !== "adm") return;
+      if(typeof isAdmin === "function" && !isAdmin()) return;
+      if(!admOpen){
+        var t = document.querySelector("#sect .gl .gl-t");
+        if(t && !document.getElementById("admShadowBtn")){
+          var b = document.createElement("button");
+          b.className = "bt sm gh2"; b.id = "admShadowBtn"; b.style.cssText = "width:auto;margin-left:8px";
+          b.textContent = "Режим тени";
+          var d = document.getElementById("admDemoBtn");
+          if(d) d.parentNode.insertBefore(b, d); else t.appendChild(b);
+        }
+      }
+    }, 80);
+    return v;
+  };
+  if(typeof SEC_RENDER !== "undefined") SEC_RENDER.adm = renderAdm;
+  /* строки людей внутри агентства рисуются асинхронно — вешаем кнопки по факту */
+  setInterval(function(){
+    if(typeof view === "undefined" || view !== "adm") return;
+    if(typeof isAdmin === "function" && !isAdmin()) return;
+    document.querySelectorAll("select[data-admrole]").forEach(function(sel){
+      if(sel.nextElementSibling && sel.nextElementSibling.hasAttribute("data-foshadow")) return;
+      var b = document.createElement("button");
+      b.className = "bt sm gh2"; b.style.cssText = "width:auto;margin-left:6px";
+      b.setAttribute("data-foshadow", sel.getAttribute("data-admrole")); b.textContent = "Тень";
+      sel.parentNode.insertBefore(b, sel.nextSibling);
+    });
+  }, 800);
+})();
+document.addEventListener("click", function(e){
+  var b;
+  if(e.target.closest && e.target.closest("#admShadowBtn")){ e.preventDefault(); foShadowPicker(); return; }
+  if((b = e.target.closest && e.target.closest("select[data-admrole] + [data-foshadow]"))){
+    e.preventDefault(); e.stopPropagation(); b.disabled = true; b.textContent = "Открываю…"; foShadowEnter(b.getAttribute("data-foshadow"));
+  }
+});
+
+window.foShadowState = function(){ return {тень: foShadow(), админОтложен: !!localStorage.getItem(FO_ADMIN_BACK)}; };
 
 })();
 </script>
