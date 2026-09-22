@@ -116,7 +116,7 @@ p("")
 p("== ГЕНЕРАТОР: ПОЛНЫЙ ТЕКСТ generate_day ==")
 try:
     _g = io.open(APP + "/services/generator.py", encoding="utf-8").read().splitlines()
-    for i, l in enumerate(_g[:80]):
+    for i, l in enumerate(_g[:110]):
         p("%3d  %s" % (i+1, l.rstrip()[:170]))
 except Exception as e:
     p("generator.py:", e)
@@ -174,6 +174,28 @@ try:
         p("generator.py: совпало %d из 4 - НЕ трогаю" % _hits)
 except Exception as e:
     p("generator.py не тронут:", e)
+p("== ГЕНЕРАТОР: ДНИ НЕДЕЛИ КАК В ФОРМАХ (0=Пн … 6=Вс) ==")
+try:
+    _gp = APP + "/services/generator.py"
+    _src = io.open(_gp, encoding="utf-8").read()
+    if "isoweekday() - 1" in _src:
+        p("generator.py: дни недели уже правлены")
+    else:
+        _new = _src.replace("wd = day.isoweekday()", "wd = day.isoweekday() - 1  # 0=Пн … 6=Вс, как в формах", 1)
+        _new = _new.replace("(weekdays or [1])", "(weekdays or [0])")
+        if _new != _src:
+            shutil.copy(_gp, _gp + ".bak-wd-" + stamp)
+            io.open(_gp, "w", encoding="utf-8").write(_new)
+            _chk = sh(PY + " -m py_compile " + _gp)
+            if _chk.strip():
+                shutil.copy(_gp + ".bak-wd-" + stamp, _gp)
+                p("generator.py: дни недели - синтаксис не сошёлся, ОТКАТ:", _chk.strip()[:300])
+            else:
+                p("generator.py: дни недели правлены (0=Пн), копия .bak-wd-" + stamp)
+        else:
+            p("generator.py: строка wd не найдена - не трогаю")
+except Exception as e:
+    p("generator.py дни недели:", e)
 p("")
 p("== ЧТО НА СЕРВЕРЕ ==")
 p("роли:", sh("sudo -u postgres psql -d fo -Atc \"SELECT string_agg(code||'/'||level,', ' ORDER BY level) FROM role\"").strip() or "(не прочиталось)")
@@ -649,6 +671,12 @@ async def fo_cab_fns_put(cab_id: str, body: list[FoCabFnItem], p: Principal = De
     """Полная замена набора функций кабинета. Уровень: РМ и выше (С5)."""
     async with pool().acquire() as c:
         await _fo_cab_of(c, cab_id, p.org_id)
+        _old = {}
+        for _r in await c.fetch(
+                """SELECT cf.cabinet_id, cf.fn_id, g.employee_id FROM cabinet_fn cf
+                   LEFT JOIN fo_cabinet_fn_cfg g ON g.cabinet_id=cf.cabinet_id AND g.fn_id=cf.fn_id
+                   WHERE cf.cabinet_id=$1::uuid""", cab_id):
+            _old[(_r["cabinet_id"], _r["fn_id"])] = _r["employee_id"]
         fn_ids = []
         for it in body:
             fid = (it.fn_id or "").strip()
@@ -682,7 +710,12 @@ async def fo_cab_fns_put(cab_id: str, body: list[FoCabFnItem], p: Principal = De
                     cab_id, fid, p.org_id, emp,
                     (max(1, min(2880, int(it.minutes))) if it.minutes else None),
                     (it.cycle_kind or None), it.cycle_n, it.cycle_weekdays)
-    return {"ok": True, "функций": len(fn_ids)}
+        # функция = задача: задачи рождаются сразу, на две недели вперёд
+        try:
+            _sync = await _fo_sync_tasks(c, p.org_id, cab_id, 14, _old)
+        except Exception as _e:
+            _sync = {"ошибка": str(_e)[:200]}
+    return {"ok": True, "функций": len(fn_ids), "задачи": _sync}
 
 
 @router.get("/clients/{client_id}/cabinets")
@@ -751,11 +784,236 @@ async def fo_tasks_regen(day: str | None = None, cabinet_id: str | None = None,
     return {"ok": True, "снято": n, "создано": res.get("создано задач") if isinstance(res, dict) else res}
 
 
+
+# ── функция = задача: задачи рождаются сразу и на две недели вперёд ──
+# Штатный /tasks/generate пересобирает день целиком: снимает все
+# запланированные задачи генератора и кладёт заново - порядок дня,
+# передачи и правки пропадают. Здесь вместо этого «досведение»:
+# недостающие задачи дописываются, лишние (функцию убрали, день
+# больше не подходит) снимаются, смена ответственного переводит
+# будущие задачи. Существующие задачи не пересоздаются - ничего
+# никуда не пропадает. Дни недели - как в формах: 0=Пн … 6=Вс.
+
+def _fo_n(res):
+    try:
+        return int(str(res).split()[-1])
+    except Exception:
+        return 0
+
+
+def _fo_msk_today():
+    import datetime as _dt
+    return (_dt.datetime.utcnow() + _dt.timedelta(hours=3)).date()
+
+
+def _fo_due(kind, n, weekdays, day):
+    wd = day.isoweekday() - 1
+    kind = (kind or "none")
+    days = []
+    for x in (weekdays or []):
+        try: days.append(int(x))
+        except Exception: pass
+    try: step = int(n or 1)
+    except Exception: step = 1
+    week = day.isocalendar()[1]
+    if kind == "daily":
+        return wd in (days or [0, 1, 2, 3, 4])
+    if kind in ("weekly", "wdays", "several"):
+        if wd not in (days or [0]): return False
+        return step <= 1 or (week % step == 0)
+    if kind == "biweekly":
+        return wd in (days or [0]) and (week % 2 == 0)
+    if kind == "monthly":
+        if days:
+            return wd in days and day.day <= 7
+        return day.day == max(1, min(28, step))
+    if kind == "per_n_days":
+        return (day.toordinal() % max(1, step)) == 0
+    return False
+
+
+async def _fo_pick(c, org_id, fn_id, wanted, day):
+    who = None
+    if wanted:
+        who = await c.fetchval(
+            """SELECT e.id FROM employee e WHERE e.id=$1 AND e.org_id=$2 AND e.is_active
+                 AND NOT EXISTS (SELECT 1 FROM app_user u WHERE u.id=e.user_id
+                                 AND u.role_code IN ('owner','admin'))""", wanted, org_id)
+    if not who:
+        who = await c.fetchval(
+            """SELECT ef.employee_id FROM employee_fn ef JOIN employee e ON e.id=ef.employee_id
+                WHERE ef.fn_id=$1 AND ef.allowed AND e.org_id=$2 AND e.is_active
+                  AND NOT EXISTS (SELECT 1 FROM app_user u WHERE u.id=e.user_id
+                                  AND u.role_code IN ('owner','admin'))
+                ORDER BY (SELECT COALESCE(SUM(t.plan_minutes),0) FROM task t
+                           WHERE t.assignee_id=ef.employee_id AND t.plan_date=$3
+                             AND t.status<>'removed') ASC
+                LIMIT 1""", fn_id, org_id, day)
+    return who
+
+
+async def _fo_sync_tasks(c, org_id, cabinet_id=None, days=14, old=None):
+    import datetime as _dt
+    today = _fo_msk_today()
+    horizon = [today + _dt.timedelta(days=i) for i in range(max(1, min(60, int(days or 14))))]
+    q = """SELECT cf.cabinet_id, cb.name AS cabinet, cb.client_id, f.id AS fn_id, f.name AS fn,
+                  COALESCE(g.minutes, f.norm_minutes, 30) AS minutes,
+                  COALESCE(g.cycle_kind, f.cycle_kind) AS cycle_kind,
+                  COALESCE(g.cycle_n, cf.cycle_n, f.cycle_n) AS cycle_n,
+                  COALESCE(g.cycle_weekdays, f.cycle_weekdays) AS cycle_weekdays,
+                  g.employee_id AS wanted
+             FROM cabinet_fn cf
+             JOIN cabinet cb ON cb.id = cf.cabinet_id
+             JOIN client cl ON cl.id = cb.client_id
+             JOIN fn f ON f.id = cf.fn_id
+             LEFT JOIN fo_cabinet_fn_cfg g ON g.cabinet_id = cf.cabinet_id AND g.fn_id = cf.fn_id
+            WHERE cl.org_id = $1 AND f.unit = 'cabinet'"""
+    args = [org_id]
+    if cabinet_id:
+        q += " AND cf.cabinet_id = $2::uuid"; args.append(cabinet_id)
+    rows = await c.fetch(q, *args)
+    created = removed = moved = 0
+    unassigned = []
+    for r in rows:
+        key = (r["cabinet_id"], r["fn_id"])
+        # сменили ответственного - будущие несделанные задачи переезжают к нему
+        if old is not None and key in old and old.get(key) != r["wanted"] and r["wanted"]:
+            res = await c.execute(
+                """UPDATE task SET assignee_id=$4::uuid
+                    WHERE org_id=$1 AND cabinet_id=$2::uuid AND fn_id=$3::uuid
+                      AND source='generator' AND status='planned' AND plan_date >= $5
+                      AND assignee_id IS DISTINCT FROM $4::uuid""",
+                org_id, r["cabinet_id"], r["fn_id"], r["wanted"], today)
+            moved += _fo_n(res)
+        # норма времени - на будущие несделанные
+        await c.execute(
+            """UPDATE task SET plan_minutes=$4
+                WHERE org_id=$1 AND cabinet_id=$2::uuid AND fn_id=$3::uuid
+                  AND source='generator' AND status='planned' AND plan_date >= $5
+                  AND plan_minutes IS DISTINCT FROM $4""",
+            org_id, r["cabinet_id"], r["fn_id"], int(r["minutes"] or 30), today)
+        have = await c.fetch(
+            """SELECT id, plan_date, status FROM task
+                WHERE org_id=$1 AND cabinet_id=$2::uuid AND fn_id=$3::uuid
+                  AND source='generator' AND plan_date >= $4 AND plan_date <= $5""",
+            org_id, r["cabinet_id"], r["fn_id"], horizon[0], horizon[-1])
+        by_day = {}
+        for h in have:
+            by_day.setdefault(h["plan_date"], []).append(h)
+        for d in horizon:
+            due = _fo_due(r["cycle_kind"], r["cycle_n"], r["cycle_weekdays"], d)
+            if due and d not in by_day:
+                who = await _fo_pick(c, org_id, r["fn_id"], r["wanted"], d)
+                await c.execute(
+                    """INSERT INTO task (org_id, kind, fn_id, client_id, cabinet_id, title,
+                                         source, assignee_id, plan_date, plan_minutes)
+                       VALUES ($1,'cyclic',$2,$3,$4,$5,'generator',$6,$7,$8)""",
+                    org_id, r["fn_id"], r["client_id"], r["cabinet_id"],
+                    "%s · %s" % (r["fn"], r["cabinet"]), who, d, int(r["minutes"] or 30))
+                created += 1
+                if not who:
+                    unassigned.append("%s · %s" % (r["fn"], r["cabinet"]))
+            elif (not due) and d in by_day:
+                for h in by_day[d]:
+                    if h["status"] == "planned":
+                        await c.execute("DELETE FROM task WHERE id=$1", h["id"]); removed += 1
+    # функции, которых в кабинете больше нет - будущие несделанные задачи снимаем
+    q2 = """DELETE FROM task WHERE org_id=$1 AND source='generator' AND status='planned'
+              AND plan_date >= $2 AND cabinet_id IS NOT NULL AND fn_id IS NOT NULL
+              AND NOT EXISTS (SELECT 1 FROM cabinet_fn cf
+                               WHERE cf.cabinet_id=task.cabinet_id AND cf.fn_id=task.fn_id)"""
+    a2 = [org_id, today]
+    if cabinet_id:
+        q2 += " AND cabinet_id=$3::uuid"; a2.append(cabinet_id)
+    removed += _fo_n(await c.execute(q2, *a2))
+    return {"создано": created, "снято": removed, "переведено": moved,
+            "дней": len(horizon), "без исполнителя": sorted(set(unassigned))[:20]}
+
+
+@router.post("/tasks/sync")
+async def fo_tasks_sync(days: int = 14, cabinet_id: str | None = None,
+                        p: Principal = Depends(max_level(5))):
+    """Досвести задачи по функциям кабинетов на горизонт вперёд. Ничего не пересоздаёт."""
+    async with pool().acquire() as c:
+        res = await _fo_sync_tasks(c, p.org_id, cabinet_id, days, None)
+    return {"ok": True, **res}
+
+
+_FO_SYNC = {"task": None}
+
+
+async def _fo_sync_loop():
+    import asyncio as _aio
+    await _aio.sleep(15)
+    while True:
+        ok = False
+        try:
+            async with pool().acquire() as c:
+                orgs = await c.fetch("SELECT DISTINCT org_id FROM client")
+            for o in orgs:
+                try:
+                    async with pool().acquire() as c:
+                        await _fo_sync_tasks(c, o["org_id"], None, 14, None)
+                except Exception:
+                    pass
+            ok = True
+        except Exception:
+            pass
+        await _aio.sleep(6 * 3600 if ok else 120)
+
+
+def _fo_sync_kick():
+    import asyncio as _aio
+    t = _FO_SYNC.get("task")
+    if t is not None and not t.done():
+        return
+    try:
+        _FO_SYNC["task"] = _aio.get_running_loop().create_task(_fo_sync_loop())
+    except Exception:
+        pass
+
+
+@router.on_event("startup")
+async def _fo_sync_boot():
+    _fo_sync_kick()
+
+
+# ── имя сотрудника выставляет РМ (С8, 129): везде имена, не почта ──
+class FoEmpNameIn(_FoBM):
+    name: str
+
+
+@router.post("/employees/{emp_id}/name")
+async def fo_emp_name(emp_id: str, body: FoEmpNameIn, p: Principal = Depends(max_level(4))):
+    nm = (body.name or "").strip()[:80]
+    if len(nm) < 2:
+        raise HTTPException(400, "Имя короче двух символов")
+    async with pool().acquire() as c:
+        r = await c.fetchrow("SELECT id, user_id FROM employee WHERE id=$1::uuid AND org_id=$2",
+                             emp_id, p.org_id)
+        if not r:
+            raise HTTPException(404, "сотрудник не найден")
+        await c.execute("UPDATE employee SET name=$2 WHERE id=$1::uuid", emp_id, nm)
+        if r["user_id"]:
+            try:
+                await c.execute(
+                    "UPDATE app_user SET display_name=$2 WHERE id=$1 "
+                    "AND (display_name IS NULL OR length(trim(display_name)) < 2)", r["user_id"], nm)
+            except Exception:
+                pass
+    return {"ok": True, "name": nm}
+
+
+
+
+
 # ── Мой аккаунт ──────────────────────────────────────────────────
 
 @router.get("/me/account")
 async def fo_me(p: Principal = Depends(current)):
     uid = _fo_uid(p)
+    try: _fo_sync_kick()
+    except Exception: pass
     async with pool().acquire() as c:
         u = await c.fetchrow(
             "SELECT u.id, u.email, u.role_code, u.created_at, u.first_login, "
@@ -1117,7 +1375,7 @@ else:
     p("")
     p("== ПРОВЕРКА ЭНДПОИНТОВ ==")
     for u in ("/refs/roles", "/refs/cards", "/refs/tasks/once", "/refs/invites",
-              "/refs/me/account", "/auth/invite-token/zzz"):
+              "/refs/me/account", "/refs/tasks/sync", "/auth/invite-token/zzz"):
         p("  %-26s %s" % (u, sh("curl -s -o /dev/null -w '%%{http_code}' http://127.0.0.1:8000%s" % u).strip()))
     p("(401/403 — эндпоинт есть и просит вход; 404 — не встал)")
     p("ГОТОВО: хранение переехало на сервер")
