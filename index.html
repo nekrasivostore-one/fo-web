@@ -3833,6 +3833,35 @@ body.noadd [data-addmode]{ display:none !important; }
 .fo-fnadd .fo-addsel{ flex:1 1 220px; min-width:180px; max-width:none }
 .fo-fnadd .bt.sm{ padding:6px 12px; font-size:12px }
 .fo-hint{ flex-basis:100%; font-size:11px; color:var(--ink-3); margin-top:2px }
+
+/* ===== add81: артикулы и чаты в карточке ===== */
+.fo-artl{ display:flex; flex-direction:column }
+.fo-artr{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; padding:6px 0; border-top:1px solid rgba(120,120,140,.14) }
+.fo-artr:first-child{ border-top:none }
+.fo-artr code{ font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:12.5px; min-width:96px }
+.fo-artr i{ font-style:normal; font-size:12px; color:var(--ink-3) }
+.fo-artr i em{ color:#c2394f; font-style:normal }
+.fo-artr .fo-sku{ width:150px; padding:6px 8px; font-size:12px }
+.fo-artr .sel.sm{ padding:6px 9px; font-size:12px; border-radius:10px }
+.fo-artr .fo-cat{ width:64px }
+.fo-artr .fo-cat.miss{ border-color:#FFB020; box-shadow:0 0 0 2px rgba(255,176,32,.25) }
+.fo-artpv{ margin-top:10px; padding:10px 12px; border-radius:12px; background:rgba(255,176,32,.08) }
+.fo-artpvh{ display:flex; justify-content:space-between; gap:10px; font-size:12.5px; margin-bottom:4px }
+.fo-artpvh .warn{ color:#B7791F }
+.fo-artpvb{ display:flex; align-items:center; gap:10px; margin-top:10px; flex-wrap:wrap }
+.fo-chk{ display:inline-flex; align-items:center; gap:6px; font-size:12px; color:var(--ink-2) }
+.fo-artpaste{ margin-top:10px }
+.fo-artpaste .fi{ width:100%; box-sizing:border-box; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:12px }
+.fo-artpb{ display:flex; align-items:center; gap:10px; margin-top:8px; flex-wrap:wrap }
+.fo-file{ cursor:pointer }
+.fo-chatr{ display:flex; align-items:center; gap:10px; padding:7px 0; border-top:1px solid rgba(120,120,140,.14) }
+.fo-chatr:first-of-type{ border-top:none }
+.fo-chatr b{ font-size:13px }
+.fo-chatr i{ font-style:normal; font-size:12px; color:var(--ink-3); flex:1 }
+.fo-chip2{ font-size:11px; font-weight:600; padding:2px 8px; border-radius:999px; background:rgba(124,92,255,.12); color:#6B4EFF; white-space:nowrap }
+.fo-chatadd{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:10px; padding:10px 12px; border-radius:12px; background:rgba(124,92,255,.07) }
+.fo-chatadd .fi.sm{ flex:1 1 160px; padding:6px 9px; font-size:12px }
+.fo-chatadd .sel.sm{ padding:6px 9px; font-size:12px; border-radius:10px }
 </style>
 </head>
 <body>
@@ -22959,24 +22988,6 @@ function foRowsOf(clientId){ var d = FO_CABFN[clientId]; return d ? (d.rows || [
   }
 })();
 
-/* ── чаты в данных клиента (144): чат с клиентом, рабочий чат МПВ ── */
-(function(){
-  if(typeof edCliForm !== "function") return;
-  var _f = edCliForm;
-  edCliForm = function(pr){
-    var h = _f.apply(this, arguments);
-    if(!h) return h;
-    try{
-      var add = '<div class="edg">Чаты Telegram</div>'+
-        edRow([
-          edText("cli", pr.id, "chatClient", "Чат с клиентом", pr.chatClient, {ph:"название или ссылка на чат", wide:true}),
-          edText("cli", pr.id, "chatTeam",   "Рабочий чат с командой (МПВ)", pr.chatTeam, {ph:"название или ссылка на чат", wide:true})
-        ]);
-      return h.replace(/<\/div>\s*$/, add + '</div>');
-    }catch(e){ return h; }
-  };
-})();
-
 /* ── блок «Функции кабинета» ── */
 function foPeopleOpts(sel){
   return '<option value="">— ответственный —</option>' + (S.people || []).map(function(p){
@@ -23178,6 +23189,336 @@ window.foCabFnState = function(id){ return id ? FO_CABFN[id] : Object.keys(FO_CA
     });
   })();
 })();
+
+/* ===== add80: карточка клиента без переходов — «Открыть кабинет →» нет и в списке (С2) ===== */
+(function(){
+  if(typeof clientCard !== "function") return;
+  var _cc = clientCard;
+  clientCard = function(pr){
+    var h = _cc.apply(this, arguments);
+    if(typeof foLive === "function" && !foLive()) return h;
+    try{
+      return h.replace(/<button class="bt(?: gh2)?" data-opencab="[^"]*">[^<]*<\/button>/g, "");
+    }catch(e){ return h; }
+  };
+})();
+
+/* ===== add81: артикулы и чаты в карточке клиента — на сервере (138–141, 144, 114)
+   Артикулы: GET /refs/cabinets/{id}/articles, массовое внесение
+   POST …/articles/bulk, ответственный/дни/категория — POST /refs/articles/{id}/owner.
+   Вставка «как есть»: колонки узнаются по содержимому (артикул ВБ — цифры,
+   категория — A/B/C в любом месте строки, остальное — артикул продавца);
+   где категории нет — предлагаем проставить до сохранения.
+   Два числа: «Артикулов всего в кабинете» (карточка) и «в управлении РК»
+   (сколько внесено в АОД). Чаты — штатный /routing/{client}/chats:
+   чат с клиентом, рабочий чат МПВ — их же читает бот.                        */
+
+var FO_ARTS = {};        /* clientId → {rows, at} */
+var FO_CHATS = {};       /* clientId → [{pk,title,chat_id,kind}] */
+var FO_ART_PREVIEW = {}; /* clientId → разобранные строки до сохранения */
+
+var FO_CHAT_KINDS = [["client","Чат с клиентом"],["mpv","Рабочий чат с командой (МПВ)"],["internal","Внутренний"]];
+
+function foArtsLoad(clientId){
+  var d = FO_CABFN[clientId];
+  if(!d || !d.cab){ FO_ARTS[clientId] = {rows:[], at:Date.now()}; return Promise.resolve(FO_ARTS[clientId]); }
+  return api("/refs/cabinets/" + encodeURIComponent(d.cab) + "/articles").then(function(rows){
+    FO_ARTS[clientId] = {rows: rows || [], at: Date.now()};
+    return FO_ARTS[clientId];
+  }).catch(function(){ FO_ARTS[clientId] = FO_ARTS[clientId] || {rows:[], at:0, err:true}; return FO_ARTS[clientId]; });
+}
+function foChatsLoad(clientId){
+  return api("/routing/" + encodeURIComponent(clientId) + "/chats").then(function(r){
+    var list = (r && (r.чаты || r.chats)) || (Array.isArray(r) ? r : []);
+    FO_CHATS[clientId] = list.map(function(c){
+      return {pk: c.pk != null ? c.pk : (c.chat_pk != null ? c.chat_pk : c.id), title: c.title || c.название || "", chat_id: c.chat_id || "", kind: c.kind || c.вид || "mpv"};
+    });
+    return FO_CHATS[clientId];
+  }).catch(function(){ FO_CHATS[clientId] = FO_CHATS[clientId] || []; return FO_CHATS[clientId]; });
+}
+
+/* ── разбор вставленного списка: колонки узнаём по содержимому ── */
+function foNormCat(s){
+  s = String(s || "").trim().toUpperCase().replace("А", "A").replace("В", "B").replace("С", "C");
+  return (s === "A" || s === "B" || s === "C") ? s : "";
+}
+function foParseArts(txt){
+  var out = [], seen = {};
+  String(txt || "").split(/[\r\n]+/).forEach(function(line){
+    var l = line.trim(); if(!l) return;
+    var toks = l.split(/[\t;|]+|\s*,\s*/).map(function(x){ return x.trim(); }).filter(Boolean);
+    if(toks.length === 1) toks = l.split(/\s+/).filter(Boolean);
+    var cat = "", wb = "", sku = "", rest = [];
+    toks.forEach(function(t){
+      if(!cat && foNormCat(t)){ cat = foNormCat(t); return; }
+      if(!wb && /^\d{5,}$/.test(t)){ wb = t; return; }
+      rest.push(t);
+    });
+    if(!wb){
+      /* артикул ВБ мог прийти с пробелами или префиксом */
+      var m = l.match(/\b(\d{6,12})\b/); if(m) wb = m[1];
+    }
+    if(!wb) return;                                   /* заголовок или мусор */
+    sku = rest.filter(function(t){ return t !== wb && !/^(артикул|sku|категория|кат\.?)/i.test(t); })[0] || "";
+    if(seen[wb]) return; seen[wb] = 1;
+    out.push({wb_sku: wb, seller_sku: sku, cat: cat});
+  });
+  return out;
+}
+
+/* ── блок «Артикулы» ── */
+function foArtDaysHTML(days, id){
+  return '<span class="fo-days" data-foart="'+esc(id)+'">'+FO_DOW.map(function(d, i){
+    return '<button type="button" class="fo-day'+(days.indexOf(i) >= 0 ? ' on' : '')+'" data-foaday="'+i+'">'+d+'</button>'; }).join("")+'</span>';
+}
+function foCatOpts(sel){
+  return '<option value=""'+(!sel ? ' selected' : '')+'>—</option>'+["A","B","C"].map(function(k){
+    return '<option value="'+k+'"'+(sel === k ? ' selected' : '')+'>'+k+'</option>'; }).join("");
+}
+
+function foArtsBlock(pr){
+  var d = FO_ARTS[pr.id];
+  var ro = (typeof foBelowPm === "function") ? foBelowPm() : false;
+  if(!d){
+    foArtsLoad(pr.id).then(function(){ try{ renderCards(); }catch(e){} });
+    return '<div class="ccdfn fo-arts"><div class="ccdh">Артикулы</div><div class="empty">Загружаю с сервера…</div></div>';
+  }
+  var rows = d.rows || [];
+  var byCat = {A:0, B:0, C:0, "":0};
+  rows.forEach(function(r){ byCat[r.cat || ""] = (byCat[r.cat || ""] || 0) + 1; });
+  var total = +pr.articles || 0;
+  var head = '<div class="ccdh">Артикулы <span class="fo-sub">всего в кабинете: <b>'+(total || "—")+'</b> · в управлении РК: <b>'+rows.length+'</b>'+
+    (rows.length ? ' · A '+byCat.A+' · B '+byCat.B+' · C '+byCat.C+(byCat[""] ? ' · без категории '+byCat[""] : '') : '')+'</span></div>';
+
+  var list = rows.length ? '<div class="fo-artl">'+rows.map(function(r){
+    var emp = (S.people || []).filter(function(p){ return String(p.id) === String(r.employee_id); })[0];
+    if(ro){
+      return '<div class="fo-artr ro"><code>'+esc(r.wb_sku)+'</code><i>'+esc(r.seller_sku || "")+'</i>'+
+        '<span class="ccl '+(r.cat || "")+'"><b>'+(r.cat || "?")+'</b></span>'+
+        '<i>'+(emp ? esc(emp.name) : (r.employee_name ? esc(r.employee_name) : '<em>без ответственного</em>'))+
+        (r.weekdays && r.weekdays.length ? ' · '+r.weekdays.map(function(i){ return FO_DOW[i]; }).join(", ") : '')+'</i></div>';
+    }
+    return '<div class="fo-artr" data-foart="'+esc(r.id)+'" data-focli="'+esc(pr.id)+'">'+
+      '<code>'+esc(r.wb_sku)+'</code>'+
+      '<input class="fi sm fo-sku" data-foak="seller_sku" value="'+esc(r.seller_sku || "")+'" placeholder="артикул продавца">'+
+      '<select class="sel sm fo-cat'+(r.cat ? '' : ' miss')+'" data-foak="cat">'+foCatOpts(r.cat)+'</select>'+
+      '<select class="sel sm" data-foak="employee_id">'+foPeopleOpts(r.employee_id)+'</select>'+
+      foArtDaysHTML(r.weekdays || [], r.id)+
+      '<button class="fo-x" data-foadel="'+esc(r.id)+'" title="Убрать из управления">×</button>'+
+    '</div>';
+  }).join("")+'</div>' : '<div class="empty">Артикулов в управлении РК пока нет'+(ro ? '' : ' — вставьте список ниже') +'</div>';
+
+  var pv = FO_ART_PREVIEW[pr.id] || null;
+  var preview = "";
+  if(pv && pv.length){
+    var miss = pv.filter(function(x){ return !x.cat; }).length;
+    preview = '<div class="fo-artpv">'+
+      '<div class="fo-artpvh"><b>Разобрано: '+pv.length+'</b>'+(miss ? '<span class="warn">без категории: '+miss+' — проставьте A/B/C до сохранения или оставьте пустыми</span>' : '<span>категории на месте</span>')+'</div>'+
+      pv.map(function(x, i){
+        return '<div class="fo-artr pv" data-fopv="'+i+'"><code>'+esc(x.wb_sku)+'</code><i>'+esc(x.seller_sku || "—")+'</i>'+
+          '<select class="sel sm fo-cat'+(x.cat ? '' : ' miss')+'" data-fopvcat="'+i+'">'+foCatOpts(x.cat)+'</select></div>'; }).join("")+
+      '<div class="fo-artpvb">'+
+        '<label class="fo-chk"><input type="checkbox" id="foArtReplace"> заменить список целиком (остальные снять)</label>'+
+        '<button class="bt sm pri" data-foartsave="'+esc(pr.id)+'">Внести '+pv.length+' артикулов</button>'+
+        '<button class="bt sm gh2" data-foartclear="'+esc(pr.id)+'">Отмена</button>'+
+      '</div></div>';
+  }
+
+  var paste = ro ? '' :
+    '<div class="fo-artpaste" data-focli="'+esc(pr.id)+'">'+
+      '<textarea class="fi" rows="3" data-foartpaste placeholder="Вставьте список из таблицы — как есть. Столбцы могут идти в любом порядке: артикул ВБ, артикул продавца, категория A/B/C. Один артикул в строке."></textarea>'+
+      '<div class="fo-artpb">'+
+        '<button class="bt sm" data-foartparse="'+esc(pr.id)+'">Разобрать</button>'+
+        '<label class="bt sm gh2 fo-file">Из файла (CSV, TXT, XLSX)<input type="file" accept=".csv,.txt,.xlsx,.xls,.tsv" data-foartfile="'+esc(pr.id)+'" hidden></label>'+
+        '<span class="fo-hint">По скриншоту пока не читаем — это в четверг вместе с ИИ. Вставьте текстом или файлом.</span>'+
+      '</div>'+
+    '</div>';
+
+  return '<div class="ccdfn fo-arts">'+head+list+preview+paste+'</div>';
+}
+
+/* ── блок «Чаты Telegram» ── */
+function foChatsBlock(pr){
+  var list = FO_CHATS[pr.id];
+  var ro = (typeof foBelowPm === "function") ? foBelowPm() : false;
+  if(!list){
+    foChatsLoad(pr.id).then(function(){ try{ renderCards(); }catch(e){} });
+    return '<div class="ccdfn fo-chats"><div class="ccdh">Чаты Telegram</div><div class="empty">Загружаю…</div></div>';
+  }
+  var kindName = function(k){ var x = FO_CHAT_KINDS.filter(function(c){ return c[0] === k; })[0]; return x ? x[1] : k; };
+  var rows = list.length ? list.map(function(c){
+    return '<div class="fo-chatr"><span class="fo-chip2">'+esc(kindName(c.kind))+'</span><b>'+esc(c.title || "—")+'</b><i>'+esc(c.chat_id || "")+'</i>'+
+      (ro ? '' : '<button class="fo-x" data-fochatdel="'+esc(c.pk)+'" data-focli="'+esc(pr.id)+'" title="Убрать">×</button>')+'</div>';
+  }).join("") : '<div class="empty">Чаты не внесены'+(ro ? '' : ' — без них уведомления некуда слать')+'</div>';
+  var add = ro ? '' :
+    '<div class="fo-chatadd" data-focli="'+esc(pr.id)+'">'+
+      '<select class="sel sm" data-foch="kind">'+FO_CHAT_KINDS.map(function(c){ return '<option value="'+c[0]+'">'+c[1]+'</option>'; }).join("")+'</select>'+
+      '<input class="fi sm" data-foch="title" placeholder="Название чата">'+
+      '<input class="fi sm" data-foch="chat_id" placeholder="ID чата или @ссылка">'+
+      '<button class="bt sm" data-fochatadd="1">Добавить</button>'+
+      '<div class="fo-hint">Сюда уходят план на день, итоги, выполненные задачи и запросы на согласование. Точная матрица «куда сообщать» — в кабинете, раздел «Куда сообщать».</div>'+
+    '</div>';
+  return '<div class="ccdfn fo-chats"><div class="ccdh">Чаты Telegram</div>'+rows+add+'</div>';
+}
+
+/* вставляем блоки в карточку после «Функции кабинета» */
+(function(){
+  if(typeof ccDetail !== "function") return;
+  var _cd = ccDetail;
+  ccDetail = function(pr){
+    var h = _cd.apply(this, arguments);
+    if(typeof foLive === "function" && !foLive()) return h;
+    try{
+      var box = document.createElement("div"); box.innerHTML = h;
+      var fn = box.querySelector(".fo-cabfn");
+      var w1 = document.createElement("div"); w1.innerHTML = foArtsBlock(pr);
+      var w2 = document.createElement("div"); w2.innerHTML = foChatsBlock(pr);
+      var arts = w1.firstChild, chats = w2.firstChild;
+      if(fn){ fn.parentNode.insertBefore(arts, fn.nextSibling); fn.parentNode.insertBefore(chats, arts.nextSibling); }
+      else { var det = box.querySelector(".ccdet"); if(det){ det.appendChild(arts); det.appendChild(chats); } }
+      /* 141: два числа не спутать */
+      var lab = Array.prototype.filter.call(box.querySelectorAll(".edf > span"), function(s){ return /Артикулов в управлении/.test(s.textContent); })[0];
+      if(lab) lab.textContent = "Артикулов всего в кабинете";
+      return box.innerHTML;
+    }catch(e){ return h; }
+  };
+})();
+
+/* ── действия: артикулы ── */
+function foArtSend(clientId, artId, body, note){
+  return api("/refs/articles/" + encodeURIComponent(artId) + "/owner", {method:"POST", body: body})
+    .then(function(r){ if(r && r.items) FO_ARTS[clientId] = {rows: r.items, at: Date.now()}; try{ toast(note || "Сохранено"); }catch(e){} try{ renderCards(); }catch(e){} })
+    .catch(function(err){ try{ toast("Не сохранилось: " + (err.message || "")); }catch(e){} });
+}
+function foArtRowBody(row){
+  var get = function(k){ var el = row.querySelector('[data-foak="'+k+'"]'); return el ? el.value : null; };
+  var days = Array.prototype.map.call(row.querySelectorAll(".fo-day.on"), function(b){ return +b.getAttribute("data-foaday"); });
+  return {employee_id: get("employee_id") || "", weekdays: days, cat: get("cat") || null, seller_sku: get("seller_sku")};
+}
+
+document.addEventListener("change", function(e){
+  var el = e.target;
+  if(el && el.matches && el.matches(".fo-artr [data-foak]")){
+    var row = el.closest(".fo-artr"); if(!row || row.classList.contains("pv")) return;
+    var body = foArtRowBody(row);
+    if(el.getAttribute("data-foak") === "seller_sku") body = {seller_sku: body.seller_sku};
+    else if(el.getAttribute("data-foak") === "cat") body = {cat: body.cat || ""};
+    foArtSend(row.getAttribute("data-focli"), row.getAttribute("data-foart"), body, "Артикул обновлён");
+    return;
+  }
+  if(el && el.matches && el.matches("[data-foartfile]")){
+    var f = el.files && el.files[0]; if(!f) return;
+    var pid2 = el.getAttribute("data-foartfile");
+    foReadArtFile(f).then(function(txt){
+      FO_ART_PREVIEW[pid2] = foParseArts(txt);
+      try{ toast("Из файла разобрано: " + FO_ART_PREVIEW[pid2].length); }catch(x){}
+      try{ renderCards(); }catch(x){}
+    }).catch(function(err){ try{ toast("Файл не прочитался: " + (err.message || "")); }catch(x){} });
+  }
+});
+
+function foReadArtFile(f){
+  var name = String(f.name || "").toLowerCase();
+  if(/\.xlsx?$/.test(name)){
+    return foLoadScript("https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js").then(function(){
+      return f.arrayBuffer().then(function(buf){
+        var wb = XLSX.read(buf, {type:"array"}); var ws = wb.Sheets[wb.SheetNames[0]];
+        return XLSX.utils.sheet_to_csv(ws, {FS:"\t"});
+      });
+    });
+  }
+  return f.text();
+}
+function foLoadScript(src){
+  return new Promise(function(res, rej){
+    if(document.querySelector('script[src="'+src+'"]')) return res();
+    var s = document.createElement("script"); s.src = src; s.onload = res; s.onerror = function(){ rej(new Error("библиотека не загрузилась")); };
+    document.head.appendChild(s);
+  });
+}
+
+document.addEventListener("click", function(e){
+  var host = e.target.closest && (e.target.closest(".fo-arts") || e.target.closest(".fo-chats"));
+  if(!host) return;
+  e.stopPropagation();
+  var b;
+  if((b = e.target.closest(".fo-day"))){
+    e.preventDefault(); b.classList.toggle("on");
+    var row = b.closest(".fo-artr"); if(!row) return;
+    var body = foArtRowBody(row);
+    foArtSend(row.getAttribute("data-focli"), row.getAttribute("data-foart"), {employee_id: body.employee_id, weekdays: body.weekdays}, "Дни обновлены");
+    return;
+  }
+  if((b = e.target.closest("[data-foadel]"))){
+    e.preventDefault();
+    var r2 = b.closest(".fo-artr"), cid = r2.getAttribute("data-focli");
+    b.disabled = true;
+    api("/refs/articles/" + encodeURIComponent(b.getAttribute("data-foadel")) + "/remove", {method:"POST"})
+      .then(function(){ return foArtsLoad(cid); }).then(function(){ try{ toast("Артикул снят с управления"); renderCards(); }catch(x){} })
+      .catch(function(err){ b.disabled = false; try{ toast("Не снялся: " + (err.message || "")); }catch(x){} });
+    return;
+  }
+  if((b = e.target.closest("[data-foartparse]"))){
+    e.preventDefault();
+    var pid = b.getAttribute("data-foartparse");
+    var ta = host.querySelector("[data-foartpaste]");
+    var list = foParseArts(ta ? ta.value : "");
+    if(!list.length){ try{ toast("Не нашёл ни одного артикула ВБ (нужны цифры, от 5 знаков)"); }catch(x){} return; }
+    FO_ART_PREVIEW[pid] = list;
+    try{ renderCards(); }catch(x){}
+    return;
+  }
+  if((b = e.target.closest("[data-foartclear]"))){ e.preventDefault(); delete FO_ART_PREVIEW[b.getAttribute("data-foartclear")]; try{ renderCards(); }catch(x){} return; }
+  if((b = e.target.closest("[data-foartsave]"))){
+    e.preventDefault();
+    var pid3 = b.getAttribute("data-foartsave"), pv = FO_ART_PREVIEW[pid3] || [], d = FO_CABFN[pid3];
+    if(!d || !d.cab){ try{ toast("У клиента нет кабинета на сервере"); }catch(x){} return; }
+    var rep = !!(host.querySelector("#foArtReplace") || {}).checked;
+    b.disabled = true; b.textContent = "Вношу…";
+    api("/refs/cabinets/" + encodeURIComponent(d.cab) + "/articles/bulk", {method:"POST", body:{items: pv, replace: rep}})
+      .then(function(r){
+        FO_ARTS[pid3] = {rows: (r && r.items) || [], at: Date.now()};
+        delete FO_ART_PREVIEW[pid3];
+        try{ toast("Артикулы на сервере: добавлено " + (r.добавлено || 0) + ", обновлено " + (r.обновлено || 0) + " · в управлении " + (r.всего || 0) + ". Проставьте ответственных напротив каждого"); }catch(x){}
+        try{ renderCards(); }catch(x){}
+      })
+      .catch(function(err){ b.disabled = false; b.textContent = "Внести"; try{ toast("Не внеслось: " + (err.message || "")); }catch(x){} });
+    return;
+  }
+  if((b = e.target.closest("[data-fochatdel]"))){
+    e.preventDefault();
+    var cid4 = b.getAttribute("data-focli"); b.disabled = true;
+    api("/routing/" + encodeURIComponent(cid4) + "/chats/" + encodeURIComponent(b.getAttribute("data-fochatdel")), {method:"DELETE"})
+      .then(function(){ return foChatsLoad(cid4); }).then(function(){ try{ toast("Чат убран"); renderCards(); }catch(x){} })
+      .catch(function(err){ b.disabled = false; try{ toast("Не убрался: " + (err.message || "")); }catch(x){} });
+    return;
+  }
+  if((b = e.target.closest("[data-fochatadd]"))){
+    e.preventDefault();
+    var box = b.closest(".fo-chatadd"), cid5 = box.getAttribute("data-focli");
+    var get = function(k){ var el = box.querySelector('[data-foch="'+k+'"]'); return el ? String(el.value || "").trim() : ""; };
+    var title = get("title"), chat = get("chat_id"), kind = get("kind") || "mpv";
+    if(!title){ try{ toast("Впишите название чата"); }catch(x){} box.querySelector('[data-foch="title"]').focus(); return; }
+    if(!chat){ try{ toast("Впишите ID чата или @ссылку — без этого бот не найдёт чат"); }catch(x){} box.querySelector('[data-foch="chat_id"]').focus(); return; }
+    b.disabled = true;
+    api("/routing/" + encodeURIComponent(cid5) + "/chats", {method:"POST", body:{title: title, chat_id: chat, kind: kind}})
+      .then(function(){ return foChatsLoad(cid5); }).then(function(){ try{ toast("Чат добавлен"); renderCards(); }catch(x){} })
+      .catch(function(err){ b.disabled = false; try{ toast("Не добавился: " + (err.message || "")); }catch(x){} });
+    return;
+  }
+}, true);
+
+/* превью привязываем к клиенту: селект категории в превью лежит внутри .fo-arts карточки */
+document.addEventListener("change", function(e){
+  var el = e.target; if(!el || !el.matches || !el.matches("[data-fopvcat]")) return;
+  var host = el.closest(".fo-arts"); var paste = host && host.querySelector("[data-focli]");
+  var pid = paste ? paste.getAttribute("data-focli") : null;
+  var pv = pid && FO_ART_PREVIEW[pid]; var i = +el.getAttribute("data-fopvcat");
+  if(pv && pv[i]){ pv[i].cat = el.value; el.classList.toggle("miss", !el.value); }
+}, true);
+
+window.foArtsState = function(id){ return id ? FO_ARTS[id] : Object.keys(FO_ARTS).map(function(k){ return {client:k, артикулов:(FO_ARTS[k].rows||[]).length}; }); };
+window.foParseArts = foParseArts;
 
 })();
 </script>
