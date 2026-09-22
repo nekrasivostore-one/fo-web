@@ -22157,7 +22157,7 @@ function foMeLoad(){
       var before = null; try{ before = meId; }catch(e){}
       foBindMe();
       var after = null; try{ after = meId; }catch(e){}
-      if(!had || before !== after){ try{ render(); }catch(e){} }
+      if(!had || before !== after){ foRepaint(); }
     });
   }, ms);
 });
@@ -22183,7 +22183,7 @@ function foBindMe(){
   var list = (typeof S !== "undefined" && S && S.people) ? S.people : [];
   if(!list.length || !FO_ME) return;
   if(!list.every(function(m){ return m && ("user_id" in m); })){
-    foPeopleUsers().then(function(){ foBindMe(); try{ render(); }catch(e){} });
+    foPeopleUsers().then(function(){ foBindMe(); foRepaint(); });
     return;
   }
   var uid = String(FO_ME.id || "");
@@ -22239,6 +22239,20 @@ function foBindMe(){
   try{ mo.observe(document.body, {childList:true, subtree:true}); }catch(e){}
   setTimeout(sweep, 500);
 })();
+
+/* перерисовать всё, что рисует людей: экран, гант, раздел */
+function foRepaint(){
+  try{ render(); }catch(e){}
+  try{
+    var g = document.querySelector('[data-b="gantt"]');
+    if(g && typeof B !== "undefined" && B && typeof B.gantt === "function") B.gantt(g);
+  }catch(e){}
+  try{
+    var sec = document.getElementById("sect");
+    if(sec && !sec.hidden && typeof SEC_RENDER !== "undefined" && SEC_RENDER && SEC_RENDER[view]) SEC_RENDER[view]();
+  }catch(e){}
+}
+window.foRepaint = foRepaint;
 
 window.foMe = function(){ return {me: FO_ME, meId: (typeof meId !== "undefined" ? meId : null)}; };
 
