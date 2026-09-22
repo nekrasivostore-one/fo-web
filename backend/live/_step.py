@@ -1,14 +1,22 @@
 # -*- coding: utf-8 -*-
-"""Шаг на сервере: аккаунт человека и персональные приглашения с ролью.
+"""Основательный шаг: всё, что сервис хранил в браузере, переезжает на сервер.
 
-Механизм доставки односторонний — файлы едут на сервер, а прочитать их
-оттуда нечем. Поэтому правки, которые нельзя перевезти файлом целиком,
-делает этот скрипт прямо на сервере. Он же собирает отчёт: что нашёл,
-что изменил, что не сошлось. Отчёт кладётся в /opt/fo/web/fo-step.txt
-и виден в панели админа.
+Правило проекта: браузер — не хранилище. Значит на сервере должно быть
+место для всего, что человек вносит руками:
 
-Безопасность: перед правкой делается копия, после — проверка синтаксиса,
-перезапуск и health. Не поднялось — возвращаем как было.
+  fo_card       — карточки клиента, сотрудника, функции и агентства
+                  (одна таблица, поля в jsonb: их состав меняется вместе
+                  с интерфейсом и не требует новой миграции каждый раз)
+  fo_task_once  — разовые задачи: в штатном API их создать нечем,
+                  задачи там рождаются только из функций
+  org_invite    — персональные приглашения с уровнем доступа
+  pwd_code      — смена пароля по коду с рабочей почты
+
+Скрипт идемпотентный: свой блок в файлах он срезает и кладёт заново,
+поэтому его можно гонять сколько угодно раз.
+
+Безопасность: копия до правки, проверка синтаксиса, перезапуск, health.
+Не поднялось — вернули как было.
 """
 import io, os, re, shutil, subprocess, sys, datetime
 
@@ -17,92 +25,103 @@ REFS = APP + "/routers/refs.py"
 SIGN = APP + "/routers/signup.py"
 MAIN = APP + "/main.py"
 PY   = "/opt/fo/venv/bin/python"
-MARK = "FO-STEP-ACCOUNT-INVITES"
+MARK = "FO-STEP-SERVER-STORAGE"
 stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
 out = []
 def p(*a): out.append(" ".join(str(x) for x in a))
 
 def sh(cmd):
     try:
-        r = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=120)
+        r = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=180)
         return (r.stdout or "") + (r.stderr or "")
     except Exception as e:
         return "ОШИБКА: %s" % e
 
-# ══ 1. что вообще есть на сервере ═══════════════════════════════
-p("== РОЛИ В БАЗЕ ==")
-p(sh("sudo -u postgres psql -d fo -Atc \"SELECT code||' | '||level||' | '||coalesce(title,'-') FROM role ORDER BY level\"").strip() or "(пусто)")
+def dsn():
+    try:
+        env = {}
+        for line in io.open("/opt/fo/.env", encoding="utf-8"):
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line: continue
+            k, v = line.split("=", 1)
+            env[k.strip()] = v.strip().strip('"').strip("'")
+        return env.get("DATABASE_URL") or env.get("DB_DSN") or env.get("POSTGRES_DSN") or ""
+    except Exception:
+        return ""
 
-p("")
-p("== КОЛОНКИ app_user ==")
-p(sh("sudo -u postgres psql -d fo -Atc \"SELECT string_agg(column_name,', ' ORDER BY ordinal_position) FROM information_schema.columns WHERE table_name='app_user'\"").strip())
-
-p("")
-p("== ТАБЛИЦЫ ==")
-p(sh("sudo -u postgres psql -d fo -Atc \"SELECT string_agg(table_name,', ' ORDER BY table_name) FROM information_schema.tables WHERE table_schema='public'\"").strip())
-
-p("")
-p("== ТАБЛИЦА СОТРУДНИКОВ ==")
-p(sh("sudo -u postgres psql -d fo -Atc \"SELECT t.table_name||': '||string_agg(c.column_name,', ' ORDER BY c.ordinal_position) FROM information_schema.tables t JOIN information_schema.columns c ON c.table_name=t.table_name WHERE t.table_schema='public' AND t.table_name IN ('employee','employees','emp','staff','person','people','member','members') GROUP BY t.table_name\"").strip() or "(не нашёл)")
-
-p("")
-p("== КОЛОНКИ org ==")
-p(sh("sudo -u postgres psql -d fo -Atc \"SELECT string_agg(column_name,', ' ORDER BY ordinal_position) FROM information_schema.columns WHERE table_name='org'\"").strip())
+p("== ЧТО НА СЕРВЕРЕ ==")
+p("роли:", sh("sudo -u postgres psql -d fo -Atc \"SELECT string_agg(code||'/'||level,', ' ORDER BY level) FROM role\"").strip() or "(не прочиталось)")
+p("таблицы:", sh("sudo -u postgres psql -d fo -Atc \"SELECT string_agg(table_name,', ' ORDER BY table_name) FROM information_schema.tables WHERE table_schema='public'\"").strip())
+p("app_user:", sh("sudo -u postgres psql -d fo -Atc \"SELECT string_agg(column_name,', ' ORDER BY ordinal_position) FROM information_schema.columns WHERE table_name='app_user'\"").strip())
 
 try:
     refs_src = io.open(REFS, encoding="utf-8").read()
-except Exception as e:
-    p("НЕ ЧИТАЕТСЯ refs.py:", e); print("\n".join(out)); sys.exit(1)
-try:
     sign_src = io.open(SIGN, encoding="utf-8").read()
 except Exception as e:
-    p("НЕ ЧИТАЕТСЯ signup.py:", e); print("\n".join(out)); sys.exit(1)
+    p("файлы роутеров не читаются:", e); print("\n".join(out)); sys.exit(1)
 
-p("")
-p("== РОУТЕРЫ ==")
-for name, src in (("refs.py", refs_src), ("signup.py", sign_src)):
-    m = re.search(r"router\s*=\s*APIRouter\((.*?)\)", src, re.S)
-    p(name + ": " + (m.group(0).replace("\n", " ") if m else "APIRouter не найден"))
-p("refs.py импорты: " + ", ".join(sorted(set(re.findall(r"^from\s+\S+\s+import\s+(.+)$", refs_src, re.M))))[:600])
+m = re.search(r"router\s*=\s*APIRouter\((.*?)\)", refs_src, re.S)
+p("refs router:", (m.group(0).replace("\n"," ") if m else "не найден"))
+m2 = re.search(r"router\s*=\s*APIRouter\((.*?)\)", sign_src, re.S)
+p("signup router:", (m2.group(0).replace("\n"," ") if m2 else "не найден"))
 
-p("")
-p("== register в signup.py ==")
-m = re.search(r'@router\.post\("/register"\)[\s\S]{0,2200}?(?=\n@router\.|\nclass\s|\Z)', sign_src)
-p(m.group(0) if m else "(не нашёл /register)")
-
-p("")
-p("== include_router в main.py ==")
-try:
-    p("\n".join(l.strip() for l in io.open(MAIN, encoding="utf-8").read().split("\n") if "include_router" in l))
-except Exception as e:
-    p("main.py не читается:", e)
-
-# какую колонку имени использует сервис
 NAME_COL = ""
 cols = sh("sudo -u postgres psql -d fo -Atc \"SELECT string_agg(column_name,',') FROM information_schema.columns WHERE table_name='app_user'\"").strip()
 have = set(x.strip() for x in cols.split(","))
-for cand in ("full_name", "name", "display_name", "first_name", "fio"):
-    if cand in have:
-        NAME_COL = cand; break
-p("")
-p("колонка имени в app_user:", NAME_COL or "НЕ НАЙДЕНА")
+for cand in ("full_name", "name", "display_name", "first_name"):
+    if cand in have: NAME_COL = cand; break
+if not NAME_COL: NAME_COL = "display_name"
+p("колонка имени:", NAME_COL)
 
-# ══ 2. база ═════════════════════════════════════════════════════
+has_title = sh("sudo -u postgres psql -d fo -Atc \"SELECT 1 FROM information_schema.columns WHERE table_name='role' AND column_name='title'\"").strip()
+ROLE_TITLE = "title" if has_title.startswith("1") else "code"
+p("role.title:", "есть" if ROLE_TITLE == "title" else "нет, беру code")
+
 SQL = """
-CREATE TABLE IF NOT EXISTS org_invite (
-  token       text PRIMARY KEY,
+CREATE TABLE IF NOT EXISTS fo_card (
+  kind       text NOT NULL,
+  ref_id     text NOT NULL,
+  org_id     uuid NOT NULL,
+  data       jsonb NOT NULL DEFAULT '{}'::jsonb,
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (kind, ref_id)
+);
+CREATE INDEX IF NOT EXISTS fo_card_org_idx ON fo_card (org_id, kind);
+
+CREATE TABLE IF NOT EXISTS fo_task_once (
+  id          bigserial PRIMARY KEY,
   org_id      uuid NOT NULL,
-  role_code   text NOT NULL,
-  name        text,
-  email       text,
-  person_ref  text,
+  title       text NOT NULL,
+  client_id   text,
+  employee_id text,
+  fn_id       text,
+  day         date,
+  dow         int,
+  minutes     int NOT NULL DEFAULT 30,
+  kind        text NOT NULL DEFAULT 'once',
+  note        text,
+  done_at     timestamptz,
   created_by  uuid,
   created_at  timestamptz NOT NULL DEFAULT now(),
-  used_at     timestamptz,
-  used_by     uuid,
-  revoked_at  timestamptz
+  removed_at  timestamptz
+);
+CREATE INDEX IF NOT EXISTS fo_task_once_org_idx ON fo_task_once (org_id, day);
+
+CREATE TABLE IF NOT EXISTS org_invite (
+  token      text PRIMARY KEY,
+  org_id     uuid NOT NULL,
+  role_code  text NOT NULL,
+  name       text,
+  email      text,
+  person_ref text,
+  created_by uuid,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  used_at    timestamptz,
+  used_by    uuid,
+  revoked_at timestamptz
 );
 CREATE INDEX IF NOT EXISTS org_invite_org_idx ON org_invite (org_id, created_at DESC);
+
 CREATE TABLE IF NOT EXISTS pwd_code (
   id      bigserial PRIMARY KEY,
   user_id uuid NOT NULL,
@@ -112,88 +131,52 @@ CREATE TABLE IF NOT EXISTS pwd_code (
   tries   int NOT NULL DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS pwd_code_user_idx ON pwd_code (user_id, made_at DESC);
+
 ALTER TABLE app_user ADD COLUMN IF NOT EXISTS phone text;
 ALTER TABLE app_user ADD COLUMN IF NOT EXISTS display_name text;
-GRANT SELECT, INSERT, UPDATE, DELETE ON org_invite, pwd_code TO fo;
+
+GRANT SELECT, INSERT, UPDATE, DELETE ON fo_card, fo_task_once, org_invite, pwd_code TO fo;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO fo;
 """
 io.open("/tmp/fo_step.sql", "w", encoding="utf-8").write(SQL)
 p("")
 p("== МИГРАЦИЯ ==")
-r1 = sh("sudo -u postgres psql -d fo -v ON_ERROR_STOP=1 -f /tmp/fo_step.sql").strip()
-p("через postgres:", r1 or "(молча — значит применилось)")
+p(sh("sudo -u postgres psql -d fo -v ON_ERROR_STOP=1 -f /tmp/fo_step.sql").strip() or "(применилось молча)")
 
-def dsn():
-    """Строка подключения приложения — на случай, если sudo не дали."""
-    try:
-        env = {}
-        for line in io.open("/opt/fo/.env", encoding="utf-8"):
-            line = line.strip()
-            if not line or line.startswith("#") or "=" not in line:
-                continue
-            k, v = line.split("=", 1)
-            env[k.strip()] = v.strip().strip('"').strip("'")
-        return (env.get("DATABASE_URL") or env.get("DB_DSN")
-                or env.get("POSTGRES_DSN") or "")
-    except Exception:
-        return ""
-
-def tables_ok():
-    """Есть ли уже нужные таблицы — проверяем от имени приложения."""
-    code = (
-        "import asyncio,asyncpg,sys\n"
-        "async def m():\n"
-        "    c=await asyncpg.connect(%r)\n"
-        "    got=await c.fetchval(\"SELECT count(*) FROM information_schema.tables \"\n"
-        "        \"WHERE table_name IN ('org_invite','pwd_code')\")\n"
-        "    print('таблиц найдено:', got)\n"
-        "    await c.close()\n"
-        "asyncio.run(m())\n" % dsn())
-    io.open("/tmp/fo_chk.py", "w", encoding="utf-8").write(code)
-    return sh("%s /tmp/fo_chk.py" % PY).strip()
-
-chk = tables_ok()
-p("проверка:", chk)
-if "таблиц найдено: 2" not in chk and dsn():
-    p("postgres не сработал — пробую под пользователем приложения")
-    code2 = (
-        "import asyncio,asyncpg,io\n"
-        "SQL=io.open('/tmp/fo_step.sql',encoding='utf-8').read()\n"
-        "async def m():\n"
-        "    c=await asyncpg.connect(%r)\n"
-        "    for stmt in [x.strip() for x in SQL.split(';') if x.strip()]:\n"
-        "        try:\n"
-        "            await c.execute(stmt)\n"
-        "        except Exception as e:\n"
-        "            print('  пропущено:', str(e)[:120])\n"
-        "    await c.close()\n"
-        "    print('готово')\n"
-        "asyncio.run(m())\n" % dsn())
-    io.open("/tmp/fo_step2.py", "w", encoding="utf-8").write(code2)
-    p(sh("%s /tmp/fo_step2.py" % PY).strip()[:1500])
-    p("проверка ещё раз:", tables_ok())
-
-# ══ 3. код ══════════════════════════════════════════════════════
-def cut(src):
-    """Старый блок шага срезаем целиком — он всегда в конце файла."""
-    i = src.find("# " + chr(9552)*2 + " " + MARK)
-    if i < 0:
-        i = src.find(MARK)
-        if i >= 0:
-            i = src.rfind("\n", 0, i)
-    return src[:i] if i >= 0 else src
+chk = sh("sudo -u postgres psql -d fo -Atc \"SELECT count(*) FROM information_schema.tables WHERE table_name IN ('fo_card','fo_task_once','org_invite','pwd_code')\"").strip()
+p("таблиц на месте:", chk, "из 4")
+if chk != "4":
+    d = dsn()
+    if d:
+        p("пробую под пользователем приложения")
+        code2 = ("import asyncio,asyncpg,io\n"
+                 "SQL=io.open('/tmp/fo_step.sql',encoding='utf-8').read()\n"
+                 "async def m():\n"
+                 "    c=await asyncpg.connect(%r)\n"
+                 "    for s in [x.strip() for x in SQL.split(';') if x.strip()]:\n"
+                 "        try: await c.execute(s)\n"
+                 "        except Exception as e: print('  пропущено:', str(e)[:110])\n"
+                 "    await c.close(); print('готово')\n"
+                 "asyncio.run(m())\n" % d)
+        io.open("/tmp/fo_step2.py", "w", encoding="utf-8").write(code2)
+        p(sh("%s /tmp/fo_step2.py" % PY).strip()[:1200])
 
 ADD_REFS = r'''
 
-# ══ FO-STEP-ACCOUNT-INVITES ══════════════════════════════════════
-# Мой аккаунт и персональные приглашения с уровнем доступа.
-# Дописано шагом деплоя: перевезти refs.py целиком нечем — прочитать
-# его с сервера механизм не умеет, поэтому правка идёт дописыванием.
+# ══ FO-STEP-SERVER-STORAGE ═══════════════════════════════════════
+# Всё, что человек вносит руками, живёт на сервере. Браузер только
+# показывает. Карточки клиента, сотрудника и функции лежат в fo_card
+# полями jsonb — состав полей меняется вместе с интерфейсом и не
+# требует новой миграции. Разовые задачи — в fo_task_once: в штатном
+# API их создать нечем, там задачи рождаются только из функций.
 import secrets as _fo_secrets
+import json as _fo_json
 import importlib as _fo_il
 from pydantic import BaseModel as _FoBM
 
 _FO_NAME_COL = "__NAME_COL__"
+_FO_KINDS = ("client", "employee", "fn", "org", "cab")
+
 
 def _fo_uid(p):
     for n in ("user_id", "uid", "id", "sub"):
@@ -201,6 +184,7 @@ def _fo_uid(p):
         if v is not None:
             return v
     raise HTTPException(500, "в токене нет пользователя")
+
 
 def _fo_hash():
     for mod in ("app.security", "app.auth", "app.deps", "app.utils", "app.hash"):
@@ -217,8 +201,8 @@ def _fo_hash():
             return ctx.hash
     return None
 
+
 async def _fo_send(email, subject, text):
-    """Письмо уходит тем же способом, что и код входа."""
     try:
         n = _fo_il.import_module("app.notify")
     except Exception:
@@ -234,11 +218,160 @@ async def _fo_send(email, subject, text):
 
 @router.get("/roles")
 async def fo_roles(p: Principal = Depends(current)):
-    """Уровни доступа как они есть в базе — фронт не выдумывает свои."""
+    """Уровни доступа как они есть в базе — фронт своих не выдумывает."""
     async with pool().acquire() as c:
         rows = await c.fetch("SELECT code, level, __ROLE_TITLE__ AS rtitle FROM role ORDER BY level")
-    return [{"code": r["code"], "level": r["level"],
-             "title": r["rtitle"] or r["code"]} for r in rows]
+    return [{"code": r["code"], "level": r["level"], "title": r["rtitle"] or r["code"]} for r in rows]
+
+
+# ── Карточки: клиент, сотрудник, функция, агентство ──────────────
+
+class FoCardIn(_FoBM):
+    kind:   str
+    ref_id: str
+    data:   dict
+
+
+@router.get("/cards")
+async def fo_cards(kind: str = "", p: Principal = Depends(current)):
+    """Все карточки агентства. Без kind — сразу все, одним запросом."""
+    async with pool().acquire() as c:
+        if kind:
+            rows = await c.fetch(
+                "SELECT kind, ref_id, data, updated_at FROM fo_card "
+                "WHERE org_id=$1 AND kind=$2", p.org_id, kind)
+        else:
+            rows = await c.fetch(
+                "SELECT kind, ref_id, data, updated_at FROM fo_card WHERE org_id=$1", p.org_id)
+    out = []
+    for r in rows:
+        d = r["data"]
+        if isinstance(d, str):
+            try: d = _fo_json.loads(d)
+            except Exception: d = {}
+        out.append({"kind": r["kind"], "ref_id": r["ref_id"],
+                    "data": d or {}, "updated_at": r["updated_at"]})
+    return out
+
+
+@router.post("/cards")
+async def fo_card_save(body: FoCardIn, p: Principal = Depends(current)):
+    """Правка карточки. Присланные поля дописываются к тем, что есть."""
+    kind = (body.kind or "").strip()
+    ref = (body.ref_id or "").strip()
+    if kind not in _FO_KINDS:
+        raise HTTPException(400, "неизвестный вид карточки")
+    if not ref:
+        raise HTTPException(400, "не сказано, чья карточка")
+    data = body.data if isinstance(body.data, dict) else {}
+    async with pool().acquire() as c:
+        await c.execute(
+            "INSERT INTO fo_card (kind, ref_id, org_id, data) VALUES ($1,$2,$3,$4::jsonb) "
+            "ON CONFLICT (kind, ref_id) DO UPDATE "
+            "SET data = fo_card.data || EXCLUDED.data, updated_at = now() "
+            "WHERE fo_card.org_id = EXCLUDED.org_id",
+            kind, ref, p.org_id, _fo_json.dumps(data))
+        row = await c.fetchrow(
+            "SELECT data FROM fo_card WHERE kind=$1 AND ref_id=$2 AND org_id=$3",
+            kind, ref, p.org_id)
+    d = row["data"] if row else {}
+    if isinstance(d, str):
+        try: d = _fo_json.loads(d)
+        except Exception: d = {}
+    return {"ok": True, "kind": kind, "ref_id": ref, "data": d or {}}
+
+
+# ── Разовые задачи ───────────────────────────────────────────────
+
+class FoOnceIn(_FoBM):
+    title:       str
+    client_id:   str | None = None
+    employee_id: str | None = None
+    fn_id:       str | None = None
+    day:         str | None = None
+    dow:         int | None = None
+    minutes:     int | None = 30
+    kind:        str | None = "once"
+    note:        str | None = None
+
+
+class FoOncePatch(_FoBM):
+    title:       str | None = None
+    employee_id: str | None = None
+    day:         str | None = None
+    dow:         int | None = None
+    minutes:     int | None = None
+    note:        str | None = None
+    done:        bool | None = None
+
+
+def _fo_once_row(r):
+    return {"id": str(r["id"]), "title": r["title"], "client_id": r["client_id"],
+            "employee_id": r["employee_id"], "fn_id": r["fn_id"],
+            "day": r["day"].isoformat() if r["day"] else None, "dow": r["dow"],
+            "minutes": r["minutes"], "kind": r["kind"], "note": r["note"],
+            "done": bool(r["done_at"]), "done_at": r["done_at"],
+            "created_at": r["created_at"]}
+
+
+@router.get("/tasks/once")
+async def fo_once_list(p: Principal = Depends(current)):
+    async with pool().acquire() as c:
+        rows = await c.fetch(
+            "SELECT * FROM fo_task_once WHERE org_id=$1 AND removed_at IS NULL "
+            "ORDER BY created_at DESC LIMIT 1000", p.org_id)
+    return [_fo_once_row(r) for r in rows]
+
+
+@router.post("/tasks/once")
+async def fo_once_new(body: FoOnceIn, p: Principal = Depends(current)):
+    t = (body.title or "").strip()
+    if len(t) < 2:
+        raise HTTPException(400, "Напишите, что сделать")
+    async with pool().acquire() as c:
+        r = await c.fetchrow(
+            "INSERT INTO fo_task_once (org_id, title, client_id, employee_id, fn_id, "
+            "day, dow, minutes, kind, note, created_by) "
+            "VALUES ($1,$2,$3,$4,$5,$6::date,$7,$8,$9,$10,$11) RETURNING *",
+            p.org_id, t, body.client_id or None, body.employee_id or None,
+            body.fn_id or None, body.day or None, body.dow,
+            max(1, min(2880, int(body.minutes or 30))), (body.kind or "once"),
+            body.note or None, _fo_uid(p))
+    return _fo_once_row(r)
+
+
+@router.post("/tasks/once/{task_id}")
+async def fo_once_patch(task_id: str, body: FoOncePatch, p: Principal = Depends(current)):
+    sets, vals = [], []
+    def add(col, v):
+        vals.append(v); sets.append("%s=$%d" % (col, len(vals) + 1))
+    if body.title is not None:       add("title", body.title.strip())
+    if body.employee_id is not None: add("employee_id", body.employee_id or None)
+    if body.day is not None:         sets.append("day=$%d::date" % (len(vals) + 2)); vals.append(body.day or None)
+    if body.dow is not None:         add("dow", body.dow)
+    if body.minutes is not None:     add("minutes", max(1, min(2880, int(body.minutes))))
+    if body.note is not None:        add("note", body.note)
+    if body.done is not None:
+        sets.append("done_at=" + ("now()" if body.done else "NULL"))
+    if not sets:
+        return {"ok": True, "changed": 0}
+    async with pool().acquire() as c:
+        r = await c.fetchrow(
+            "UPDATE fo_task_once SET " + ", ".join(sets) +
+            " WHERE id=$1::bigint AND org_id=$%d RETURNING *" % (len(vals) + 2),
+            task_id, *vals, p.org_id)
+    if not r:
+        raise HTTPException(404, "задача не найдена")
+    return _fo_once_row(r)
+
+
+@router.post("/tasks/once/{task_id}/remove")
+async def fo_once_remove(task_id: str, p: Principal = Depends(current)):
+    async with pool().acquire() as c:
+        await c.execute(
+            "UPDATE fo_task_once SET removed_at=now() WHERE id=$1::bigint AND org_id=$2",
+            task_id, p.org_id)
+    return {"ok": True}
 
 
 # ── Мой аккаунт ──────────────────────────────────────────────────
@@ -256,22 +389,12 @@ async def fo_me(p: Principal = Depends(current)):
             "JOIN org o ON o.id = u.org_id WHERE u.id = $1", uid)
         if not u:
             raise HTTPException(404, "аккаунт не найден")
-        pwd_col = await c.fetchval(
-            "SELECT column_name FROM information_schema.columns "
-            "WHERE table_name='app_user' AND column_name = ANY($1::text[]) LIMIT 1",
-            ["password_hash", "pwd_hash", "hashed_password", "password", "pass_hash"])
-        has_pwd = False
-        if pwd_col:
-            has_pwd = bool(await c.fetchval(
-                "SELECT " + pwd_col + " IS NOT NULL AND " + pwd_col + " <> '' "
-                "FROM app_user WHERE id=$1", uid))
     return {"id": str(u["id"]), "email": u["email"],
             "name": u["display_name"] or u["base_name"] or "",
-            "phone": u["phone"] or "",
-            "role_code": u["role_code"], "role_title": u["role_title"] or u["role_code"],
-            "level": u["level"], "org_name": u["org_name"],
-            "org_id": str(u["org_id"]), "invite_code": u["invite_code"],
-            "created_at": u["created_at"], "has_password": has_pwd}
+            "phone": u["phone"] or "", "role_code": u["role_code"],
+            "role_title": u["role_title"] or u["role_code"], "level": u["level"],
+            "org_name": u["org_name"], "org_id": str(u["org_id"]),
+            "invite_code": u["invite_code"], "created_at": u["created_at"]}
 
 
 class FoMeIn(_FoBM):
@@ -281,7 +404,6 @@ class FoMeIn(_FoBM):
 
 @router.post("/me/account")
 async def fo_me_save(body: FoMeIn, p: Principal = Depends(current)):
-    """Имя и телефон правит сам человек — на любой роли."""
     uid = _fo_uid(p)
     sets, vals = [], []
     if body.name is not None:
@@ -302,7 +424,6 @@ async def fo_me_save(body: FoMeIn, p: Principal = Depends(current)):
 
 @router.post("/me/password/code")
 async def fo_pwd_code(p: Principal = Depends(current)):
-    """Код на рабочую почту — без него пароль не меняется."""
     uid = _fo_uid(p)
     code = "".join(_fo_secrets.choice("0123456789") for _ in range(6))
     async with pool().acquire() as c:
@@ -311,10 +432,8 @@ async def fo_pwd_code(p: Principal = Depends(current)):
             raise HTTPException(404, "аккаунт не найден")
         await c.execute("UPDATE pwd_code SET used_at=now() WHERE user_id=$1 AND used_at IS NULL", uid)
         await c.execute("INSERT INTO pwd_code (user_id, code) VALUES ($1,$2)", uid, code)
-    sent = await _fo_send(
-        email, "Код для смены пароля " + code + " — Flater Team Service",
-        "Код для смены пароля: " + code + "\n\nОн живёт 15 минут. "
-        "Если вы не меняли пароль — просто не вводите его.")
+    sent = await _fo_send(email, "Код для смены пароля " + code + " — Flater Team Service",
+                          "Код для смены пароля: " + code + "\n\nОн живёт 15 минут.")
     out = {"ok": True, "mail_sent": sent, "email": email}
     if not sent:
         out["code_shown"] = code
@@ -335,15 +454,14 @@ async def fo_pwd_set(body: FoPwdIn, p: Principal = Depends(current)):
     h = _fo_hash()
     if not h:
         raise HTTPException(500, "на сервере не нашлась функция хеширования")
+    import datetime as _dt
     async with pool().acquire() as c:
         row = await c.fetchrow(
             "SELECT id, code, made_at, tries FROM pwd_code "
             "WHERE user_id=$1 AND used_at IS NULL ORDER BY made_at DESC LIMIT 1", uid)
         if not row:
             raise HTTPException(400, "Сначала запросите код")
-        import datetime as _dt
-        age = (_dt.datetime.now(_dt.timezone.utc) - row["made_at"]).total_seconds()
-        if age > 900:
+        if (_dt.datetime.now(_dt.timezone.utc) - row["made_at"]).total_seconds() > 900:
             raise HTTPException(400, "Код истёк — запросите новый")
         if row["tries"] >= 5:
             raise HTTPException(429, "Слишком много попыток — запросите новый код")
@@ -373,10 +491,6 @@ class FoInviteIn(_FoBM):
 
 @router.post("/invites")
 async def fo_invite_new(body: FoInviteIn, p: Principal = Depends(max_level(1))):
-    """Собственник и директор выдают приглашение с уровнем доступа.
-
-    Уровень должен быть НИЖЕ того, кто приглашает, и никогда не
-    собственник и не админ сервиса."""
     async with pool().acquire() as c:
         me = await c.fetchrow(
             "SELECT r.level FROM app_user u JOIN role r ON r.code=u.role_code WHERE u.id=$1",
@@ -412,16 +526,15 @@ async def fo_invite_list(p: Principal = Depends(current)):
 @router.post("/invites/{token}/revoke")
 async def fo_invite_revoke(token: str, p: Principal = Depends(max_level(1))):
     async with pool().acquire() as c:
-        n = await c.execute(
+        await c.execute(
             "UPDATE org_invite SET revoked_at=now() "
             "WHERE token=$1 AND org_id=$2 AND used_at IS NULL AND revoked_at IS NULL",
             token, p.org_id)
-    return {"ok": True, "changed": n}
+    return {"ok": True}
 
 
 @router.get("/step")
 async def fo_step_report(p: Principal = Depends(max_level(0))):
-    """Отчёт последнего шага деплоя — чтобы не ходить в консоль."""
     try:
         with open("/opt/fo/step-last.txt", encoding="utf-8") as _f:
             return {"ok": True, "text": _f.read()}
@@ -431,15 +544,14 @@ async def fo_step_report(p: Principal = Depends(max_level(0))):
 
 ADD_SIGN = r'''
 
-# ══ FO-STEP-ACCOUNT-INVITES ══════════════════════════════════════
+# ══ FO-STEP-SERVER-STORAGE ═══════════════════════════════════════
 # Вход по персональному приглашению: уровень доступа выдаёт сервер,
-# из приглашения, а не браузер. Приглашение одноразовое.
+# из самого приглашения. Приглашение одноразовое.
 from pydantic import BaseModel as _FoBM2
 
 
 @router.get("/invite-token/{token}")
 async def fo_invite_peek(token: str):
-    """Кто и куда зовёт — видно до регистрации."""
     async with pool().acquire() as c:
         r = await c.fetchrow(
             "SELECT o.name AS org_name, i.role_code, i.name, i.used_at, i.revoked_at, "
@@ -457,16 +569,11 @@ async def fo_invite_peek(token: str):
 
 
 async def _fo_link_employee(conn, org_id, uid, name, email):
-    """Кто зашёл по приглашению — сразу виден в команде, доступах и задачах.
-
-    Регистрация заводит человека в app_user, а списки команды и
-    ответственных сервис берёт из таблицы сотрудников. Без связки
-    собственник нового человека просто не увидит."""
+    """Кто зашёл по приглашению — сразу виден в команде и в задачах."""
     tbl = None
     for cand in ("employee", "employees", "staff", "member", "people", "person"):
         if await conn.fetchval("SELECT to_regclass($1)", "public." + cand):
-            tbl = cand
-            break
+            tbl = cand; break
     if not tbl:
         return None
     cols = set(r["column_name"] for r in await conn.fetch(
@@ -474,7 +581,6 @@ async def _fo_link_employee(conn, org_id, uid, name, email):
     if "org_id" not in cols or "name" not in cols:
         return None
     nm = (name or "").strip() or (email or "").split("@")[0]
-
     if "user_id" in cols:
         got = await conn.fetchval("SELECT id FROM " + tbl + " WHERE user_id=$1", uid)
         if got:
@@ -491,17 +597,11 @@ async def _fo_link_employee(conn, org_id, uid, name, email):
     if row:
         if "user_id" in cols:
             await conn.execute("UPDATE " + tbl + " SET user_id=$2 WHERE id=$1", row["id"], uid)
-        if "is_active" in cols:
-            await conn.execute("UPDATE " + tbl + " SET is_active=true WHERE id=$1", row["id"])
         return row["id"]
-
     names, vals = ["org_id", "name"], [org_id, nm]
-    if "user_id" in cols:
-        names.append("user_id"); vals.append(uid)
-    if "email" in cols and email:
-        names.append("email"); vals.append(email)
-    if "is_active" in cols:
-        names.append("is_active"); vals.append(True)
+    if "user_id" in cols: names.append("user_id"); vals.append(uid)
+    if "email" in cols and email: names.append("email"); vals.append(email)
+    if "is_active" in cols: names.append("is_active"); vals.append(True)
     q = ("INSERT INTO " + tbl + " (" + ", ".join(names) + ") VALUES (" +
          ", ".join("$%d" % (i + 1) for i in range(len(vals))) + ") RETURNING id")
     return await conn.fetchval(q, *vals)
@@ -526,27 +626,22 @@ async def fo_invite_accept(body: FoAcceptIn):
             raise HTTPException(410, "Приглашение отозвано")
         if inv["used_at"]:
             raise HTTPException(410, "Этим приглашением уже воспользовались")
-
         prev = await conn.fetchrow(
             "SELECT id, first_login FROM app_user WHERE email=$1 AND is_active "
             "ORDER BY created_at DESC LIMIT 1", mail)
         if prev and not prev["first_login"]:
             raise HTTPException(409, "Эта почта уже зарегистрирована — войдите по паролю")
-
         async with conn.transaction():
             if prev:
                 uid = prev["id"]
-                await conn.execute(
-                    "UPDATE app_user SET org_id=$2, role_code=$3 WHERE id=$1",
-                    uid, inv["org_id"], inv["role_code"])
+                await conn.execute("UPDATE app_user SET org_id=$2, role_code=$3 WHERE id=$1",
+                                   uid, inv["org_id"], inv["role_code"])
             else:
                 uid = await _make_user(conn, inv["org_id"], mail, inv["role_code"],
                                        (inv["name"] or mail.split("@")[0]))
             await conn.execute(
                 "UPDATE org_invite SET used_at=now(), used_by=$2 WHERE token=$1", tok, uid)
             code2, sent = await _issue_code(conn, uid, mail, "first_login")
-
-        # связываем с карточкой сотрудника — иначе собственник его не увидит
         linked = None
         try:
             linked = await _fo_link_employee(conn, inv["org_id"], uid, inv["name"] or "", mail)
@@ -559,15 +654,18 @@ async def fo_invite_accept(body: FoAcceptIn):
     return out
 '''
 
-if not NAME_COL:
-    NAME_COL = "display_name"
-ADD_REFS = ADD_REFS.replace("__NAME_COL__", NAME_COL)
-
-has_title = sh("sudo -u postgres psql -d fo -Atc \"SELECT 1 FROM information_schema.columns WHERE table_name='role' AND column_name='title'\"").strip()
-ROLE_TITLE = "title" if has_title.startswith("1") else "code"
-p("колонка title в role:", "есть" if ROLE_TITLE == "title" else "нет — беру code")
-ADD_REFS = ADD_REFS.replace("__ROLE_TITLE__", ROLE_TITLE)
+ADD_REFS = ADD_REFS.replace("__NAME_COL__", NAME_COL).replace("__ROLE_TITLE__", ROLE_TITLE)
 ADD_SIGN = ADD_SIGN.replace("__ROLE_TITLE__", ROLE_TITLE)
+
+
+def cut(src):
+    i = src.find("# " + chr(9552) * 2 + " " + MARK)
+    if i < 0:
+        j = src.find(MARK)
+        if j >= 0:
+            i = src.rfind("\n", 0, j)
+    return src[:i] if i >= 0 else src
+
 
 H0 = sh("curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8000/health").strip()
 p("")
@@ -580,7 +678,6 @@ shutil.copy(SIGN, bak + "/signup.py")
 
 io.open(REFS, "w", encoding="utf-8").write(cut(refs_src).rstrip("\n") + "\n" + ADD_REFS)
 io.open(SIGN, "w", encoding="utf-8").write(cut(sign_src).rstrip("\n") + "\n" + ADD_SIGN)
-
 p("")
 p("== КОД ==")
 p("дописано в refs.py и signup.py, копия в", bak)
@@ -589,26 +686,29 @@ ok = True
 for f in (REFS, SIGN):
     r = sh("%s -m py_compile %s" % (PY, f))
     if r.strip():
-        p("синтаксис не сошёлся в", f, ":", r.strip()[:500]); ok = False
+        p("синтаксис не сошёлся в", f, ":", r.strip()[:600]); ok = False
 
 if ok:
-    sh("systemctl restart fo")
-    sh("sleep 4")
+    sh("systemctl restart fo"); sh("sleep 4")
     h = sh("curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8000/health").strip()
     p("health после правки:", h)
     if h != "200" and H0 == "200":
-        ok = False          # сломали то, что работало — возвращаем
-    elif h != "200":
-        p("сервис и до правки не отвечал — откатывать нечего, оставляю новую версию")
+        ok = False
 
 if not ok:
     shutil.copy(bak + "/refs.py", REFS)
     shutil.copy(bak + "/signup.py", SIGN)
     sh("systemctl restart fo"); sh("sleep 3")
-    p("ОТКАТ: вернул как было, health=" + sh("curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8000/health").strip())
-    p("ЧТО ПОШЛО НЕ ТАК — смотрите journalctl -u fo -n 40")
-    p(sh("journalctl -u fo -n 30 --no-pager")[-2000:])
+    p("ОТКАТ: вернул как было, health=" +
+      sh("curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8000/health").strip())
+    p(sh("journalctl -u fo -n 30 --no-pager")[-2500:])
 else:
-    p("ГОТОВО: аккаунт и приглашения на сервере")
+    p("")
+    p("== ПРОВЕРКА ЭНДПОИНТОВ ==")
+    for u in ("/refs/roles", "/refs/cards", "/refs/tasks/once", "/refs/invites",
+              "/refs/me/account", "/auth/invite-token/zzz"):
+        p("  %-26s %s" % (u, sh("curl -s -o /dev/null -w '%%{http_code}' http://127.0.0.1:8000%s" % u).strip()))
+    p("(401/403 — эндпоинт есть и просит вход; 404 — не встал)")
+    p("ГОТОВО: хранение переехало на сервер")
 
 print("\n".join(out))
