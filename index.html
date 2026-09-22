@@ -22036,6 +22036,101 @@ document.addEventListener("keydown", function(e){
   }
 });
 
+/* ===== add75: функции кабинета уезжают на сервер и рождают задачи (С3, С4) =====
+   Генератор задач на сервере читает ТОЛЬКО связку cabinet_fn (кабинет ↔ функция).
+   Эндпоинта для неё не было — форма «Задачи кабинета — сразу с ответственными»
+   писала в никуда, и задач у менеджеров не появлялось никогда.
+   Теперь после «Завести кабинет» строки формы уходят в
+   PUT /refs/cabinets/{id}/functions, потом POST /tasks/generate — и задачи
+   ложатся на людей. Проектные настройки (время, цикличность, ответственный)
+   хранятся отдельно от базовых настроек функции.                           */
+
+/* цикл формы → цикл сервера */
+function foCycleKind(cyc){
+  cyc = String(cyc || "weekly");
+  if(cyc === "wdays") return "weekly";
+  if(cyc === "none" || cyc === "once" || cyc === "once_urg") return "none";
+  return cyc;                         /* daily | weekly | biweekly | monthly */
+}
+
+/* собрать строки формы в тело для сервера; функции без id — завести */
+function cabFnRows(rows){
+  var list = (rows || []).filter(function(r){ return r && String(r.title || "").trim(); });
+  return list.reduce(function(chain, r){
+    return chain.then(function(acc){
+      var title = String(r.title).trim();
+      var minutes = Math.max(1, Math.min(2880, +r.minutes || 30));
+      var cyc = r.kind === "urg" ? "none" : (r.cycle || "weekly");
+      var days = null;
+      try{ if(r.days && typeof r.days === "object") days = Object.keys(r.days).filter(function(k){ return r.days[k]; }).map(Number); }catch(e){}
+      var getId = r.fn ? Promise.resolve(r.fn)
+                       : (typeof foFnEnsure === "function" ? foFnEnsure(title, minutes, cyc, 0, days || []) : Promise.resolve(null));
+      return getId.then(function(fnId){
+        if(!fnId) return acc;
+        var it = {fn_id: String(fnId), minutes: minutes, cycle_kind: foCycleKind(cyc)};
+        if(r.person) it.employee_id = String(r.person);
+        if(days && days.length) it.cycle_weekdays = days;
+        acc.push(it);
+        return acc;
+      }).catch(function(){ return acc; });
+    });
+  }, Promise.resolve([]));
+}
+
+/* кабинет клиента на сервере: id первого кабинета клиента */
+function cabIdOf(clientId){
+  return api("/refs/clients/" + encodeURIComponent(clientId) + "/cabinets")
+    .then(function(list){ return (list && list[0] && list[0].id) || null; })
+    .catch(function(){ return null; });
+}
+
+/* полный проход: кабинет → функции → генерация задач */
+function cabFnPush(clientId, rows){
+  return cabIdOf(clientId).then(function(cabId){
+    if(!cabId) throw new Error("у клиента нет кабинета на сервере");
+    return cabFnRows(rows).then(function(items){
+      if(!items.length) return {функций: 0};
+      return api("/refs/cabinets/" + encodeURIComponent(cabId) + "/functions", {method:"PUT", body: items})
+        .then(function(){ return api("/tasks/generate", {method:"POST"}).catch(function(){ return null; }); })
+        .then(function(g){ return {функций: items.length, задач: g && g["создано задач"]}; });
+    });
+  });
+}
+
+/* перехват «Завести кабинет»: снимаем строки до того, как старый код их очистит */
+(function(){
+  var pending = null;
+  document.addEventListener("click", function(e){
+    if(!e.target.closest || !e.target.closest("#ncSave")) return;
+    if(typeof foLive === "function" && !foLive()) return;
+    var nm = String((document.getElementById("ncName") || {}).value || "").trim();
+    if(!nm) return;
+    var rows = [];
+    try{ rows = (typeof ncTasks !== "undefined" && ncTasks) ? JSON.parse(JSON.stringify(ncTasks)) : []; }catch(x){}
+    pending = {name: nm, rows: rows};
+    /* ждём, пока add72 доведёт клиента до сервера, потом привязываем функции */
+    var tries = 0;
+    (function poll(){
+      tries++;
+      if(tries > 15){ pending = null; return; }
+      api("/refs/clients").then(function(list){
+        var hit = null;
+        (list || []).forEach(function(c){ if(String(c.name || "").trim() === nm) hit = c; });
+        if(!hit){ setTimeout(poll, 1000); return; }
+        var rws = pending ? pending.rows : []; pending = null;
+        cabFnPush(hit.id, rws).then(function(r){
+          try{ if(r && r.функций) toast("Функции кабинета на сервере: " + r.функций + (r.задач != null ? " · задач сегодня: " + r.задач : "")); }catch(x){}
+          try{ if(typeof loadLive === "function") loadLive().then(function(){ try{ render(); }catch(x){} }); }catch(x){}
+        }).catch(function(err){
+          try{ toast("Функции кабинета не сохранились: " + (err && err.message || "ошибка")); }catch(x){}
+        });
+      }).catch(function(){ setTimeout(poll, 1000); });
+    })();
+  }, true);
+})();
+
+window.foCabFnPush = cabFnPush;
+
 })();
 </script>
 </body>
