@@ -23154,6 +23154,31 @@ document.addEventListener("change", function(e){
 
 window.foCabFnState = function(id){ return id ? FO_CABFN[id] : Object.keys(FO_CABFN).map(function(k){ var d = FO_CABFN[k]; return {client:k, cab:d.cab, функций:(d.rows||[]).length}; }); };
 
+/* ── догоняем загрузку при старте ──
+   goLive() зовёт loadLive() раньше, чем слои успевают его обернуть: первая
+   загрузка идёт «голой». Ждём, пока сервер отдал клиентов, и добираем своё:
+   функции кабинетов, базовые циклы, согласования. */
+(function(){
+  var tries = 0;
+  (function again(){
+    tries++;
+    if(tries > 40) return;
+    var ready = false;
+    try{ ready = (typeof foAuthed === "function" && foAuthed()) && (typeof MODE === "undefined" || MODE === "live") && S && S.projects && S.projects.length; }catch(e){}
+    if(!ready){ setTimeout(again, 500); return; }
+    if(Object.keys(FO_CABFN).length) return;                 /* уже догнали через loadLive */
+    var jobs = [foFnsLoad(), foCabFnAll()];
+    try{ if(typeof foReviewsLoad === "function") jobs.push(foReviewsLoad()); }catch(e){}
+    try{ if(typeof foEmpsLoad === "function") jobs.push(foEmpsLoad()); }catch(e){}
+    Promise.all(jobs).then(function(){
+      try{ foFnCfgFromServer(); }catch(e){}
+      try{ if(typeof foDecorate === "function") foDecorate(); }catch(e){}
+      try{ render(); }catch(e){}
+      try{ if(typeof renderCards === "function" && document.querySelector(".cc2")) renderCards(); }catch(e){}
+    });
+  })();
+})();
+
 })();
 </script>
 </body>
