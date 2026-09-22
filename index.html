@@ -22281,6 +22281,21 @@ window.foRepaint = foRepaint;
 
 window.foMe = function(){ return {me: FO_ME, meId: (typeof meId !== "undefined" ? meId : null)}; };
 
+/* снятые задачи (status='removed') сервер отдаёт в /tasks/day — на экране их быть не должно */
+(function(){
+  if(typeof api !== "function") return;
+  var _api = api;
+  api = function(path, opt){
+    var p = String(path || "");
+    var r = _api(path, opt);
+    if(!/^\/tasks\/day(\?|$)/.test(p)) return r;
+    return r.then(function(rows){
+      if(!Array.isArray(rows)) return rows;
+      return rows.filter(function(t){ return !t || t.status !== "removed"; });
+    });
+  };
+})();
+
 })();
 </script>
 </body>
