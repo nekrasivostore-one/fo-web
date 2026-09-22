@@ -22435,11 +22435,11 @@ var FO_EMPS = [];          /* сотрудники агентства (вмес�
 })();
 
 function foReviewsLoad(){
-  if(typeof foLive === "function" && !foLive()) return Promise.resolve();
+  if(typeof foAuthed === "function" && !foAuthed()) return Promise.resolve();
   return api("/refs/tasks/reviews").then(function(r){ FO_REVIEWS = r || []; }).catch(function(){ FO_REVIEWS = FO_REVIEWS || []; });
 }
 function foEmpsLoad(){
-  if(typeof foLive === "function" && !foLive()) return Promise.resolve();
+  if(typeof foAuthed === "function" && !foAuthed()) return Promise.resolve();
   return api("/refs/employees").then(function(r){ FO_EMPS = r || []; }).catch(function(){});
 }
 
@@ -22564,6 +22564,19 @@ function foDoneDialog(tasks){
   });
 
   setTimeout(function(){ var f = box.querySelector(".fo-link"); if(f) f.focus(); }, 30);
+
+  /* список согласующих мог не успеть загрузиться — добираем */
+  if(!apprs.length){
+    foEmpsLoad().then(function(){
+      var sel = box.querySelector("#foAppr"); if(!sel) return;
+      var list = (FO_EMPS || []).filter(function(e){ return String(e.id) !== String(me); });
+      var ext = sel.querySelector('option[value="__ext"]');
+      list.forEach(function(e){
+        var o = document.createElement("option"); o.value = e.id; o.textContent = "Согласовать с: " + e.name;
+        sel.insertBefore(o, ext);
+      });
+    });
+  }
 
   box.addEventListener("click", function(e){
     if(e.target === box || e.target.closest("#foCancel")){ box.remove(); return; }
