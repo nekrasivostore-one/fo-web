@@ -18,6 +18,7 @@
 Безопасность: копия до правки, проверка синтаксиса, перезапуск, health.
 Не поднялось — вернули как было.
 """
+import re
 import io, os, re, shutil, subprocess, sys, datetime
 
 APP  = "/opt/fo/backend/app"
@@ -49,6 +50,19 @@ def dsn():
     except Exception:
         return ""
 
+p("== СРОКИ ТОКЕНОВ (разведка) ==")
+for _f in ("security.py", "config.py", "deps.py", "routers/auth.py", "main.py"):
+    try:
+        _src = io.open(APP + "/" + _f, encoding="utf-8").read().splitlines()
+        _hits = [ (i+1, l.rstrip()) for i, l in enumerate(_src)
+                  if re.search(r"timedelta|TTL|EXPIRE|expire|_MIN\b|_DAYS\b|_HOURS\b|minutes=|days=|hours=", l) ]
+        if _hits:
+            p(_f + ":")
+            for _n, _l in _hits[:12]:
+                p("  %4d  %s" % (_n, _l[:140]))
+    except Exception:
+        pass
+p("")
 p("== ЧТО НА СЕРВЕРЕ ==")
 p("роли:", sh("sudo -u postgres psql -d fo -Atc \"SELECT string_agg(code||'/'||level,', ' ORDER BY level) FROM role\"").strip() or "(не прочиталось)")
 p("таблицы:", sh("sudo -u postgres psql -d fo -Atc \"SELECT string_agg(table_name,', ' ORDER BY table_name) FROM information_schema.tables WHERE table_schema='public'\"").strip())
@@ -650,7 +664,7 @@ async def fo_invite_revoke(token: str, p: Principal = Depends(max_level(1))):
 
 
 @router.get("/step")
-async def fo_step_report(p: Principal = Depends(max_level(0))):
+async def fo_step_report(p: Principal = Depends(max_level(1))):
     try:
         with open("/opt/fo/step-last.txt", encoding="utf-8") as _f:
             return {"ok": True, "text": _f.read()}
