@@ -340,6 +340,14 @@ async def fo_once_new(body: FoOnceIn, p: Principal = Depends(current)):
     return _fo_once_row(r)
 
 
+def _fo_task_id(v):
+    """Номер разовой задачи приходит из адреса строкой. База ждёт число.
+    Без этого преобразования драйвер падал с 500 на удалении и правке."""
+    try:
+        return int(str(v).strip())
+    except Exception:
+        raise HTTPException(404, "задача не найдена")
+
 @router.post("/tasks/once/{task_id}")
 async def fo_once_patch(task_id: str, body: FoOncePatch, p: Principal = Depends(current)):
     sets, vals = [], []
@@ -358,8 +366,8 @@ async def fo_once_patch(task_id: str, body: FoOncePatch, p: Principal = Depends(
     async with pool().acquire() as c:
         r = await c.fetchrow(
             "UPDATE fo_task_once SET " + ", ".join(sets) +
-            " WHERE id=$1::bigint AND org_id=$%d RETURNING *" % (len(vals) + 2),
-            task_id, *vals, p.org_id)
+            " WHERE id=$1 AND org_id=$%d RETURNING *" % (len(vals) + 2),
+            _fo_task_id(task_id), *vals, p.org_id)
     if not r:
         raise HTTPException(404, "задача не найдена")
     return _fo_once_row(r)
@@ -369,8 +377,8 @@ async def fo_once_patch(task_id: str, body: FoOncePatch, p: Principal = Depends(
 async def fo_once_remove(task_id: str, p: Principal = Depends(current)):
     async with pool().acquire() as c:
         await c.execute(
-            "UPDATE fo_task_once SET removed_at=now() WHERE id=$1::bigint AND org_id=$2",
-            task_id, p.org_id)
+            "UPDATE fo_task_once SET removed_at=now() WHERE id=$1 AND org_id=$2",
+            _fo_task_id(task_id), p.org_id)
     return {"ok": True}
 
 
