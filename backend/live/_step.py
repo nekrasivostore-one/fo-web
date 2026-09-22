@@ -501,8 +501,42 @@ async def fo_me_save(body: FoMeIn, p: Principal = Depends(current)):
         return {"ok": True, "changed": 0}
     async with pool().acquire() as c:
         await c.execute("UPDATE app_user SET " + ", ".join(sets) + " WHERE id=$1", uid, *vals)
+        if body.name is not None:
+            await _fo_employee_rename(c, uid, (body.name or "").strip())
     return {"ok": True, "changed": len(sets)}
 
+
+# ── имена людей: везде показываем имя, а не кусок почты (С8) ─────
+async def _fo_employee_rename(conn, uid, nm):
+    """Имя из аккаунта становится именем сотрудника - его видит вся команда."""
+    if not nm:
+        return
+    for tbl in ("employee", "employees", "staff", "member", "people", "person"):
+        try:
+            if not await conn.fetchval("SELECT to_regclass($1)", "public." + tbl):
+                continue
+            cols = set(r["column_name"] for r in await conn.fetch(
+                "SELECT column_name FROM information_schema.columns WHERE table_name=$1", tbl))
+            if "user_id" not in cols or "name" not in cols:
+                continue
+            await conn.execute("UPDATE " + tbl + " SET name=$2 WHERE user_id=$1", uid, nm)
+            return
+        except Exception:
+            continue
+
+
+@router.post("/me/names/sync")
+async def fo_names_sync(p: Principal = Depends(max_level(1))):
+    """Разово: у всех, кто уже назвал себя, имя сотрудника = имя из аккаунта."""
+    n = 0
+    async with pool().acquire() as c:
+        rows = await c.fetch(
+            "SELECT id, display_name FROM app_user "
+            "WHERE display_name IS NOT NULL AND length(trim(display_name)) >= 2")
+        for r in rows:
+            await _fo_employee_rename(c, r["id"], r["display_name"].strip())
+            n += 1
+    return {"ok": True, "обновлено": n}
 
 @router.post("/me/password/code")
 async def fo_pwd_code(p: Principal = Depends(current)):
