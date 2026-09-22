@@ -93,6 +93,26 @@ try:
 except Exception as e:
     p("config.py не тронут:", e)
 p("")
+p("== ГЕНЕРАТОР ЗАДАЧ: РАЗВЕДКА ==")
+import glob as _glob
+for _f in sorted(_glob.glob(APP + "/routers/*.py") + _glob.glob(APP + "/services/*.py")):
+    try:
+        _src = io.open(_f, encoding="utf-8").read()
+    except Exception:
+        continue
+    if not re.search(r"cabinet_fn|employee_fn|def generate|tasks/generate|day_plan", _src):
+        continue
+    p("--- " + _f.replace(APP + "/", ""))
+    _lines = _src.splitlines()
+    for i, l in enumerate(_lines):
+        if re.search(r"cabinet_fn|employee_fn|INSERT INTO task|FROM task|def generate|def _gen|unit|cycle_kind|cycle_weekdays|weekday|is_active", l):
+            p("%4d  %s" % (i+1, l.rstrip()[:160]))
+p("-- колонки cabinet_fn / employee_fn / task --")
+for _t in ("cabinet_fn", "employee_fn", "task"):
+    p(_t + ": " + sh("sudo -u postgres psql -d fo -Atc \"SELECT string_agg(column_name||' '||data_type, ', ' ORDER BY ordinal_position) FROM information_schema.columns WHERE table_name='%s'\"" % _t).strip())
+p("cabinet_fn строк: " + sh("sudo -u postgres psql -d fo -Atc 'SELECT count(*) FROM cabinet_fn'").strip())
+p("employee_fn строк: " + sh("sudo -u postgres psql -d fo -Atc 'SELECT count(*) FROM employee_fn'").strip())
+p("")
 p("== ЧТО НА СЕРВЕРЕ ==")
 p("роли:", sh("sudo -u postgres psql -d fo -Atc \"SELECT string_agg(code||'/'||level,', ' ORDER BY level) FROM role\"").strip() or "(не прочиталось)")
 p("таблицы:", sh("sudo -u postgres psql -d fo -Atc \"SELECT string_agg(table_name,', ' ORDER BY table_name) FROM information_schema.tables WHERE table_schema='public'\"").strip())
