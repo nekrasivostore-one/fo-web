@@ -21765,6 +21765,109 @@ document.addEventListener("click", function(e){
 
 window.foCabEnsure = cabEnsureRetry;
 
+/* ===== add73: «Клиенты агентства» для ролей ниже РМ — по сценарию С5 =====
+   Скрин Виктории (менеджер младший): шапка считает «2 кабинета», а список
+   пустой — «На этой неделе у вас нет задач по кабинетам». И висит кнопка
+   «+ Добавить кабинет».
+   Правило Виталия: роли ниже РМ видят виджеты ВСЕХ кабинетов агентства сразу,
+   но не видят частной информации (собственник, telegram, телефон, платёж,
+   дата, таблица) и не могут заводить кабинеты и задачи.
+   «Чего роль не может — того она не видит»: не серым, а нет вовсе.        */
+
+function foBelowPm(){
+  try{ return typeof foCanAdd === "function" ? !foCanAdd() : false; }catch(e){ return false; }
+}
+
+/* 1. список кабинетов: младшим — все, без фильтра по «есть ли у меня задачи» */
+(function(){
+  if(typeof renderProjects !== "function") return;
+  var _rp = renderProjects;
+  renderProjects = function(){
+    if(!foBelowPm()) return _rp.apply(this, arguments);
+    var host = document.getElementById("sect");
+    var list = S.projects || [];
+    if(!list.length){
+      host.innerHTML = '<div class="gl"><div class="empty">Кабинетов в агентстве пока нет.</div></div>';
+      return;
+    }
+    var mine = true;                                  /* в карточке — только свои задачи */
+    var open = (typeof openProj !== "undefined" && openProj) ? project(openProj) : null;
+    if(!open){
+      host.innerHTML = '<div class="cards">' + list.map(function(pr){
+        return cabCard(pr, mine, false); }).join("") + '</div>';
+    } else {
+      var rest = list.filter(function(pr){ return pr.id !== open.id; });
+      host.innerHTML =
+        '<button class="bt gh2 backall" id="backAll">← Вернуться ко всем кабинетам</button>' +
+        '<div class="split">' + cabCard(open, mine, true) +
+          '<section class="gl detail">' + cabDetail(open) + '</section></div>' +
+        (rest.length ? '<div class="restlbl">Остальные кабинеты</div><div class="cards">' +
+          rest.map(function(pr){ return cabCard(pr, mine, false); }).join("") + '</div>' : '');
+    }
+    /* шапка с числом кабинетов — без кнопки и без денег */
+    try{
+      if(typeof clientsHead === "function" && !host.querySelector(".teamh")){
+        var h = clientsHead().replace(/<button[^>]*id="clAddCab"[^>]*>[^<]*<\/button>/, "");
+        host.insertAdjacentHTML("afterbegin", h);
+      }
+    }catch(e){}
+    try{ if(typeof paintBars === "function") paintBars(host); }catch(e){}
+  };
+  try{ if(typeof SEC_RENDER !== "undefined" && SEC_RENDER) SEC_RENDER.projects = renderProjects; }catch(e){}
+})();
+
+/* 2. форма «Данные клиента» — младшим не рисуется вовсе */
+(function(){
+  if(typeof edCliForm !== "function") return;
+  var _f = edCliForm;
+  edCliForm = function(pr){
+    if(foBelowPm()) return "";
+    return _f.apply(this, arguments);
+  };
+})();
+
+/* 3. блоки «Контакты» и «Деньги» в карточке клиента — младшим не показываются */
+(function(){
+  if(typeof ccDetail !== "function") return;
+  var _cd = ccDetail;
+  ccDetail = function(pr){
+    var h = _cd.apply(this, arguments);
+    if(!foBelowPm()) return h;
+    try{
+      var box = document.createElement("div");
+      box.innerHTML = h;
+      box.querySelectorAll(".ccdc").forEach(function(c){
+        var t = (c.querySelector(".ccdh") || {}).textContent || "";
+        if(/Контакты|Деньги/.test(t)) c.parentNode.removeChild(c);
+      });
+      box.querySelectorAll(".edbox").forEach(function(e){ e.parentNode.removeChild(e); });
+      return box.innerHTML;
+    }catch(e){ return h; }
+  };
+})();
+
+/* 4. кнопка «+ Добавить кабинет» и любые входы в заведение — младшим нет */
+(function(){
+  function sweep(){
+    if(!foBelowPm()) return;
+    document.querySelectorAll("#clAddCab, #cabAdd, #addCab, #addCab2, [data-addcab]")
+      .forEach(function(b){ b.remove(); });
+  }
+  document.addEventListener("click", function(){ setTimeout(sweep, 30); }, true);
+  var mo = new MutationObserver(function(){ sweep(); });
+  try{ mo.observe(document.body, {childList:true, subtree:true}); }catch(e){}
+  setTimeout(sweep, 300); setTimeout(sweep, 1500);
+  /* если каким-то путём всё же попали в форму — выходим */
+  document.addEventListener("click", function(e){
+    if(!foBelowPm() || !e.target.closest) return;
+    if(e.target.closest("#clAddCab, #cabAdd, #addCab, #addCab2, [data-addcab]")){
+      e.stopPropagation(); e.preventDefault();
+    }
+  }, true);
+})();
+
+window.foBelowPm = foBelowPm;
+
 })();
 </script>
 </body>
