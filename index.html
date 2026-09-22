@@ -22481,6 +22481,15 @@ function foDecorate(){
   };
 })();
 
+/* сырая строка задачи — держим в ногу с сервером, чтобы перерисовка не откатывала */
+function foRowSet(t, status, link){
+  if(!t || !t.rid) return;
+  var r = FO_ROWS[t.rid] || (FO_ROWS[t.rid] = {id: t.rid});
+  r.status = status;
+  if(status === "done") r.done_at = new Date().toISOString();
+  if(status !== "done") r.done_at = null;
+  if(link) r.report_form = link;
+}
 function foTaskById(id){
   return (S.tasks || []).filter(function(x){ return x.id === id; })[0] || null;
 }
@@ -22595,6 +22604,7 @@ function foDoneSubmit(box, tasks){
       return req.then(function(){
         okCount++;
         t.link = link; t.comment = note || t.comment;
+        foRowSet(t, appr ? "review" : "done", link);
         if(appr){ t.status = "wait"; t.done = false;
           var e = (FO_EMPS || []).filter(function(x){ return String(x.id) === String(appr); })[0];
           t.approver = e ? e.name : "клиент"; t.approverMine = false; }
@@ -22623,7 +22633,7 @@ document.addEventListener("click", function(e){
   if(t.status === "wait"){ try{ toast("Задача на согласовании — ждём ответа: " + (t.approver || "")); }catch(x){} return; }
   if(t.done){
     api("/refs/tasks/" + encodeURIComponent(t.rid) + "/undone", {method:"POST"})
-      .then(function(){ t.done = false; t.doneAt = 0; try{ render(); toast("Отметка снята"); }catch(x){} })
+      .then(function(){ t.done = false; t.doneAt = 0; foRowSet(t, "planned", null); try{ render(); toast("Отметка снята"); }catch(x){} })
       .catch(function(err){ try{ toast("Не снялось: " + (err.message || "")); }catch(x){} });
     return;
   }
@@ -22657,6 +22667,8 @@ document.addEventListener("click", function(e){
   api("/refs/tasks/" + encodeURIComponent(t.rid) + "/review/decide", {method:"POST", body:{ok: ok}})
     .then(function(){
       t.status = ""; t.approverMine = false; t.done = ok; if(ok) t.doneAt = Date.now();
+      foRowSet(t, ok ? "done" : "planned", null);
+      FO_REVIEWS = (FO_REVIEWS || []).filter(function(r){ return String(r.task_id) !== String(t.rid); });
       try{ toast(ok ? "Согласовано — задача выполнена" : "Возвращена исполнителю"); }catch(x){}
       return foReviewsLoad();
     })
