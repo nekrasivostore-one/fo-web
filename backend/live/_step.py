@@ -303,6 +303,43 @@ CREATE TABLE IF NOT EXISTS fo_cabinet_fn_cfg (
   cycle_weekdays int[],
   updated_at  timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY (cabinet_id, fn_id));
+CREATE TABLE IF NOT EXISTS fo_task_report (
+  id          bigserial PRIMARY KEY,
+  task_id     uuid NOT NULL,
+  org_id      uuid NOT NULL,
+  employee_id uuid,
+  fn_id       uuid,
+  cabinet_id  uuid,
+  link        text,
+  note        text,
+  made_at     timestamptz NOT NULL DEFAULT now());
+CREATE INDEX IF NOT EXISTS fo_task_report_task_idx ON fo_task_report (task_id);
+CREATE INDEX IF NOT EXISTS fo_task_report_fn_idx ON fo_task_report (org_id, fn_id, cabinet_id, made_at DESC);
+CREATE TABLE IF NOT EXISTS fo_link_pref (
+  org_id      uuid NOT NULL,
+  fn_id       uuid NOT NULL,
+  cabinet_id  uuid,
+  employee_id uuid NOT NULL,
+  same_table  boolean NOT NULL DEFAULT true,
+  link        text,
+  updated_at  timestamptz NOT NULL DEFAULT now());
+CREATE UNIQUE INDEX IF NOT EXISTS fo_link_pref_uniq ON fo_link_pref (fn_id, COALESCE(cabinet_id, '00000000-0000-0000-0000-000000000000'::uuid), employee_id);
+CREATE TABLE IF NOT EXISTS fo_task_review (
+  id          bigserial PRIMARY KEY,
+  task_id     uuid NOT NULL,
+  org_id      uuid NOT NULL,
+  asked_by    uuid,
+  approver_employee_id uuid,
+  approver_user_id uuid,
+  approver_label text,
+  note        text,
+  asked_at    timestamptz NOT NULL DEFAULT now(),
+  decided_at  timestamptz,
+  decided_by  uuid,
+  verdict     text,
+  decision_note text);
+CREATE INDEX IF NOT EXISTS fo_task_review_task_idx ON fo_task_review (task_id, decided_at);
+CREATE INDEX IF NOT EXISTS fo_task_review_org_idx ON fo_task_review (org_id, decided_at);
 CREATE TABLE IF NOT EXISTS pwd_code (
   id      bigserial PRIMARY KEY,
   user_id uuid NOT NULL,
@@ -316,7 +353,7 @@ CREATE INDEX IF NOT EXISTS pwd_code_user_idx ON pwd_code (user_id, made_at DESC)
 ALTER TABLE app_user ADD COLUMN IF NOT EXISTS phone text;
 ALTER TABLE app_user ADD COLUMN IF NOT EXISTS display_name text;
 
-GRANT SELECT, INSERT, UPDATE, DELETE ON fo_card, fo_task_once, org_invite, pwd_code, fo_cabinet_fn_cfg TO fo;
+GRANT SELECT, INSERT, UPDATE, DELETE ON fo_card, fo_task_once, org_invite, pwd_code, fo_cabinet_fn_cfg, fo_task_report, fo_link_pref, fo_task_review TO fo;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO fo;
 
 -- задача генератора на кабинет+функцию+день одна: дубли (гонка воркеров) убрать, индекс поставить
@@ -1107,6 +1144,263 @@ async def fo_emp_name(emp_id: str, body: FoEmpNameIn, p: Principal = Depends(max
 
 
 
+# ── С10: выполнение задачи — галочка исполнителя, ссылка, согласование ──
+# Галочку ставит исполнитель (или РМ и выше). При отметке — ссылка на
+# таблицу/документ, дата ставит сервер. История ссылок хранится
+# (fo_task_report), «одна и та же таблица» запоминается (fo_link_pref).
+# Согласование: задача уходит в status='review', у согласующего мигает.
+
+class FoDoneIn(_FoBM):
+    link: str | None = None
+    note: str | None = None
+    fact_minutes: int | None = None
+    same_table: bool | None = None
+
+
+class FoReviewIn(_FoBM):
+    approver_employee_id: str | None = None
+    approver_label: str | None = None
+    link: str | None = None
+    note: str | None = None
+    same_table: bool | None = None
+
+
+class FoDecideIn(_FoBM):
+    ok: bool = True
+    note: str | None = None
+
+
+class FoLinkPrefIn(_FoBM):
+    fn_id: str
+    cabinet_id: str | None = None
+    same_table: bool = True
+    link: str | None = None
+
+
+async def _fo_my_emp(c, p):
+    uid = _fo_uid(p)
+    return await c.fetchval("SELECT id FROM employee WHERE user_id=$1 AND org_id=$2 LIMIT 1", uid, p.org_id)
+
+
+async def _fo_task_for(c, task_id, p):
+    r = await c.fetchrow(
+        "SELECT id, org_id, fn_id, cabinet_id, client_id, assignee_id, status, title, plan_date "
+        "FROM task WHERE id=$1::uuid AND org_id=$2", task_id, p.org_id)
+    if not r:
+        raise HTTPException(404, "задача не найдена")
+    return r
+
+
+async def _fo_can_mark(c, t, p):
+    """Исполнитель — всегда; РМ и выше — тоже (за исполнителя)."""
+    me = await _fo_my_emp(c, p)
+    if me and t["assignee_id"] and str(me) == str(t["assignee_id"]):
+        return True
+    return int(getattr(p, "level", 9) or 9) <= 4
+
+
+async def _fo_save_report(c, t, p, link, note, same_table):
+    me = await _fo_my_emp(c, p)
+    link = (link or "").strip()[:2000]
+    note = (note or "").strip()[:4000]
+    if link or note:
+        await c.execute(
+            """INSERT INTO fo_task_report (task_id, org_id, employee_id, fn_id, cabinet_id, link, note)
+               VALUES ($1, $2, $3, $4, $5, $6, $7)""",
+            t["id"], p.org_id, me, t["fn_id"], t["cabinet_id"], link or None, note or None)
+    if link:
+        await c.execute("UPDATE task SET report_form=$2 WHERE id=$1", t["id"], link)
+    if same_table is not None and t["fn_id"] and me:
+        await c.execute(
+            """INSERT INTO fo_link_pref (org_id, fn_id, cabinet_id, employee_id, same_table, link)
+               VALUES ($1, $2, $3, $4, $5, $6)
+               ON CONFLICT (fn_id, COALESCE(cabinet_id, '00000000-0000-0000-0000-000000000000'::uuid), employee_id) DO UPDATE
+                 SET same_table=EXCLUDED.same_table,
+                     link=COALESCE(EXCLUDED.link, fo_link_pref.link), updated_at=now()""",
+            p.org_id, t["fn_id"], t["cabinet_id"], me, bool(same_table), (link or None))
+
+
+@router.post("/tasks/{task_id}/done")
+async def fo_task_done(task_id: str, body: FoDoneIn, p: Principal = Depends(current)):
+    """Галочка «выполнено»: исполнитель или РМ и выше. Ссылка и дата — на сервере."""
+    async with pool().acquire() as c:
+        t = await _fo_task_for(c, task_id, p)
+        if not await _fo_can_mark(c, t, p):
+            raise HTTPException(403, "отметить может исполнитель задачи или РМ")
+        if t["status"] == "removed":
+            raise HTTPException(409, "задача снята")
+        fm = body.fact_minutes if body.fact_minutes and body.fact_minutes > 0 else None
+        await c.execute(
+            "UPDATE task SET status='done', done_at=now(), fact_minutes=COALESCE($2, fact_minutes) WHERE id=$1",
+            t["id"], fm)
+        await _fo_save_report(c, t, p, body.link, body.note, body.same_table)
+        await c.execute("UPDATE fo_task_review SET decided_at=now(), verdict='done' "
+                        "WHERE task_id=$1 AND decided_at IS NULL", t["id"])
+    return {"ok": True, "status": "done"}
+
+
+@router.post("/tasks/{task_id}/undone")
+async def fo_task_undone(task_id: str, p: Principal = Depends(current)):
+    """Снять галочку (ошиблись): исполнитель или РМ и выше."""
+    async with pool().acquire() as c:
+        t = await _fo_task_for(c, task_id, p)
+        if not await _fo_can_mark(c, t, p):
+            raise HTTPException(403, "снять отметку может исполнитель задачи или РМ")
+        await c.execute("UPDATE task SET status='planned', done_at=NULL WHERE id=$1 AND status IN ('done','review')", t["id"])
+    return {"ok": True, "status": "planned"}
+
+
+@router.post("/tasks/{task_id}/review")
+async def fo_task_review(task_id: str, body: FoReviewIn, p: Principal = Depends(current)):
+    """Отправить на согласование: менеджер выбирает, кто согласует."""
+    async with pool().acquire() as c:
+        t = await _fo_task_for(c, task_id, p)
+        if not await _fo_can_mark(c, t, p):
+            raise HTTPException(403, "на согласование отправляет исполнитель задачи или РМ")
+        me = await _fo_my_emp(c, p)
+        appr = (body.approver_employee_id or "").strip() or None
+        appr_uid = None
+        if appr:
+            row = await c.fetchrow("SELECT id, user_id FROM employee WHERE id=$1::uuid AND org_id=$2", appr, p.org_id)
+            if not row:
+                raise HTTPException(400, "согласующий не из этого агентства")
+            appr_uid = row["user_id"]
+        label = (body.approver_label or "").strip()[:120] or None
+        if not appr and not label:
+            raise HTTPException(400, "укажите, кто согласует")
+        await _fo_save_report(c, t, p, body.link, body.note, body.same_table)
+        await c.execute("UPDATE fo_task_review SET decided_at=now(), verdict='replaced' "
+                        "WHERE task_id=$1 AND decided_at IS NULL", t["id"])
+        await c.execute(
+            """INSERT INTO fo_task_review (task_id, org_id, asked_by, approver_employee_id, approver_user_id, approver_label, note)
+               VALUES ($1, $2, $3, $4::uuid, $5, $6, $7)""",
+            t["id"], p.org_id, me, appr, appr_uid, label, (body.note or "").strip()[:2000] or None)
+        await c.execute("UPDATE task SET status='review' WHERE id=$1", t["id"])
+    return {"ok": True, "status": "review"}
+
+
+@router.post("/tasks/{task_id}/review/decide")
+async def fo_task_decide(task_id: str, body: FoDecideIn, p: Principal = Depends(current)):
+    """Решение согласующего: принять (задача выполнена) или вернуть."""
+    async with pool().acquire() as c:
+        t = await _fo_task_for(c, task_id, p)
+        rv = await c.fetchrow(
+            "SELECT id, approver_user_id, approver_employee_id FROM fo_task_review "
+            "WHERE task_id=$1 AND decided_at IS NULL ORDER BY asked_at DESC LIMIT 1", t["id"])
+        if not rv:
+            raise HTTPException(409, "задача не на согласовании")
+        uid = _fo_uid(p)
+        mine = rv["approver_user_id"] and str(rv["approver_user_id"]) == str(uid)
+        if not mine and int(getattr(p, "level", 9) or 9) > 2:
+            raise HTTPException(403, "решает согласующий, собственник или директор")
+        note = (body.note or "").strip()[:2000] or None
+        await c.execute("UPDATE fo_task_review SET decided_at=now(), verdict=$2, decision_note=$3, decided_by=$4 WHERE id=$1",
+                        rv["id"], "ok" if body.ok else "back", note, uid)
+        if body.ok:
+            await c.execute("UPDATE task SET status='done', done_at=now() WHERE id=$1", t["id"])
+        else:
+            await c.execute("UPDATE task SET status='planned' WHERE id=$1", t["id"])
+    return {"ok": True, "status": "done" if body.ok else "planned"}
+
+
+@router.get("/tasks/reviews")
+async def fo_task_reviews(p: Principal = Depends(current)):
+    """Что ждёт согласования: мои (я согласую) и по всему агентству для собственника/директора."""
+    uid = _fo_uid(p)
+    lvl = int(getattr(p, "level", 9) or 9)
+    async with pool().acquire() as c:
+        me = await _fo_my_emp(c, p)
+        rows = await c.fetch(
+            """SELECT r.id, r.task_id, r.asked_at, r.approver_employee_id, r.approver_user_id, r.approver_label, r.note,
+                      t.title, t.plan_date, t.assignee_id, t.report_form, t.cabinet_id, t.fn_id,
+                      ea.name AS approver_name, eb.name AS asked_name
+                 FROM fo_task_review r
+                 JOIN task t ON t.id = r.task_id
+                 LEFT JOIN employee ea ON ea.id = r.approver_employee_id
+                 LEFT JOIN employee eb ON eb.id = r.asked_by
+                WHERE r.org_id = $1 AND r.decided_at IS NULL AND t.status = 'review'
+                ORDER BY r.asked_at""", p.org_id)
+    out = []
+    for r in rows:
+        mine = bool(r["approver_user_id"] and str(r["approver_user_id"]) == str(uid))
+        if not (mine or lvl <= 2 or (me and str(r["assignee_id"] or "") == str(me))):
+            continue
+        d = {k: r[k] for k in ("task_id", "asked_at", "approver_label", "note", "title", "plan_date",
+                               "report_form", "approver_name", "asked_name")}
+        for k in ("task_id", "approver_employee_id", "assignee_id", "cabinet_id", "fn_id"):
+            d[k] = str(r[k]) if r[k] is not None else None
+        d["mine"] = mine
+        out.append(d)
+    return out
+
+
+@router.get("/tasks/{task_id}/reports")
+async def fo_task_reports(task_id: str, p: Principal = Depends(current)):
+    """История ссылок и заметок по задаче и по этой функции в этом кабинете."""
+    async with pool().acquire() as c:
+        t = await _fo_task_for(c, task_id, p)
+        rows = await c.fetch(
+            """SELECT r.task_id, r.link, r.note, r.made_at, e.name AS who
+                 FROM fo_task_report r LEFT JOIN employee e ON e.id = r.employee_id
+                WHERE r.org_id=$1 AND ((r.task_id=$2) OR (r.fn_id=$3 AND r.cabinet_id IS NOT DISTINCT FROM $4))
+                ORDER BY r.made_at DESC LIMIT 50""", p.org_id, t["id"], t["fn_id"], t["cabinet_id"])
+    return [{"task_id": str(r["task_id"]), "link": r["link"], "note": r["note"],
+             "made_at": r["made_at"], "who": r["who"], "this_task": str(r["task_id"]) == str(t["id"])} for r in rows]
+
+
+@router.get("/link-pref")
+async def fo_link_pref_get(fn_id: str, cabinet_id: str | None = None, p: Principal = Depends(current)):
+    """«Одна и та же таблица по этой задаче?» — что человек ответил и последняя ссылка."""
+    async with pool().acquire() as c:
+        me = await _fo_my_emp(c, p)
+        if not me:
+            return {"asked": False}
+        r = await c.fetchrow(
+            "SELECT same_table, link FROM fo_link_pref WHERE fn_id=$1::uuid AND cabinet_id IS NOT DISTINCT FROM $2::uuid AND employee_id=$3",
+            fn_id, cabinet_id, me)
+        if not r:
+            last = await c.fetchval(
+                "SELECT link FROM fo_task_report WHERE org_id=$1 AND fn_id=$2::uuid AND employee_id=$3 AND link IS NOT NULL ORDER BY made_at DESC LIMIT 1",
+                p.org_id, fn_id, me)
+            return {"asked": False, "link": last}
+    return {"asked": True, "same_table": r["same_table"], "link": r["link"]}
+
+
+@router.post("/link-pref")
+async def fo_link_pref_set(body: FoLinkPrefIn, p: Principal = Depends(current)):
+    async with pool().acquire() as c:
+        me = await _fo_my_emp(c, p)
+        if not me:
+            raise HTTPException(409, "у аккаунта нет карточки сотрудника")
+        await c.execute(
+            """INSERT INTO fo_link_pref (org_id, fn_id, cabinet_id, employee_id, same_table, link)
+               VALUES ($1, $2::uuid, $3::uuid, $4, $5, $6)
+               ON CONFLICT (fn_id, COALESCE(cabinet_id, '00000000-0000-0000-0000-000000000000'::uuid), employee_id) DO UPDATE
+                 SET same_table=EXCLUDED.same_table, link=COALESCE(EXCLUDED.link, fo_link_pref.link), updated_at=now()""",
+            p.org_id, body.fn_id, body.cabinet_id, me, bool(body.same_table), (body.link or "").strip() or None)
+    return {"ok": True}
+
+
+@router.post("/functions/{fn_id}/remove")
+async def fo_fn_remove(fn_id: str, p: Principal = Depends(max_level(4))):
+    """Убрать функцию из справочника агентства. Если она стоит в кабинетах — отказ."""
+    async with pool().acquire() as c:
+        ok = await c.fetchval("SELECT 1 FROM fn WHERE id=$1::uuid AND org_id=$2", fn_id, p.org_id)
+        if not ok:
+            raise HTTPException(404, "функция не найдена")
+        n = await c.fetchval("SELECT count(*) FROM cabinet_fn WHERE fn_id=$1::uuid", fn_id)
+        if n:
+            raise HTTPException(409, "функция стоит в кабинетах (%d) — сначала уберите её оттуда" % n)
+        async with c.transaction():
+            await c.execute("DELETE FROM employee_fn WHERE fn_id=$1::uuid", fn_id)
+            await c.execute("DELETE FROM fo_cabinet_fn_cfg WHERE fn_id=$1::uuid", fn_id)
+            try:
+                await c.execute("DELETE FROM fn WHERE id=$1::uuid AND org_id=$2", fn_id, p.org_id)
+            except Exception:
+                await c.execute("UPDATE fn SET is_active=false WHERE id=$1::uuid AND org_id=$2", fn_id, p.org_id)
+    return {"ok": True}
+
+
 # ── Мой аккаунт ──────────────────────────────────────────────────
 
 @router.get("/me/account")
@@ -1475,7 +1769,7 @@ else:
     p("")
     p("== ПРОВЕРКА ЭНДПОИНТОВ ==")
     for u in ("/refs/roles", "/refs/cards", "/refs/tasks/once", "/refs/invites",
-              "/refs/me/account", "/refs/tasks/sync", "/refs/cabinets/x/functions/add", "/auth/invite-token/zzz"):
+              "/refs/me/account", "/refs/tasks/sync", "/refs/cabinets/x/functions/add", "/refs/tasks/reviews", "/refs/link-pref", "/auth/invite-token/zzz"):
         p("  %-26s %s" % (u, sh("curl -s -o /dev/null -w '%%{http_code}' http://127.0.0.1:8000%s" % u).strip()))
     p("(401/403 — эндпоинт есть и просит вход; 404 — не встал)")
     p("ГОТОВО: хранение переехало на сервер")
