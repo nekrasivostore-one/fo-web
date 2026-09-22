@@ -22162,10 +22162,30 @@ function foMeLoad(){
   }, ms);
 });
 
+/* добрать user_id к людям, если первый loadLive прошёл до этого слоя */
+function foPeopleUsers(){
+  var list = (typeof S !== "undefined" && S && S.people) ? S.people : [];
+  if(!list.length) return Promise.resolve();
+  if(list.every(function(m){ return m && ("user_id" in m); })) return Promise.resolve();
+  return api("/refs/employees").then(function(emps){
+    var byId = {};
+    (emps || []).forEach(function(e){ byId[String(e.id)] = e; });
+    list.forEach(function(m){
+      var e = byId[String(m.id)];
+      m.user_id = e ? (e.user_id || null) : null;
+      if(e && e.email) m.email = e.email;
+    });
+  }).catch(function(){});
+}
+
 /* пересчитать meId и пометить собственника по user_id */
 function foBindMe(){
   var list = (typeof S !== "undefined" && S && S.people) ? S.people : [];
   if(!list.length || !FO_ME) return;
+  if(!list.every(function(m){ return m && ("user_id" in m); })){
+    foPeopleUsers().then(function(){ foBindMe(); try{ render(); }catch(e){} });
+    return;
+  }
   var uid = String(FO_ME.id || "");
   list.forEach(function(m){
     if(!m) return;
