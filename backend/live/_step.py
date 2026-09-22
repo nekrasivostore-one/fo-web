@@ -248,6 +248,7 @@ p("app_user:", sh("sudo -u postgres psql -d fo -Atc \"SELECT string_agg(column_n
 try:
     refs_src = io.open(REFS, encoding="utf-8").read()
     sign_src = io.open(SIGN, encoding="utf-8").read()
+    main_src = io.open(MAIN, encoding="utf-8").read()
 except Exception as e:
     p("файлы роутеров не читаются:", e); print("\n".join(out)); sys.exit(1)
 
@@ -361,6 +362,11 @@ CREATE TABLE IF NOT EXISTS fo_task_review (
   decision_note text);
 CREATE INDEX IF NOT EXISTS fo_task_review_task_idx ON fo_task_review (task_id, decided_at);
 CREATE INDEX IF NOT EXISTS fo_task_review_org_idx ON fo_task_review (org_id, decided_at);
+CREATE TABLE IF NOT EXISTS fo_shadow_log (
+  id bigserial PRIMARY KEY,
+  admin_user_id uuid,
+  target_user_id uuid,
+  at timestamptz NOT NULL DEFAULT now());
 CREATE TABLE IF NOT EXISTS pwd_code (
   id      bigserial PRIMARY KEY,
   user_id uuid NOT NULL,
@@ -374,7 +380,7 @@ CREATE INDEX IF NOT EXISTS pwd_code_user_idx ON pwd_code (user_id, made_at DESC)
 ALTER TABLE app_user ADD COLUMN IF NOT EXISTS phone text;
 ALTER TABLE app_user ADD COLUMN IF NOT EXISTS display_name text;
 
-GRANT SELECT, INSERT, UPDATE, DELETE ON fo_card, fo_task_once, org_invite, pwd_code, fo_cabinet_fn_cfg, fo_task_report, fo_link_pref, fo_task_review TO fo;
+GRANT SELECT, INSERT, UPDATE, DELETE ON fo_card, fo_task_once, org_invite, pwd_code, fo_cabinet_fn_cfg, fo_task_report, fo_link_pref, fo_task_review, fo_shadow_log TO fo;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO fo;
 
 -- задача генератора на кабинет+функцию+день одна: дубли (гонка воркеров) убрать, индекс поставить
@@ -1595,6 +1601,83 @@ async def fo_fn_remove(fn_id: str, p: Principal = Depends(max_level(4))):
     return {"ok": True}
 
 
+# ── режим тени для админа (134, 136): смотреть глазами любого человека ──
+# Админ получает доступ от имени выбранного пользователя. Пока фронт держит
+# метку тени (заголовок X-FO-Shadow), сервер отклоняет любую запись —
+# тень только смотрит. Каждый вход в тень пишется в fo_shadow_log.
+
+class FoShadowIn(_FoBM):
+    user_id: str
+
+
+def _fo_make_access_for(u):
+    """make_access из security.py — подбираем аргументы по его сигнатуре."""
+    import inspect as _insp
+    sec = None
+    for _m in ("..security", "app.security", "security"):
+        try:
+            sec = _fo_il.import_module(_m, package=__package__ if _m.startswith(".") else None); break
+        except Exception:
+            continue
+    if not sec or not hasattr(sec, "make_access"):
+        raise HTTPException(500, "make_access не найден")
+    fn = sec.make_access
+    params = list(_insp.signature(fn).parameters.values())
+    cand = {"user_id": str(u["id"]), "uid": str(u["id"]), "sub": str(u["id"]), "id": str(u["id"]),
+            "org_id": str(u["org_id"]), "org": str(u["org_id"]),
+            "role": u["role_code"], "role_code": u["role_code"], "level": int(u["level"]),
+            "email": u["email"], "user": u, "u": u, "row": u, "principal": u}
+    kw = {}
+    for prm in params:
+        if prm.name in cand:
+            kw[prm.name] = cand[prm.name]
+        elif prm.default is _insp.Parameter.empty and prm.kind in (prm.POSITIONAL_OR_KEYWORD, prm.KEYWORD_ONLY):
+            raise HTTPException(500, "make_access ждёт неизвестный аргумент: %s (сигнатура: %s)" % (prm.name, str(_insp.signature(fn))))
+    try:
+        return fn(**kw)
+    except TypeError as e:
+        # возможно, ждёт одну запись пользователя позиционно
+        try:
+            return fn(u)
+        except Exception:
+            raise HTTPException(500, "make_access: %s (сигнатура: %s)" % (str(e)[:120], str(_insp.signature(fn))))
+
+
+@router.post("/admin/shadow")
+async def fo_admin_shadow(body: FoShadowIn, p: Principal = Depends(max_level(0))):
+    """Тень: доступ от имени пользователя. Только смотреть — запись сервер отклонит."""
+    async with pool().acquire() as c:
+        u = await c.fetchrow(
+            "SELECT u.id, u.email, u.org_id, u.role_code, u.display_name, r.level, o.name AS org_name "
+            "FROM app_user u JOIN role r ON r.code=u.role_code JOIN org o ON o.id=u.org_id "
+            "WHERE u.id=$1::uuid", body.user_id)
+        if not u:
+            raise HTTPException(404, "пользователь не найден")
+        tok = _fo_make_access_for(u)
+        if isinstance(tok, (tuple, list)):
+            tok = tok[0]
+        if isinstance(tok, dict):
+            tok = tok.get("access") or tok.get("token") or tok.get("access_token")
+        try:
+            await c.execute("INSERT INTO fo_shadow_log (admin_user_id, target_user_id) VALUES ($1, $2)", _fo_uid(p), u["id"])
+        except Exception:
+            pass
+    return {"ok": True, "access": tok, "user": {"id": str(u["id"]), "email": u["email"], "name": u["display_name"] or "",
+                                              "role": u["role_code"], "level": u["level"], "org_name": u["org_name"]}}
+
+
+@router.get("/admin/people")
+async def fo_admin_people(p: Principal = Depends(max_level(0))):
+    """Все агентства и люди — для выбора, чьими глазами смотреть."""
+    async with pool().acquire() as c:
+        rows = await c.fetch(
+            "SELECT u.id, u.email, u.display_name, u.role_code, r.level, o.id AS org_id, o.name AS org_name "
+            "FROM app_user u JOIN role r ON r.code=u.role_code JOIN org o ON o.id=u.org_id "
+            "WHERE u.is_active ORDER BY o.name, r.level, u.email")
+    return [{"id": str(r["id"]), "email": r["email"], "name": r["display_name"] or "", "role": r["role_code"],
+             "level": r["level"], "org_id": str(r["org_id"]), "org_name": r["org_name"]} for r in rows]
+
+
 # ── Мой аккаунт ──────────────────────────────────────────────────
 
 @router.get("/me/account")
@@ -1799,6 +1882,21 @@ async def fo_step_report(p: Principal = Depends(max_level(1))):
         return {"ok": False, "text": "отчёта нет: %s" % e}
 '''
 
+ADD_MAIN = r'''
+
+# ══ FO-STEP-SERVER-STORAGE ═══════════════════════════════════════
+# Режим тени (134): пока фронт присылает метку X-FO-Shadow, любая
+# запись отклоняется — тень только смотрит.
+from fastapi.responses import JSONResponse as _FoJSON
+
+
+@app.middleware("http")
+async def _fo_shadow_guard(request, call_next):
+    if request.headers.get("x-fo-shadow") and request.method not in ("GET", "HEAD", "OPTIONS"):
+        return _FoJSON({"detail": "режим тени: только смотреть, менять нельзя"}, status_code=403)
+    return await call_next(request)
+'''
+
 ADD_SIGN = r'''
 
 # ══ FO-STEP-SERVER-STORAGE ═══════════════════════════════════════
@@ -1932,15 +2030,21 @@ bak = "/opt/fo/backend-step-bak-" + stamp
 os.makedirs(bak, exist_ok=True)
 shutil.copy(REFS, bak + "/refs.py")
 shutil.copy(SIGN, bak + "/signup.py")
+shutil.copy(MAIN, bak + "/main.py")
 
 io.open(REFS, "w", encoding="utf-8").write(cut(refs_src).rstrip("\n") + "\n" + ADD_REFS)
 io.open(SIGN, "w", encoding="utf-8").write(cut(sign_src).rstrip("\n") + "\n" + ADD_SIGN)
+if re.search(r"^app\s*=\s*FastAPI\(", main_src, re.M):
+    io.open(MAIN, "w", encoding="utf-8").write(cut(main_src).rstrip("\n") + "\n" + ADD_MAIN)
+    p("main.py: страж тени дописан")
+else:
+    p("main.py: app = FastAPI( не найден — страж тени не ставлю")
 p("")
 p("== КОД ==")
 p("дописано в refs.py и signup.py, копия в", bak)
 
 ok = True
-for f in (REFS, SIGN):
+for f in (REFS, SIGN, MAIN):
     r = sh("%s -m py_compile %s" % (PY, f))
     if r.strip():
         p("синтаксис не сошёлся в", f, ":", r.strip()[:600]); ok = False
@@ -1955,6 +2059,7 @@ if ok:
 if not ok:
     shutil.copy(bak + "/refs.py", REFS)
     shutil.copy(bak + "/signup.py", SIGN)
+    shutil.copy(bak + "/main.py", MAIN)
     sh("systemctl restart fo"); sh("sleep 3")
     p("ОТКАТ: вернул как было, health=" +
       sh("curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8000/health").strip())
@@ -1963,7 +2068,7 @@ else:
     p("")
     p("== ПРОВЕРКА ЭНДПОИНТОВ ==")
     for u in ("/refs/roles", "/refs/cards", "/refs/tasks/once", "/refs/invites",
-              "/refs/me/account", "/refs/tasks/sync", "/refs/cabinets/x/functions/add", "/refs/tasks/reviews", "/refs/link-pref", "/refs/cabinets/x/articles", "/auth/invite-token/zzz"):
+              "/refs/me/account", "/refs/tasks/sync", "/refs/cabinets/x/functions/add", "/refs/tasks/reviews", "/refs/link-pref", "/refs/cabinets/x/articles", "/refs/admin/people", "/auth/invite-token/zzz"):
         p("  %-26s %s" % (u, sh("curl -s -o /dev/null -w '%%{http_code}' http://127.0.0.1:8000%s" % u).strip()))
     p("(401/403 — эндпоинт есть и просит вход; 404 — не встал)")
     p("ГОТОВО: хранение переехало на сервер")
