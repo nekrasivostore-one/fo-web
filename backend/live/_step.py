@@ -196,6 +196,28 @@ try:
             p("generator.py: строка wd не найдена - не трогаю")
 except Exception as e:
     p("generator.py дни недели:", e)
+p("== ГЕНЕРАТОР: ВСТАВКА БЕЗ ДУБЛЕЙ ==")
+try:
+    _gp = APP + "/services/generator.py"
+    _src = io.open(_gp, encoding="utf-8").read()
+    if "ON CONFLICT DO NOTHING" in _src:
+        p("generator.py: ON CONFLICT уже стоит")
+    else:
+        _new = _src.replace("'generator',$6,$7,$8)\"\"\"", "'generator',$6,$7,$8)\n               ON CONFLICT DO NOTHING\"\"\"")
+        _new = _new.replace("'generator',$7,$8,$9)\"\"\"", "'generator',$7,$8,$9)\n               ON CONFLICT DO NOTHING\"\"\"")
+        if _new != _src:
+            shutil.copy(_gp, _gp + ".bak-oc-" + stamp)
+            io.open(_gp, "w", encoding="utf-8").write(_new)
+            _chk = sh(PY + " -m py_compile " + _gp)
+            if _chk.strip():
+                shutil.copy(_gp + ".bak-oc-" + stamp, _gp)
+                p("generator.py: ON CONFLICT - синтаксис не сошёлся, ОТКАТ:", _chk.strip()[:300])
+            else:
+                p("generator.py: вставки с ON CONFLICT DO NOTHING (%d)" % _new.count("ON CONFLICT DO NOTHING"))
+        else:
+            p("generator.py: строки вставки не найдены - не трогаю")
+except Exception as e:
+    p("generator.py ON CONFLICT:", e)
 p("")
 p("== ЧТО НА СЕРВЕРЕ ==")
 p("роли:", sh("sudo -u postgres psql -d fo -Atc \"SELECT string_agg(code||'/'||level,', ' ORDER BY level) FROM role\"").strip() or "(не прочиталось)")
@@ -296,6 +318,21 @@ ALTER TABLE app_user ADD COLUMN IF NOT EXISTS display_name text;
 
 GRANT SELECT, INSERT, UPDATE, DELETE ON fo_card, fo_task_once, org_invite, pwd_code, fo_cabinet_fn_cfg TO fo;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO fo;
+
+-- задача генератора на кабинет+функцию+день одна: дубли (гонка воркеров) убрать, индекс поставить
+DO $$
+BEGIN
+  DELETE FROM task t USING task k
+   WHERE t.source='generator' AND k.source='generator' AND t.status='planned'
+     AND t.cabinet_id = k.cabinet_id AND t.fn_id = k.fn_id AND t.plan_date = k.plan_date
+     AND t.article_id IS NOT DISTINCT FROM k.article_id AND t.id <> k.id
+     AND (k.created_at < t.created_at OR (k.created_at = t.created_at AND k.id < t.id));
+  CREATE UNIQUE INDEX IF NOT EXISTS task_generator_uniq
+    ON task (cabinet_id, fn_id, plan_date, COALESCE(article_id, '00000000-0000-0000-0000-000000000000'::uuid))
+    WHERE source='generator';
+EXCEPTION WHEN OTHERS THEN
+  RAISE NOTICE 'task_generator_uniq: %', SQLERRM;
+END $$;
 """
 io.open("/tmp/fo_step.sql", "w", encoding="utf-8").write(SQL)
 p("")
@@ -754,35 +791,23 @@ async def fo_task_remove(task_id: str, p: Principal = Depends(max_level(5))):
 async def fo_tasks_regen(day: str | None = None, cabinet_id: str | None = None,
                          p: Principal = Depends(max_level(4))):
     """Пересобрать день: снять несделанные задачи генератора (по кабинету или все)
-    и сгенерировать заново. Уровень: РМ и выше."""
+    и досвести заново по текущим настройкам. Уровень: РМ и выше."""
     import datetime as _dt
     try:
-        d = _dt.date.fromisoformat(day) if day else _dt.date.today()
+        d = _dt.date.fromisoformat(day) if day else _fo_msk_today()
     except Exception:
         raise HTTPException(400, "день в формате ГГГГ-ММ-ДД")
     async with pool().acquire() as c:
         if cabinet_id:
             n = await c.execute(
-                "UPDATE task SET status='removed', moved_reason='пересборка' "
-                "WHERE org_id=$1 AND plan_date=$2 AND source='generator' AND status<>'done' "
-                "AND cabinet_id=$3::uuid", p.org_id, d, cabinet_id)
+                "DELETE FROM task WHERE org_id=$1 AND plan_date=$2 AND source='generator' "
+                "AND status='planned' AND cabinet_id=$3::uuid", p.org_id, d, cabinet_id)
         else:
             n = await c.execute(
-                "UPDATE task SET status='removed', moved_reason='пересборка' "
-                "WHERE org_id=$1 AND plan_date=$2 AND source='generator' AND status<>'done'",
-                p.org_id, d)
-        _gen = None
-        for _m in ("..services.generator", "app.services.generator", "services.generator"):
-            try:
-                _gen = _fo_il.import_module(_m, package=__package__ if _m.startswith(".") else None).generate_day
-                break
-            except Exception:
-                continue
-        if not _gen:
-            raise HTTPException(500, "генератор не найден")
-        res = await _gen(c, p.org_id, d)
-    return {"ok": True, "снято": n, "создано": res.get("создано задач") if isinstance(res, dict) else res}
-
+                "DELETE FROM task WHERE org_id=$1 AND plan_date=$2 AND source='generator' "
+                "AND status='planned'", p.org_id, d)
+        res = await _fo_sync_tasks(c, p.org_id, cabinet_id, 14, None)
+    return {"ok": True, "снято": _fo_n(n), "создано": res.get("создано")}
 
 
 # ── функция = задача: задачи рождаются сразу и на две недели вперёд ──
@@ -852,7 +877,19 @@ async def _fo_pick(c, org_id, fn_id, wanted, day):
     return who
 
 
-async def _fo_sync_tasks(c, org_id, cabinet_id=None, days=14, old=None):
+async def _fo_sync_tasks(c, org_id, cabinet_id=None, days=14, old=None, wait=True):
+    """Один проход на агентство за раз: воркеров несколько, замок в базе."""
+    async with c.transaction():
+        if wait:
+            await c.execute("SELECT pg_advisory_xact_lock(hashtext($1))", "fo-sync:" + str(org_id))
+        else:
+            got = await c.fetchval("SELECT pg_try_advisory_xact_lock(hashtext($1))", "fo-sync:" + str(org_id))
+            if not got:
+                return {"создано": 0, "снято": 0, "переведено": 0, "дней": 0, "без исполнителя": [], "занято": True}
+        return await _fo_sync_body(c, org_id, cabinet_id, days, old)
+
+
+async def _fo_sync_body(c, org_id, cabinet_id, days, old):
     import datetime as _dt
     today = _fo_msk_today()
     horizon = [today + _dt.timedelta(days=i) for i in range(max(1, min(60, int(days or 14))))]
@@ -907,7 +944,8 @@ async def _fo_sync_tasks(c, org_id, cabinet_id=None, days=14, old=None):
                 await c.execute(
                     """INSERT INTO task (org_id, kind, fn_id, client_id, cabinet_id, title,
                                          source, assignee_id, plan_date, plan_minutes)
-                       VALUES ($1,'cyclic',$2,$3,$4,$5,'generator',$6,$7,$8)""",
+                       VALUES ($1,'cyclic',$2,$3,$4,$5,'generator',$6,$7,$8)
+                       ON CONFLICT DO NOTHING""",
                     org_id, r["fn_id"], r["client_id"], r["cabinet_id"],
                     "%s · %s" % (r["fn"], r["cabinet"]), who, d, int(r["minutes"] or 30))
                 created += 1
@@ -953,7 +991,7 @@ async def _fo_sync_loop():
             for o in orgs:
                 try:
                     async with pool().acquire() as c:
-                        await _fo_sync_tasks(c, o["org_id"], None, 14, None)
+                        await _fo_sync_tasks(c, o["org_id"], None, 14, None, wait=False)
                 except Exception:
                     pass
             ok = True
