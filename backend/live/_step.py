@@ -382,6 +382,80 @@ async def fo_once_remove(task_id: str, p: Principal = Depends(current)):
     return {"ok": True}
 
 
+# ── удаление клиента вместе с кабинетами ─────────────────────────
+# В сервисе не было ни одного способа убрать заведённого клиента:
+# DELETE /refs/clients/{id}, /remove и /archive отдавали 404.
+# Имя таблицы в разных сборках отличается, поэтому подбираем.
+
+_FO_CLI_T = None
+_FO_CAB_T = None
+
+
+async def _fo_tbl(c, names, need):
+    for t in names:
+        try:
+            r = await c.fetchval(
+                "SELECT count(*) FROM information_schema.columns "
+                "WHERE table_name=$1 AND column_name=$2", t, need)
+            if r:
+                return t
+        except Exception:
+            pass
+    return None
+
+
+@router.post("/clients/{client_id}/remove")
+async def fo_client_remove(client_id: str, p: Principal = Depends(current)):
+    """Убрать клиента и его кабинеты. Если мешают связи — прячем в архив."""
+    global _FO_CLI_T, _FO_CAB_T
+    async with pool().acquire() as c:
+        if not _FO_CLI_T:
+            _FO_CLI_T = await _fo_tbl(c, ["client", "clients"], "org_id")
+        if not _FO_CAB_T:
+            _FO_CAB_T = await _fo_tbl(c, ["cabinet", "cabinets"], "client_id")
+        if not _FO_CLI_T:
+            raise HTTPException(500, "таблица клиентов не найдена")
+
+        row = await c.fetchrow(
+            "SELECT id FROM " + _FO_CLI_T + " WHERE id=$1::uuid AND org_id=$2",
+            client_id, p.org_id)
+        if not row:
+            raise HTTPException(404, "клиент не найден")
+
+        how = "удалён"
+        try:
+            async with c.transaction():
+                if _FO_CAB_T:
+                    await c.execute(
+                        "DELETE FROM " + _FO_CAB_T + " WHERE client_id=$1::uuid",
+                        client_id)
+                await c.execute(
+                    "DELETE FROM " + _FO_CLI_T + " WHERE id=$1::uuid AND org_id=$2",
+                    client_id, p.org_id)
+        except Exception:
+            try:
+                await c.execute(
+                    "UPDATE " + _FO_CLI_T + " SET status='archived' "
+                    "WHERE id=$1::uuid AND org_id=$2", client_id, p.org_id)
+                how = "в архиве (есть связанные записи)"
+            except Exception:
+                raise HTTPException(409, "клиента нельзя убрать: на нём висят задачи")
+
+        try:
+            await c.execute(
+                "DELETE FROM fo_card WHERE org_id=$1 AND ref_id=$2 "
+                "AND kind IN ('client','cab')", p.org_id, str(client_id))
+        except Exception:
+            pass
+        try:
+            await c.execute(
+                "UPDATE fo_task_once SET removed_at=now() "
+                "WHERE org_id=$1 AND client_id=$2", p.org_id, str(client_id))
+        except Exception:
+            pass
+    return {"ok": True, "как": how}
+
+
 # ── Мой аккаунт ──────────────────────────────────────────────────
 
 @router.get("/me/account")
