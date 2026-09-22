@@ -22224,6 +22224,31 @@ function foBindMe(){
   };
 })();
 
+/* собственник — не сотрудник (110): его строку убираем из S.people целиком,
+   чтобы ни один экран (гант, команда, выпадающие списки) её не рисовал.
+   Сама строка хранится отдельно — она нужна как «автор» и как «я». */
+var FO_OWNER_ROW = null;
+function foDropOwnerRow(){
+  var list = (typeof S !== "undefined" && S && S.people) ? S.people : [];
+  var keep = [], dropped = false;
+  list.forEach(function(m){
+    var own = false;
+    try{ own = (typeof isOwnerCard === "function" && isOwnerCard(m)) || !!m.isOwnerCard; }catch(e){}
+    if(own){ FO_OWNER_ROW = m; dropped = true; }
+    else keep.push(m);
+  });
+  if(dropped){ S.people = keep; }
+  return dropped;
+}
+/* после каждой привязки — выбросить строку собственника и перерисовать */
+(function(){
+  var _bind = foBindMe;
+  foBindMe = function(){
+    _bind.apply(this, arguments);
+    try{ if(foDropOwnerRow()) foRepaint(); }catch(e){}
+  };
+})();
+
 /* собственнику нельзя раздавать задачи: убираем его из списков «ответственный» */
 (function(){
   function sweep(){
