@@ -22131,6 +22131,82 @@ function cabFnPush(clientId, rows){
 
 window.foCabFnPush = cabFnPush;
 
+/* ===== add76: «я» — это тот, кто вошёл; собственник — не сотрудник (110, С4) =====
+   1) loadLive ставил meId = S.people[0].id — «я» всегда был ПЕРВЫМ в списке,
+      а не вошедшим. Для Виктории «мои задачи» были бы задачами Игоря.
+      Теперь: meId по user_id сотрудника = id вошедшего (из /refs/me/account).
+   2) Карточка собственника искалась по имени = кусок почты. После того как
+      он назвал себя («Виталий»), совпадение пропало и строка вылезла в список
+      команды. Теперь: собственник — тот, чей user_id = id собственника.        */
+
+var FO_ME = null;                                    /* {id, role_code, level} с сервера */
+
+function foMeLoad(){
+  if(typeof foLive === "function" && !foLive()) return Promise.resolve(null);
+  return api("/refs/me/account").then(function(a){ FO_ME = a || null; return FO_ME; })
+    .catch(function(){ return null; });
+}
+
+/* пересчитать meId и пометить собственника по user_id */
+function foBindMe(){
+  var list = (typeof S !== "undefined" && S && S.people) ? S.people : [];
+  if(!list.length || !FO_ME) return;
+  var uid = String(FO_ME.id || "");
+  list.forEach(function(m){
+    if(!m) return;
+    var mu = String(m.user_id || m.userId || "");
+    if(uid && mu === uid){
+      try{ meId = m.id; }catch(e){}
+      var rc = String(FO_ME.role_code || "");
+      var lvl = FO_ME.level != null ? +FO_ME.level : 9;
+      if(rc === "owner" || rc === "admin" || lvl <= 1){
+        try{ if(typeof foMarkOwnerCard === "function") foMarkOwnerCard(m); }catch(e){}
+      }
+    }
+  });
+}
+
+/* user_id должен доехать до S.people */
+(function(){
+  if(typeof loadLive !== "function") return;
+  var _ll = loadLive;
+  loadLive = function(){
+    var r = _ll.apply(this, arguments);
+    return Promise.resolve(r).then(function(v){
+      return api("/refs/employees").then(function(emps){
+        var byId = {};
+        (emps || []).forEach(function(e){ byId[String(e.id)] = e; });
+        (S.people || []).forEach(function(m){
+          var e = byId[String(m.id)];
+          if(e){ m.user_id = e.user_id || null; if(e.email) m.email = e.email; }
+        });
+        return (FO_ME ? Promise.resolve(FO_ME) : foMeLoad()).then(function(){
+          foBindMe();
+          return v;
+        });
+      }).catch(function(){ return v; });
+    });
+  };
+})();
+
+/* собственнику нельзя раздавать задачи: убираем его из списков «ответственный» */
+(function(){
+  function sweep(){
+    if(typeof isOwnerCard !== "function") return;
+    document.querySelectorAll('select[data-nck="person"] option, select[data-ntperson] option, select.selPerson option')
+      .forEach(function(o){
+        var id = o.value; if(!id) return;
+        var m = null; try{ m = (S.people || []).filter(function(x){ return String(x.id) === String(id); })[0]; }catch(e){}
+        if(m && isOwnerCard(m)) o.remove();
+      });
+  }
+  var mo = new MutationObserver(function(){ sweep(); });
+  try{ mo.observe(document.body, {childList:true, subtree:true}); }catch(e){}
+  setTimeout(sweep, 500);
+})();
+
+window.foMe = function(){ return {me: FO_ME, meId: (typeof meId !== "undefined" ? meId : null)}; };
+
 })();
 </script>
 </body>
