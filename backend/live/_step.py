@@ -415,6 +415,7 @@ ADD_REFS = r'''
 import secrets as _fo_secrets
 import json as _fo_json
 import importlib as _fo_il
+import re
 from pydantic import BaseModel as _FoBM
 
 _FO_NAME_COL = "__NAME_COL__"
@@ -862,6 +863,178 @@ async def fo_cab_fn_remove(cab_id: str, fn_id: str, p: Principal = Depends(max_l
         except Exception as _e:
             _sync = {"ошибка": str(_e)[:200]}
     return {"ok": True, "задачи": _sync}
+
+
+# ── артикулы кабинета: список, массовое внесение, ответственный (138–141, 114) ──
+# Штатные таблицы: article (уникально cabinet_id+wb_sku), article_category
+# (A/B/C на агентство), article_owner (артикул-ответственный-день, 0=Пн).
+
+class FoArtItem(_FoBM):
+    wb_sku: str
+    seller_sku: str | None = None
+    cat: str | None = None
+    employee_id: str | None = None
+    weekdays: list[int] | None = None
+
+
+class FoArtBulkIn(_FoBM):
+    items: list[FoArtItem]
+    replace: bool = False
+
+
+class FoArtOwnerIn(_FoBM):
+    employee_id: str | None = None
+    weekdays: list[int] | None = None
+    cat: str | None = None
+    seller_sku: str | None = None
+
+
+_FO_CAT_TOUCH = {"A": 3, "B": 2, "C": 1}
+_FO_CAT_DAYS = {"A": [0, 2, 4], "B": [1, 3], "C": [2]}
+
+
+async def _fo_cat_ids(c, org_id):
+    """A/B/C для агентства — заводим, если нет."""
+    out = {}
+    for code, touches in _FO_CAT_TOUCH.items():
+        cid = await c.fetchval("SELECT id FROM article_category WHERE org_id=$1 AND code=$2", org_id, code)
+        if not cid:
+            cid = await c.fetchval(
+                "INSERT INTO article_category (org_id, code, touches_per_week) VALUES ($1,$2,$3) RETURNING id",
+                org_id, code, touches)
+        out[code] = cid
+    return out
+
+
+async def _fo_art_rows(c, cab_id):
+    rows = await c.fetch(
+        """SELECT a.id, a.wb_sku, a.seller_sku, a.is_active, a.first_seen, ac.code AS cat,
+                  (SELECT array_agg(DISTINCT ao.employee_id) FROM article_owner ao WHERE ao.article_id=a.id) AS owners,
+                  (SELECT array_agg(ao.weekday ORDER BY ao.weekday) FROM article_owner ao WHERE ao.article_id=a.id) AS weekdays
+             FROM article a LEFT JOIN article_category ac ON ac.id = a.category_id
+            WHERE a.cabinet_id=$1::uuid AND a.is_active
+            ORDER BY ac.code NULLS LAST, a.wb_sku""", cab_id)
+    names = {}
+    for r in rows:
+        for e in (r["owners"] or []):
+            if e and str(e) not in names:
+                names[str(e)] = await c.fetchval("SELECT name FROM employee WHERE id=$1", e)
+    out = []
+    for r in rows:
+        owners = [str(e) for e in (r["owners"] or []) if e]
+        out.append({"id": str(r["id"]), "wb_sku": r["wb_sku"], "seller_sku": r["seller_sku"], "cat": r["cat"],
+                    "employee_id": owners[0] if owners else None,
+                    "employee_name": names.get(owners[0]) if owners else None,
+                    "weekdays": sorted(set(int(x) for x in (r["weekdays"] or []))),
+                    "first_seen": r["first_seen"]})
+    return out
+
+
+@router.get("/cabinets/{cab_id}/articles")
+async def fo_cab_articles(cab_id: str, p: Principal = Depends(current)):
+    async with pool().acquire() as c:
+        await _fo_cab_of(c, cab_id, p.org_id)
+        return await _fo_art_rows(c, cab_id)
+
+
+async def _fo_art_owner_set(c, art_id, emp, weekdays, cat):
+    await c.execute("DELETE FROM article_owner WHERE article_id=$1", art_id)
+    if not emp:
+        return
+    days = [int(x) for x in (weekdays or []) if 0 <= int(x) <= 6]
+    if not days:
+        days = _FO_CAT_DAYS.get((cat or "C").upper(), [2])
+    for d in sorted(set(days)):
+        await c.execute("INSERT INTO article_owner (article_id, employee_id, weekday) VALUES ($1,$2::uuid,$3) ON CONFLICT DO NOTHING",
+                        art_id, emp, d)
+
+
+@router.post("/cabinets/{cab_id}/articles/bulk")
+async def fo_cab_articles_bulk(cab_id: str, body: FoArtBulkIn, p: Principal = Depends(max_level(4))):
+    """Внести список артикулов: по артикулу ВБ — добавить или обновить. replace=true — остальные снять."""
+    async with pool().acquire() as c:
+        await _fo_cab_of(c, cab_id, p.org_id)
+        cats = await _fo_cat_ids(c, p.org_id)
+        seen, n_new, n_upd = [], 0, 0
+        async with c.transaction():
+            for it in body.items:
+                wb = re.sub(r"\D", "", str(it.wb_sku or ""))
+                if len(wb) < 4:
+                    continue
+                cat = (it.cat or "").strip().upper().replace("А", "A").replace("В", "B").replace("С", "C")
+                cat = cat if cat in cats else None
+                sku = (it.seller_sku or "").strip()[:120] or None
+                emp = (it.employee_id or "").strip() or None
+                if emp:
+                    ok = await c.fetchval("SELECT 1 FROM employee WHERE id=$1::uuid AND org_id=$2", emp, p.org_id)
+                    if not ok:
+                        emp = None
+                r = await c.fetchrow("SELECT id, category_id, seller_sku FROM article WHERE cabinet_id=$1::uuid AND wb_sku=$2", cab_id, wb)
+                if r:
+                    await c.execute(
+                        "UPDATE article SET seller_sku=COALESCE($2, seller_sku), category_id=COALESCE($3, category_id), is_active=true WHERE id=$1",
+                        r["id"], sku, cats.get(cat) if cat else None)
+                    art_id = r["id"]; n_upd += 1
+                else:
+                    art_id = await c.fetchval(
+                        "INSERT INTO article (cabinet_id, seller_sku, wb_sku, category_id, is_active, first_seen) "
+                        "VALUES ($1::uuid, $2, $3, $4, true, CURRENT_DATE) RETURNING id",
+                        cab_id, sku, wb, cats.get(cat) if cat else None)
+                    n_new += 1
+                seen.append(art_id)
+                if emp or it.weekdays:
+                    await _fo_art_owner_set(c, art_id, emp, it.weekdays, cat)
+            if body.replace and seen:
+                await c.execute(
+                    "UPDATE article SET is_active=false WHERE cabinet_id=$1::uuid AND NOT (id = ANY($2::uuid[]))",
+                    cab_id, seen)
+        rows = await _fo_art_rows(c, cab_id)
+    return {"ok": True, "добавлено": n_new, "обновлено": n_upd, "всего": len(rows), "items": rows}
+
+
+@router.post("/articles/{art_id}/owner")
+async def fo_article_owner(art_id: str, body: FoArtOwnerIn, p: Principal = Depends(max_level(4))):
+    """Ответственный, дни, категория, артикул продавца — по одному артикулу."""
+    async with pool().acquire() as c:
+        r = await c.fetchrow(
+            "SELECT a.id, a.cabinet_id, ac.code AS cat FROM article a JOIN cabinet cb ON cb.id=a.cabinet_id "
+            "JOIN client cl ON cl.id=cb.client_id LEFT JOIN article_category ac ON ac.id=a.category_id "
+            "WHERE a.id=$1::uuid AND cl.org_id=$2", art_id, p.org_id)
+        if not r:
+            raise HTTPException(404, "артикул не найден")
+        cat = r["cat"]
+        if body.cat is not None:
+            cats = await _fo_cat_ids(c, p.org_id)
+            cc = (body.cat or "").strip().upper().replace("А", "A").replace("В", "B").replace("С", "C")
+            if cc in cats:
+                await c.execute("UPDATE article SET category_id=$2 WHERE id=$1", r["id"], cats[cc]); cat = cc
+        if body.seller_sku is not None:
+            await c.execute("UPDATE article SET seller_sku=$2 WHERE id=$1", r["id"], (body.seller_sku or "").strip()[:120] or None)
+        if body.employee_id is not None or body.weekdays is not None:
+            emp = (body.employee_id or "").strip() or None
+            if emp:
+                ok = await c.fetchval("SELECT 1 FROM employee WHERE id=$1::uuid AND org_id=$2", emp, p.org_id)
+                if not ok:
+                    raise HTTPException(400, "сотрудник не из этого агентства")
+            if emp is None and body.employee_id is None:
+                cur = await c.fetchval("SELECT employee_id FROM article_owner WHERE article_id=$1 LIMIT 1", r["id"])
+                emp = str(cur) if cur else None
+            await _fo_art_owner_set(c, r["id"], emp, body.weekdays, cat)
+        rows = await _fo_art_rows(c, r["cabinet_id"])
+    return {"ok": True, "items": rows}
+
+
+@router.post("/articles/{art_id}/remove")
+async def fo_article_remove(art_id: str, p: Principal = Depends(max_level(4))):
+    async with pool().acquire() as c:
+        r = await c.fetchrow(
+            "SELECT a.id FROM article a JOIN cabinet cb ON cb.id=a.cabinet_id JOIN client cl ON cl.id=cb.client_id "
+            "WHERE a.id=$1::uuid AND cl.org_id=$2", art_id, p.org_id)
+        if not r:
+            raise HTTPException(404, "артикул не найден")
+        await c.execute("UPDATE article SET is_active=false WHERE id=$1", r["id"])
+        await c.execute("DELETE FROM article_owner WHERE article_id=$1", r["id"])
+    return {"ok": True}
 
 
 @router.get("/clients/{client_id}/cabinets")
@@ -1779,7 +1952,7 @@ else:
     p("")
     p("== ПРОВЕРКА ЭНДПОИНТОВ ==")
     for u in ("/refs/roles", "/refs/cards", "/refs/tasks/once", "/refs/invites",
-              "/refs/me/account", "/refs/tasks/sync", "/refs/cabinets/x/functions/add", "/refs/tasks/reviews", "/refs/link-pref", "/auth/invite-token/zzz"):
+              "/refs/me/account", "/refs/tasks/sync", "/refs/cabinets/x/functions/add", "/refs/tasks/reviews", "/refs/link-pref", "/refs/cabinets/x/articles", "/auth/invite-token/zzz"):
         p("  %-26s %s" % (u, sh("curl -s -o /dev/null -w '%%{http_code}' http://127.0.0.1:8000%s" % u).strip()))
     p("(401/403 — эндпоинт есть и просит вход; 404 — не встал)")
     p("ГОТОВО: хранение переехало на сервер")
