@@ -63,6 +63,18 @@ for _f in ("security.py", "config.py", "deps.py", "routers/auth.py", "main.py"):
     except Exception:
         pass
 p("")
+p("== ТОКЕНЫ: ТОЧНЫЕ СТРОКИ ==")
+try:
+    _c = io.open(APP + "/config.py", encoding="utf-8").read().splitlines()
+    for i, l in enumerate(_c):
+        if re.search(r"ttl|TTL|expire|days|hours|min", l): p("config.py %3d  %s" % (i+1, l.rstrip()[:140]))
+except Exception as e: p("config.py:", e)
+try:
+    _a = io.open(APP + "/routers/auth.py", encoding="utf-8").read().splitlines()
+    for i in list(range(26, 44)) + list(range(100, 118)):
+        if i < len(_a): p("auth.py %3d  %s" % (i+1, _a[i].rstrip()[:150]))
+except Exception as e: p("auth.py:", e)
+p("")
 p("== ЧТО НА СЕРВЕРЕ ==")
 p("роли:", sh("sudo -u postgres psql -d fo -Atc \"SELECT string_agg(code||'/'||level,', ' ORDER BY level) FROM role\"").strip() or "(не прочиталось)")
 p("таблицы:", sh("sudo -u postgres psql -d fo -Atc \"SELECT string_agg(table_name,', ' ORDER BY table_name) FROM information_schema.tables WHERE table_schema='public'\"").strip())
