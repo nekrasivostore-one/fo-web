@@ -186,6 +186,17 @@ CREATE TABLE IF NOT EXISTS org_invite (
 );
 CREATE INDEX IF NOT EXISTS org_invite_org_idx ON org_invite (org_id, created_at DESC);
 
+CREATE TABLE IF NOT EXISTS fo_cabinet_fn_cfg (
+  cabinet_id  uuid NOT NULL,
+  fn_id       uuid NOT NULL,
+  org_id      uuid NOT NULL,
+  employee_id uuid,
+  minutes     int,
+  cycle_kind  text,
+  cycle_n     int,
+  cycle_weekdays int[],
+  updated_at  timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (cabinet_id, fn_id));
 CREATE TABLE IF NOT EXISTS pwd_code (
   id      bigserial PRIMARY KEY,
   user_id uuid NOT NULL,
@@ -199,7 +210,7 @@ CREATE INDEX IF NOT EXISTS pwd_code_user_idx ON pwd_code (user_id, made_at DESC)
 ALTER TABLE app_user ADD COLUMN IF NOT EXISTS phone text;
 ALTER TABLE app_user ADD COLUMN IF NOT EXISTS display_name text;
 
-GRANT SELECT, INSERT, UPDATE, DELETE ON fo_card, fo_task_once, org_invite, pwd_code TO fo;
+GRANT SELECT, INSERT, UPDATE, DELETE ON fo_card, fo_task_once, org_invite, pwd_code, fo_cabinet_fn_cfg TO fo;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO fo;
 """
 io.open("/tmp/fo_step.sql", "w", encoding="utf-8").write(SQL)
@@ -518,6 +529,107 @@ async def fo_client_remove(client_id: str, p: Principal = Depends(current)):
         except Exception:
             pass
     return {"ok": True, "как": how}
+
+
+# ── функции кабинета: то, что рождает задачи (С3, С4) ────────────
+# Генератор берёт задачи ТОЛЬКО из cabinet_fn (кабинет ↔ функция), а
+# эндпоинта для неё в API не было: форма «Задачи кабинета» никуда не
+# писала. Здесь: чтение и полная замена набора функций кабинета.
+# Проектные настройки (время, цикличность, ответственный) — в
+# fo_cabinet_fn_cfg; базовые остаются в fn. Ответственный дублируется
+# в employee_fn, чтобы генератор его увидел.
+
+class FoCabFnItem(_FoBM):
+    fn_id: str
+    employee_id: str | None = None
+    minutes: int | None = None
+    cycle_kind: str | None = None
+    cycle_n: int | None = None
+    cycle_weekdays: list[int] | None = None
+
+
+async def _fo_cab_of(c, cab_id, org_id):
+    r = await c.fetchrow(
+        "SELECT cb.id, cb.client_id FROM cabinet cb JOIN client cl ON cl.id = cb.client_id "
+        "WHERE cb.id=$1::uuid AND cl.org_id=$2", cab_id, org_id)
+    if not r:
+        raise HTTPException(404, "кабинет не найден")
+    return r
+
+
+@router.get("/cabinets/{cab_id}/functions")
+async def fo_cab_fns(cab_id: str, p: Principal = Depends(current)):
+    async with pool().acquire() as c:
+        await _fo_cab_of(c, cab_id, p.org_id)
+        rows = await c.fetch(
+            """SELECT f.id AS fn_id, f.code, f.name, f.block_id, f.norm_minutes,
+                      f.cycle_kind AS base_cycle_kind, f.cycle_n AS base_cycle_n,
+                      f.cycle_weekdays AS base_cycle_weekdays,
+                      g.employee_id, g.minutes, g.cycle_kind, g.cycle_n, g.cycle_weekdays,
+                      e.name AS employee_name
+                 FROM cabinet_fn cf
+                 JOIN fn f ON f.id = cf.fn_id
+                 LEFT JOIN fo_cabinet_fn_cfg g ON g.cabinet_id = cf.cabinet_id AND g.fn_id = cf.fn_id
+                 LEFT JOIN employee e ON e.id = g.employee_id
+                WHERE cf.cabinet_id = $1::uuid
+                ORDER BY f.block_id, f.code""", cab_id)
+    out = []
+    for r in rows:
+        d = dict(r)
+        for k in ("fn_id", "employee_id"):
+            if d.get(k) is not None: d[k] = str(d[k])
+        out.append(d)
+    return out
+
+
+@router.put("/cabinets/{cab_id}/functions")
+async def fo_cab_fns_put(cab_id: str, body: list[FoCabFnItem], p: Principal = Depends(max_level(4))):
+    """Полная замена набора функций кабинета. Уровень: РМ и выше (С5)."""
+    async with pool().acquire() as c:
+        await _fo_cab_of(c, cab_id, p.org_id)
+        fn_ids = []
+        for it in body:
+            fid = (it.fn_id or "").strip()
+            if not fid: continue
+            ok = await c.fetchval("SELECT 1 FROM fn WHERE id=$1::uuid AND org_id=$2", fid, p.org_id)
+            if not ok:
+                raise HTTPException(400, "функция не из этого агентства: " + fid[:8])
+            fn_ids.append(fid)
+        async with c.transaction():
+            await c.execute("DELETE FROM cabinet_fn WHERE cabinet_id=$1::uuid", cab_id)
+            await c.execute("DELETE FROM fo_cabinet_fn_cfg WHERE cabinet_id=$1::uuid", cab_id)
+            for it in body:
+                fid = (it.fn_id or "").strip()
+                if not fid: continue
+                await c.execute(
+                    "INSERT INTO cabinet_fn (cabinet_id, fn_id, cycle_n) VALUES ($1::uuid, $2::uuid, $3) "
+                    "ON CONFLICT DO NOTHING", cab_id, fid, it.cycle_n)
+                emp = (it.employee_id or "").strip() or None
+                if emp:
+                    ok = await c.fetchval("SELECT 1 FROM employee WHERE id=$1::uuid AND org_id=$2", emp, p.org_id)
+                    if not ok:
+                        raise HTTPException(400, "сотрудник не из этого агентства")
+                    # чтобы генератор отдал задачу именно этому человеку
+                    await c.execute(
+                        "INSERT INTO employee_fn (employee_id, fn_id, allowed) VALUES ($1::uuid, $2::uuid, true) "
+                        "ON CONFLICT DO NOTHING", emp, fid)
+                await c.execute(
+                    """INSERT INTO fo_cabinet_fn_cfg
+                         (cabinet_id, fn_id, org_id, employee_id, minutes, cycle_kind, cycle_n, cycle_weekdays)
+                       VALUES ($1::uuid, $2::uuid, $3, $4::uuid, $5, $6, $7, $8)""",
+                    cab_id, fid, p.org_id, emp,
+                    (max(1, min(2880, int(it.minutes))) if it.minutes else None),
+                    (it.cycle_kind or None), it.cycle_n, it.cycle_weekdays)
+    return {"ok": True, "функций": len(fn_ids)}
+
+
+@router.get("/clients/{client_id}/cabinets")
+async def fo_client_cabs(client_id: str, p: Principal = Depends(current)):
+    async with pool().acquire() as c:
+        rows = await c.fetch(
+            "SELECT cb.id, cb.name, cb.client_id FROM cabinet cb JOIN client cl ON cl.id = cb.client_id "
+            "WHERE cl.org_id=$1 AND cb.client_id=$2::uuid ORDER BY cb.name", p.org_id, client_id)
+    return [{"id": str(r["id"]), "name": r["name"], "client_id": str(r["client_id"])} for r in rows]
 
 
 # ── Мой аккаунт ──────────────────────────────────────────────────
