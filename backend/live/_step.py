@@ -121,6 +121,60 @@ try:
 except Exception as e:
     p("generator.py:", e)
 p("")
+p("== ГЕНЕРАТОР: ПРОЕКТНЫЕ НАСТРОЙКИ И ОТВЕТСТВЕННЫЙ (С3, С4, 110) ==")
+try:
+    _gp = APP + "/services/generator.py"
+    _src = io.open(_gp, encoding="utf-8").read()
+    _new = _src
+    _hits = 0
+    # 1. выборка: проектные настройки поверх базовых + кого назначили
+    _a1 = "                  f.norm_minutes, f.cycle_kind, COALESCE(cf.cycle_n, f.cycle_n) AS cycle_n,\n                  f.cycle_weekdays\n"
+    _b1 = ("                  COALESCE(g.minutes, f.norm_minutes) AS norm_minutes,\n"
+           "                  COALESCE(g.cycle_kind, f.cycle_kind) AS cycle_kind,\n"
+           "                  COALESCE(g.cycle_n, cf.cycle_n, f.cycle_n) AS cycle_n,\n"
+           "                  COALESCE(g.cycle_weekdays, f.cycle_weekdays) AS cycle_weekdays,\n"
+           "                  g.employee_id AS wanted\n")
+    if _a1 in _new: _new = _new.replace(_a1, _b1, 1); _hits += 1
+    _a2 = "           JOIN fn f ON f.id = cf.fn_id\n           WHERE cl.org_id = $1 AND f.unit = 'cabinet' AND f.cycle_kind <> 'none'"
+    _b2 = ("           JOIN fn f ON f.id = cf.fn_id\n"
+           "           LEFT JOIN fo_cabinet_fn_cfg g ON g.cabinet_id = cf.cabinet_id AND g.fn_id = cf.fn_id\n"
+           "           WHERE cl.org_id = $1 AND f.unit = 'cabinet'\n"
+           "             AND COALESCE(g.cycle_kind, f.cycle_kind) <> 'none'")
+    if _a2 in _new: _new = _new.replace(_a2, _b2, 1); _hits += 1
+    # 2. исполнитель: сначала назначенный, потом менее загруженный; собственник - никогда
+    _a3 = "        owner = await conn.fetchval(\n            \"\"\"SELECT ef.employee_id FROM employee_fn ef\n"
+    _b3 = ("        owner = None\n"
+           "        if r[\"wanted\"]:\n"
+           "            owner = await conn.fetchval(\n"
+           "                \"\"\"SELECT e.id FROM employee e WHERE e.id = $1 AND e.org_id = $2 AND e.is_active\n"
+           "                     AND NOT EXISTS (SELECT 1 FROM app_user u WHERE u.id = e.user_id\n"
+           "                                     AND u.role_code IN ('owner','admin'))\"\"\", r[\"wanted\"], org_id)\n"
+           "        if not owner:\n"
+           "          owner = await conn.fetchval(\n"
+           "            \"\"\"SELECT ef.employee_id FROM employee_fn ef\n")
+    if _a3 in _new: _new = _new.replace(_a3, _b3, 1); _hits += 1
+    _a4 = "               WHERE ef.fn_id = $1 AND ef.allowed AND e.org_id = $2 AND e.is_active\n               ORDER BY"
+    _b4 = ("               WHERE ef.fn_id = $1 AND ef.allowed AND e.org_id = $2 AND e.is_active\n"
+           "                 AND NOT EXISTS (SELECT 1 FROM app_user u WHERE u.id = e.user_id\n"
+           "                                 AND u.role_code IN ('owner','admin'))\n"
+           "               ORDER BY")
+    if _a4 in _new: _new = _new.replace(_a4, _b4, 1); _hits += 1
+    if "fo_cabinet_fn_cfg" in _src:
+        p("generator.py: уже правлен, не трогаю")
+    elif _hits == 4:
+        shutil.copy(_gp, _gp + ".bak-" + stamp)
+        io.open(_gp, "w", encoding="utf-8").write(_new)
+        _chk = sh(PY + " -m py_compile " + _gp)
+        if _chk.strip():
+            shutil.copy(_gp + ".bak-" + stamp, _gp)
+            p("generator.py: синтаксис не сошёлся, ОТКАТ:", _chk.strip()[:300])
+        else:
+            p("generator.py: правлен (4/4), копия .bak-" + stamp)
+    else:
+        p("generator.py: совпало %d из 4 - НЕ трогаю" % _hits)
+except Exception as e:
+    p("generator.py не тронут:", e)
+p("")
 p("== ЧТО НА СЕРВЕРЕ ==")
 p("роли:", sh("sudo -u postgres psql -d fo -Atc \"SELECT string_agg(code||'/'||level,', ' ORDER BY level) FROM role\"").strip() or "(не прочиталось)")
 p("таблицы:", sh("sudo -u postgres psql -d fo -Atc \"SELECT string_agg(table_name,', ' ORDER BY table_name) FROM information_schema.tables WHERE table_schema='public'\"").strip())
