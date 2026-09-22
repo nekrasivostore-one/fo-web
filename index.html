@@ -21875,6 +21875,20 @@ function foBelowPm(){
 
 window.foBelowPm = foBelowPm;
 
+/* диагностика для приёмки: посмотреть раздел глазами другой роли, ТОЛЬКО на этом экране,
+   ничего не сохраняя. Пример в консоли: foPeekAs("jun") → перерисовать → foPeekAs(null) */
+window.foPeekAs = function(code){
+  try{
+    if(!window.__foRoleBackup) window.__foRoleBackup = role;
+    role = code || window.__foRoleBackup;
+    if(!code) window.__foRoleBackup = null;
+    if(typeof render === "function") render();
+    var sec = document.getElementById("sect");
+    if(sec && !sec.hidden && typeof SEC_RENDER !== "undefined" && SEC_RENDER && SEC_RENDER[view]) SEC_RENDER[view]();
+    return {role: role, belowPm: foBelowPm()};
+  }catch(e){ return {error: String(e)}; }
+};
+
 /* ===== add74: сессия не слетает через час + имена вместо ников (С8) =====
 
    1) СЕССИЯ. Слой 51 обновлял токен запросом с телом {refresh: …}, а сервер
