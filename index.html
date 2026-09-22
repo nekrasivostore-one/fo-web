@@ -21652,12 +21652,16 @@ window.foServer = function(){
           разовыхЗадач: SRV_ONCE ? SRV_ONCE.length : null};
 };
 
-/* ===== add72: поля карточки кабинета уезжают на сервер =====
-   Было: при сохранении кабинета на сервер уходило только название.
-   Собственник, телефон, телеграм, сумма, дата платежа, число артикулов
-   и ссылка на таблицу оставались только в браузере и терялись.
-   Стало: после того как сервер завёл клиента, эти поля досылаются
-   карточкой — и возвращаются при следующей загрузке.                */
+/* ===== add72: кабинет заводится на сервере надёжно =====
+   Две беды, которые чиним:
+   1) В старом обработчике есть защёлка CAB_SENDING. Она поднимается перед
+      отправкой и снимается только при успешном конце цепочки. Любой обрыв
+      (а сервер полдня отвечал 404) оставлял её поднятой до перезагрузки
+      страницы — и дальше «Сохранить» молча не делал ничего.
+   2) На сервер уходило только название. Собственник, телеграм, телефон,
+      сумма, дата платежа, число артикулов и ссылка на таблицу терялись.
+   Решение: этот слой сам доводит сохранение до сервера, независимо от
+   защёлки, и не создаёт дублей — сначала смотрит, нет ли уже такого клиента. */
 
 var CAB_FIELDS = [
   ["ncOwner",  "owner"],
@@ -21670,52 +21674,96 @@ var CAB_FIELDS = [
 ];
 
 function cabGrab(){
-  var d = {}, any = false;
+  var d = {};
   CAB_FIELDS.forEach(function(p){
     var el = document.getElementById(p[0]);
     if(!el) return;
     var v = String(el.value == null ? "" : el.value).trim();
     if(p[1] === "tg") v = v.replace(/^@+/, "");
-    if(p[1] === "amount" || p[1] === "articles") v = v === "" ? null : (+v || 0);
+    if(p[1] === "amount" || p[1] === "articles"){
+      if(v === "") return;
+      v = +v || 0;
+    }
     if(v === "" || v === null) return;
-    d[p[1]] = v; any = true;
+    d[p[1]] = v;
   });
-  return any ? d : null;
+  return d;
 }
 
-/* ждём, пока сервер покажет клиента с таким названием, и дописываем поля */
-function cabPush(name, data, tries){
-  if(!data) return;
-  tries = tries == null ? 12 : tries;
-  if(tries <= 0){
-    try{ console.warn("[FO] клиент «" + name + "» не появился на сервере — поля карточки не сохранены"); }catch(e){}
-    return;
-  }
-  api("/refs/clients").then(function(list){
+function cabFind(name){
+  return api("/refs/clients").then(function(list){
     var hit = null;
     (list || []).forEach(function(c){
       if(String(c.name || "").trim() === String(name).trim()) hit = c;
     });
-    if(!hit){ setTimeout(function(){ cabPush(name, data, tries - 1); }, 900); return; }
-    cardSave("client", hit.id, data);
-    cardSave("cab",    hit.id, data);
-    try{ console.log("[FO] поля карточки кабинета сохранены на сервере:", Object.keys(data).join(", ")); }catch(e){}
-  }).catch(function(){
-    setTimeout(function(){ cabPush(name, data, tries - 1); }, 900);
+    return hit;
+  });
+}
+
+/* доводим до сервера: клиент → кабинет → поля карточки */
+function cabEnsure(name, data){
+  if(!name) return Promise.resolve(null);
+  return cabFind(name).then(function(hit){
+    if(hit) return hit;                                   /* уже завёл старый код */
+    return api("/refs/clients", {method:"POST", body:{name:name}})
+      .then(function(cl){
+        var cid = cl && (cl.id || cl.client_id);
+        if(!cid) throw new Error("клиент не завёлся");
+        return api("/refs/clients/" + encodeURIComponent(cid) +
+                   "/cabinets?name=" + encodeURIComponent(name), {method:"POST"})
+          .then(function(){ return {id:cid, name:name}; })
+          .catch(function(){ return {id:cid, name:name}; });
+      });
+  }).then(function(cl){
+    if(!cl) return null;
+    var keys = Object.keys(data || {});
+    if(keys.length){
+      cardSave("client", cl.id, data);
+      cardSave("cab",    cl.id, data);
+    }
+    try{ console.log("[FO] кабинет «" + name + "» на сервере, полей: " + keys.length); }catch(e){}
+    return cl;
+  });
+}
+
+/* три попытки: сервер мог моргнуть */
+function cabEnsureRetry(name, data, left){
+  left = left == null ? 3 : left;
+  return cabEnsure(name, data).catch(function(err){
+    if(left <= 1){
+      try{ toast("Кабинет не сохранился на сервере — попробуйте ещё раз"); }catch(e){}
+      try{ console.error("[FO] кабинет не сохранён:", err); }catch(e){}
+      return null;
+    }
+    return new Promise(function(r){ setTimeout(r, 1200); })
+      .then(function(){ return cabEnsureRetry(name, data, left - 1); });
   });
 }
 
 document.addEventListener("click", function(e){
   if(!e.target.closest || !e.target.closest("#ncSave")) return;
-  if(typeof foLive === "function" && !foLive()) return;
   var nm = String((document.getElementById("ncName") || {}).value || "").trim();
   if(!nm) return;
   var d = cabGrab();
-  if(!d) return;
-  setTimeout(function(){ cabPush(nm, d); }, 1200);
+  /* даём старому обработчику фору, потом доводим сами */
+  setTimeout(function(){
+    cabEnsureRetry(nm, d).then(function(cl){
+      if(!cl) return;
+      try{ if(typeof loadLive === "function") return loadLive(); }catch(x){}
+    }).then(function(){
+      try{ if(typeof render === "function") render(); }catch(x){}
+    });
+  }, 1400);
 }, true);
 
-window.foCabPush = cabPush;
+/* защёлку, если она залипла, снимаем при каждом заходе на форму */
+document.addEventListener("click", function(e){
+  if(!e.target.closest) return;
+  if(!e.target.closest("#cabAdd, #addCab, #addCab2, [data-addcab]")) return;
+  try{ if(typeof CAB_SENDING !== "undefined") CAB_SENDING = false; }catch(x){}
+}, true);
+
+window.foCabEnsure = cabEnsureRetry;
 
 })();
 </script>
