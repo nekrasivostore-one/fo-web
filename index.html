@@ -3767,6 +3767,49 @@ body.noadd [data-addmode]{ display:none !important; }
 #nameGate .fi{width:100%;box-sizing:border-box;font-size:16px;padding:12px 14px;margin-bottom:8px}
 #nameGate .ngerr{min-height:18px;font-size:12px;color:var(--crit,#d33);margin-bottom:10px}
 #nameGate .bt{width:100%;padding:12px}
+
+/* ===== add78: выполнение задачи — зачёркнуто, мигает, окно отметки ===== */
+@keyframes foBlink{ 0%,100%{ box-shadow:0 0 0 0 rgba(255,176,32,0) } 50%{ box-shadow:0 0 0 4px rgba(255,176,32,.6) } }
+.fo-blink{ animation:foBlink 1.1s ease-in-out infinite; border-radius:12px }
+.tdr.wait .tdt b{ color:#B7791F }
+.fo-chip{ display:inline-block; margin-left:8px; padding:2px 8px; border-radius:999px; font-size:11px; font-weight:600;
+  background:rgba(255,176,32,.16); color:#B7791F; vertical-align:middle }
+.fo-dec{ display:inline-flex; gap:6px; margin-left:8px; vertical-align:middle }
+.fo-dec .bt{ padding:4px 10px; font-size:11.5px }
+.gb.done{ text-decoration:line-through; opacity:.42 }
+.gb.wait{ outline:2px dashed rgba(255,176,32,.9); outline-offset:-2px }
+
+.fo-revbtn{ margin-left:auto }
+.fo-revbtn.on{ background:rgba(255,176,32,.16); color:#B7791F; font-weight:700 }
+.fo-revpane{ margin:8px 0 12px; padding:10px 12px; border-radius:14px; background:var(--panel-2,rgba(120,120,140,.08)) }
+.fo-revrow{ display:flex; align-items:center; justify-content:space-between; gap:10px; padding:8px 0; border-bottom:1px solid rgba(120,120,140,.15) }
+.fo-revrow:last-child{ border-bottom:none }
+.fo-revrow b{ display:block; font-size:13px }
+.fo-revrow i{ font-style:normal; font-size:11.5px; color:var(--ink-3) }
+.fo-muted{ font-size:11.5px; color:var(--ink-3) }
+
+.fo-grp{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin:8px 0 4px; padding:8px 12px;
+  border-radius:12px; background:rgba(124,92,255,.08); font-size:12.5px; color:var(--ink-2) }
+.fo-grp .bt{ padding:5px 10px; font-size:11.5px }
+.tdr.fo-ingrp{ margin-left:14px }
+
+.fo-modal{ position:fixed; inset:0; background:rgba(10,12,20,.55); z-index:900; display:flex; align-items:center; justify-content:center; padding:16px }
+.fo-box{ background:var(--panel,#fff); color:var(--ink,#111); border-radius:18px; padding:20px 22px; width:min(660px,96vw);
+  max-height:92vh; overflow:auto; box-shadow:0 24px 70px rgba(0,0,0,.35) }
+.fo-h{ display:flex; align-items:baseline; justify-content:space-between; gap:12px; margin-bottom:12px }
+.fo-h b{ font-size:16px }
+.fo-h span{ font-size:11.5px; color:var(--ink-3) }
+.fo-row{ padding:10px 0; border-top:1px solid rgba(120,120,140,.15) }
+.fo-rt{ margin-bottom:6px }
+.fo-rt b{ font-size:13px; display:block }
+.fo-rt i{ font-style:normal; font-size:11.5px; color:var(--ink-3) }
+.fo-rt2{ margin:12px 0 4px; font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-3) }
+.fo-box .fi{ width:100%; box-sizing:border-box }
+.fo-box .sel{ width:100% }
+.fo-ask{ margin-top:8px; font-size:12px; color:var(--ink-2); display:flex; flex-direction:column; gap:4px }
+.fo-ask label{ display:flex; align-items:center; gap:6px; cursor:pointer }
+.fo-err{ margin-top:10px; padding:8px 10px; border-radius:10px; background:rgba(219,74,95,.12); color:#c2394f; font-size:12.5px }
+.fo-btns{ display:flex; justify-content:flex-end; gap:8px; margin-top:16px }
 </style>
 </head>
 <body>
@@ -22357,6 +22400,368 @@ window.foMe = function(){ return {me: FO_ME, meId: (typeof meId !== "undefined" 
   };
   window.foCabFnPush = cabFnPush;
 })();
+
+/* ===== add78: С10 — выполнение задачи ======================================
+   Галочку ставит исполнитель. При отметке — ссылка на таблицу/документ,
+   дата ставит сервер (POST /refs/tasks/{id}/done). Выполненная — зачёркнута
+   у всех, кому видна. Согласование: менеджер выбирает, кто согласует
+   (POST /refs/tasks/{id}/review); у согласующего задача мигает в списке
+   и в ганте, кнопка «На согласование» мигает, пока есть хоть одна.
+   Одинаковые задачи в разных кабинетах — одной галочкой на группу,
+   группа разворачивается для ссылок по каждому кабинету.
+   Ссылки и заметки хранятся историей (/refs/tasks/{id}/reports),
+   «одна и та же таблица?» спрашивается один раз (/refs/link-pref).
+   Ничего не хранится в браузере.                                         */
+
+var FO_ROWS = {};          /* сырые строки /tasks/day по id задачи */
+var FO_REVIEWS = [];       /* что ждёт согласования */
+var FO_EMPS = [];          /* сотрудники агентства (вместе с собственником) для выбора согласующего */
+
+/* сырые строки задач — чтобы знать ссылку и статус с сервера */
+(function(){
+  var prev = api;
+  api = function(path, opt){
+    var pr = prev(path, opt);
+    try{
+      if(String(path || "").indexOf("/tasks/day") === 0 && (!opt || !opt.method || String(opt.method).toUpperCase() === "GET")){
+        return pr.then(function(rows){
+          (rows || []).forEach(function(r){ if(r && r.id) FO_ROWS[r.id] = r; });
+          return rows;
+        });
+      }
+    }catch(e){}
+    return pr;
+  };
+})();
+
+function foReviewsLoad(){
+  if(typeof foLive === "function" && !foLive()) return Promise.resolve();
+  return api("/refs/tasks/reviews").then(function(r){ FO_REVIEWS = r || []; }).catch(function(){ FO_REVIEWS = FO_REVIEWS || []; });
+}
+function foEmpsLoad(){
+  if(typeof foLive === "function" && !foLive()) return Promise.resolve();
+  return api("/refs/employees").then(function(r){ FO_EMPS = r || []; }).catch(function(){});
+}
+
+/* после загрузки: ссылка, «сделано», «на согласовании» — с сервера */
+function foDecorate(){
+  var byTask = {};
+  (FO_REVIEWS || []).forEach(function(r){ byTask[String(r.task_id)] = r; });
+  (S.tasks || []).forEach(function(t){
+    if(!t.rid) return;
+    var r = FO_ROWS[t.rid];
+    if(r){
+      t.link = r.report_form || "";
+      t.done = r.status === "done";
+    }
+    var st = r ? r.status : null;
+    var rv = byTask[String(t.rid)];
+    if(st === "review" || rv){
+      t.status = "wait";
+      t.approver = rv ? (rv.approver_name || rv.approver_label || "согласование") : "согласование";
+      t.approverMine = !!(rv && rv.mine);
+      t.done = false;
+    }else if(t.status === "wait"){
+      t.status = ""; t.approverMine = false;
+    }
+  });
+}
+
+(function(){
+  if(typeof loadLive !== "function") return;
+  var _ll = loadLive;
+  loadLive = function(){
+    var self = this, args = arguments;
+    return Promise.all([foReviewsLoad(), foEmpsLoad()]).then(function(){
+      return _ll.apply(self, args);
+    }).then(function(v){
+      try{ foDecorate(); }catch(e){}
+      return v;
+    });
+  };
+})();
+
+function foTaskById(id){
+  return (S.tasks || []).filter(function(x){ return x.id === id; })[0] || null;
+}
+function foCabName(t){
+  var c = t.cab && typeof cabById === "function" ? cabById(t.cab) : null;
+  if(c) return c.name;
+  var p = t.project && typeof project === "function" ? project(t.project) : null;
+  return p ? p.name : "";
+}
+
+/* ── окно отметки: ссылка, «та же таблица?», согласование ── */
+function foDoneDialog(tasks){
+  tasks = (tasks || []).filter(function(t){ return t && t.rid && !t.done; });
+  if(!tasks.length) return;
+  var old = document.getElementById("foDone"); if(old) old.remove();
+
+  var me = (typeof meId !== "undefined") ? meId : null;
+  var apprs = (FO_EMPS || []).filter(function(e){ return String(e.id) !== String(me); });
+  var many = tasks.length > 1;
+
+  var rows = tasks.map(function(t){
+    return '<div class="fo-row" data-fot="'+esc(t.id)+'">'+
+      '<div class="fo-rt"><b>'+esc(t.title.split(" · ")[0])+'</b>'+
+        (many ? '<i>'+esc(foCabName(t))+'</i>' : '<i>'+esc(foCabName(t))+' · '+DOW[t.dow]+'</i>')+'</div>'+
+      '<input class="fi fo-link" data-fol="'+esc(t.id)+'" placeholder="Ссылка на Google-таблицу или документ" value="'+esc(t.link || "")+'">'+
+      '<div class="fo-ask" data-foask="'+esc(t.id)+'" hidden>'+
+        '<span>По этой задаче вы работаете в одной и той же таблице?</span>'+
+        '<label><input type="radio" name="fosame_'+esc(t.id)+'" value="1" checked> да, в одной — запомнить ссылку</label>'+
+        '<label><input type="radio" name="fosame_'+esc(t.id)+'" value="0"> нет, каждый раз в разных</label>'+
+      '</div>'+
+    '</div>';
+  }).join("");
+
+  var box = document.createElement("div");
+  box.id = "foDone"; box.className = "fo-modal";
+  box.innerHTML =
+    '<div class="fo-box" role="dialog" aria-label="Отметить выполненной">'+
+      '<div class="fo-h"><b>'+(many ? 'Отметить '+tasks.length+' задачи одной галочкой' : 'Задача выполнена')+'</b>'+
+        '<span>дата и время поставит сервер</span></div>'+
+      rows+
+      '<div class="fo-rt2">Комментарий</div>'+
+      '<textarea class="fi" id="foNote" rows="2" placeholder="Что сделано, что мешало — по желанию"></textarea>'+
+      '<div class="fo-rt2">Согласование</div>'+
+      '<select class="sel" id="foAppr">'+
+        '<option value="">Без согласования — просто выполнено</option>'+
+        apprs.map(function(e){ return '<option value="'+esc(e.id)+'">Согласовать с: '+esc(e.name)+'</option>'; }).join("")+
+        '<option value="__ext">Согласовывает клиент / человек вне сервиса</option>'+
+      '</select>'+
+      '<div class="fo-err" id="foErr" hidden></div>'+
+      '<div class="fo-btns">'+
+        '<button class="bt gh2" id="foCancel">Отмена</button>'+
+        '<button class="bt pri" id="foOk">'+(many ? 'Готово, все '+tasks.length : 'Готово')+'</button>'+
+      '</div>'+
+    '</div>';
+  document.body.appendChild(box);
+
+  /* «та же таблица?» — спрашиваем один раз на функцию и кабинет; если уже ответил «да» — подставляем ссылку */
+  tasks.forEach(function(t){
+    if(!t.fn) return;
+    api("/refs/link-pref?fn_id=" + encodeURIComponent(t.fn) + (t.cab ? "&cabinet_id=" + encodeURIComponent(t.cab) : ""))
+      .then(function(p){
+        var inp = box.querySelector('[data-fol="'+t.id+'"]');
+        var ask = box.querySelector('[data-foask="'+t.id+'"]');
+        if(!p) return;
+        if(p.asked){
+          if(p.same_table && p.link && inp && !inp.value) inp.value = p.link;
+        }else{
+          if(p.link && inp && !inp.value) inp.value = p.link;
+          if(ask) ask.hidden = false;
+        }
+      }).catch(function(){});
+  });
+
+  setTimeout(function(){ var f = box.querySelector(".fo-link"); if(f) f.focus(); }, 30);
+
+  box.addEventListener("click", function(e){
+    if(e.target === box || e.target.closest("#foCancel")){ box.remove(); return; }
+    if(e.target.closest("#foOk")) foDoneSubmit(box, tasks);
+  });
+}
+
+function foDoneSubmit(box, tasks){
+  var ok = box.querySelector("#foOk"); if(ok.disabled) return;
+  var appr = box.querySelector("#foAppr").value;
+  var note = String((box.querySelector("#foNote") || {}).value || "").trim();
+  var err = box.querySelector("#foErr");
+  var missing = tasks.filter(function(t){ var i = box.querySelector('[data-fol="'+t.id+'"]'); return !String(i && i.value || "").trim(); });
+  if(missing.length){
+    err.hidden = false; err.textContent = "Прикрепите ссылку на таблицу или документ" + (tasks.length > 1 ? " по каждому кабинету" : "") + " — без неё отметка не ставится";
+    var i0 = box.querySelector('[data-fol="'+missing[0].id+'"]'); if(i0) i0.focus();
+    return;
+  }
+  ok.disabled = true; ok.textContent = "Отправляю…";
+  var chain = Promise.resolve(), okCount = 0, fails = [];
+  tasks.forEach(function(t){
+    chain = chain.then(function(){
+      var inp = box.querySelector('[data-fol="'+t.id+'"]');
+      var link = String(inp.value || "").trim();
+      var ask = box.querySelector('[data-foask="'+t.id+'"]');
+      var same = null;
+      if(ask && !ask.hidden){ var r = ask.querySelector("input:checked"); same = r ? r.value === "1" : true; }
+      var body = {link: link, note: note || null, same_table: same};
+      var req;
+      if(appr){
+        if(appr === "__ext") body.approver_label = "клиент / вне сервиса";
+        else body.approver_employee_id = appr;
+        req = api("/refs/tasks/" + encodeURIComponent(t.rid) + "/review", {method:"POST", body: body});
+      }else{
+        if(t.spentSec > 0) body.fact_minutes = Math.max(1, Math.round(t.spentSec / 60));
+        req = api("/refs/tasks/" + encodeURIComponent(t.rid) + "/done", {method:"POST", body: body});
+      }
+      return req.then(function(){
+        okCount++;
+        t.link = link; t.comment = note || t.comment;
+        if(appr){ t.status = "wait"; t.done = false;
+          var e = (FO_EMPS || []).filter(function(x){ return String(x.id) === String(appr); })[0];
+          t.approver = e ? e.name : "клиент"; t.approverMine = false; }
+        else { t.done = true; t.status = ""; t.doneAt = Date.now(); }
+      }).catch(function(e){ fails.push((t.title || "задача") + ": " + (e && e.message || "не ушло")); });
+    });
+  });
+  chain.then(function(){
+    box.remove();
+    try{ render(); }catch(e){}
+    if(fails.length){ try{ toast("Не ушло на сервер — " + fails[0]); }catch(e){} }
+    else if(appr){ try{ toast(tasks.length > 1 ? "Ушли на согласование: " + okCount : "Ушла на согласование — у согласующего замигает"); }catch(e){} }
+    else { try{ toast(tasks.length > 1 ? "Отмечено выполненными: " + okCount : "Выполнено — дата на сервере"); }catch(e){} }
+    foReviewsLoad().then(function(){ try{ foDecorate(); render(); }catch(e){} });
+  });
+}
+
+/* галочка: в живом режиме — через окно, не мимо сервера */
+document.addEventListener("click", function(e){
+  var el = e.target.closest && e.target.closest("[data-cb]");
+  if(!el) return;
+  if(typeof foLive === "function" && !foLive()) return;
+  var t = foTaskById(el.getAttribute("data-cb"));
+  if(!t || !t.rid) return;                       /* разовые и демо — как раньше */
+  e.stopImmediatePropagation(); e.preventDefault();
+  if(t.status === "wait"){ try{ toast("Задача на согласовании — ждём ответа: " + (t.approver || "")); }catch(x){} return; }
+  if(t.done){
+    api("/refs/tasks/" + encodeURIComponent(t.rid) + "/undone", {method:"POST"})
+      .then(function(){ t.done = false; t.doneAt = 0; try{ render(); toast("Отметка снята"); }catch(x){} })
+      .catch(function(err){ try{ toast("Не снялось: " + (err.message || "")); }catch(x){} });
+    return;
+  }
+  foDoneDialog([t]);
+}, true);
+
+/* ── строка задачи: зачёркнута, если сделана; мигает у согласующего ── */
+(function(){
+  if(typeof tdRow !== "function") return;
+  var _row = tdRow;
+  tdRow = function(t){
+    var html = _row(t);
+    if(t.status !== "wait") return html;
+    var cls = "tdr wait" + (t.approverMine ? " fo-blink" : "");
+    html = html.replace('class="tdr', 'class="' + cls + ' tdr0');
+    var chip = '<span class="fo-chip">на согласовании' + (t.approver ? ' → ' + esc(t.approver) : '') + '</span>' +
+      (t.approverMine || (typeof role !== "undefined" && (role === "owner" || role === "dir"))
+        ? '<span class="fo-dec"><button class="bt sm pri" data-fodec="ok" data-fot="'+esc(t.id)+'">Принять</button>' +
+          '<button class="bt sm gh2" data-fodec="back" data-fot="'+esc(t.id)+'">Вернуть</button></span>' : '');
+    return html.replace('</i></div>', '</i>' + chip + '</div>');
+  };
+})();
+
+document.addEventListener("click", function(e){
+  var b = e.target.closest && e.target.closest("[data-fodec]");
+  if(!b) return;
+  e.preventDefault(); e.stopPropagation();
+  var t = foTaskById(b.getAttribute("data-fot")); if(!t || !t.rid) return;
+  var ok = b.getAttribute("data-fodec") === "ok";
+  b.disabled = true;
+  api("/refs/tasks/" + encodeURIComponent(t.rid) + "/review/decide", {method:"POST", body:{ok: ok}})
+    .then(function(){
+      t.status = ""; t.approverMine = false; t.done = ok; if(ok) t.doneAt = Date.now();
+      try{ toast(ok ? "Согласовано — задача выполнена" : "Возвращена исполнителю"); }catch(x){}
+      return foReviewsLoad();
+    })
+    .then(function(){ try{ foDecorate(); render(); }catch(x){} })
+    .catch(function(err){ b.disabled = false; try{ toast("Не ушло: " + (err.message || "")); }catch(x){} });
+});
+
+/* ── «Задачи дня»: кнопка «На согласование», группы одинаковых задач ── */
+(function(){
+  if(typeof renderDayTasks !== "function") return;
+  var _r = renderDayTasks;
+  renderDayTasks = function(el){
+    _r(el);
+    try{ foDayExtras(el); }catch(e){}
+  };
+  if(typeof B !== "undefined") B.tasks = renderDayTasks;
+})();
+
+var foRevOpen = false;
+function foMyReviews(){
+  var isTop = (typeof role !== "undefined") && (role === "owner" || role === "dir");
+  return (FO_REVIEWS || []).filter(function(r){ return r.mine || isTop; });
+}
+
+function foDayExtras(el){
+  if(typeof foLive === "function" && !foLive()) return;
+  var bar = el.querySelector(".tdf");
+  var rv = foMyReviews();
+  if(bar){
+    var btn = document.createElement("button");
+    btn.className = "bt sm fo-revbtn" + (rv.length ? " fo-blink on" : "");
+    btn.id = "foRevBtn";
+    btn.textContent = "На согласование" + (rv.length ? " · " + rv.length : "");
+    bar.appendChild(btn);
+  }
+  if(foRevOpen){
+    var pane = document.createElement("div");
+    pane.className = "fo-revpane";
+    pane.innerHTML = rv.length
+      ? rv.map(function(r){
+          var t = (S.tasks || []).filter(function(x){ return String(x.rid) === String(r.task_id); })[0];
+          return '<div class="fo-revrow">'+
+            '<div><b>'+esc(r.title || "")+'</b><i>'+esc(r.asked_name || "")+' · '+esc(String(r.plan_date || "").slice(0,10))+
+              (r.report_form ? ' · <a href="'+esc(r.report_form)+'" target="_blank" rel="noopener">ссылка</a>' : '')+
+              (r.note ? ' · '+esc(r.note) : '')+'</i></div>'+
+            (t ? '<span class="fo-dec"><button class="bt sm pri" data-fodec="ok" data-fot="'+esc(t.id)+'">Принять</button>'+
+                 '<button class="bt sm gh2" data-fodec="back" data-fot="'+esc(t.id)+'">Вернуть</button></span>'
+               : '<span class="fo-muted">на другой неделе</span>')+
+          '</div>';
+        }).join("")
+      : '<div class="empty">Согласовывать нечего</div>';
+    el.insertBefore(pane, bar ? bar.nextSibling : el.firstChild);
+  }
+
+  /* группы: одинаковая функция у одного человека в нескольких кабинетах — одна галочка */
+  var cols = el.querySelectorAll(".tdcol:not(.ok), .tdone");
+  Array.prototype.forEach.call(cols, function(col){
+    var rows = Array.prototype.slice.call(col.querySelectorAll(".tdr"));
+    var groups = {};
+    rows.forEach(function(rw){
+      var t = foTaskById(rw.getAttribute("data-task"));
+      if(!t || t.done || !t.rid || t.status === "wait") return;
+      var key = (t.fn || t.title.split(" · ")[0]) + "|" + (t.person || "");
+      (groups[key] = groups[key] || []).push({row: rw, t: t});
+    });
+    Object.keys(groups).forEach(function(k){
+      var g = groups[k]; if(g.length < 2) return;
+      var first = g[0].row, name = g[0].t.title.split(" · ")[0];
+      var hd = document.createElement("div");
+      hd.className = "fo-grp";
+      hd.innerHTML = '<span>«'+esc(name)+'» в '+g.length+' кабинетах</span>'+
+        '<button class="bt sm" data-fogrp="'+esc(k)+'">Отметить все '+g.length+' одной галочкой</button>';
+      hd.setAttribute("data-fogids", g.map(function(x){ return x.t.id; }).join(","));
+      first.parentNode.insertBefore(hd, first);
+      g.forEach(function(x){ x.row.classList.add("fo-ingrp"); });
+    });
+  });
+}
+
+document.addEventListener("click", function(e){
+  var b;
+  if((b = e.target.closest && e.target.closest("#foRevBtn"))){ foRevOpen = !foRevOpen; try{ render(); }catch(x){} return; }
+  if((b = e.target.closest && e.target.closest("[data-fogrp]"))){
+    var hd = b.closest(".fo-grp"); var ids = (hd.getAttribute("data-fogids") || "").split(",");
+    foDoneDialog(ids.map(foTaskById).filter(Boolean));
+  }
+});
+
+/* ── гант: сделанные зачёркнуты, на согласовании у меня — мигают ── */
+(function(){
+  if(typeof B === "undefined" || typeof B.gantt !== "function") return;
+  var _g = B.gantt;
+  B.gantt = function(el){
+    _g(el);
+    try{
+      Array.prototype.forEach.call(el.querySelectorAll(".gb[data-open]"), function(gb){
+        var t = foTaskById(gb.getAttribute("data-open")); if(!t) return;
+        if(t.done) gb.classList.add("done");
+        if(t.status === "wait"){ gb.classList.add("wait"); if(t.approverMine) gb.classList.add("fo-blink"); }
+      });
+    }catch(e){}
+  };
+})();
+
+window.foReviewState = function(){ return {ждут: (FO_REVIEWS||[]).length, мои: foMyReviews().length, строк: Object.keys(FO_ROWS).length}; };
 
 })();
 </script>
