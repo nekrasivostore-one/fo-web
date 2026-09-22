@@ -21020,7 +21020,16 @@ function foFnCycle(cyc, dow, days){
 }
 
 /* функция на сервере: берём существующую или заводим */
+var FO_FN_INFLIGHT = {};
 function foFnEnsure(title, minutes, cyc, dow, days){
+  var key = String(title || "").trim().toLowerCase();
+  if(FO_FN_INFLIGHT[key]) return FO_FN_INFLIGHT[key];
+  var pr = foFnEnsureRaw(title, minutes, cyc, dow, days);
+  FO_FN_INFLIGHT[key] = pr;
+  pr.then(function(){ delete FO_FN_INFLIGHT[key]; }, function(){ delete FO_FN_INFLIGHT[key]; });
+  return pr;
+}
+function foFnEnsureRaw(title, minutes, cyc, dow, days){
   var fns = (S.fns || []);
   var have = fns.filter(function(f){
     return String(f.name || "").trim().toLowerCase() === String(title).trim().toLowerCase();
@@ -21071,6 +21080,7 @@ function foAllowFn(empId, fnId){
     try{
       before = {
         title: String(ntState.title || "").trim(),
+        project: ntState.project || "",
         person: ntState.person || "",
         cyc: ntState.cycle || "once",
         dow: (ntState.dow != null && ntState.dow !== "") ? +ntState.dow : dow,
@@ -21102,17 +21112,31 @@ function foAllowFn(empId, fnId){
       return v;
     }
 
-    window.foNtLog.push({шаг:"шлём на сервер", цикл:before.cyc, кто:before.person});
+    if(!before.project){
+      try{ toast("Выберите кабинет — задача рождается в кабинете, и там её увидит ответственный"); }catch(e){}
+      return v;
+    }
+    window.foNtLog.push({шаг:"шлём на сервер", цикл:before.cyc, кто:before.person, кабинет:before.project});
+    /* функция = задача: функция в кабинет с ответственным, сервер раскладывает по дням сам */
     foFnEnsure(before.title, before.min, before.cyc, before.dow, before.days)
       .then(function(fnId){
         if(!fnId) throw new Error("функция не завелась");
-        return foAllowFn(before.person, fnId);
+        return foAllowFn(before.person, fnId).then(function(){ return fnId; });
       })
-      .then(function(){
-        return api("/tasks/generate", {method:"POST"});
+      .then(function(fnId){
+        return cabIdOf(before.project).then(function(cabId){
+          if(!cabId) throw new Error("у клиента нет кабинета на сервере");
+          var c = foFnCycle(before.cyc, before.dow, before.days) || {};
+          var body = {fn_id: String(fnId), employee_id: String(before.person), minutes: before.min};
+          if(c.cycle_kind) body.cycle_kind = c.cycle_kind;
+          if(c.cycle_n) body.cycle_n = c.cycle_n;
+          if(c.cycle_weekdays && c.cycle_weekdays.length) body.cycle_weekdays = c.cycle_weekdays;
+          return api("/refs/cabinets/" + encodeURIComponent(cabId) + "/functions/add", {method:"POST", body: body});
+        });
       })
-      .then(function(){
-        try{ toast("Задача ушла в агентство — сервис разложил её по дням"); }catch(e){}
+      .then(function(r){
+        var z = (r && r.задачи) || {};
+        try{ toast("Задача в кабинете" + (z.создано != null ? " — задач на " + (z.дней || 14) + " дней: " + z.создано : "")); }catch(e){}
         return loadLive();
       })
       .then(function(){ try{ render(); }catch(e){} })
