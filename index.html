@@ -22888,13 +22888,27 @@ function foCabFnAll(){
   });
 }
 
+/* форма «Функции» читает цикличность с сервера (132): базовая настройка функции — из таблицы fn */
+function foFnCfgFromServer(){
+  if(typeof fnCfg !== "function") return;
+  (S.fns || []).forEach(function(f){
+    var srv = FO_FNS[String(f.id)]; if(!srv || !srv.cycle_kind || srv.cycle_kind === "none") return;
+    var c; try{ c = fnCfg(f); }catch(e){ return; }
+    if(c.cyc) return;                                   /* человек уже выбрал в форме — не трогаем */
+    var k = srv.cycle_kind, n = +srv.cycle_n || 0, days = (srv.cycle_weekdays || []).slice();
+    if(k === "weekly" && n === 2) k = "biweekly";
+    else if(k === "weekly" && days.length > 1) k = "wdays";
+    c.cyc = k; c.days = days;
+  });
+}
+
 (function(){
   if(typeof loadLive !== "function") return;
   var _ll = loadLive;
   loadLive = function(){
     var self = this, args = arguments;
     return _ll.apply(self, args).then(function(v){
-      return Promise.all([foFnsLoad(), foCabFnAll()]).then(function(){ return v; }, function(){ return v; });
+      return Promise.all([foFnsLoad(), foCabFnAll()]).then(function(){ try{ foFnCfgFromServer(); }catch(e){} return v; }, function(){ return v; });
     });
   };
 })();
