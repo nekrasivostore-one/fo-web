@@ -23231,7 +23231,8 @@ function foChatsLoad(clientId){
   return api("/routing/" + encodeURIComponent(clientId) + "/chats").then(function(r){
     var list = (r && (r.чаты || r.chats)) || (Array.isArray(r) ? r : []);
     FO_CHATS[clientId] = list.map(function(c){
-      return {pk: c.pk != null ? c.pk : (c.chat_pk != null ? c.chat_pk : c.id), title: c.title || c.название || "", chat_id: c.chat_id || "", kind: c.kind || c.вид || "mpv"};
+      return {pk: c.pk != null ? c.pk : (c.chat_pk != null ? c.chat_pk : c.id), title: c.title || c.название || "",
+              chat_id: c.chat_id || c.телеграм || c.telegram || "", kind: c.kind || c.роль || c.вид || "mpv"};
     });
     return FO_CHATS[clientId];
   }).catch(function(){ FO_CHATS[clientId] = FO_CHATS[clientId] || []; return FO_CHATS[clientId]; });
@@ -23259,7 +23260,7 @@ function foParseArts(txt){
       var m = l.match(/\b(\d{6,12})\b/); if(m) wb = m[1];
     }
     if(!wb) return;                                   /* заголовок или мусор */
-    sku = rest.filter(function(t){ return t !== wb && !/^(артикул|sku|категория|кат\.?)/i.test(t); })[0] || "";
+    sku = rest.filter(function(t){ return t !== wb && !/^(артикул( вб| продавца)?|sku|категория|кат\.?|wb|вб)$/i.test(t); })[0] || "";
     if(seen[wb]) return; seen[wb] = 1;
     out.push({wb_sku: wb, seller_sku: sku, cat: cat});
   });
