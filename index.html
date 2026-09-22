@@ -23201,6 +23201,15 @@ window.foCabFnState = function(id){ return id ? FO_CABFN[id] : Object.keys(FO_CA
   };
 })();
 
+/* 142: «@» в поле Telegram стоит слева сама — если человек вписал «@ник», второй «@» не появится */
+document.addEventListener("input", function(e){
+  var el = e.target; if(!el || !el.matches) return;
+  var isTg = el.id === "ncTg" || el.getAttribute("data-edk") === "tg" || el.getAttribute("data-ck") === "tg";
+  if(!isTg) return;
+  var v = String(el.value || ""), nv = v.replace(/^[\s@]+/, "").replace(/^https?:\/\/t\.me\//i, "");
+  if(nv !== v){ var p = el.selectionStart; el.value = nv; try{ el.setSelectionRange(Math.max(0, p - (v.length - nv.length)), Math.max(0, p - (v.length - nv.length))); }catch(x){} }
+});
+
 /* ===== add81: артикулы и чаты в карточке клиента — на сервере (138–141, 144, 114)
    Артикулы: GET /refs/cabinets/{id}/articles, массовое внесение
    POST …/articles/bulk, ответственный/дни/категория — POST /refs/articles/{id}/owner.
