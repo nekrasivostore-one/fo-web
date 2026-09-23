@@ -933,6 +933,12 @@ class FoArtItem(_FoBM):
     cat: str | None = None
     employee_id: str | None = None
     weekdays: list[int] | None = None
+    sku_clear: bool | None = None          # 199: в «артикуле продавца» стояло имя — очистить
+
+
+class FoArtRemoveIn(_FoBM):
+    ids: list[str] | None = None
+    all: bool = False
 
 
 class FoArtBulkIn(_FoBM):
@@ -1027,9 +1033,22 @@ async def fo_cab_articles_bulk(cab_id: str, body: FoArtBulkIn, p: Principal = De
                     ok = await c.fetchval("SELECT 1 FROM employee WHERE id=$1::uuid AND org_id=$2", emp, p.org_id)
                     if not ok:
                         emp = None
-                r = await c.fetchrow("SELECT id, category_id, seller_sku FROM article WHERE cabinet_id=$1::uuid AND wb_sku=$2", cab_id, wb)
+                r = await c.fetchrow("SELECT id, category_id, seller_sku, is_active FROM article WHERE cabinet_id=$1::uuid AND wb_sku=$2", cab_id, wb)
+                if r and not r["is_active"]:
+                    # 199: снятый артикул вносят заново — как новый, старые поля не возвращаем
+                    await c.execute(
+                        "UPDATE article SET seller_sku=$2, category_id=$3, is_active=true, first_seen=CURRENT_DATE WHERE id=$1",
+                        r["id"], sku, cats.get(cat) if cat else None)
+                    await c.execute("DELETE FROM article_owner WHERE article_id=$1", r["id"])
+                    art_id = r["id"]; n_new += 1
+                    seen.append(art_id)
+                    if emp or it.weekdays:
+                        await _fo_art_owner_set(c, art_id, emp, it.weekdays, cat)
+                    continue
                 if r and not cat and r["category_id"]:
                     cat = next((k for k, v in cats.items() if v == r["category_id"]), None)   # 198: дни ответственного — по уже стоящей категории
+                if r and it.sku_clear and not sku:
+                    await c.execute("UPDATE article SET seller_sku=NULL WHERE id=$1", r["id"])
                 if r:
                     await c.execute(
                         "UPDATE article SET seller_sku=COALESCE($2, seller_sku), category_id=COALESCE($3, category_id), is_active=true WHERE id=$1",
@@ -1050,6 +1069,27 @@ async def fo_cab_articles_bulk(cab_id: str, body: FoArtBulkIn, p: Principal = De
                     cab_id, seen)
         rows = await _fo_art_rows(c, cab_id)
     return {"ok": True, "добавлено": n_new, "обновлено": n_upd, "всего": len(rows), "items": rows}
+
+
+@router.post("/cabinets/{cab_id}/articles/remove")
+async def fo_cab_articles_remove(cab_id: str, body: FoArtRemoveIn, p: Principal = Depends(max_level(4))):
+    """199: снять с управления много артикулов разом — по списку или все."""
+    async with pool().acquire() as c:
+        await _fo_cab_of(c, cab_id, p.org_id)
+        async with c.transaction():
+            if body.all:
+                ids = [r["id"] for r in await c.fetch(
+                    "SELECT id FROM article WHERE cabinet_id=$1::uuid AND is_active", cab_id)]
+            else:
+                want = [x for x in (body.ids or []) if re.match(r"^[0-9a-fA-F-]{36}$", str(x or ""))]
+                ids = [r["id"] for r in await c.fetch(
+                    "SELECT id FROM article WHERE cabinet_id=$1::uuid AND is_active AND id = ANY($2::uuid[])",
+                    cab_id, want)] if want else []
+            if ids:
+                await c.execute("DELETE FROM article_owner WHERE article_id = ANY($1::uuid[])", ids)
+                await c.execute("UPDATE article SET is_active=false WHERE id = ANY($1::uuid[])", ids)
+        rows = await _fo_art_rows(c, cab_id)
+    return {"ok": True, "снято": len(ids), "всего": len(rows), "items": rows}
 
 
 @router.post("/articles/{art_id}/owner")
@@ -2174,7 +2214,7 @@ else:
     p("")
     p("== ПРОВЕРКА ЭНДПОИНТОВ ==")
     for u in ("/refs/roles", "/refs/cards", "/refs/tasks/once", "/refs/invites",
-              "/refs/me/account", "/refs/tasks/sync", "/refs/cabinets/x/functions/add", "/refs/cabinets/x/functions/y/take", "/refs/link-pref/all", "/refs/functions/x/name", "/refs/tasks/reviews", "/refs/link-pref", "/refs/cabinets/x/articles", "/refs/admin/people", "/auth/invite-token/zzz"):
+              "/refs/me/account", "/refs/tasks/sync", "/refs/cabinets/x/functions/add", "/refs/cabinets/x/functions/y/take", "/refs/link-pref/all", "/refs/functions/x/name", "/refs/tasks/reviews", "/refs/link-pref", "/refs/cabinets/x/articles", "/refs/cabinets/x/articles/remove", "/refs/admin/people", "/auth/invite-token/zzz"):
         p("  %-26s %s" % (u, sh("curl -s -o /dev/null -w '%%{http_code}' http://127.0.0.1:8000%s" % u).strip()))
     p("(401/403 — эндпоинт есть и просит вход; 404 — не встал)")
     p("ГОТОВО: хранение переехало на сервер")
