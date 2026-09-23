@@ -4069,6 +4069,7 @@ td small{ color:var(--ink-3); font-size:10.5px }
 .fo-seldel.arm{ background:#c2394f; color:#fff; border-color:#c2394f }
 .fo-artr .fo-asel{ width:16px; height:16px; margin:0 2px 0 0; accent-color:#2f6feb; cursor:pointer; flex:0 0 auto }
 .fo-artr.fo-sel{ background:rgba(47,111,235,.07); border-radius:8px }
+.fo-fixb .bt, .fo-selbar .bt{ width:auto; flex:0 0 auto }
 </style>
 </head>
 <body>
@@ -26404,6 +26405,8 @@ window.addEventListener("click", function(e){
     var cur = ex[x.wb_sku] && ex[x.wb_sku].employee_id;
     /* тот же человек, что уже стоит, — не трогаем (его дни, возможно, настроены руками) */
     if(x.employee_id && String(x.employee_id) !== String(cur || "")){ it.employee_id = String(x.employee_id); withOwner++; }
+    /* 199: у уже внесённого в «артикуле продавца» стояло имя, а в новой вставке артикула продавца нет — очищаем */
+    try{ var ex0 = ex[x.wb_sku]; if(!x.seller_sku && ex0 && foIsNameLike(ex0.seller_sku)) it.sku_clear = true; }catch(e){}
     return it;
   });
   b.disabled = true; b.textContent = "Вношу " + items.length + "…";
