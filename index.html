@@ -3979,6 +3979,7 @@ body.fo-nopeople #screen section.s5{ grid-column:span 8 }
 .fo-rkrule .ccl{ font-style:normal }
 .mcard .fo-rkrule{ margin-top:14px }
 td small{ color:var(--ink-3); font-size:10.5px }
+.lgd .fo-rksw{ background:repeating-linear-gradient(135deg, rgba(0,179,154,.35) 0 3px, rgba(0,179,154,.12) 3px 6px) !important; border:1px dashed rgba(0,179,154,.8) !important }
 
 /* ===== add93: функция в кабинете — про частное (191) ===== */
 .fo-fnc{ margin:0 0 10px; padding:10px 12px 12px; border-radius:12px; background:rgba(0,179,154,.06); border:1px solid rgba(0,179,154,.22) }
@@ -25485,6 +25486,24 @@ function foRkRuleHTML(m){
   }
 })();
 window.foRkState = function(){ return {блоков: (S.tasks || []).filter(function(t){ return t.rk; }).length, минут: (S.tasks || []).filter(function(t){ return t.rk; }).reduce(function(a, t){ return a + t.minutes; }, 0)}; };
+
+/* легенда ганта: цвет блока «работа с РК» */
+(function(){
+  if(typeof B === "undefined" || !B || typeof B.gantt !== "function") return;
+  var _g = B.gantt;
+  B.gantt = function(el){
+    var v = _g.apply(this, arguments);
+    try{
+      var lg = el.querySelector(".lgd");
+      if(lg && !lg.querySelector(".fo-rklgd")){
+        var s = document.createElement("span"); s.className = "fo-rklgd";
+        s.innerHTML = '<i class="fo-rksw"></i>работа с РК — по артикулам АОД';
+        lg.appendChild(s);
+      }
+    }catch(e){}
+    return v;
+  };
+})();
 
 /* ===== add93: функция в кабинете — про частное: таблица кабинета, свой текст в чат, свои особенности (191)
    Виталий: «В кнопке функции (раздел «Функции») — условный шаблон: сообщения и
