@@ -3915,6 +3915,12 @@ body.fo-nopeople #screen section.s5{ grid-column:span 8 }
 .fo-ronote{ font-size:12px; color:var(--ink-2); padding:8px 12px; margin-bottom:10px; border-radius:10px; background:rgba(255,176,32,.10); border:1px solid rgba(255,176,32,.35) }
 .fo-ro input:disabled, .fo-ro select:disabled, .fo-ro textarea:disabled, .fo-ro .gsl:disabled{ opacity:.75; cursor:default }
 .fo-ro input[type="range"]:disabled{ opacity:.55 }
+
+/* ===== add85: гант «Неделя» — плашки с названием (181) ===== */
+.gb.fo-wk{ height:20px; padding:0 7px; font-size:11px; box-sizing:border-box }
+.gb.fo-wk .gbt{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:100% }
+.gb.fo-wk:hover{ width:auto !important; min-width:220px; height:auto }
+.fo-gweek .ln{ overflow:visible }
 </style>
 </head>
 <body>
@@ -24400,6 +24406,56 @@ window.addEventListener("focus", function(){ if(Date.now() - FO_LAST_SYNC > 4500
 })();
 
 window.foState84 = function(){ return {роль: (typeof role !== "undefined" ? role : null), нижеРМ: foRoLive(), артикулов: foArtsFlat().length, чатов: Object.keys(FO_CHATS).length, синк: new Date(FO_LAST_SYNC).toLocaleTimeString()}; };
+
+/* ===== add85: гант «Неделя» — плашки во всю колонку дня, с названием (181)
+   Виталий: «в ганте хочу видеть подлиннее плашки, название сразу — хотя бы
+   часть названия функции; при наведении — развёрнуто, как сейчас. Роль
+   менеджер, однако так у всех ролей — исправь».
+   Раньше ширина плашки считалась от минут (20 мин = 2% недели) — в неделе
+   это точка без текста. Теперь в масштабе «Неделя» задачи дня встают
+   столбиком во всю ширину колонки: название видно сразу, наведение
+   раскрывает карточку задачи, как и было.                                */
+
+function foGanttWeekLayout(el){
+  try{
+    if(typeof scale === "undefined" || scale !== "неделя") return;
+    var lanes = el.querySelectorAll(".gr .ln");
+    Array.prototype.forEach.call(lanes, function(ln){
+      var bars = Array.prototype.slice.call(ln.querySelectorAll(".gb"));
+      if(!bars.length){ ln.style.height = ""; return; }
+      var byDay = [[],[],[],[],[]];
+      bars.forEach(function(b){
+        var left = parseFloat(b.style.left) || 0;
+        var d = Math.min(4, Math.max(0, Math.floor(left / 20 + 1e-6)));
+        b._foX = left; byDay[d].push(b);
+      });
+      var maxN = 1;
+      byDay.forEach(function(list, d){
+        list.sort(function(a, b){ return a._foX - b._foX; });
+        list.forEach(function(b, i){
+          b.classList.add("fo-wk");
+          b.style.left = "calc(" + (d * 20) + "% + 3px)";
+          b.style.width = "calc(20% - 6px)";
+          b.style.top = (5 + i * 24) + "px";
+        });
+        if(list.length > maxN) maxN = list.length;
+      });
+      ln.style.height = Math.max(74, maxN * 24 + 10) + "px";
+    });
+    el.classList.add("fo-gweek");
+  }catch(e){}
+}
+
+(function(){
+  if(typeof B === "undefined" || !B || typeof B.gantt !== "function") return;
+  var _g = B.gantt;
+  B.gantt = function(el){
+    var v = _g.apply(this, arguments);
+    foGanttWeekLayout(el);
+    return v;
+  };
+})();
+/* в карточках кабинета/человека гант рисуется своими функциями — их не трогаем; главный экран — здесь */
 
 })();
 </script>
