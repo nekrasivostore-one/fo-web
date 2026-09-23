@@ -25136,6 +25136,51 @@ window.foLinksState = function(){ return {prefs: FO_LINKS.prefs.length, last: Ob
     else if(t.matches("[data-mcmax]")) later(t.getAttribute("data-mcmax"), 50);
   });
 })();
+/* кнопка «Сохранить на сервере» в карточке менеджера — по просьбе Виталия: явно, с ответом сервера */
+function foManPatch(m){
+  return {
+    fnWork: m.fnWork !== false, rk: !!(typeof worksRK === "function" ? worksRK(m) : m.rk),
+    orgWork: !!m.orgWork, assist: !!m.assist, meets: !!m.meets,
+    cat: {A: +((m.cat || {}).A || 0), B: +((m.cat || {}).B || 0), C: +((m.cat || {}).C || 0)},
+    maxArt: +m.maxArt || 0
+  };
+}
+(function(){
+  if(typeof manCardHTML !== "function") return;
+  var _mc = manCardHTML;
+  manCardHTML = function(m){
+    var h = _mc.apply(this, arguments);
+    try{
+      var close = '<button class="bt gh2 sm" data-mclose="'+esc(m.id)+'">Свернуть карточку</button>';
+      if(h.indexOf(close) >= 0) h = h.replace(close, '<button class="bt sm pri fo-mcsave" data-mcsave="'+esc(m.id)+'">Сохранить на сервере</button>' + close);
+    }catch(e){}
+    return h;
+  };
+})();
+window.addEventListener("click", function(e){
+  var b = e.target.closest && e.target.closest("[data-mcsave]");
+  if(!b) return;
+  e.preventDefault(); e.stopImmediatePropagation();
+  var id = b.getAttribute("data-mcsave"); var m = null; try{ m = person(id); }catch(x){}
+  if(!m) return;
+  /* подхватываем то, что в полях прямо сейчас */
+  try{
+    var card = b.closest(".mcard");
+    var mx = card && card.querySelector("[data-mcmax]"); if(mx) m.maxArt = +mx.value || 0;
+    if(card) card.querySelectorAll("[data-mccat]").forEach(function(i){ if(!m.cat) m.cat = {A:0,B:0,C:0}; m.cat[i.getAttribute("data-mccat")] = Math.max(0, Math.min(100, +i.value || 0)); });
+  }catch(x){}
+  var patch = foManPatch(m);
+  b.disabled = true; b.textContent = "Сохраняю…";
+  api("/refs/cards", {method:"POST", body:{kind:"employee", ref_id:String(id), data:patch}})
+    .then(function(){
+      try{ if(typeof SRV_CARDS !== "undefined" && SRV_CARDS) SRV_CARDS[cardKey("employee", id)] = Object.assign(SRV_CARDS[cardKey("employee", id)] || {}, patch); }catch(x){}
+      b.textContent = "Сохранено ✓"; b.disabled = false;
+      try{ toast("На сервере: максимум артикулов " + patch.maxArt + (patch.rk ? ", работает с РК" : ", без РК") + " · A " + patch.cat.A + "% · B " + patch.cat.B + "% · C " + patch.cat.C + "%"); }catch(x){}
+      setTimeout(function(){ try{ b.textContent = "Сохранить на сервере"; }catch(x){} }, 2500);
+    })
+    .catch(function(err){ b.disabled = false; b.textContent = "Сохранить на сервере"; try{ toast("Не сохранилось: " + (err && err.message || "сервер не ответил")); }catch(x){} });
+}, true);
+
 /* галочка «ведёт совещания» и остальные — тоже с сервера: rk=false с сервера значит «не работает с РК» */
 (function(){
   if(typeof cardsApply !== "function") return;
