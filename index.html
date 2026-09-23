@@ -3877,6 +3877,44 @@ body.fo-shadow{ padding-top:38px }
 .fo-shrow{ display:flex; align-items:center; justify-content:space-between; gap:10px; padding:5px 0; font-size:13px }
 .fo-shrow i{ font-style:normal; font-size:11.5px; color:var(--ink-3) }
 .fo-shrow .bt{ padding:4px 10px; font-size:11.5px }
+
+/* ===== add84: доработки 166–180 ===== */
+/* 175: стеклянный список поверх окна «Задача выполнена» */
+.gspop{ z-index:1300 }
+/* 173: «Загрузка людей» ниже РМ не показываем, «Задачи дня» шире */
+body.fo-nopeople #screen section.s3{ display:none }
+body.fo-nopeople #screen section.s5{ grid-column:span 8 }
+@media (max-width:1180px){ body.fo-nopeople #screen section.s5{ grid-column:span 12 } }
+/* 169: кнопки «Разобрать» нет */
+[data-foartparse]{ display:none !important }
+.fo-arthint{ font-size:11.5px; color:#B7791F }
+/* 178: строка, которую только что поправили */
+.fo-artr.fo-flash{ animation:foFlash 1.6s ease-out }
+@keyframes foFlash{ 0%{ background:rgba(124,92,255,.18) } 100%{ background:transparent } }
+/* 176: разворот функции в карточке клиента */
+.fo-fnr .fo-fnt{ cursor:pointer }
+.fo-fnr .fo-fnt:hover{ color:#6B4EFF }
+.fo-fnr .fo-fnt::before{ content:"›"; display:inline-block; width:12px; color:var(--ink-3); transition:transform .15s; margin-right:2px }
+.fo-fnr.open .fo-fnt::before{ transform:rotate(90deg) }
+.fo-fnd{ margin:0 0 6px 14px; padding:8px 12px 10px; border-left:2px solid rgba(124,92,255,.35); background:rgba(124,92,255,.05); border-radius:0 10px 10px 0; font-size:12px }
+.fo-fndr{ display:flex; gap:10px; padding:2px 0; line-height:1.45 }
+.fo-fndl{ flex:0 0 96px; color:var(--ink-3); font-size:11px; text-transform:uppercase; letter-spacing:.03em; padding-top:2px }
+.fo-fndv{ flex:1; min-width:0; color:var(--ink) }
+.fo-fndv.dim{ color:var(--ink-3) }
+.fo-fndv a{ color:#6B4EFF }
+.fo-fndb{ margin-top:6px }
+.fo-fndb .bt.sm{ padding:5px 10px; font-size:12px }
+/* 174: взять в работу */
+.fo-take{ padding:5px 10px; font-size:12px; margin-left:auto }
+.fo-takeblk .fo-takerow{ display:flex; align-items:center; gap:10px; padding:7px 0; border-top:1px solid rgba(120,120,140,.14); font-size:13px }
+.fo-takeblk .fo-takerow:first-of-type{ border-top:none }
+.fo-takeblk .fo-takerow i{ font-style:normal; font-size:12px; color:var(--ink-3); flex:1 }
+.fo-takeblk .fo-takerow i.warn{ color:#B7791F }
+.fo-takeblk .fo-take{ margin-left:0 }
+/* замок ниже РМ */
+.fo-ronote{ font-size:12px; color:var(--ink-2); padding:8px 12px; margin-bottom:10px; border-radius:10px; background:rgba(255,176,32,.10); border:1px solid rgba(255,176,32,.35) }
+.fo-ro input:disabled, .fo-ro select:disabled, .fo-ro textarea:disabled, .fo-ro .gsl:disabled{ opacity:.75; cursor:default }
+.fo-ro input[type="range"]:disabled{ opacity:.55 }
 </style>
 </head>
 <body>
@@ -23842,6 +23880,526 @@ try{
     return true;
   };
 })();
+
+/* ===== add84: доработки после брифа 4 (166–180) ==============================
+   166 «Отправить доступы в чат» — чаты кабинетов с сервера, не из демо
+   167 карточка клиента: часы в неделю — всегда сумма по функциям
+   168–172 перенос дня функции виден у ответственного везде: экраны сами
+        подтягивают сервер (при возврате во вкладку и раз в полторы минуты)
+   169 артикулы: разбираем сразу при вставке, кнопки «Разобрать» нет
+   173 «Загрузка людей» — ниже РМ не показываем
+   174 функции: правят РМ и выше; ниже РМ — просмотр и «взять в работу»
+   175 в окне «Задача выполнена» список согласующих открывается поверх окна
+   176 функция в карточке клиента разворачивается: сложность, блок,
+        регламент, текст сообщения в чат
+   177 текст сообщения функции хранится на сервере (карточка функции)
+   178 артикулы не прыгают по списку после смены категории
+   179 данные сотрудника (оклад, день выплаты…) меняет РМ и выше;
+        менеджер только видит
+   180 «Артикулов в управлении», «Часов на артикулы», «Артикулы по дням»
+        в карточке менеджера — с сервера; максимум ставит собственник
+   Виталий: «всё, что я говорю про Викторию, касается всех менеджеров».     */
+
+/* ───────────────────────── общее ───────────────────────── */
+function foRoLive(){ return (typeof foLive === "function" ? foLive() : false) && (typeof foBelowPm === "function" ? foBelowPm() : false); }
+function foIsLive(){ try{ return typeof foLive === "function" && foLive() && (typeof MODE === "undefined" || MODE === "live"); }catch(e){ return false; } }
+
+/* ───────────── 166: чаты для «Отправить доступы в чат» ───────────── */
+function foChatsAll(){
+  if(!foIsLive()) return Promise.resolve();
+  var ids = (S.projects || []).map(function(p){ return p.id; });
+  return Promise.all(ids.map(function(id){ return (typeof foChatsLoad === "function") ? foChatsLoad(id) : Promise.resolve(); }));
+}
+(function(){
+  if(typeof chatsOf !== "function") return;
+  var _co = chatsOf;
+  chatsOf = function(pr){
+    if(!foIsLive() || !pr) return _co.apply(this, arguments);
+    var list = FO_CHATS[pr.id];
+    if(!list) return [];
+    return list.map(function(ch){ return {id: String(ch.pk), title: ch.title || ("чат " + ch.pk), kind: ch.kind || "mpv", chat_id: ch.chat_id}; });
+  };
+})();
+/* выбранный чат человека — на сервере, а не в браузере */
+document.addEventListener("change", function(e){
+  var t = e.target;
+  if(!t || !t.matches || !t.matches("[data-accchat]")) return;
+  if(!foIsLive() || typeof cardSave !== "function") return;
+  cardSave("employee", t.getAttribute("data-accchat"), {accChat: t.value});
+});
+
+/* ───────────── 167: часы в неделю — сумма по функциям ───────────── */
+(function(){
+  if(typeof cabNumbers !== "function") return;
+  var _cn = cabNumbers;
+  cabNumbers = function(pr){
+    var n = _cn.apply(this, arguments);
+    try{
+      if(foIsLive()){
+        var rows = (typeof foRowsOf === "function") ? foRowsOf(pr.id) : null;
+        if(rows) n.h = rows.reduce(function(a, r){ return a + foWeekMin(r); }, 0) / 60;
+      }
+    }catch(e){}
+    return n;
+  };
+})();
+
+/* ───────────── 180: артикулы менеджера — с сервера ───────────── */
+var FO_ARTS_FLAT = null, FO_ARTS_SIG = "";
+function foArtsAll(){
+  if(!foIsLive()) return Promise.resolve();
+  var ids = (S.projects || []).map(function(p){ return p.id; });
+  return Promise.all(ids.map(function(id){ return (typeof foArtsLoad === "function") ? foArtsLoad(id) : Promise.resolve(); }))
+    .then(function(){ FO_ARTS_FLAT = null; });
+}
+function foArtsFlat(){
+  var sig = "";
+  try{ sig = Object.keys(FO_ARTS || {}).map(function(k){ return k + ":" + (FO_ARTS[k].at || 0) + ":" + ((FO_ARTS[k].rows || []).length); }).join("|"); }catch(e){}
+  if(FO_ARTS_FLAT && sig === FO_ARTS_SIG) return FO_ARTS_FLAT;
+  FO_ARTS_SIG = sig;
+  var out = [];
+  Object.keys(FO_ARTS || {}).forEach(function(cid){
+    ((FO_ARTS[cid] || {}).rows || []).forEach(function(r){
+      out.push({id: r.id, wb: r.wb_sku, sku: r.seller_sku || "", cat: r.cat || "", person: r.employee_id ? String(r.employee_id) : "",
+                project: cid, days: (r.weekdays || []).slice()});
+    });
+  });
+  FO_ARTS_FLAT = out;
+  return out;
+}
+(function(){
+  if(typeof artsAll === "function"){
+    var _aa = artsAll;
+    artsAll = function(){ if(foIsLive()) return foArtsFlat(); return _aa.apply(this, arguments); };
+  }
+  if(typeof artSchedule === "function"){
+    var _as = artSchedule;
+    artSchedule = function(pid){
+      if(!foIsLive()) return _as.apply(this, arguments);
+      var byDay = [[],[],[],[],[]];
+      foArtsFlat().filter(function(a){ return a.person === String(pid); }).forEach(function(a){
+        var days = a.days.length ? a.days : (typeof catDow === "function" ? catDow(a.cat) : []);
+        days.forEach(function(d){ if(d >= 0 && d < 5) byDay[d].push(a); });
+      });
+      return byDay;
+    };
+  }
+  if(typeof artMinutes === "function"){
+    var _am = artMinutes;
+    artMinutes = function(a){
+      if(!foIsLive() || !a || !a.days) return _am.apply(this, arguments);
+      var per = (typeof CAT_MIN !== "undefined" && CAT_MIN[a.cat]) || 5;
+      return per * (a.days.length || (typeof catDays === "function" ? (catDays()[a.cat] || 1) : 1));
+    };
+  }
+  if(typeof seedArts === "function"){
+    var _sa = seedArts;
+    seedArts = function(){ if(foIsLive()) return; return _sa.apply(this, arguments); };
+  }
+})();
+
+/* ───────────── 178: артикулы не прыгают после правки ───────────── */
+var FO_ART_ORD = {}, FO_ART_LAST = null;
+(function(){
+  if(typeof foArtsBlock !== "function") return;
+  var _ab = foArtsBlock;
+  foArtsBlock = function(pr){
+    try{
+      var d = FO_ARTS[pr.id];
+      if(d && d.rows && d.rows.length){
+        var ord = FO_ART_ORD[pr.id] = FO_ART_ORD[pr.id] || {};
+        var next = Object.keys(ord).length;
+        d.rows.forEach(function(r){ if(ord[r.id] == null) ord[r.id] = next++; });
+        d.rows.sort(function(a, b){ return ord[a.id] - ord[b.id]; });
+      }
+    }catch(e){}
+    return _ab.apply(this, arguments);
+  };
+  if(typeof foArtSend === "function"){
+    var _send = foArtSend;
+    foArtSend = function(clientId, artId){
+      FO_ART_LAST = artId;
+      return _send.apply(this, arguments).then(function(v){
+        setTimeout(function(){
+          var el = document.querySelector('.fo-artr[data-foart="' + artId + '"]');
+          if(el){ el.classList.add("fo-flash"); setTimeout(function(){ el.classList.remove("fo-flash"); }, 1600); }
+        }, 60);
+        return v;
+      });
+    };
+  }
+})();
+
+/* ───────────── 169: разбор артикулов сразу при вставке ───────────── */
+var FO_ART_TEXT = {};
+function foArtPvHTML(pid){
+  var pv = FO_ART_PREVIEW[pid] || [];
+  if(!pv.length) return "";
+  var miss = pv.filter(function(x){ return !x.cat; }).length;
+  return '<div class="fo-artpv">'+
+    '<div class="fo-artpvh"><b>Разобрано: '+pv.length+'</b>'+(miss ? '<span class="warn">без категории: '+miss+' — проставьте A/B/C до сохранения или оставьте пустыми</span>' : '<span>категории на месте</span>')+'</div>'+
+    pv.map(function(x, i){
+      return '<div class="fo-artr pv" data-fopv="'+i+'"><code>'+esc(x.wb_sku)+'</code><i>'+esc(x.seller_sku || "—")+'</i>'+
+        '<select class="sel sm fo-cat'+(x.cat ? '' : ' miss')+'" data-fopvcat="'+i+'">'+foCatOpts(x.cat)+'</select></div>'; }).join("")+
+    '<div class="fo-artpvb">'+
+      '<label class="fo-chk"><input type="checkbox" id="foArtReplace"> заменить список целиком (остальные снять)</label>'+
+      '<button class="bt sm pri" data-foartsave="'+esc(pid)+'">Внести '+pv.length+' артикулов</button>'+
+      '<button class="bt sm gh2" data-foartclear="'+esc(pid)+'">Отмена</button>'+
+    '</div></div>';
+}
+function foArtPvRefresh(host, pid){
+  var old = host.querySelector(".fo-artpv"); if(old) old.remove();
+  var h = foArtPvHTML(pid); if(!h) return;
+  var paste = host.querySelector(".fo-artpaste");
+  var w = document.createElement("div"); w.innerHTML = h;
+  if(paste) paste.parentNode.insertBefore(w.firstChild, paste); else host.appendChild(w.firstChild);
+  try{ if(typeof enhanceSelects === "function") enhanceSelects(host); }catch(e){}
+}
+(function(){
+  var timer = null;
+  document.addEventListener("input", function(e){
+    var ta = e.target; if(!ta || !ta.matches || !ta.matches("[data-foartpaste]")) return;
+    var host = ta.closest(".fo-arts"), box = ta.closest("[data-focli]"); if(!host || !box) return;
+    var pid = box.getAttribute("data-focli");
+    FO_ART_TEXT[pid] = ta.value;
+    clearTimeout(timer);
+    timer = setTimeout(function(){
+      var list = (typeof foParseArts === "function") ? foParseArts(ta.value) : [];
+      var hint = host.querySelector(".fo-arthint");
+      if(list.length){ FO_ART_PREVIEW[pid] = list; if(hint) hint.textContent = ""; }
+      else { delete FO_ART_PREVIEW[pid]; if(hint) hint.textContent = ta.value.trim() ? "Пока не вижу артикулов ВБ — это числа от 5 знаков, по одному в строке." : ""; }
+      foArtPvRefresh(host, pid);
+    }, 350);
+  });
+  /* после «Внести» и «Отмена» — очищаем поле */
+  document.addEventListener("click", function(e){
+    var b = e.target.closest && (e.target.closest("[data-foartsave]") || e.target.closest("[data-foartclear]"));
+    if(!b) return;
+    var pid = b.getAttribute("data-foartsave") || b.getAttribute("data-foartclear");
+    delete FO_ART_TEXT[pid];
+  }, true);
+  /* подпись вместо кнопки «Разобрать» */
+  if(typeof foArtsBlock === "function"){
+    var _ab = foArtsBlock;
+    foArtsBlock = function(pr){
+      var h = _ab.apply(this, arguments);
+      try{
+        h = h.replace('<button class="bt sm" data-foartparse="'+esc(pr.id)+'">Разобрать</button>', '<span class="fo-arthint"></span>');
+        h = h.replace('placeholder="Вставьте список из таблицы — как есть. Столбцы могут идти в любом порядке: артикул ВБ, артикул продавца, категория A/B/C. Один артикул в строке."',
+                      'placeholder="Вставьте список из таблицы — как есть: артикул ВБ, артикул продавца, категория A/B/C в любом порядке, по одному артикулу в строке. Разберу сразу, как вставите."');
+        var txt = FO_ART_TEXT[pr.id];
+        if(txt) h = h.replace('data-foartpaste placeholder', 'data-foartpaste data-fokeep="1" placeholder');
+      }catch(e){}
+      return h;
+    };
+  }
+  /* текст в поле переживает перерисовку карточки */
+  (function(){
+    if(typeof renderCards !== "function") return;
+    var _rc = renderCards;
+    renderCards = function(){
+      var v = _rc.apply(this, arguments);
+      try{
+        document.querySelectorAll('[data-foartpaste][data-fokeep]').forEach(function(ta){
+          var box = ta.closest("[data-focli]"); var pid = box && box.getAttribute("data-focli");
+          if(pid && FO_ART_TEXT[pid] && !ta.value) ta.value = FO_ART_TEXT[pid];
+        });
+      }catch(e){}
+      return v;
+    };
+  })();
+})();
+
+/* ───────────── 177: текст сообщения функции — на сервере ───────────── */
+(function(){
+  var timer = null;
+  document.addEventListener("input", function(e){
+    var t = e.target; if(!t || !t.matches || !t.matches("[data-fnk]")) return;
+    if(!foIsLive() || typeof cardSave !== "function") return;
+    var row = t.closest("[data-fnr]"); if(!row) return;
+    var id = row.getAttribute("data-fnr");
+    clearTimeout(timer);
+    timer = setTimeout(function(){
+      var fm = (typeof fnForm === "function") ? fnForm(id) : null; if(!fm) return;
+      cardSave("fn", id, {form: {h: fm.h || "", sub: fm.sub || "", body: fm.body || "", link: fm.link || "", tg: fm.tg || "", appr: !!fm.appr}});
+    }, 500);
+  });
+  if(typeof cardsApply === "function"){
+    var _ca = cardsApply;
+    cardsApply = function(){
+      var v = _ca.apply(this, arguments);
+      try{
+        if(typeof SRV_CARDS !== "undefined" && SRV_CARDS && typeof fnForm === "function"){
+          (S.fns || []).forEach(function(f){
+            var d = SRV_CARDS[cardKey("fn", f.id)];
+            if(d && d.form) Object.assign(fnForm(f.id), d.form);
+          });
+        }
+      }catch(e){}
+      return v;
+    };
+  }
+})();
+
+/* ───────────── 176: функция в карточке клиента разворачивается ───────────── */
+var FO_FN_OPEN = {};
+function foFnBrief(fnId){
+  var f = null; try{ f = fnById(fnId); }catch(e){}
+  if(!f) return '<div class="fo-fnd"><i>Функции нет в справочнике агентства</i></div>';
+  var c = {}, fm = {h:"", sub:"", body:"", link:"", tg:""};
+  try{ c = fnCfg(f) || {}; }catch(e){}
+  try{ fm = fnForm(f.id) || fm; }catch(e){}
+  var cat = (typeof FCATS !== "undefined") ? FCATS.filter(function(x){ return x[0] === c.cat; })[0] : null;
+  var gr = (typeof FCAT_GRADE !== "undefined") ? FCAT_GRADE[c.cat] : null;
+  var grp = (typeof FN_GROUPS2 !== "undefined") ? (FN_GROUPS2.filter(function(g){ return g[0] === c.grp; })[0] || null) : null;
+  var reg = String(c.regText || "").trim();
+  var regShort = reg ? reg.split(/\n+/).slice(0, 2).join(" · ") : "";
+  if(regShort.length > 180) regShort = regShort.slice(0, 178) + "…";
+  var msg = ""; try{ msg = fnPreview(f, fm); }catch(e){}
+  var msgLines = String(msg || "").split("\n").filter(function(l){ return l.trim(); }).slice(0, 3);
+  var canEdit = !foRoLive();
+  return '<div class="fo-fnd" data-fofnd="'+esc(fnId)+'">'+
+    '<div class="fo-fndr"><span class="fo-fndl">Сложность</span>'+
+      (cat ? '<span class="fo-fndv"><span class="ccl '+cat[0]+'"><b>'+cat[0]+'</b></span> '+esc(cat[1])+' — '+esc(cat[2])+(gr ? ' · тянет <b>'+esc(gr[1])+'</b>' : '')+'</span>'
+           : '<span class="fo-fndv dim">не проставлена — в карточке функции</span>')+'</div>'+
+    '<div class="fo-fndr"><span class="fo-fndl">Что это</span><span class="fo-fndv">'+esc(f.code || "")+(grp ? ' · '+esc(grp[1]) : '')+' · норматив '+(f.minutes || 30)+' мин · регламент '+(c.regKind === "uniq" ? 'уникальный' : 'шаблонный')+(c.key ? ' · ключевая' : '')+(c.paid ? ' · платная' : '')+'</span></div>'+
+    '<div class="fo-fndr"><span class="fo-fndl">Как делать</span><span class="fo-fndv'+(regShort ? '' : ' dim')+'">'+(regShort ? esc(regShort) : 'регламент ещё не написан')+
+      (c.regLink ? ' · <a href="'+esc(c.regLink)+'" target="_blank" rel="noopener">документ</a>' : '')+(c.regShot ? ' · <a href="'+esc(c.regShot)+'" target="_blank" rel="noopener">разбор</a>' : '')+'</span></div>'+
+    '<div class="fo-fndr"><span class="fo-fndl">В чат уходит</span><span class="fo-fndv'+(fm.body || fm.h ? '' : ' dim')+'">'+
+      (msgLines.length && (fm.body || fm.h || fm.sub) ? msgLines.map(function(l){ return esc(l); }).join('<br>') : 'текст сообщения не задан — заголовок и суть пишутся в карточке функции')+'</span></div>'+
+    '<div class="fo-fndb"><button class="bt sm gh2" data-fofnopen="'+esc(f.id)+'">'+(canEdit ? 'Открыть карточку функции' : 'Посмотреть функцию')+'</button></div>'+
+  '</div>';
+}
+(function(){
+  if(typeof foCabFnBlock !== "function") return;
+  var _b = foCabFnBlock;
+  foCabFnBlock = function(pr){
+    var h = _b.apply(this, arguments);
+    try{
+      var d = FO_CABFN[pr.id]; if(!d || !d.rows || !d.rows.length) return h;
+      var box = document.createElement("div"); box.innerHTML = h;
+      var rows = box.querySelectorAll(".fo-fnr");
+      Array.prototype.forEach.call(rows, function(row, i){
+        var r = d.rows[i]; if(!r) return;
+        var fid = String(r.fn_id);
+        row.setAttribute("data-fofnx", fid);
+        if(!row.getAttribute("data-focli")) row.setAttribute("data-focli", pr.id);
+        var name = row.querySelector(".fo-fnn") || row.querySelector("b");
+        if(name){ name.classList.add("fo-fnt"); name.setAttribute("title", "Развернуть: сложность, регламент, текст в чат"); }
+        if(row.classList.contains("ro") && !r.employee_id && foRoLive() && d.cab){
+          var tk = document.createElement("button"); tk.className = "bt sm fo-take"; tk.setAttribute("data-fotake", fid); tk.setAttribute("data-focab", d.cab); tk.setAttribute("data-focli", pr.id);
+          tk.textContent = "Взять в работу"; row.appendChild(tk);
+        }
+        if(FO_FN_OPEN[pr.id + ":" + fid]){
+          row.classList.add("open");
+          var w = document.createElement("div"); w.innerHTML = foFnBrief(fid);
+          row.parentNode.insertBefore(w.firstChild, row.nextSibling);
+        }
+      });
+      return box.innerHTML;
+    }catch(e){ return h; }
+  };
+})();
+document.addEventListener("click", function(e){
+  var t = e.target.closest && e.target.closest(".fo-cabfn .fo-fnt");
+  if(t){
+    if(e.target.closest("select, input, button, label, .fo-days")) return;
+    e.preventDefault(); e.stopPropagation();
+    var row = t.closest(".fo-fnr"); var host = row && row.closest(".fo-cabfn");
+    var fid = row && row.getAttribute("data-fofnx");
+    var cli = row.getAttribute("data-focli") || ((host && host.querySelector("[data-focli]")) || {getAttribute:function(){ return ""; }}).getAttribute("data-focli") || "";
+    if(!cli){ var sec = row.closest("[data-opencab]"); cli = sec ? sec.getAttribute("data-opencab") : ""; }
+    if(!fid) return;
+    var key = cli + ":" + fid;
+    var open = !FO_FN_OPEN[key];
+    FO_FN_OPEN[key] = open;
+    var old = row.nextElementSibling; if(old && old.classList.contains("fo-fnd")) old.remove();
+    row.classList.toggle("open", open);
+    if(open){ var w = document.createElement("div"); w.innerHTML = foFnBrief(fid); row.parentNode.insertBefore(w.firstChild, row.nextSibling); }
+    return;
+  }
+  var b = e.target.closest && e.target.closest("[data-fofnopen]");
+  if(b){
+    e.preventDefault(); e.stopPropagation();
+    try{ fnOpen = b.getAttribute("data-fofnopen"); fnOpenFrom = null; setView("fns"); window.scrollTo(0, 0); }catch(x){}
+    return;
+  }
+  var tk = e.target.closest && e.target.closest("[data-fotake]");
+  if(tk){
+    e.preventDefault(); e.stopPropagation();
+    tk.disabled = true; tk.textContent = "Беру…";
+    var cli2 = tk.getAttribute("data-focli");
+    api("/refs/cabinets/" + encodeURIComponent(tk.getAttribute("data-focab")) + "/functions/" + encodeURIComponent(tk.getAttribute("data-fotake")) + "/take", {method:"POST"})
+      .then(function(r){
+        var z = (r && r.задачи) || {};
+        try{ toast("Функция у вас" + (z.создано != null ? " · задач: +" + z.создано : "")); }catch(x){}
+        return (typeof foCabFnLoad === "function" ? foCabFnLoad(cli2) : Promise.resolve());
+      })
+      .then(function(){ return (typeof loadLive === "function") ? loadLive() : null; })
+      .then(function(){ try{ render(); }catch(x){} try{ renderCards(); }catch(x){} try{ if(typeof view !== "undefined" && view === "fns") renderFns(); }catch(x){} })
+      .catch(function(err){ tk.disabled = false; tk.textContent = "Взять в работу"; try{ toast("Не взялось: " + (err && err.message || "")); }catch(x){} });
+    return;
+  }
+}, true);
+
+/* ───────────── 174: раздел «Функции» ниже РМ — просмотр и «взять в работу» ───────────── */
+function foFnWhere(fnId){
+  /* где функция стоит в кабинетах агентства и кто ведёт */
+  var out = [];
+  (S.projects || []).forEach(function(pr){
+    var d = FO_CABFN[pr.id]; if(!d || !d.cab) return;
+    var r = (d.rows || []).filter(function(x){ return String(x.fn_id) === String(fnId); })[0];
+    if(!r) return;
+    var emp = (S.people || []).filter(function(p){ return String(p.id) === String(r.employee_id); })[0];
+    out.push({pr: pr, cab: d.cab, emp: emp || null, empName: emp ? emp.name : (r.employee_name || "")});
+  });
+  return out;
+}
+function foFnTakeBlock(fnId){
+  var me = (typeof meId !== "undefined") ? String(meId || "") : "";
+  var list = foFnWhere(fnId);
+  return '<div class="fnsec fo-takeblk"><div class="fnsh">Взять в работу</div>'+
+    (list.length ? list.map(function(x){
+      var mine = x.emp && String(x.emp.id) === me;
+      return '<div class="fo-takerow"><span class="av2" style="background:'+(x.pr.color || "#999")+'">'+esc(x.pr.av || "")+'</span><b>'+esc(x.pr.name)+'</b>'+
+        (x.emp ? '<i>'+(mine ? 'ведёте вы' : 'ведёт '+esc(x.empName))+'</i>'
+               : '<i class="warn">без ответственного</i><button class="bt sm fo-take" data-fotake="'+esc(fnId)+'" data-focab="'+esc(x.cab)+'" data-focli="'+esc(x.pr.id)+'">Взять в работу</button>')+
+      '</div>'; }).join("")
+    : '<div class="fnnote">Эта функция пока не стоит ни в одном кабинете — назначает РМ и выше.</div>')+
+    '<div class="fnnote">Функции правят РМ и выше. Вам доступен просмотр и «взять в работу» там, где ответственного нет.</div>'+
+  '</div>';
+}
+
+/* ───────────── замок ниже РМ: формы только смотреть (174, 179, 180) ───────────── */
+var FO_LOCKING = false;
+function foLockBox(box, note){
+  if(!box || box.getAttribute("data-folocked")) return;
+  box.setAttribute("data-folocked", "1");
+  box.classList.add("fo-ro");
+  box.querySelectorAll("input, select, textarea").forEach(function(el){
+    if(el.type === "hidden") return;
+    el.disabled = true;
+    var g = el.nextElementSibling; if(g && g.classList && g.classList.contains("gsl")) g.disabled = true;
+  });
+  box.querySelectorAll("button").forEach(function(b){
+    if(b.matches("[data-mclose], [data-ccopen], [data-acc], .crb, .crback, #fnBack, #fnBackAll, #fnBackGrp, [data-fnopen], [data-fnfil], [data-fotake], [data-fofnopen], .fo-fnt, .gsl, [data-fngrp], [data-fnback], .backall, #backAll")) return;
+    b.disabled = true;
+  });
+  if(note){
+    var n = document.createElement("div"); n.className = "fo-ronote"; n.textContent = note;
+    box.insertBefore(n, box.firstChild);
+  }
+}
+function foLockBelowPm(){
+  if(FO_LOCKING) return;
+  if(!foRoLive()){ document.body.classList.remove("fo-nopeople"); return; }
+  FO_LOCKING = true;
+  try{
+    document.body.classList.add("fo-nopeople");                                     /* 173 */
+    /* данные сотрудника и карточка менеджера (179, 180) */
+    document.querySelectorAll(".edbox").forEach(function(box){
+      if(box.querySelector('[data-ed="man"]')) foLockBox(box, "Данные сотрудника меняет РМ и выше — у вас просмотр. Оклад, день выплаты, часы и максимум артикулов ставит собственник.");
+      else if(box.querySelector('[data-ed="cli"]')) foLockBox(box, "Карточку клиента правит РМ и выше — у вас просмотр.");
+    });
+    document.querySelectorAll(".mcard").forEach(function(box){ foLockBox(box, null); });
+    document.querySelectorAll("section.cc[data-staff]").forEach(function(box){ foLockBox(box, null); });
+    /* раздел «Функции» (174) */
+    var one = document.querySelector("#sect .fnone");
+    if(one && !one.getAttribute("data-folocked")){
+      foLockBox(one, "Функции правят РМ и выше — у вас просмотр. Взять в работу можно ниже.");
+      var fid = (typeof fnOpen !== "undefined") ? fnOpen : null;
+      if(fid && !one.querySelector(".fo-takeblk")){
+        var w = document.createElement("div"); w.innerHTML = foFnTakeBlock(fid);
+        var dang = one.querySelector(".fndang");
+        if(dang) dang.parentNode.insertBefore(w.firstChild, dang); else one.appendChild(w.firstChild);
+      }
+    }
+    document.querySelectorAll("#sect [data-fnnew], #sect #fnNew, #sect .fnnew").forEach(function(b){ b.hidden = true; });
+  }catch(e){}
+  FO_LOCKING = false;
+}
+(function(){
+  var t = null;
+  function kick(){ clearTimeout(t); t = setTimeout(foLockBelowPm, 40); }
+  try{
+    new MutationObserver(kick).observe(document.body, {childList:true, subtree:true});
+  }catch(e){}
+  setTimeout(foLockBelowPm, 800);
+  setInterval(foLockBelowPm, 4000);
+})();
+
+/* ───────────── 168–172: экраны сами подтягивают сервер ───────────── */
+var FO_LAST_TOUCH = Date.now(), FO_LAST_SYNC = Date.now(), FO_SYNCING = false, FO_HIDDEN_AT = 0;
+["keydown","mousedown","touchstart","input","wheel"].forEach(function(ev){
+  document.addEventListener(ev, function(){ FO_LAST_TOUCH = Date.now(); }, {passive:true, capture:true});
+});
+function foBusy(){
+  try{
+    var a = document.activeElement;
+    if(a && a.matches && a.matches("input, textarea, select, [contenteditable=true]") && !a.matches('[type="checkbox"], [type="radio"], [type="range"]')) return true;
+    if(document.querySelector(".fo-modal, #gsPop, #meMenu.on, .modal.on, .ovl.on, dialog[open]")) return true;
+    if(Date.now() - FO_LAST_TOUCH < 15000) return true;
+  }catch(e){}
+  return false;
+}
+function foRefresh(reason){
+  if(FO_SYNCING || !foIsLive()) return Promise.resolve();
+  if(document.hidden) return Promise.resolve();
+  if(typeof loadLive !== "function") return Promise.resolve();
+  FO_SYNCING = true;
+  var keepView = (typeof view !== "undefined") ? view : null;
+  return loadLive().then(function(){
+    return Promise.all([foArtsAll(), foChatsAll()]);
+  }).then(function(){
+    FO_LAST_SYNC = Date.now();
+    try{ if(typeof foDecorate === "function") foDecorate(); }catch(e){}
+    try{
+      if(keepView && keepView !== "work" && typeof setView === "function" && !foBusy()) setView(keepView, true);
+      else { try{ render(); }catch(e){} }
+    }catch(e){}
+    try{ if(document.querySelector(".cc2") && typeof renderCards === "function" && !foBusy()) renderCards(); }catch(e){}
+  }).catch(function(){}).then(function(){ FO_SYNCING = false; });
+}
+window.foRefresh = foRefresh;
+setInterval(function(){
+  if(document.hidden || foBusy()) return;
+  if(Date.now() - FO_LAST_SYNC < 90000) return;
+  foRefresh("timer");
+}, 10000);
+document.addEventListener("visibilitychange", function(){
+  if(document.hidden){ FO_HIDDEN_AT = Date.now(); return; }
+  if(Date.now() - FO_LAST_SYNC > 20000) setTimeout(function(){ foRefresh("visible"); }, 300);
+});
+window.addEventListener("focus", function(){ if(Date.now() - FO_LAST_SYNC > 45000) setTimeout(function(){ foRefresh("focus"); }, 300); });
+
+/* при старте добираем артикулы и чаты для всех кабинетов (180, 166) */
+(function(){
+  if(typeof loadLive !== "function") return;
+  var _ll = loadLive;
+  loadLive = function(){
+    var self = this, args = arguments;
+    return _ll.apply(self, args).then(function(v){
+      return Promise.all([foArtsAll(), foChatsAll()]).then(function(){
+        try{ if(typeof view !== "undefined" && view === "staff" && typeof renderStaff === "function") renderStaff(); }catch(e){}
+        return v;
+      }, function(){ return v; });
+    });
+  };
+  var tries = 0;
+  (function again(){
+    tries++; if(tries > 40) return;
+    var ready = false;
+    try{ ready = foIsLive() && S && S.projects && S.projects.length && Object.keys(FO_CABFN).length; }catch(e){}
+    if(!ready){ setTimeout(again, 600); return; }
+    if(Object.keys(FO_ARTS).length) return;
+    Promise.all([foArtsAll(), foChatsAll()]).then(function(){
+      try{ render(); }catch(e){}
+      try{ if(typeof view !== "undefined" && view !== "work" && typeof setView === "function") setView(view, true); }catch(e){}
+    });
+  })();
+})();
+
+window.foState84 = function(){ return {роль: (typeof role !== "undefined" ? role : null), нижеРМ: foRoLive(), артикулов: foArtsFlat().length, чатов: Object.keys(FO_CHATS).length, синк: new Date(FO_LAST_SYNC).toLocaleTimeString()}; };
 
 })();
 </script>
