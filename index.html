@@ -3964,6 +3964,18 @@ body.fo-nopeople #screen section.s5{ grid-column:span 8 }
 .fo-tdxb{ display:flex; gap:8px; flex-wrap:wrap; margin-top:10px }
 .fo-tdxb .bt.sm{ padding:5px 11px; font-size:12px }
 .fo-tdxb .bt.dangl{ color:#c2394f; border-color:rgba(194,57,79,.4) }
+
+/* ===== add92: работа с РК в планах (190) ===== */
+.tdr.fo-rk{ background:rgba(0,179,154,.06); border-style:dashed }
+.tdr.fo-rk .fo-rkdot{ display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border-radius:7px; border:1px dashed rgba(0,179,154,.6); color:#00B39A; font-size:11px; font-weight:700 }
+.tdr.fo-rk .fo-rkdot i::before{ content:"РК"; font-style:normal; font-size:9px }
+.gb[data-open^="rk|"]{ background:repeating-linear-gradient(135deg, rgba(0,179,154,.22) 0 6px, rgba(0,179,154,.10) 6px 12px) !important; border:1px dashed rgba(0,179,154,.7); color:var(--ink) }
+.fo-rkrule{ margin:10px 0 12px; padding:10px 14px; border-radius:12px; background:rgba(0,179,154,.07); border:1px solid rgba(0,179,154,.25); font-size:12px; line-height:1.5 }
+.fo-rkrule > b{ display:block; margin-bottom:3px }
+.fo-rkrule span{ display:block; color:var(--ink-2) }
+.fo-rkrule .ccl{ font-style:normal }
+.mcard .fo-rkrule{ margin-top:14px }
+td small{ color:var(--ink-3); font-size:10.5px }
 </style>
 </head>
 <body>
@@ -25263,6 +25275,192 @@ document.addEventListener("change", function(e){
     cardSave("employee", id, (typeof foManPatch === "function") ? foManPatch(m) : {maxArt: +m.maxArt || 0, cat: m.cat || {A:0,B:0,C:0}});
   }, 80);
 });
+
+/* ===== add92: время работы с артикулами (РК) — по категории и по менеджеру, в гантах и планах (190, 115)
+   Виталий: «Категория А — 5 минут, В — 4, С — 3. Менеджер А (опытный, высокий
+   вес) — время как есть; В — ×1.5; С — ×2. Во всех гантах и планах работы —
+   отобразить объём работы с артикулами. Можешь заполнять свободные дыры
+   работой с РК или в один блок впиши — как красиво будет. Хочу наглядно
+   видеть, как присваивается время».
+   Как считаем: минуты на артикул за одно касание = норма категории артикула
+   × коэффициент менеджера. Категория менеджера — его компетенция (буква из
+   процентов A/B/C, если они заполнены на 100%), иначе по грейду: главный
+   менеджер / проджект — A, менеджер — B, младший / ассистент — C.
+   В ганте и в списках дня у человека появляется блок «Работа с РК · кабинет ·
+   N арт.» на каждый день, где у него есть артикулы по графику АОД; блок
+   ставится после последней задачи дня. Он не задача: галочки и снятия у него
+   нет, но часы, загрузка и перегруз его считают.                            */
+
+var FO_RK_BASE = {A: 5, B: 4, C: 3};
+var FO_RK_MULT = {A: 1, B: 1.5, C: 2};
+try{ if(typeof CAT_MIN !== "undefined" && CAT_MIN){ CAT_MIN.A = 5; CAT_MIN.B = 4; CAT_MIN.C = 3; } }catch(e){}
+
+function foRkLetter(m){
+  if(!m) return "B";
+  try{ if(typeof compSum === "function" && compSum(m) === 100 && typeof compLetter === "function"){ var l = compLetter(m); if(l === "A" || l === "B" || l === "C") return l; } }catch(e){}
+  try{
+    var g = (typeof gradeOf === "function") ? gradeOf(m) : null; var id = g && g.id;
+    if(id === "head" || id === "pm") return "A";
+    if(id === "mid") return "B";
+    if(id === "jun" || id === "assist") return "C";
+  }catch(e){}
+  return "B";
+}
+function foRkMult(m){ return FO_RK_MULT[foRkLetter(m)] || 1; }
+function foRkPer(a){ /* минут на артикул за одно касание с учётом менеджера */
+  var base = FO_RK_BASE[a && a.cat] || FO_RK_BASE.C;
+  var m = null; try{ m = a && a.person ? person(a.person) : null; }catch(e){}
+  return base * (m ? foRkMult(m) : 1);
+}
+function foRkDays(a){
+  if(a && a.days && a.days.length) return a.days.filter(function(d){ return d >= 0 && d < 5; });
+  try{ if(typeof catDow === "function") return catDow(a.cat); }catch(e){}
+  return [];
+}
+(function(){
+  if(typeof artMinutes !== "function") return;
+  artMinutes = function(a){ if(!a) return 0; var d = foRkDays(a).length || 1; return foRkPer(a) * d; };
+})();
+
+/* блоки «Работа с РК» в задачах: по человеку, кабинету и дню */
+function foRkBlocks(){
+  var out = [], by = {};
+  if(typeof artsAll !== "function") return out;
+  artsAll().forEach(function(a){
+    if(!a.person) return;
+    foRkDays(a).forEach(function(d){
+      var k = a.person + "|" + (a.cab || a.project || "") + "|" + d;
+      (by[k] = by[k] || {person: String(a.person), project: String(a.cab || a.project || ""), dow: d, n: 0, min: 0, byCat: {A:0, B:0, C:0}});
+      by[k].n++; by[k].min += foRkPer(a); by[k].byCat[a.cat || "C"] = (by[k].byCat[a.cat || "C"] || 0) + 1;
+    });
+  });
+  Object.keys(by).forEach(function(k){
+    var b = by[k];
+    var pr = null; try{ pr = b.project ? project(b.project) : null; }catch(e){}
+    var m = null; try{ m = person(b.person); }catch(e){}
+    var cats = ["A","B","C"].filter(function(c){ return b.byCat[c]; }).map(function(c){ return c + " " + b.byCat[c]; }).join(" · ");
+    var past = false; try{ past = (typeof dow !== "undefined") && b.dow < dow; }catch(e){}
+    out.push({id: "rk|" + k, rid: null, rk: true, kind: "cyc", title: "Работа с РК" + (pr ? " · " + pr.name : "") + " · " + b.n + " арт.",
+      project: b.project, person: b.person, cab: "", fn: "rk|" + k, minutes: Math.round(b.min), dow: b.dow, start: 10, done: past, spentSec: 0,
+      comment: cats + " · " + FO_RK_BASE.A + "/" + FO_RK_BASE.B + "/" + FO_RK_BASE.C + " мин × " + foRkMult(m) + " (менеджер " + foRkLetter(m) + ")",
+      link: "", approver: "Без согласования", status: "", createdAt: 0});
+  });
+  return out;
+}
+function foRkInject(){
+  try{
+    if(typeof foIsLive === "function" && !foIsLive()) return;
+    S.tasks = (S.tasks || []).filter(function(t){ return !t.rk; });
+    var blocks = foRkBlocks();
+    /* ставим после последней задачи человека в этот день — «в свободную дыру» */
+    blocks.forEach(function(b){
+      var end = 10;
+      (S.tasks || []).forEach(function(t){
+        if(t.person === b.person && t.dow === b.dow){ var e = (t.start || 10) + (t.minutes || 0) / 60; if(e > end) end = e; }
+      });
+      b.start = Math.min(19.4, end + (end > 10 ? 0.1 : 0));
+      S.tasks.push(b);
+    });
+  }catch(e){}
+}
+(function(){
+  if(typeof loadLive !== "function") return;
+  var _ll = loadLive;
+  loadLive = function(){
+    var self = this, args = arguments;
+    return _ll.apply(self, args).then(function(v){ foRkInject(); try{ render(); }catch(e){} return v; });
+  };
+  if(typeof foArtsAll === "function"){
+    var _fa = foArtsAll;
+    foArtsAll = function(){ return _fa.apply(this, arguments).then(function(v){ foRkInject(); return v; }); };
+  }
+  var tries = 0;
+  (function again(){
+    tries++; if(tries > 40) return;
+    var ready = false; try{ ready = (typeof foIsLive === "function" && foIsLive()) && S && S.tasks && Object.keys(FO_ARTS || {}).length; }catch(e){}
+    if(!ready){ setTimeout(again, 700); return; }
+    if((S.tasks || []).some(function(t){ return t.rk; })) return;
+    foRkInject(); try{ render(); }catch(e){}
+  })();
+})();
+
+/* блок РК — не задача: без галочки, без снятия, со своей подписью */
+(function(){
+  if(typeof tdRow === "function"){
+    var _td = tdRow;
+    tdRow = function(t){
+      var h = _td.apply(this, arguments);
+      if(!t || !t.rk) return h;
+      try{
+        h = h.replace('class="tdr', 'class="tdr fo-rk');
+        h = h.replace(/<button class="tdc"[^>]*><i><\/i><\/button>/, '<span class="tdc fo-rkdot" title="Работа с рекламными кампаниями — план по артикулам"><i></i></span>');
+        h = h.replace(' · цикличная', ' · РК: ' + esc(t.comment || ""));
+      }catch(e){}
+      return h;
+    };
+  }
+  if(typeof foTaskMenu === "function"){
+    var _tm = foTaskMenu;
+    foTaskMenu = function(t, anchor){
+      if(t && t.rk){ try{ toast("Работа с РК: " + t.title + " — " + t.minutes + " мин · " + (t.comment || "") + ". Артикулы и дни правятся в карточке клиента и в АОД"); }catch(e){} return; }
+      return _tm.apply(this, arguments);
+    };
+    window.foTaskMenu = foTaskMenu;
+  }
+  if(typeof window.foTaskExpand === "function"){
+    var _te = window.foTaskExpand;
+    window.foTaskExpand = function(t, row){ if(t && t.rk){ try{ toast("Работа с РК: " + t.minutes + " мин · " + (t.comment || "")); }catch(e){} return; } return _te.apply(this, arguments); };
+  }
+})();
+
+/* наглядно: как считается время — в АОД и в карточке менеджера */
+function foRkRuleHTML(m){
+  var l = m ? foRkLetter(m) : null;
+  return '<div class="fo-rkrule"><b>Как считается время на артикул</b>'+
+    '<span>За одно касание: <i class="ccl A"><b>A</b></i> '+FO_RK_BASE.A+' мин · <i class="ccl B"><b>B</b></i> '+FO_RK_BASE.B+' мин · <i class="ccl C"><b>C</b></i> '+FO_RK_BASE.C+' мин. '+
+    'Дней в неделю: A — 3, B — 2, C — 1 (или как проставлено в карточке клиента).</span>'+
+    '<span>Коэффициент менеджера: A (опытный) ×1 · B ×1.5 · C ×2 — по компетенции (проценты A/B/C), пока не заполнена — по грейду.'+
+    (m ? ' <b>'+esc(m.name)+': '+l+' → ×'+foRkMult(m)+'</b>' : '')+'</span></div>';
+}
+(function(){
+  if(typeof renderAod === "function"){
+    var _ra = renderAod;
+    renderAod = function(){
+      var v = _ra.apply(this, arguments);
+      try{
+        var host = document.getElementById("sect"); if(!host || host.querySelector(".fo-rkrule")) return v;
+        var head = host.querySelector(".gl-t"); var w = document.createElement("div"); w.innerHTML = foRkRuleHTML(null);
+        if(head && head.parentNode) head.parentNode.insertBefore(w.firstChild, head.nextSibling); else host.insertBefore(w.firstChild, host.firstChild);
+        /* в таблице — минуты с коэффициентом ответственного */
+        host.querySelectorAll("table tr[data-art]").forEach(function(tr){
+          var tds = tr.querySelectorAll("td"); if(tds.length < 7) return;
+          var id = tr.getAttribute("data-art");
+          var a = artsAll().filter(function(x){ return String(x.id) === String(id); })[0]; if(!a) return;
+          if(a.wb && (tds[0].textContent || "").trim() !== String(a.wb)) tds[0].innerHTML = esc(String(a.wb)) + (a.sku ? ' <small>'+esc(a.sku)+'</small>' : '');
+          var m = a.person ? person(a.person) : null; var per = foRkPer(a), d = foRkDays(a).length;
+          tds[4].innerHTML = '<b>'+(Math.round(per * 10) / 10)+'</b>'+(m ? ' <small>'+FO_RK_BASE[a.cat || "C"]+' × '+foRkMult(m)+' ('+foRkLetter(m)+')</small>' : '');
+          tds[5].textContent = d;
+          tds[6].innerHTML = '<b>'+Math.round(per * d)+'</b>';
+        });
+      }catch(e){}
+      return v;
+    };
+    try{ if(typeof SEC_RENDER !== "undefined" && SEC_RENDER && SEC_RENDER.aod) SEC_RENDER.aod = renderAod; }catch(e){}
+  }
+  if(typeof manCardHTML === "function"){
+    var _mc = manCardHTML;
+    manCardHTML = function(m){
+      var h = _mc.apply(this, arguments);
+      try{
+        h = h.replace('<div class="d">в неделю, по нормативам категорий</div>', '<div class="d">A '+FO_RK_BASE.A+' · B '+FO_RK_BASE.B+' · C '+FO_RK_BASE.C+' мин × '+foRkMult(m)+' (менеджер '+foRkLetter(m)+')</div>');
+        var i = h.lastIndexOf("</div>");
+        if(i > 0) h = h.slice(0, i) + foRkRuleHTML(m) + h.slice(i);
+      }catch(e){}
+      return h;
+    };
+  }
+})();
+window.foRkState = function(){ return {блоков: (S.tasks || []).filter(function(t){ return t.rk; }).length, минут: (S.tasks || []).filter(function(t){ return t.rk; }).reduce(function(a, t){ return a + t.minutes; }, 0)}; };
 
 })();
 </script>
