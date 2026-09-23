@@ -25092,6 +25092,68 @@ window.addEventListener("click", function(e){
 })();
 window.foLinksState = function(){ return {prefs: FO_LINKS.prefs.length, last: Object.keys(FO_LINKS.last).length, tasks: Object.keys(FO_LINKS.tasks).length}; };
 
+/* ===== add90: карточка менеджера — «что делает», компетенция, максимум артикулов на сервере (188)
+   Виталий: «Светлана, карточка менеджера — пишу, что работает с артикулами, а
+   это не сохраняется. Ты держишь это в браузере. Держи всё на сервере!»
+   Галочки «что делает» (функции, РК, оргзадачи, ассистирует, совещания),
+   проценты по категориям A/B/C и максимум артикулов уходят в карточку
+   сотрудника на сервере (fo_card, kind employee) и возвращаются при загрузке. */
+
+(function(){
+  if(typeof cardSave !== "function") return;
+  var timers = {};
+  function send(id){
+    if(!id) return;
+    if(typeof foLive === "function" && !foLive()) return;
+    var m = null; try{ m = person(id); }catch(e){}
+    if(!m) return;
+    var patch = {
+      fnWork: m.fnWork !== false, rk: !!(typeof worksRK === "function" ? worksRK(m) : m.rk),
+      orgWork: !!m.orgWork, assist: !!m.assist, meets: !!m.meets,
+      cat: {A: +((m.cat || {}).A || 0), B: +((m.cat || {}).B || 0), C: +((m.cat || {}).C || 0)},
+      maxArt: +m.maxArt || 0
+    };
+    cardSave("employee", id, patch);
+  }
+  function later(id, ms){ clearTimeout(timers[id]); timers[id] = setTimeout(function(){ send(id); }, ms || 400); }
+  document.addEventListener("click", function(e){
+    var t = e.target.closest && e.target.closest("[data-mcf]");
+    if(!t) return;
+    later(t.getAttribute("data-mcm"), 120);
+  });
+  document.addEventListener("click", function(e){
+    var t = e.target.closest && e.target.closest("[data-mcf]");
+    if(t) later(t.getAttribute("data-mcm"), 120);
+  }, true);
+  document.addEventListener("input", function(e){
+    var t = e.target; if(!t || !t.matches) return;
+    if(t.matches("[data-mccat]")) later(t.getAttribute("data-mcm"), 600);
+    else if(t.matches("[data-mcmax]")) later(t.getAttribute("data-mcmax"), 600);
+  });
+  document.addEventListener("change", function(e){
+    var t = e.target; if(!t || !t.matches) return;
+    if(t.matches("[data-mccat]")) later(t.getAttribute("data-mcm"), 50);
+    else if(t.matches("[data-mcmax]")) later(t.getAttribute("data-mcmax"), 50);
+  });
+})();
+/* галочка «ведёт совещания» и остальные — тоже с сервера: rk=false с сервера значит «не работает с РК» */
+(function(){
+  if(typeof cardsApply !== "function") return;
+  var _ca = cardsApply;
+  cardsApply = function(){
+    var v = _ca.apply(this, arguments);
+    try{
+      (S.people || []).forEach(function(m){
+        var d = (typeof SRV_CARDS !== "undefined" && SRV_CARDS) ? SRV_CARDS[cardKey("employee", m.id)] : null;
+        if(!d) return;
+        if(d.cat && typeof d.cat === "object") m.cat = {A: +d.cat.A || 0, B: +d.cat.B || 0, C: +d.cat.C || 0};
+        if(d.maxArt != null) m.maxArt = +d.maxArt || 0;
+      });
+    }catch(e){}
+    return v;
+  };
+})();
+
 })();
 </script>
 </body>
