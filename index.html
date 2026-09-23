@@ -4070,6 +4070,12 @@ td small{ color:var(--ink-3); font-size:10.5px }
 .fo-artr .fo-asel{ width:16px; height:16px; margin:0 2px 0 0; accent-color:#2f6feb; cursor:pointer; flex:0 0 auto }
 .fo-artr.fo-sel{ background:rgba(47,111,235,.07); border-radius:8px }
 .fo-fixb .bt, .fo-selbar .bt{ width:auto; flex:0 0 auto }
+
+/* ===== add100: «Удалить все артикулы» в шапке блока (200) ===== */
+.fo-arts > .ccdh.fo-artsh{ display:flex; align-items:center; gap:10px; flex-wrap:wrap }
+.fo-arts > .ccdh .fo-delall{ margin-left:auto; width:auto; flex:0 0 auto; text-transform:none; letter-spacing:0;
+  color:#c2394f; border-color:rgba(194,57,79,.45); font-weight:600 }
+.fo-arts > .ccdh .fo-delall.arm{ background:#c2394f; color:#fff; border-color:#c2394f }
 </style>
 </head>
 <body>
@@ -26815,6 +26821,76 @@ function foArtsRemove(cab, ids){
 })();
 
 window.foArtsSelState = function(pid){ return {выбрано: Object.keys(FO_ART_SEL[pid] || {}).length, имена: foFixGroups(pid).map(function(x){ return x.raw + " " + x.rows.length + (x.emp ? " → " + foOwnerName(x.emp) : " ?"); })}; };
+
+/* ===== add100: «Удалить все артикулы» — одна кнопка в шапке блока (200)
+   Виталий: «мне по-прежнему нужно удалить одной кнопкой все артикулы, чтобы я
+   мог загрузить по новой». Галочки (199) — для выборочного снятия; здесь —
+   одна красная кнопка «Удалить все артикулы: N» справа в шапке «Артикулы».
+   Первое нажатие — «Точно удалить все N? Нажмите ещё раз» (6 секунд), второе —
+   одним запросом на сервер (`articles/remove {all:true}`, v29). После —
+   курсор в поле вставки: вставляйте список заново, снятые артикулы
+   вносятся начисто.                                                        */
+
+var FO_DELALL_ARM = null;
+(function(){
+  if(typeof foArtsBlock !== "function") return;
+  var _ab = foArtsBlock;
+  foArtsBlock = function(pr){
+    var h = _ab.apply(this, arguments);
+    try{
+      var ro = (typeof foBelowPm === "function") ? foBelowPm() : false;
+      var n = ((FO_ARTS[pr.id] || {}).rows || []).length;
+      if(ro || !n) return h;
+      var box = document.createElement("div"); box.innerHTML = h;
+      var hd = box.querySelector(".fo-arts > .ccdh");
+      if(hd && !hd.querySelector("[data-fodelall]")){
+        hd.classList.add("fo-artsh");
+        var b = document.createElement("button");
+        b.className = "bt sm fo-delall"; b.setAttribute("data-fodelall", pr.id);
+        b.textContent = "Удалить все артикулы: " + n;
+        hd.appendChild(b);
+      }
+      return box.innerHTML;
+    }catch(e){ return h; }
+  };
+})();
+
+window.addEventListener("click", function(e){
+  var b = e.target.closest && e.target.closest("[data-fodelall]"); if(!b) return;
+  e.preventDefault(); e.stopImmediatePropagation();
+  var pid = b.getAttribute("data-fodelall"), d = FO_CABFN[pid];
+  var rows = (FO_ARTS[pid] || {}).rows || [];
+  if(!rows.length) return;
+  if(!d || !d.cab){ try{ toast("У клиента нет кабинета на сервере"); }catch(x){} return; }
+  if(FO_DELALL_ARM !== pid){
+    FO_DELALL_ARM = pid; b.classList.add("arm"); b.textContent = "Точно удалить все " + rows.length + "? Нажмите ещё раз";
+    setTimeout(function(){
+      if(FO_DELALL_ARM !== pid) return;
+      FO_DELALL_ARM = null;
+      var b2 = document.querySelector('[data-fodelall="' + pid + '"]');
+      if(b2){ b2.classList.remove("arm"); b2.textContent = "Удалить все артикулы: " + ((FO_ARTS[pid] || {}).rows || []).length; }
+    }, 6000);
+    return;
+  }
+  FO_DELALL_ARM = null; b.disabled = true; b.textContent = "Удаляю " + rows.length + "…";
+  var n = rows.length;
+  api("/refs/cabinets/" + encodeURIComponent(d.cab) + "/articles/remove", {method:"POST", body:{all: true}})
+    .catch(function(err){
+      if(!/404|405|Not Found|Method Not Allowed/i.test(String(err && err.message || ""))) throw err;
+      return foArtsRemove(d.cab, rows.map(function(r){ return r.id; }));
+    })
+    .then(function(r){
+      try{ delete FO_ART_SEL[pid]; delete FO_FIX_SEL[pid]; }catch(x){}
+      foArtsApplied(pid, r);
+      var left = (r && r.items || []).length;
+      try{ toast(left ? "Удалено " + (n - left) + ", осталось " + left + " — нажмите ещё раз" : "Удалено все " + n + ". Вставляйте список заново — ответственные встанут из столбца с именами"); }catch(x){}
+      setTimeout(function(){
+        var ta = document.querySelector('.fo-artpaste[data-focli="' + pid + '"] [data-foartpaste]');
+        if(ta){ ta.scrollIntoView({block:"center", behavior:"smooth"}); ta.focus(); }
+      }, 120);
+    })
+    .catch(function(err){ b.disabled = false; b.classList.remove("arm"); b.textContent = "Удалить все артикулы: " + n; try{ toast("Не удалилось: " + (err && err.message || "сервер не ответил")); }catch(x){} });
+}, true);
 
 })();
 </script>
