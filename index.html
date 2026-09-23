@@ -25874,6 +25874,139 @@ document.addEventListener("change", function(e){
   setTimeout(function(){ foFnSaveNow("change"); }, 200);
 });
 
+/* ===== add97: своя функция заводится на сервере по-настоящему (196)
+   Виталий: «вносил новую функцию "Управление ценой ИП Зейналян" — не
+   сохранилась, почему?». Нашлось: «+ Своя функция» давала код F0-<число
+   функций + 1> — он совпадал с уже занятым (нумерация с пропусками), и сервер
+   отказывал; а карточка (сложность, ссылка) при этом сохранялась под
+   местным номером fn1_… — на экране выглядело как «сохранено».
+   Теперь: код — следующий свободный; функция заводится на сервере сама, как
+   только её назвали (или по кнопке «Сохранить функцию»); после этого местный
+   номер меняется на серверный, карточка переезжает за ним; статус в шапке
+   говорит правду: «функция ещё не на сервере — назовите её» /
+   «заведена на сервере как F0-78».                                        */
+
+function foIsUuid(id){ return /^[0-9a-f]{8}-[0-9a-f]{4}-/i.test(String(id || "")); }
+function foNextFnCode(){
+  var max = 0;
+  (S.fns || []).forEach(function(f){ var m = /^F0-(\d+)$/.exec(String(f.code || "")); if(m) max = Math.max(max, +m[1]); });
+  return "F0-" + (max + 1);
+}
+function foFnRekey(oldId, newId){
+  try{
+    (S.fns || []).forEach(function(f){ if(f.id === oldId){ f.id = newId; f.rid = newId; } });
+    if(S.fnCfg && S.fnCfg[oldId]){ S.fnCfg[newId] = S.fnCfg[oldId]; delete S.fnCfg[oldId]; }
+    if(S.fnForm && S.fnForm[oldId]){ S.fnForm[newId] = S.fnForm[oldId]; delete S.fnForm[oldId]; }
+    if(typeof fnOpen !== "undefined" && fnOpen === oldId) fnOpen = newId;
+    ["fnDirty","fnSaving","fnSaved"].forEach(function(n){ try{ var o = eval(n); if(o && o[oldId] !== undefined){ o[newId] = o[oldId]; delete o[oldId]; } }catch(e){} });
+  }catch(e){}
+}
+
+/* своя версия сохранения функции: свободный код, серверный номер, карточка за ним */
+(function(){
+  if(typeof fnSave !== "function") return;
+  fnSave = function(id){
+    var f = null; try{ f = fnById(id); }catch(e){}
+    if(!f) return;
+    var c = fnCfg(f);
+    var name = (c.own || f.name || "").trim();
+    var el = document.querySelector('[data-fnname="'+id+'"], [data-fnc="own"]');
+    if(name.length < 2 || /^Своя функция \d+$/.test(name)){
+      try{ toast("Впишите название функции — без него на сервер не заводим"); }catch(e){}
+      if(el){ el.classList.add("fbad"); try{ foFieldNote(el, "Назовите функцию"); }catch(e){} el.focus(); }
+      return;
+    }
+    var dup = (typeof fnSameName === "function") ? fnSameName(name, id) : null;
+    if(dup){
+      try{ toast("Функция «" + name + "» уже есть — двух одинаковых не бывает"); }catch(e){}
+      if(el){ el.classList.add("fbad"); try{ foFieldNote(el, "Такая функция уже заведена — назовите иначе"); }catch(e){} el.focus(); }
+      return;
+    }
+    f.name = name;
+    if(!foLive()){ fnDirty[id] = false; fnSaved[id] = Date.now(); renderFns(); try{ toast("Сохранено. В демо — только в этом браузере"); }catch(e){} return; }
+    var isNew = !foIsUuid(f.id);
+    if(!isNew){
+      /* существующая серверная функция: норматив — штатным способом, остальное — карточкой */
+      fnSaving[id] = true; renderFns();
+      var mins = Math.max(1, Math.min(2880, +f.minutes || 30));
+      api("/refs/functions/" + encodeURIComponent(f.id) + "/norm?minutes=" + mins, {method:"PATCH"}).catch(function(){ return null; })
+        .then(function(){ return (typeof foFnSaveNow === "function") ? foFnSaveNow("save") : null; })
+        .then(function(){ fnSaving[id] = false; fnDirty[id] = false; fnSaved[id] = Date.now(); renderFns(); try{ toast("Функция сохранена на сервере"); }catch(e){} })
+        .catch(function(err){ fnSaving[id] = false; renderFns(); try{ toast("Не сохранилось: " + (err && err.message || "сервер не ответил")); }catch(e){} });
+      return;
+    }
+    /* новая: заводим на сервере под свободным кодом */
+    var taken = (S.fns || []).some(function(x){ return x.id !== f.id && String(x.code || "") === String(f.code || ""); });
+    if(taken || !/^F0-\d+$/.test(String(f.code || ""))) f.code = foNextFnCode();
+    fnSaving[id] = true; renderFns();
+    var cyc = (typeof fnCycleForServer === "function") ? fnCycleForServer(c) : {cycle_kind:"none", cycle_n:null, cycle_weekdays:null};
+    var body = {code: String(f.code).slice(0, 32), name: name, norm_minutes: Math.max(1, Math.min(2880, +f.minutes || +c.minutes || 30)),
+                block_id: +c.blockId || 1, unit: "cabinet", cycle_kind: cyc.cycle_kind};
+    if(cyc.cycle_n != null) body.cycle_n = cyc.cycle_n;
+    if(cyc.cycle_weekdays && cyc.cycle_weekdays.length) body.cycle_weekdays = cyc.cycle_weekdays;
+    api("/refs/functions", {method:"POST", body:body})
+      .then(function(r){
+        var newId = r && (r.id || r.fn_id);
+        if(!newId) throw new Error("сервер не вернул номер функции");
+        foFnRekey(id, String(newId));
+        try{ if(typeof FO_FNS !== "undefined") FO_FNS[String(newId)] = {id:String(newId), code:body.code, name:name, norm_minutes:body.norm_minutes, cycle_kind:body.cycle_kind, cycle_n:body.cycle_n, cycle_weekdays:body.cycle_weekdays}; }catch(e){}
+        return (typeof foFnSaveNow === "function") ? foFnSaveNow("create") : null;
+      })
+      .then(function(){
+        var nid = f.id;
+        fnSaving[nid] = false; fnDirty[nid] = false; fnSaved[nid] = Date.now();
+        renderFns();
+        var st = document.getElementById("foFnSt"); if(st){ st.textContent = "заведена на сервере как " + f.code + " ✓"; st.className = "fo-fnst ok"; }
+        try{ toast("Функция «" + name + "» заведена на сервере как " + f.code); }catch(e){}
+      })
+      .catch(function(err){
+        fnSaving[id] = false; renderFns();
+        var st = document.getElementById("foFnSt"); if(st){ st.textContent = "не завелась: " + (err && err.message || "сервер не ответил"); st.className = "fo-fnst bad"; }
+        try{ toast("Функция не завелась на сервере: " + (err && err.message || "")); }catch(e){}
+      });
+  };
+})();
+
+/* пока функция местная — карточку на сервер не шлём, а заводим функцию (или просим назвать) */
+(function(){
+  if(typeof foFnSaveNow !== "function") return;
+  var _s = foFnSaveNow;
+  foFnSaveNow = function(reason){
+    try{
+      if(typeof fnOpen !== "undefined" && fnOpen && !foIsUuid(fnOpen)){
+        var f = fnById(fnOpen); var c = f ? fnCfg(f) : null;
+        var name = c ? (c.own || f.name || "").trim() : "";
+        var st = document.getElementById("foFnSt");
+        if(!name || /^Своя функция \d+$/.test(name)){
+          if(st){ st.textContent = "функция ещё не на сервере — назовите её, и заведу"; st.className = "fo-fnst bad"; }
+          return Promise.resolve();
+        }
+        if(reason !== "create" && reason !== "save"){ fnSave(fnOpen); return Promise.resolve(); }
+      }
+    }catch(e){}
+    return _s.apply(this, arguments);
+  };
+  window.foFnSaveNow = foFnSaveNow;
+})();
+/* назвали новую функцию и ушли из поля — заводим сразу */
+document.addEventListener("focusout", function(e){
+  var t = e.target; if(!t || !t.matches || !t.matches("[data-fnname], [data-fnc=\"own\"]")) return;
+  if(typeof fnOpen === "undefined" || !fnOpen || foIsUuid(fnOpen)) return;
+  var v = String(t.value || "").trim();
+  if(v.length >= 2 && !/^Своя функция \d+$/.test(v)) setTimeout(function(){ try{ fnSave(fnOpen); }catch(x){} }, 150);
+});
+/* «+ Своя функция»: код — следующий свободный */
+window.addEventListener("click", function(e){
+  if(!(e.target.closest && (e.target.closest("#fnAdd2") || e.target.closest("#fnAdd")))) return;
+  setTimeout(function(){
+    try{
+      var f = fnById(fnOpen); if(!f || foIsUuid(f.id)) return;
+      var taken = (S.fns || []).some(function(x){ return x.id !== f.id && String(x.code || "") === String(f.code || ""); });
+      if(taken){ f.code = foNextFnCode(); renderFns(); var inp = document.querySelector('[data-fnname="' + f.id + '"]'); if(inp){ inp.focus(); inp.select(); } }
+    }catch(x){}
+  }, 80);
+}, true);
+
 })();
 </script>
 </body>
