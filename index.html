@@ -4043,6 +4043,32 @@ td small{ color:var(--ink-3); font-size:10.5px }
   .fo-pv98 .fo-artr.pv{ grid-template-columns:1fr 1fr }
   .fo-pv98 .fo-artr.pv.hd{ display:none }
 }
+
+/* ===== add99: ответственный из своего столбца, починка вставленного, снятие пачкой (199) ===== */
+.fo-pvcols{ font-size:12px; color:var(--ink-3); margin:0 0 6px }
+.fo-pvcols b{ color:#2f6feb; font-weight:600 }
+.fo-pvcols b.bad{ color:#c2394f }
+.fo-pvtip{ font-size:11.5px; color:var(--ink-3); margin:-2px 0 6px }
+
+.fo-fixbar{ margin:8px 0; padding:10px 12px; border-radius:12px; background:rgba(255,176,32,.10); box-shadow:inset 0 0 0 1px rgba(255,176,32,.35) }
+.fo-fixh{ font-size:13px; font-weight:600; margin-bottom:8px }
+.fo-fixh span{ font-weight:400; color:var(--ink-3); margin-left:6px }
+.fo-fixl{ display:flex; flex-wrap:wrap; gap:8px 16px }
+.fo-fixg{ display:inline-flex; align-items:center; gap:6px; font-size:12.5px; white-space:nowrap }
+.fo-fixg.unk b{ color:#c2394f }
+.fo-fixg .sel.sm, .fo-fixg .gsl{ min-width:140px }
+.fo-fixb{ display:flex; flex-wrap:wrap; align-items:center; gap:10px; margin-top:10px }
+.fo-fixb .fo-hint{ font-size:11.5px; color:var(--ink-3); flex:1 1 280px }
+
+.fo-selbar{ display:flex; flex-wrap:wrap; align-items:center; gap:6px 12px; margin:8px 0 2px; font-size:12.5px; color:var(--ink-3) }
+.fo-selbar .fo-lnk{ background:none; border:none; padding:0; color:#2f6feb; cursor:pointer; font:inherit }
+.fo-selbar .fo-lnk:hover{ text-decoration:underline }
+.fo-selbar .fo-selk{ margin-left:auto }
+.fo-selbar .fo-selk b{ color:var(--ink-1,#111) }
+.fo-seldel{ color:#c2394f }
+.fo-seldel.arm{ background:#c2394f; color:#fff; border-color:#c2394f }
+.fo-artr .fo-asel{ width:16px; height:16px; margin:0 2px 0 0; accent-color:#2f6feb; cursor:pointer; flex:0 0 auto }
+.fo-artr.fo-sel{ background:rgba(47,111,235,.07); border-radius:8px }
 </style>
 </head>
 <body>
@@ -26454,6 +26480,338 @@ document.addEventListener("change", function(e){
 
 window.foOwnerMatch = foOwnerMatch;
 window.foArtsOwnState = function(pid){ return pid ? {превью: foPvStats(pid), имена: foOwnAliases()} : foOwnAliases(); };
+
+/* ===== add99: артикулы из таблицы — ответственный из своего столбца, починка вставленного, снятие пачкой (199)
+   Виталий: «хочу скопировать это из документа, внести в карточку клиента,
+   раздел Артикулы, и ответственные сами вписались напротив артикула»; «вставил
+   кривые артикулы — удалить могу только по одному, 250 удалять долго».
+   Что было: 285 артикулов ИП Сидякин внеслись, а имена (Вероника, Светлана,
+   Елизавета, Оля…) легли в «артикул продавца», ответственных — ни у кого.
+   Теперь:
+   • таблица из Google/Excel разбирается по столбцам: какой столбец артикул
+     ВБ, какой категория, какой ответственный — узнаю по содержимому (или по
+     шапке, если скопирована). Ответственный — тот столбец, где имена команды;
+     имя, которого нет в команде (Оля, Лейсян), — «кто это?», а не артикул
+     продавца. Повторы одного артикула — одна строка;
+   • уже внесённые: если в «артикуле продавца» стоят имена — строка «Это
+     ответственные?» с именами и числом строк → одной кнопкой имена уходят в
+     ответственных (дни по категории — график), артикул продавца очищается;
+   • снятие пачкой: галочки у строк (Shift — диапазон), «выделить все /
+     внесённые сегодня / без ответственного», «Снять выбранные» — одним
+     запросом (сервер v29 `POST /refs/cabinets/{cab}/articles/remove`).
+     Снятый артикул, вставленный заново, вносится начисто.                  */
+
+var FO_PARSE98 = foParseArts;
+var FO_ART_SEL = {};       /* клиент → {id артикула: true} */
+var FO_FIX_SEL = {};       /* клиент → {имя: id сотрудника} — выбор в строке «Это ответственные?» */
+var FO_SEL_LAST = null, FO_SEL_SHIFT = false, FO_DEL_ARM = null;
+
+function foIsNameLike(v){ v = String(v || "").trim(); return !!v && !/\d/.test(v) && /^[A-Za-zА-Яа-яЁё][A-Za-zА-Яа-яЁё .\-]{1,40}$/.test(v) && v.split(/\s+/).length <= 3; }
+var FO_HDR = {
+  wb: /^(артикул\s*(вб|wb|маркетплейса)?|вб|wb|nm\s*id|nmid|код\s*вб)$/i,
+  sku: /(продав|поставщ|sku|vendor|свой\s*артикул)/i,
+  cat: /^(категори|кат\.?$|abc|сложност)/i,
+  own: /(ответств|менеджер|сотрудн|исполнит|кто\s*вед|ведет|ведёт)/i
+};
+
+/* таблица (табуляция или ; |) — по столбцам */
+function foParseCols(lines, sep){
+  var rows = lines.filter(function(l){ return String(l).trim(); }).map(function(l){ return l.split(sep).map(function(c){ return String(c || "").trim(); }); });
+  var isWb = function(c){ return /^\d{5,}$/.test(c); };
+  var hdr = {}, data = [];
+  rows.forEach(function(r){
+    if(r.some(isWb)){ data.push(r); return; }
+    r.forEach(function(c, j){
+      if(!c) return;
+      if(hdr.sku == null && FO_HDR.sku.test(c)) hdr.sku = j;
+      else if(hdr.wb == null && FO_HDR.wb.test(c)) hdr.wb = j;
+      else if(hdr.cat == null && FO_HDR.cat.test(c)) hdr.cat = j;
+      else if(hdr.own == null && FO_HDR.own.test(c)) hdr.own = j;
+    });
+  });
+  var ncol = data.reduce(function(m, r){ return Math.max(m, r.length); }, 0);
+  var st = [];
+  for(var j = 0; j < ncol; j++) st.push({wb:0, cat:0, team:0, name:0, full:0, vals:{}});
+  data.forEach(function(r){
+    r.forEach(function(c, j){
+      if(!c) return;
+      var s = st[j]; s.full++;
+      if(isWb(c)) s.wb++;
+      if(foNormCat(c)) s.cat++;
+      if(foIsNameLike(c)){ s.name++; s.vals[foNmNorm(c)] = 1; if(foOwnerMatch(c)) s.team++; }
+    });
+  });
+  var best = function(key, skip){ var b = -1, bv = 0; st.forEach(function(s, j){ if(skip.indexOf(j) >= 0) return; if(s[key] > bv){ bv = s[key]; b = j; } }); return b; };
+  var wbCol = hdr.wb != null ? hdr.wb : best("wb", []);
+  var catCol = hdr.cat != null ? hdr.cat : best("cat", [wbCol]);
+  if(catCol >= 0 && hdr.cat == null && st[catCol].cat < st[catCol].full * 0.6) catCol = -1;
+  var ownCol = hdr.own != null ? hdr.own : -1;
+  if(ownCol < 0){
+    var cand = best("team", [wbCol, catCol]);
+    if(cand >= 0 && st[cand].name >= st[cand].full * 0.6) ownCol = cand;
+  }
+  if(ownCol < 0){
+    /* в команде имён нет, но столбец явно из имён: одни буквы и повторяются */
+    st.forEach(function(s, j){
+      if(ownCol >= 0 || j === wbCol || j === catCol || s.full < 3) return;
+      var nd = Object.keys(s.vals).length;
+      if(s.name === s.full && nd <= 12 && s.full >= nd * 2) ownCol = j;
+    });
+  }
+  var skuCol = hdr.sku != null ? hdr.sku : -1;
+  if(skuCol < 0) st.forEach(function(s, j){ if(skuCol < 0 && j !== wbCol && j !== catCol && j !== ownCol && s.full > 0) skuCol = j; });
+
+  var out = [], meta = [], at = {};
+  data.forEach(function(r){
+    var wb = isWb(r[wbCol] || "") ? r[wbCol] : (r.filter(isWb)[0] || "");
+    if(!wb) return;
+    var cat = catCol >= 0 ? foNormCat(r[catCol] || "") : "";
+    if(!cat) r.some(function(c, j){ if(j !== wbCol && foNormCat(c)){ cat = foNormCat(c); return true; } return false; });
+    var raw = ownCol >= 0 ? (r[ownCol] || "") : "";
+    var sku = skuCol >= 0 ? (r[skuCol] || "") : "";
+    if(sku && (FO_HDR_RX.test(sku) || isWb(sku) && sku === wb)) sku = "";
+    var emp = raw ? foOwnerMatch(raw) : null;
+    var m = raw ? (emp ? {auto: 1} : {raw: raw, key: foNmNorm(raw)}) : {};
+    if(at[wb] != null){                                   /* повтор артикула — дополняем пустое */
+      var x = out[at[wb]];
+      if(!x.employee_id && emp){ x.employee_id = emp; meta[at[wb]] = m; }
+      else if(!x.employee_id && !meta[at[wb]].raw && m.raw) meta[at[wb]] = m;
+      if(!x.cat && cat) x.cat = cat;
+      if(!x.seller_sku && sku) x.seller_sku = sku;
+      return;
+    }
+    var it = {wb_sku: wb, seller_sku: sku, cat: cat};
+    if(emp) it.employee_id = emp;
+    at[wb] = out.length; out.push(it); meta.push(m);
+  });
+  out.meta = meta;
+  out.cols = {wb: wbCol, sku: skuCol, cat: catCol, own: ownCol, rows: data.length};
+  return out;
+}
+foParseArts = function(txt){
+  var lines = String(txt || "").split(/\r\n|\n|\r/);
+  var full = lines.filter(function(l){ return l.trim(); }).length;
+  var tab = lines.filter(function(l){ return l.indexOf("\t") >= 0; }).length;
+  if(tab && tab >= full * 0.5) return foParseCols(lines, "\t");
+  var sc = lines.filter(function(l){ return /[;|]/.test(l); }).length;
+  if(sc && sc >= full * 0.5) return foParseCols(lines, /[;|]/);
+  return FO_PARSE98(txt);
+};
+window.foParseArts = foParseArts;
+
+/* превью: какие столбцы узнал + про тех, кого нет в команде */
+(function(){
+  var _pv = foArtPvHTML;
+  foArtPvHTML = function(pid){
+    var h = _pv.apply(this, arguments);
+    try{
+      var pv = FO_ART_PREVIEW[pid]; if(!h || !pv) return h;
+      var c = pv.cols, parts = [];
+      if(c){
+        var nm = function(j){ return (j + 1) + "-й"; };
+        if(c.wb >= 0) parts.push("артикул ВБ — " + nm(c.wb));
+        if(c.sku >= 0) parts.push("артикул продавца — " + nm(c.sku));
+        if(c.cat >= 0) parts.push("категория — " + nm(c.cat));
+        parts.push(c.own >= 0 ? "<b>ответственный — " + nm(c.own) + "</b>" : "<b class=\"bad\">столбца с именами не нашёл</b>");
+      }
+      var dup = c ? c.rows - pv.length : 0;
+      var line = parts.length ? '<div class="fo-pvcols">Столбцы: ' + parts.join(" · ") + (dup > 0 ? ' · повторы артикулов склеены: ' + dup : '') + '</div>' : '';
+      var unk = (pv.meta || []).some(function(m, i){ return m && m.raw && !(pv[i] && pv[i].employee_id); });
+      var tip = unk ? '<div class="fo-pvtip">Кого нет в команде — выберите, кто это, или оставьте: артикулы внесутся без ответственного. Новый сотрудник: заведите его в «Команде», потом вставьте список ещё раз — имя встанет само.</div>' : '';
+      return h.replace('<div class="fo-artpvh fo-pvsum">', line + '<div class="fo-artpvh fo-pvsum">').replace('<div class="fo-pvbulkw">', tip + '<div class="fo-pvbulkw">');
+    }catch(e){ return h; }
+  };
+  window.foArtPvHTML = foArtPvHTML;
+})();
+
+/* ── уже внесённые: имена в «артикуле продавца» → ответственные ── */
+function foFixGroups(pid){
+  var rows = ((FO_ARTS[pid] || {}).rows || []).filter(function(r){ return !r.employee_id && foIsNameLike(r.seller_sku); });
+  var g = {}, order = [];
+  rows.forEach(function(r){
+    var k = foNmNorm(r.seller_sku);
+    if(!g[k]){ g[k] = {key: k, raw: r.seller_sku, rows: [], emp: foOwnerMatch(r.seller_sku)}; order.push(k); }
+    g[k].rows.push(r);
+  });
+  return order.map(function(k){ return g[k]; }).filter(function(x){ return x.emp || x.rows.length >= 2; })
+    .sort(function(a, b){ return b.rows.length - a.rows.length; });
+}
+function foFixBarHTML(pid){
+  var gs = foFixGroups(pid); if(!gs.length) return "";
+  var sel = FO_FIX_SEL[pid] = FO_FIX_SEL[pid] || {};
+  var n = 0, ready = 0;
+  var items = gs.map(function(x){
+    var v = sel[x.key] != null ? sel[x.key] : (x.emp || "");
+    n += x.rows.length; if(v) ready += x.rows.length;
+    return '<label class="fo-fixg'+(v ? '' : ' unk')+'"><b>'+esc(x.raw)+'</b> '+x.rows.length+' → <select class="sel sm" data-fofix="'+esc(x.key)+'">'+foOwnOpts(v, x.emp ? "— не он —" : "— кто это? —")+'</select></label>';
+  }).join("");
+  return '<div class="fo-fixbar" data-fopid="'+esc(pid)+'">'+
+    '<div class="fo-fixh">В «артикуле продавца» стоят имена — это ответственные? <span>'+n+' '+foPlural(n, "артикул", "артикула", "артикулов")+' без ответственного</span></div>'+
+    '<div class="fo-fixl">'+items+'</div>'+
+    '<div class="fo-fixb"><button class="bt sm pri" data-fofixgo="'+esc(pid)+'"'+(ready ? '' : ' disabled')+'>Сделать ответственными: '+ready+'</button>'+
+    '<span class="fo-hint">Имя уйдёт в «ответственный», «артикул продавца» очистится, дни — по категории, график сформируется. Кого нет в команде — выберите, кто это, или оставьте как есть.</span></div>'+
+  '</div>';
+}
+document.addEventListener("change", function(e){
+  var el = e.target; if(!el || !el.matches || !el.matches("[data-fofix]")) return;
+  var bar = el.closest(".fo-fixbar"); var pid = bar && bar.getAttribute("data-fopid"); if(!pid) return;
+  var sel = FO_FIX_SEL[pid] = FO_FIX_SEL[pid] || {};
+  var key = el.getAttribute("data-fofix");
+  sel[key] = el.value || "";
+  if(el.value && !foOwnerMatch(key)) foSaveAlias(key, el.value);
+  var w = document.createElement("div"); w.innerHTML = foFixBarHTML(pid);
+  if(w.firstChild){ bar.parentNode.replaceChild(w.firstChild, bar); try{ enhanceSelects(document.querySelector('.fo-fixbar[data-fopid="'+pid+'"]')); }catch(x){} }
+}, true);
+window.addEventListener("click", function(e){
+  var b = e.target.closest && e.target.closest("[data-fofixgo]"); if(!b) return;
+  e.preventDefault(); e.stopImmediatePropagation();
+  var pid = b.getAttribute("data-fofixgo"), d = FO_CABFN[pid];
+  if(!d || !d.cab){ try{ toast("У клиента нет кабинета на сервере"); }catch(x){} return; }
+  var sel = FO_FIX_SEL[pid] || {}, items = [], who = {};
+  foFixGroups(pid).forEach(function(x){
+    var v = sel[x.key] != null ? sel[x.key] : (x.emp || ""); if(!v) return;
+    x.rows.forEach(function(r){ items.push({wb_sku: r.wb_sku, employee_id: String(v), sku_clear: true}); });
+    who[foOwnerName(v)] = (who[foOwnerName(v)] || 0) + x.rows.length;
+  });
+  if(!items.length) return;
+  b.disabled = true; b.textContent = "Вношу " + items.length + "…";
+  foArtBulkSend(d.cab, items, false)
+    .then(function(r){
+      delete FO_FIX_SEL[pid];
+      foArtsApplied(pid, r);
+      try{ toast("Ответственные на сервере: " + Object.keys(who).map(function(k){ return k + " " + who[k]; }).join(", ") + ". Дни по категории — график сформирован"); }catch(x){}
+    })
+    .catch(function(err){ b.disabled = false; b.textContent = "Сделать ответственными ещё раз"; try{ toast("Не внеслось: " + (err && err.message || "сервер не ответил")); }catch(x){} });
+}, true);
+
+/* ── снятие пачкой ── */
+function foTodayIso(){ var d = new Date(); return d.getFullYear() + "-" + ("0" + (d.getMonth() + 1)).slice(-2) + "-" + ("0" + d.getDate()).slice(-2); }
+function foSelBarHTML(pid){
+  var rows = (FO_ARTS[pid] || {}).rows || []; if(rows.length < 2) return "";
+  var sel = FO_ART_SEL[pid] || {}, k = rows.filter(function(r){ return sel[r.id]; }).length;
+  var today = rows.filter(function(r){ return String(r.first_seen || "").slice(0, 10) === foTodayIso(); }).length;
+  var none = rows.filter(function(r){ return !r.employee_id; }).length;
+  return '<div class="fo-selbar" data-fopid="'+esc(pid)+'"><span>Выделить:</span>'+
+    '<button class="fo-lnk" data-foselall="all">все ('+rows.length+')</button>'+
+    (today && today < rows.length ? '<button class="fo-lnk" data-foselall="today">внесённые сегодня ('+today+')</button>' : '')+
+    (none && none < rows.length ? '<button class="fo-lnk" data-foselall="none">без ответственного ('+none+')</button>' : '')+
+    (k ? '<button class="fo-lnk" data-foselall="off">снять выделение</button>' : '')+
+    '<span class="fo-selk">'+(k ? 'выбрано <b>'+k+'</b>' : 'Shift — выделить диапазон')+'</span>'+
+    '<button class="bt sm fo-seldel" data-foseldel="'+esc(pid)+'"'+(k ? '' : ' disabled')+'>Снять с управления'+(k ? ': '+k : '')+'</button>'+
+  '</div>';
+}
+function foSelBarRedraw(pid){
+  var bar = document.querySelector('.fo-selbar[data-fopid="'+pid+'"]'); if(!bar) return;
+  var w = document.createElement("div"); w.innerHTML = foSelBarHTML(pid);
+  if(w.firstChild) bar.parentNode.replaceChild(w.firstChild, bar);
+  FO_DEL_ARM = null;
+}
+function foSelPaint(pid){
+  var sel = FO_ART_SEL[pid] || {};
+  document.querySelectorAll('.fo-artr[data-focli="'+pid+'"] [data-foasel]').forEach(function(cb){
+    cb.checked = !!sel[cb.getAttribute("data-foasel")];
+    cb.closest(".fo-artr").classList.toggle("fo-sel", cb.checked);
+  });
+  foSelBarRedraw(pid);
+}
+window.addEventListener("click", function(e){
+  var cb = e.target.closest && e.target.closest("[data-foasel]");
+  if(cb){ FO_SEL_SHIFT = !!e.shiftKey; return; }
+  var b = e.target.closest && e.target.closest("[data-foselall]");
+  if(b){
+    e.preventDefault(); e.stopImmediatePropagation();
+    var bar = b.closest(".fo-selbar"), pid = bar.getAttribute("data-fopid"), how = b.getAttribute("data-foselall");
+    var rows = (FO_ARTS[pid] || {}).rows || [], sel = FO_ART_SEL[pid] = {};
+    rows.forEach(function(r){
+      if(how === "all" || (how === "today" && String(r.first_seen || "").slice(0, 10) === foTodayIso()) || (how === "none" && !r.employee_id)) sel[r.id] = true;
+    });
+    foSelPaint(pid);
+    return;
+  }
+  b = e.target.closest && e.target.closest("[data-foseldel]");
+  if(b){
+    e.preventDefault(); e.stopImmediatePropagation();
+    var pid2 = b.getAttribute("data-foseldel"), ids = Object.keys(FO_ART_SEL[pid2] || {}), d = FO_CABFN[pid2];
+    if(!ids.length) return;
+    if(!d || !d.cab){ try{ toast("У клиента нет кабинета на сервере"); }catch(x){} return; }
+    if(FO_DEL_ARM !== pid2){
+      FO_DEL_ARM = pid2; b.classList.add("arm"); b.textContent = "Точно снять " + ids.length + "? Нажмите ещё раз";
+      setTimeout(function(){ if(FO_DEL_ARM === pid2){ FO_DEL_ARM = null; foSelBarRedraw(pid2); } }, 6000);
+      return;
+    }
+    FO_DEL_ARM = null; b.disabled = true; b.textContent = "Снимаю " + ids.length + "…";
+    foArtsRemove(d.cab, ids)
+      .then(function(r){
+        delete FO_ART_SEL[pid2];
+        foArtsApplied(pid2, r);
+        try{ toast("Снято с управления: " + (r.снято != null ? r.снято : ids.length) + " · осталось " + ((r.items || []).length)); }catch(x){}
+      })
+      .catch(function(err){ b.disabled = false; foSelBarRedraw(pid2); try{ toast("Не снялось: " + (err && err.message || "сервер не ответил")); }catch(x){} });
+  }
+}, true);
+document.addEventListener("change", function(e){
+  var cb = e.target; if(!cb || !cb.matches || !cb.matches("[data-foasel]")) return;
+  var row = cb.closest(".fo-artr"), pid = row && row.getAttribute("data-focli"); if(!pid) return;
+  var sel = FO_ART_SEL[pid] = FO_ART_SEL[pid] || {}, id = cb.getAttribute("data-foasel");
+  var all = Array.prototype.slice.call(document.querySelectorAll('.fo-artr[data-focli="'+pid+'"] [data-foasel]'));
+  if(FO_SEL_SHIFT && FO_SEL_LAST && FO_SEL_LAST.pid === pid){
+    var a = all.findIndex(function(x){ return x.getAttribute("data-foasel") === FO_SEL_LAST.id; }), z = all.indexOf(cb);
+    if(a >= 0 && z >= 0){ for(var i = Math.min(a, z); i <= Math.max(a, z); i++){ var k = all[i].getAttribute("data-foasel"); if(cb.checked) sel[k] = true; else delete sel[k]; } }
+  }
+  if(cb.checked) sel[id] = true; else delete sel[id];
+  FO_SEL_LAST = {pid: pid, id: id}; FO_SEL_SHIFT = false;
+  foSelPaint(pid);
+}, true);
+
+/* одним запросом; старый сервер — по одному, по 20 параллельно */
+function foArtsRemove(cab, ids){
+  return api("/refs/cabinets/" + encodeURIComponent(cab) + "/articles/remove", {method:"POST", body:{ids: ids}})
+    .catch(function(err){
+      if(!/404|405|Not Found|Method Not Allowed/i.test(String(err && err.message || ""))) throw err;
+      var i = 0, n = 0;
+      var step = function(){
+        var part = ids.slice(i, i + 20); i += 20;
+        if(!part.length) return api("/refs/cabinets/" + encodeURIComponent(cab) + "/articles").then(function(rows){ return {снято: n, items: rows || []}; });
+        return Promise.all(part.map(function(id){ return api("/refs/articles/" + encodeURIComponent(id) + "/remove", {method:"POST"}).then(function(){ n++; }).catch(function(){}); })).then(step);
+      };
+      return step();
+    });
+}
+
+/* ── карточка: строка «Это ответственные?», галочки, панель снятия ── */
+(function(){
+  if(typeof foArtsBlock !== "function") return;
+  var _ab = foArtsBlock;
+  foArtsBlock = function(pr){
+    var h = _ab.apply(this, arguments);
+    try{
+      var ro = (typeof foBelowPm === "function") ? foBelowPm() : false;
+      if(ro || !FO_ARTS[pr.id]) return h;
+      var box = document.createElement("div"); box.innerHTML = h;
+      var list = box.querySelector(".fo-artl");
+      if(list){
+        var sel = FO_ART_SEL[pr.id] || {};
+        list.querySelectorAll(".fo-artr[data-foart]").forEach(function(r){
+          var id = r.getAttribute("data-foart");
+          var cb = document.createElement("input"); cb.type = "checkbox"; cb.className = "fo-asel"; cb.setAttribute("data-foasel", id);
+          if(sel[id]){ cb.setAttribute("checked", "checked"); r.classList.add("fo-sel"); }
+          r.insertBefore(cb, r.firstChild);
+        });
+        var sb = foSelBarHTML(pr.id);
+        if(sb){ var w = document.createElement("div"); w.innerHTML = sb; list.parentNode.insertBefore(w.firstChild, list); }
+        var fx = foFixBarHTML(pr.id);
+        if(fx){
+          var w2 = document.createElement("div"); w2.innerHTML = fx;
+          var anchor = box.querySelector(".fo-artown") || box.querySelector(".fo-selbar") || list;
+          anchor.parentNode.insertBefore(w2.firstChild, anchor);
+        }
+      }
+      return box.innerHTML;
+    }catch(e){ return h; }
+  };
+})();
+
+window.foArtsSelState = function(pid){ return {выбрано: Object.keys(FO_ART_SEL[pid] || {}).length, имена: foFixGroups(pid).map(function(x){ return x.raw + " " + x.rows.length + (x.emp ? " → " + foOwnerName(x.emp) : " ?"); })}; };
 
 })();
 </script>
