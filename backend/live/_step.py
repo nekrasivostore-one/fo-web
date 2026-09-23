@@ -1191,7 +1191,11 @@ async def _fo_sync_tasks(c, org_id, cabinet_id=None, days=14, old=None, wait=Tru
 async def _fo_sync_body(c, org_id, cabinet_id, days, old):
     import datetime as _dt
     today = _fo_msk_today()
-    horizon = [today + _dt.timedelta(days=i) for i in range(max(1, min(60, int(days or 14))))]
+    # горизонт — с понедельника текущей недели (перенос дня должен быть виден
+    # у ответственного на этой же неделе, а не только со следующей) и на days вперёд
+    start = today - _dt.timedelta(days=today.weekday())
+    n_days = (today - start).days + max(1, min(60, int(days or 14)))
+    horizon = [start + _dt.timedelta(days=i) for i in range(n_days)]
     q = """SELECT cf.cabinet_id, cb.name AS cabinet, cb.client_id, f.id AS fn_id, f.name AS fn,
                   COALESCE(g.minutes, f.norm_minutes, 30) AS minutes,
                   COALESCE(g.cycle_kind, f.cycle_kind) AS cycle_kind,
@@ -1219,7 +1223,7 @@ async def _fo_sync_body(c, org_id, cabinet_id, days, old):
                     WHERE org_id=$1 AND cabinet_id=$2::uuid AND fn_id=$3::uuid
                       AND source='generator' AND status='planned' AND plan_date >= $5
                       AND assignee_id IS DISTINCT FROM $4::uuid""",
-                org_id, r["cabinet_id"], r["fn_id"], r["wanted"], today)
+                org_id, r["cabinet_id"], r["fn_id"], r["wanted"], start)
             moved += _fo_n(res)
         # норма времени - на будущие несделанные
         await c.execute(
@@ -1227,7 +1231,7 @@ async def _fo_sync_body(c, org_id, cabinet_id, days, old):
                 WHERE org_id=$1 AND cabinet_id=$2::uuid AND fn_id=$3::uuid
                   AND source='generator' AND status='planned' AND plan_date >= $5
                   AND plan_minutes IS DISTINCT FROM $4""",
-            org_id, r["cabinet_id"], r["fn_id"], int(r["minutes"] or 30), today)
+            org_id, r["cabinet_id"], r["fn_id"], int(r["minutes"] or 30), start)
         have = await c.fetch(
             """SELECT id, plan_date, status FROM task
                 WHERE org_id=$1 AND cabinet_id=$2::uuid AND fn_id=$3::uuid
@@ -1259,7 +1263,7 @@ async def _fo_sync_body(c, org_id, cabinet_id, days, old):
               AND plan_date >= $2 AND cabinet_id IS NOT NULL AND fn_id IS NOT NULL
               AND NOT EXISTS (SELECT 1 FROM cabinet_fn cf
                                WHERE cf.cabinet_id=task.cabinet_id AND cf.fn_id=task.fn_id)"""
-    a2 = [org_id, today]
+    a2 = [org_id, start]
     if cabinet_id:
         q2 += " AND cabinet_id=$3::uuid"; a2.append(cabinet_id)
     removed += _fo_n(await c.execute(q2, *a2))
