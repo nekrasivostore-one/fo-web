@@ -3921,6 +3921,17 @@ body.fo-nopeople #screen section.s5{ grid-column:span 8 }
 .gb.fo-wk .gbt{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:100% }
 .gb.fo-wk:hover{ width:auto !important; min-width:220px; height:auto }
 .fo-gweek .ln{ overflow:visible }
+
+/* ===== add86: подбор функции по тексту в карточке клиента (182) ===== */
+.fo-find{ position:relative; flex:1 1 260px; min-width:200px; display:block }
+.fo-find .fo-findin{ width:100%; box-sizing:border-box; padding:6px 10px; font-size:12.5px }
+.fo-sugg{ position:absolute; top:calc(100% + 4px); left:0; right:0; z-index:80; background:var(--panel,#fff); border:1px solid var(--stroke,#ddd); border-radius:12px; box-shadow:0 14px 34px rgba(16,20,32,.18); max-height:260px; overflow:auto; padding:4px }
+.fo-sug{ display:flex; flex-direction:column; gap:1px; padding:7px 10px; border-radius:9px; cursor:pointer; font-size:12.5px }
+.fo-sug b{ font-weight:600 }
+.fo-sug i{ font-style:normal; font-size:11px; color:var(--ink-3) }
+.fo-sug:hover, .fo-sug.on{ background:rgba(124,92,255,.10) }
+.fo-sug.new b{ color:#6B4EFF }
+.fo-sug.dim{ cursor:default }
 </style>
 </head>
 <body>
@@ -24456,6 +24467,155 @@ function foGanttWeekLayout(el){
   };
 })();
 /* в карточках кабинета/человека гант рисуется своими функциями — их не трогаем; главный экран — здесь */
+
+/* ===== add86: функция в карточке клиента подбирается по тексту (182)
+   Виталий: «не даёт в карточке клиента писать функцию, даёт только выбрать,
+   при этом список куда-то девается. Хочу начать писать — и чтобы функция
+   сама по тексту подобралась». Вместо выпадающего списка — поле: пишешь,
+   снизу подсказки из справочника (по любому слову названия или коду),
+   Enter или клик — выбрана, базовые настройки подставляются как раньше.
+   Нет такой — предложим создать с этим названием прямо здесь.            */
+
+function foFnMatches(q, exclude){
+  var words = String(q || "").toLowerCase().trim().split(/\s+/).filter(Boolean);
+  if(!words.length) return [];
+  var ex = exclude || {};
+  return (S.fns || []).filter(function(f){
+    if(ex[String(f.id)]) return false;
+    var hay = (String(f.name || "") + " " + String(f.code || "")).toLowerCase();
+    return words.every(function(w){ return hay.indexOf(w) >= 0; });
+  }).sort(function(a, b){
+    var qa = String(a.name || "").toLowerCase().indexOf(words[0]), qb = String(b.name || "").toLowerCase().indexOf(words[0]);
+    return (qa < 0 ? 99 : qa) - (qb < 0 ? 99 : qb) || String(a.name).localeCompare(String(b.name), "ru");
+  }).slice(0, 8);
+}
+function foFnExact(q){
+  var k = String(q || "").trim().toLowerCase();
+  return (S.fns || []).filter(function(f){ return String(f.name || "").trim().toLowerCase() === k; })[0] || null;
+}
+
+(function(){
+  if(typeof foCabFnBlock !== "function") return;
+  var _b = foCabFnBlock;
+  foCabFnBlock = function(pr){
+    var h = _b.apply(this, arguments);
+    try{
+      var box = document.createElement("div"); box.innerHTML = h;
+      var sel = box.querySelector('.fo-fnadd select[data-foa="fn_id"]');
+      if(sel){
+        var w = document.createElement("span"); w.className = "fo-find";
+        w.innerHTML = '<input class="fi sm fo-findin" data-foafind="1" placeholder="Начните писать название функции — подберу из справочника" autocomplete="off" spellcheck="false">'+
+          '<input type="hidden" data-foa="fn_id" value="">'+
+          '<div class="fo-sugg" hidden></div>';
+        sel.parentNode.replaceChild(w, sel);
+        var hint = box.querySelector(".fo-fnadd .fo-hint");
+        if(hint) hint.textContent = "Функция = задача: как только назначили — задачи у ответственного на две недели вперёд. Пишите название — функция подберётся из справочника; нет такой — создадим с этим названием.";
+      }
+      return box.innerHTML;
+    }catch(e){ return h; }
+  };
+})();
+
+function foSuggDraw(inp){
+  var wrap = inp.closest(".fo-find"), row = inp.closest(".fo-fnadd"); if(!wrap || !row) return;
+  var list = wrap.querySelector(".fo-sugg"), hid = wrap.querySelector('[data-foa="fn_id"]');
+  var q = inp.value;
+  var cli = row.getAttribute("data-focli"), d = FO_CABFN[cli] || {}, ex = {};
+  (d.rows || []).forEach(function(r){ ex[String(r.fn_id)] = 1; });
+  var m = foFnMatches(q, ex);
+  var exact = foFnExact(q);
+  if(hid){ hid.value = exact ? exact.id : ""; }
+  if(!String(q).trim()){ list.hidden = true; list.innerHTML = ""; return; }
+  list.innerHTML = m.map(function(f, i){
+    return '<div class="fo-sug'+(i === 0 ? ' on' : '')+'" data-fosug="'+esc(f.id)+'"><b>'+esc(f.name)+'</b><i>'+esc(f.code || "")+(f.minutes ? ' · '+f.minutes+' мин' : '')+'</i></div>'; }).join("")+
+    (!exact && String(q).trim().length >= 3 ? '<div class="fo-sug new" data-fosugnew="1"><b>Создать функцию «'+esc(String(q).trim())+'»</b><i>появится в справочнике и встанет в кабинет</i></div>' : '')+
+    (!m.length && !(String(q).trim().length >= 3) ? '<div class="fo-sug dim"><i>Ничего похожего — продолжайте писать</i></div>' : '');
+  list.hidden = false;
+}
+function foSuggPick(wrap, fnId, name){
+  var inp = wrap.querySelector("[data-foafind]"), hid = wrap.querySelector('[data-foa="fn_id"]'), list = wrap.querySelector(".fo-sugg");
+  if(inp) inp.value = name || "";
+  if(hid){ hid.value = fnId || ""; hid.dispatchEvent(new Event("change", {bubbles:true})); }
+  if(list){ list.hidden = true; list.innerHTML = ""; }
+}
+function foSuggCreate(wrap){
+  var inp = wrap.querySelector("[data-foafind]"), row = wrap.closest(".fo-fnadd");
+  var title = String(inp.value || "").trim(); if(!title) return Promise.resolve(null);
+  if(typeof foFnEnsure !== "function"){ try{ toast("Создание функции отсюда недоступно — заведите её в разделе «Функции»"); }catch(e){} return Promise.resolve(null); }
+  var body = (typeof foRowBody === "function") ? foRowBody(row) : {};
+  var cyc = body.cycle_kind || "weekly"; if(cyc === "weekly" && body.cycle_n === 2) cyc = "biweekly";
+  var days = body.cycle_weekdays || [];
+  inp.disabled = true;
+  return foFnEnsure(title, body.minutes || 30, cyc, days[0] != null ? days[0] : 0, days).then(function(id){
+    inp.disabled = false;
+    if(!id){ try{ toast("Функция не создалась"); }catch(e){} return null; }
+    try{ if(typeof foFnsLoad === "function") foFnsLoad(); }catch(e){}
+    foSuggPick(wrap, id, title);
+    try{ toast("Функция «" + title + "» создана — теперь «Добавить»"); }catch(e){}
+    return id;
+  }).catch(function(err){ inp.disabled = false; try{ toast("Не создалась: " + (err && err.message || "")); }catch(e){} return null; });
+}
+
+document.addEventListener("input", function(e){
+  var inp = e.target; if(!inp || !inp.matches || !inp.matches("[data-foafind]")) return;
+  foSuggDraw(inp);
+});
+document.addEventListener("focusin", function(e){
+  var inp = e.target; if(!inp || !inp.matches || !inp.matches("[data-foafind]")) return;
+  if(inp.value) foSuggDraw(inp);
+});
+document.addEventListener("keydown", function(e){
+  var inp = e.target; if(!inp || !inp.matches || !inp.matches("[data-foafind]")) return;
+  var wrap = inp.closest(".fo-find"), list = wrap && wrap.querySelector(".fo-sugg"); if(!list) return;
+  var items = Array.prototype.slice.call(list.querySelectorAll(".fo-sug[data-fosug], .fo-sug[data-fosugnew]"));
+  var cur = items.findIndex(function(x){ return x.classList.contains("on"); });
+  if(e.key === "ArrowDown" || e.key === "ArrowUp"){
+    if(!items.length) return;
+    e.preventDefault();
+    var n = e.key === "ArrowDown" ? Math.min(items.length - 1, cur + 1) : Math.max(0, cur - 1);
+    items.forEach(function(x, i){ x.classList.toggle("on", i === n); });
+    return;
+  }
+  if(e.key === "Enter"){
+    e.preventDefault();
+    var it = items[cur >= 0 ? cur : 0]; if(!it) return;
+    if(it.hasAttribute("data-fosugnew")) foSuggCreate(wrap);
+    else foSuggPick(wrap, it.getAttribute("data-fosug"), it.querySelector("b").textContent);
+    return;
+  }
+  if(e.key === "Escape"){ list.hidden = true; }
+});
+/* клики по подсказкам — раньше общего обработчика карточки */
+window.addEventListener("click", function(e){
+  var it = e.target.closest && e.target.closest(".fo-sugg .fo-sug");
+  if(it){
+    e.preventDefault(); e.stopImmediatePropagation();
+    var wrap = it.closest(".fo-find");
+    if(it.hasAttribute("data-fosugnew")) foSuggCreate(wrap);
+    else if(it.hasAttribute("data-fosug")) foSuggPick(wrap, it.getAttribute("data-fosug"), it.querySelector("b").textContent);
+    return;
+  }
+  if(!(e.target.closest && e.target.closest(".fo-find"))){
+    document.querySelectorAll(".fo-sugg:not([hidden])").forEach(function(l){ l.hidden = true; });
+  }
+  /* «Добавить» с написанным, но не выбранным названием */
+  var b = e.target.closest && e.target.closest(".fo-fnadd [data-foadd]");
+  if(b){
+    var row = b.closest(".fo-fnadd"), wrap2 = row && row.querySelector(".fo-find"); if(!wrap2) return;
+    var hid = wrap2.querySelector('[data-foa="fn_id"]'), inp = wrap2.querySelector("[data-foafind]");
+    if(hid && hid.value) return;                                  /* выбрана — дальше как обычно */
+    var q = String(inp && inp.value || "").trim();
+    if(!q){ return; }                                             /* пусто — общий обработчик скажет «выберите функцию» */
+    var cli = row.getAttribute("data-focli"), d = FO_CABFN[cli] || {}, ex = {};
+    (d.rows || []).forEach(function(r){ ex[String(r.fn_id)] = 1; });
+    var exact = foFnExact(q), m = foFnMatches(q, ex);
+    if(exact){ foSuggPick(wrap2, exact.id, exact.name); return; }  /* подставили — событие идёт дальше */
+    if(m.length === 1){ foSuggPick(wrap2, m[0].id, m[0].name); return; }
+    e.preventDefault(); e.stopImmediatePropagation();
+    if(m.length > 1){ try{ toast("Похожих функций несколько — выберите из подсказки"); }catch(x){} foSuggDraw(inp); return; }
+    foSuggCreate(wrap2).then(function(id){ if(id) setTimeout(function(){ b.click(); }, 50); });
+  }
+}, true);
 
 })();
 </script>
