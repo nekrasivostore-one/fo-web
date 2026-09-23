@@ -25886,6 +25886,7 @@ document.addEventListener("change", function(e){
    говорит правду: «функция ещё не на сервере — назовите её» /
    «заведена на сервере как F0-78».                                        */
 
+var FO_FN_CREATING = {};
 function foIsUuid(id){ return /^[0-9a-f]{8}-[0-9a-f]{4}-/i.test(String(id || "")); }
 function foNextFnCode(){
   var max = 0;
@@ -25929,13 +25930,16 @@ function foFnRekey(oldId, newId){
       /* существующая серверная функция: норматив — штатным способом, остальное — карточкой */
       fnSaving[id] = true; renderFns();
       var mins = Math.max(1, Math.min(2880, +f.minutes || 30));
-      api("/refs/functions/" + encodeURIComponent(f.id) + "/norm?minutes=" + mins, {method:"PATCH"}).catch(function(){ return null; })
+      foFnRename(f, name)
+        .then(function(){ return api("/refs/functions/" + encodeURIComponent(f.id) + "/norm?minutes=" + mins, {method:"PATCH"}).catch(function(){ return null; }); })
         .then(function(){ return (typeof foFnSaveNow === "function") ? foFnSaveNow("save") : null; })
         .then(function(){ fnSaving[id] = false; fnDirty[id] = false; fnSaved[id] = Date.now(); renderFns(); try{ toast("Функция сохранена на сервере"); }catch(e){} })
         .catch(function(err){ fnSaving[id] = false; renderFns(); try{ toast("Не сохранилось: " + (err && err.message || "сервер не ответил")); }catch(e){} });
       return;
     }
-    /* новая: заводим на сервере под свободным кодом */
+    /* новая: заводим на сервере под свободным кодом — один раз, даже если сохранение позвали дважды */
+    if(FO_FN_CREATING[id]) return;
+    FO_FN_CREATING[id] = true;
     var taken = (S.fns || []).some(function(x){ return x.id !== f.id && String(x.code || "") === String(f.code || ""); });
     if(taken || !/^F0-\d+$/.test(String(f.code || ""))) f.code = foNextFnCode();
     fnSaving[id] = true; renderFns();
@@ -25953,6 +25957,7 @@ function foFnRekey(oldId, newId){
         return (typeof foFnSaveNow === "function") ? foFnSaveNow("create") : null;
       })
       .then(function(){
+        delete FO_FN_CREATING[id];
         var nid = f.id;
         fnSaving[nid] = false; fnDirty[nid] = false; fnSaved[nid] = Date.now();
         renderFns();
@@ -25960,6 +25965,7 @@ function foFnRekey(oldId, newId){
         try{ toast("Функция «" + name + "» заведена на сервере как " + f.code); }catch(e){}
       })
       .catch(function(err){
+        delete FO_FN_CREATING[id];
         fnSaving[id] = false; renderFns();
         var st = document.getElementById("foFnSt"); if(st){ st.textContent = "не завелась: " + (err && err.message || "сервер не ответил"); st.className = "fo-fnst bad"; }
         try{ toast("Функция не завелась на сервере: " + (err && err.message || "")); }catch(e){}
@@ -26006,6 +26012,36 @@ window.addEventListener("click", function(e){
     }catch(x){}
   }, 80);
 }, true);
+
+
+/* 197: имя существующей функции — на сервер (раньше менялось только на экране и в карточке) */
+var FO_FN_SRVNAME = {};
+function foFnRename(f, name){
+  name = String(name || "").trim();
+  if(!f || !foIsUuid(f.id) || name.length < 2) return Promise.resolve();
+  var srv = FO_FN_SRVNAME[f.id];
+  if(srv == null){ try{ var x = (typeof FO_FNS !== "undefined") ? FO_FNS[String(f.id)] : null; srv = x ? x.name : null; }catch(e){} }
+  if(srv != null && String(srv).trim() === name) return Promise.resolve();
+  return api("/refs/functions/" + encodeURIComponent(f.id) + "/name", {method:"POST", body:{name: name}})
+    .then(function(){
+      FO_FN_SRVNAME[f.id] = name; f.name = name;
+      try{ if(typeof FO_FNS !== "undefined" && FO_FNS[String(f.id)]) FO_FNS[String(f.id)].name = name; }catch(e){}
+      var st = document.getElementById("foFnSt"); if(st){ st.textContent = "название на сервере ✓"; st.className = "fo-fnst ok"; }
+    })
+    .catch(function(err){
+      var st = document.getElementById("foFnSt"); if(st){ st.textContent = "название не сохранилось: " + (err && err.message || ""); st.className = "fo-fnst bad"; }
+      try{ toast("Название не сохранилось: " + (err && err.message || "")); }catch(e){}
+    });
+}
+document.addEventListener("focusout", function(e){
+  var t = e.target; if(!t || !t.matches || !t.matches("[data-fnname], [data-fnc=\"own\"]")) return;
+  if(typeof fnOpen === "undefined" || !fnOpen || !foIsUuid(fnOpen)) return;
+  var f = null; try{ f = fnById(fnOpen); }catch(x){}
+  if(!f) return;
+  var v = String(t.value || "").trim();
+  if(t.matches('[data-fnc="own"]')) return;                 /* «как называем у себя» — только карточка */
+  if(v.length >= 2) setTimeout(function(){ foFnRename(f, v); }, 100);
+});
 
 })();
 </script>
