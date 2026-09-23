@@ -1611,6 +1611,25 @@ async def fo_link_pref_get(fn_id: str, cabinet_id: str | None = None, p: Princip
     return {"asked": True, "same_table": r["same_table"], "link": r["link"]}
 
 
+@router.get("/link-pref/all")
+async def fo_link_pref_all(p: Principal = Depends(current)):
+    """187: ссылки на таблицы по функции и кабинету — хвостик у плашки в ганте и в списке дня.
+    Запомненные ответы «одна и та же таблица» всего агентства и последняя ссылка из отчётов."""
+    async with pool().acquire() as c:
+        prefs = await c.fetch(
+            "SELECT fn_id, cabinet_id, employee_id, same_table, link FROM fo_link_pref "
+            "WHERE org_id=$1 AND link IS NOT NULL AND link <> '' ORDER BY updated_at DESC", p.org_id)
+        last = await c.fetch(
+            "SELECT DISTINCT ON (fn_id, cabinet_id) fn_id, cabinet_id, employee_id, task_id, link FROM fo_task_report "
+            "WHERE org_id=$1 AND link IS NOT NULL AND link <> '' ORDER BY fn_id, cabinet_id, made_at DESC", p.org_id)
+        tasks = await c.fetch(
+            "SELECT DISTINCT ON (task_id) task_id, link FROM fo_task_report "
+            "WHERE org_id=$1 AND link IS NOT NULL AND link <> '' ORDER BY task_id, made_at DESC", p.org_id)
+    def _d(r):
+        return {k: (str(v) if v is not None and k != "link" and k != "same_table" else v) for k, v in dict(r).items()}
+    return {"prefs": [_d(r) for r in prefs], "last": [_d(r) for r in last], "tasks": [_d(r) for r in tasks]}
+
+
 @router.post("/link-pref")
 async def fo_link_pref_set(body: FoLinkPrefIn, p: Principal = Depends(current)):
     async with pool().acquire() as c:
@@ -2124,7 +2143,7 @@ else:
     p("")
     p("== ПРОВЕРКА ЭНДПОИНТОВ ==")
     for u in ("/refs/roles", "/refs/cards", "/refs/tasks/once", "/refs/invites",
-              "/refs/me/account", "/refs/tasks/sync", "/refs/cabinets/x/functions/add", "/refs/cabinets/x/functions/y/take", "/refs/tasks/reviews", "/refs/link-pref", "/refs/cabinets/x/articles", "/refs/admin/people", "/auth/invite-token/zzz"):
+              "/refs/me/account", "/refs/tasks/sync", "/refs/cabinets/x/functions/add", "/refs/cabinets/x/functions/y/take", "/refs/link-pref/all", "/refs/tasks/reviews", "/refs/link-pref", "/refs/cabinets/x/articles", "/refs/admin/people", "/auth/invite-token/zzz"):
         p("  %-26s %s" % (u, sh("curl -s -o /dev/null -w '%%{http_code}' http://127.0.0.1:8000%s" % u).strip()))
     p("(401/403 — эндпоинт есть и просит вход; 404 — не встал)")
     p("ГОТОВО: хранение переехало на сервер")
