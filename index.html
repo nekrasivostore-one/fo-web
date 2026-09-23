@@ -3932,6 +3932,17 @@ body.fo-nopeople #screen section.s5{ grid-column:span 8 }
 .fo-sug:hover, .fo-sug.on{ background:rgba(124,92,255,.10) }
 .fo-sug.new b{ color:#6B4EFF }
 .fo-sug.dim{ cursor:default }
+
+/* ===== add88: карточка действий над задачей (186) ===== */
+.fo-tmenu{ position:fixed; z-index:1250; background:var(--panel,#fff); color:var(--ink,#111); border:1px solid var(--stroke,#ddd); border-radius:14px; box-shadow:0 18px 44px rgba(16,20,32,.22); padding:12px 14px }
+.fo-tmh b{ display:block; font-size:13.5px; margin-bottom:2px }
+.fo-tmh i{ display:block; font-style:normal; font-size:11.5px; color:var(--ink-3) }
+.fo-tmh u{ text-decoration:none; color:var(--ok,#1a9d6f) }
+.fo-tmb{ display:flex; gap:8px; flex-wrap:wrap; margin-top:10px }
+.fo-tmb .bt.sm{ padding:6px 11px; font-size:12px }
+.fo-tmb .bt.dangl{ color:#c2394f; border-color:rgba(194,57,79,.4) }
+.fo-tmn{ font-size:11px; color:var(--ink-3); margin-top:8px; line-height:1.4 }
+#screen .gb[data-open], .tdr[data-task] .tdt, .tldt[data-task], .dli.fo-clk, .gb[data-fotask]{ cursor:pointer }
 </style>
 </head>
 <body>
@@ -24747,6 +24758,173 @@ var FO_NT_LAST = null;
     }catch(e){}
   };
 })();
+
+/* ===== add88: снять задачу и отменить выполнение — из любого места, только РМ и выше (186)
+   Виталий: «если я хочу снять задачу — я должен мочь это сделать хоть в ганте,
+   хоть по менеджеру, хоть по клиенту, в любых сценариях. Я могу отменить
+   выполнение задачи, но менеджер не может её отменить».
+   Клик по задаче (плашка в ганте, строка в списке дня и недели, строка в
+   карточке человека и кабинета) открывает карточку действий: снять задачу,
+   отменить выполнение. Ниже РМ — только посмотреть. Раньше «Снять задачу
+   совсем» убирало задачу только с экрана — после перезагрузки она
+   возвращалась; теперь снятие уходит на сервер (POST /refs/tasks/{id}/remove). */
+
+function foTaskOf(id){
+  if(!id) return null;
+  try{ if(typeof foTaskById === "function"){ var t = foTaskById(id); if(t) return t; } }catch(e){}
+  return (S.tasks || []).filter(function(x){ return String(x.id) === String(id); })[0] || null;
+}
+function foCanDrop(){ return !(typeof foBelowPm === "function" && foBelowPm()); }
+
+function foTaskMenuClose(){ var m = document.getElementById("foTaskMenu"); if(m) m.remove(); }
+function foTaskMenu(t, anchor){
+  foTaskMenuClose();
+  if(!t) return;
+  var m = t.person ? person(t.person) : null, pr = t.project ? project(t.project) : null;
+  var can = foCanDrop();
+  var box = document.createElement("div"); box.id = "foTaskMenu"; box.className = "fo-tmenu";
+  box.innerHTML =
+    '<div class="fo-tmh"><b>'+esc(String(t.title || "Задача").split(" · ")[0])+'</b>'+
+      '<i>'+(pr ? esc(pr.name)+' · ' : '')+(m ? esc(m.name) : 'без ответственного')+' · '+(typeof DOWS !== "undefined" ? DOWS[t.dow] || "" : "")+' · '+(t.minutes || 0)+' мин'+
+      (t.done ? ' · <u>выполнена</u>' : t.status === "wait" ? ' · на согласовании' : '')+'</i></div>'+
+    (can
+      ? '<div class="fo-tmb">'+
+          (t.done ? '<button class="bt sm gh2" data-fotundo="'+esc(t.id)+'">Отменить выполнение</button>' : '')+
+          '<button class="bt sm dangl" data-fotdrop="'+esc(t.id)+'">Снять задачу</button>'+
+          '<button class="bt sm gh2" data-fotclose="1">Закрыть</button>'+
+        '</div>'+
+        '<div class="fo-tmn">Снять — задача исчезнет у ответственного из всех экранов. Функция в кабинете останется: следующие дни родятся по ней как обычно.</div>'
+      : '<div class="fo-tmb"><button class="bt sm gh2" data-fotclose="1">Закрыть</button></div>'+
+        '<div class="fo-tmn">Снять задачу или отменить её выполнение может РМ и выше.</div>');
+  document.body.appendChild(box);
+  try{
+    var r = anchor.getBoundingClientRect();
+    var w = Math.min(360, window.innerWidth - 20);
+    var left = Math.max(10, Math.min(r.left, window.innerWidth - w - 10));
+    var top = r.bottom + 6; if(top + 150 > window.innerHeight) top = Math.max(10, r.top - 150);
+    box.style.left = left + "px"; box.style.top = top + "px"; box.style.width = w + "px";
+  }catch(e){}
+}
+
+function foTaskDrop(t){
+  if(!t) return Promise.resolve();
+  var req;
+  if(t.onceId && typeof onceRemove === "function") req = onceRemove(t.onceId);
+  else if(t.rid) req = api("/refs/tasks/" + encodeURIComponent(t.rid) + "/remove", {method:"POST"});
+  else { S.tasks = (S.tasks || []).filter(function(x){ return x.id !== t.id; }); try{ render(); }catch(e){} return Promise.resolve(); }
+  return req.then(function(){
+    S.tasks = (S.tasks || []).filter(function(x){ return x.id !== t.id; });
+    try{ toast("Задача снята"); }catch(e){}
+    try{ render(); }catch(e){}
+    return (typeof loadLive === "function" && (typeof foLive !== "function" || foLive())) ? loadLive() : null;
+  }).then(function(){
+    try{ if(typeof view !== "undefined" && view !== "work" && typeof setView === "function") setView(view, true); }catch(e){}
+    try{ if(document.querySelector(".cc2") && typeof renderCards === "function") renderCards(); }catch(e){}
+  }).catch(function(err){ try{ toast("Не снялось: " + (err && err.message || "сервер не ответил")); }catch(e){} });
+}
+function foTaskUndo(t){
+  if(!t || !t.rid) return Promise.resolve();
+  return api("/refs/tasks/" + encodeURIComponent(t.rid) + "/undone", {method:"POST"})
+    .then(function(){ t.done = false; t.doneAt = 0; try{ if(typeof foRowSet === "function") foRowSet(t, "planned", null); }catch(e){} try{ toast("Отметка о выполнении снята"); render(); }catch(e){}
+      try{ if(typeof view !== "undefined" && view !== "work" && typeof setView === "function") setView(view, true); }catch(e){} })
+    .catch(function(err){ try{ toast("Не снялось: " + (err && err.message || "")); }catch(e){} });
+}
+
+/* клики: меню действий и его кнопки */
+window.addEventListener("click", function(e){
+  var b;
+  if((b = e.target.closest && e.target.closest("[data-fotdrop]"))){
+    e.preventDefault(); e.stopImmediatePropagation();
+    var t1 = foTaskOf(b.getAttribute("data-fotdrop")); foTaskMenuClose();
+    if(!foCanDrop()){ try{ toast("Снять задачу может РМ и выше"); }catch(x){} return; }
+    foTaskDrop(t1); return;
+  }
+  if((b = e.target.closest && e.target.closest("[data-fotundo]"))){
+    e.preventDefault(); e.stopImmediatePropagation();
+    var t2 = foTaskOf(b.getAttribute("data-fotundo")); foTaskMenuClose();
+    if(!foCanDrop()){ try{ toast("Отменить выполнение может РМ и выше"); }catch(x){} return; }
+    foTaskUndo(t2); return;
+  }
+  if(e.target.closest && e.target.closest("[data-fotclose]")){ e.preventDefault(); e.stopImmediatePropagation(); foTaskMenuClose(); return; }
+  if(e.target.closest && e.target.closest("#foTaskMenu")) return;
+  foTaskMenuClose();
+
+  /* ниже РМ: отметку о выполнении не снимают */
+  var cb = e.target.closest && e.target.closest("[data-cb]");
+  if(cb && !foCanDrop()){
+    var tc = foTaskOf(cb.getAttribute("data-cb"));
+    if(tc && tc.done){ e.preventDefault(); e.stopImmediatePropagation(); try{ toast("Отменить выполнение может РМ и выше"); }catch(x){} return; }
+  }
+
+  /* «Снять задачу совсем» из панели разгрузки — на сервер, а не только с экрана */
+  var und = e.target.closest && e.target.closest("[data-undrop]");
+  if(und){
+    e.preventDefault(); e.stopImmediatePropagation();
+    var tu = foTaskOf(und.getAttribute("data-undrop"));
+    if(!foCanDrop()){ try{ toast("Снять задачу может РМ и выше"); }catch(x){} return; }
+    try{ unlOpen = null; }catch(x){}
+    foTaskDrop(tu); return;
+  }
+
+  /* где открыть карточку действий */
+  var host = e.target.closest && (
+    e.target.closest("#screen .gb[data-open]") ||
+    e.target.closest(".tdr[data-task] .tdt") ||
+    e.target.closest(".tldt[data-task]") ||
+    e.target.closest(".dli[data-task]") ||
+    e.target.closest(".gb[data-fotask]") ||
+    e.target.closest(".mcdt[data-task]"));
+  if(!host) return;
+  if(e.target.closest("a, button, input, select, textarea, [data-cb]")) return;
+  var id = host.getAttribute("data-open") || host.getAttribute("data-task") || host.getAttribute("data-fotask") ||
+           (host.closest("[data-task]") || {getAttribute:function(){ return null; }}).getAttribute("data-task");
+  var t = foTaskOf(id); if(!t) return;
+  e.preventDefault(); e.stopImmediatePropagation();
+  foTaskMenu(t, host);
+}, true);
+document.addEventListener("keydown", function(e){ if(e.key === "Escape") foTaskMenuClose(); });
+
+/* строкам карточки человека и кабинета даём номер задачи — иначе по ним нечего снять */
+(function(){
+  if(typeof personDetail === "function"){
+    var _pd = personDetail;
+    personDetail = function(m){
+      var h = _pd.apply(this, arguments);
+      try{
+        if(typeof peGantt !== "undefined" && peGantt) return h;
+        var dt = (S.tasks || []).filter(function(t){ return t.person === m.id && t.dow === peDay; }).sort(function(a, b){ return a.start - b.start; });
+        if(!dt.length) return h;
+        var box = document.createElement("div"); box.innerHTML = h;
+        var rows = box.querySelectorAll(".dli");
+        if(rows.length !== dt.length) return h;
+        Array.prototype.forEach.call(rows, function(r, i){ r.setAttribute("data-task", dt[i].id); r.classList.add("fo-clk"); });
+        return box.innerHTML;
+      }catch(e){ return h; }
+    };
+  }
+  if(typeof cabDetail === "function"){
+    var _cd = cabDetail;
+    cabDetail = function(pr){
+      var h = _cd.apply(this, arguments);
+      try{
+        if(typeof projGantt !== "undefined" && projGantt) return h;
+        var dt = (S.tasks || []).filter(function(t){ return t.project === pr.id && t.dow === projDay; });
+        var units = (S.people || []).filter(function(p){ return dt.some(function(t){ return t.person === p.id; }); });
+        var box = document.createElement("div"); box.innerHTML = h;
+        var grs = box.querySelectorAll(".gr");
+        if(grs.length !== units.length) return h;
+        Array.prototype.forEach.call(grs, function(gr, i){
+          var list = dt.filter(function(t){ return t.person === units[i].id; }).sort(function(a, b){ return a.start - b.start; });
+          var bars = gr.querySelectorAll(".gb");
+          if(bars.length !== list.length) return;
+          Array.prototype.forEach.call(bars, function(b, k){ b.setAttribute("data-fotask", list[k].id); });
+        });
+        return box.innerHTML;
+      }catch(e){ return h; }
+    };
+  }
+})();
+window.foTaskMenu = foTaskMenu;
 
 })();
 </script>
