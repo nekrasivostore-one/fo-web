@@ -4001,6 +4001,13 @@ td small{ color:var(--ink-3); font-size:10.5px }
 .fo-fncr .bt.sm{ padding:4px 10px; font-size:12px; text-decoration:none }
 .fo-fndg{ font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:var(--ink-3); margin:4px 0 2px }
 .fo-spdrop{ margin-left:8px }
+
+/* ===== add96: карточка функции — явное сохранение (195) ===== */
+.fo-fnsave{ display:flex; align-items:center; gap:10px; margin-left:auto }
+.fo-fnsave .bt.sm{ padding:6px 12px; font-size:12px; white-space:nowrap }
+.fo-fnst{ font-size:11.5px; color:var(--ink-3) }
+.fo-fnst.ok{ color:var(--ok,#1a9d6f) }
+.fo-fnst.bad{ color:#c2394f }
 </style>
 </head>
 <body>
@@ -25792,6 +25799,79 @@ document.addEventListener("change", function(e){
   var el = e.target; if(!el || !el.matches || !el.matches('.fo-fnr [data-fok="cycle_kind"], .fo-fnadd [data-foa="cycle_kind"]')) return;
   var row = el.closest(".fo-fnr, .fo-fnadd"); var d = row && row.querySelector(".fo-days");
   if(d && el.value === "wdays"){ d.hidden = false; if(!row.querySelector(".fo-day.on")){ try{ toast("Отметьте дни недели — задачи родятся на каждый отмеченный"); }catch(x){} } }
+});
+
+/* ===== add96: карточка функции — сложность, цикл, регламент, флаги пишутся на сервер сразу и явно (195)
+   Виталий: «проставлял категории сложности в каждой функции — не сохраняются».
+   Очередь сохранения карточек (add71) могла не сработать молча. Теперь каждая
+   правка в карточке функции уходит на сервер отдельным запросом сразу после
+   клика, с ответом на экране: «сохранено на сервере ✓» или текст ошибки.
+   Плюс кнопка «Сохранить на сервере» в шапке карточки функции.              */
+
+function foFnPatch(f){
+  var c = null; try{ c = fnCfg(f); }catch(e){}
+  if(!c) return null;
+  var d = {};
+  ["own","grp","cat","cyc","days","regKind","regText","regLink","regShot","appr","apprBy","key","paid","blockId"].forEach(function(k){
+    if(c[k] !== undefined) d[k] = c[k];
+  });
+  d.minutes = +f.minutes || 30;
+  d.name = f.name || "";
+  try{ var fm = fnForm(f.id); if(fm) d.form = {h: fm.h || "", sub: fm.sub || "", body: fm.body || "", link: fm.link || "", tg: fm.tg || "", appr: !!fm.appr}; }catch(e){}
+  return d;
+}
+var FO_FN_SAVING = null;
+function foFnSaveNow(reason){
+  if(typeof foLive === "function" && !foLive()) return Promise.resolve();
+  if(typeof fnOpen === "undefined" || !fnOpen) return Promise.resolve();
+  var f = null; try{ f = fnById(fnOpen); }catch(e){}
+  if(!f) return Promise.resolve();
+  var d = foFnPatch(f); if(!d) return Promise.resolve();
+  var st = document.getElementById("foFnSt"); if(st) st.textContent = "сохраняю…";
+  FO_FN_SAVING = f.id;
+  return api("/refs/cards", {method:"POST", body:{kind:"fn", ref_id:String(f.id), data:d}})
+    .then(function(){
+      try{ if(typeof SRV_CARDS !== "undefined" && SRV_CARDS) SRV_CARDS[cardKey("fn", f.id)] = Object.assign(SRV_CARDS[cardKey("fn", f.id)] || {}, d); }catch(e){}
+      var s2 = document.getElementById("foFnSt"); if(s2){ s2.textContent = "сохранено на сервере ✓" + (d.cat ? " · сложность " + d.cat : ""); s2.className = "fo-fnst ok"; }
+      if(reason === "button"){ try{ toast("Функция на сервере: " + (d.cat ? "сложность " + d.cat + ", " : "") + "норматив " + d.minutes + " мин" + (d.cyc ? ", цикл " + d.cyc : "")); }catch(e){} }
+    })
+    .catch(function(err){
+      var s3 = document.getElementById("foFnSt"); if(s3){ s3.textContent = "не сохранилось: " + (err && err.message || "сервер не ответил"); s3.className = "fo-fnst bad"; }
+      try{ toast("Функция не сохранилась на сервере: " + (err && err.message || "")); }catch(e){}
+    });
+}
+window.foFnSaveNow = foFnSaveNow;
+
+/* статус и кнопка в шапке карточки функции */
+(function(){
+  if(typeof renderFnOne !== "function") return;
+  var _r = renderFnOne;
+  renderFnOne = function(){
+    var v = _r.apply(this, arguments);
+    try{
+      var t = document.querySelector("#sect .fnone .gl-t");
+      if(t && !t.querySelector("#foFnSave") && !(typeof foRoLive === "function" && foRoLive())){
+        var w = document.createElement("div"); w.className = "fo-fnsave";
+        w.innerHTML = '<span class="fo-fnst" id="foFnSt"></span><button class="bt sm pri" id="foFnSave">Сохранить на сервере</button>';
+        t.appendChild(w);
+      }
+    }catch(e){}
+    return v;
+  };
+})();
+window.addEventListener("click", function(e){
+  if(e.target.closest && e.target.closest("#foFnSave")){ e.preventDefault(); e.stopImmediatePropagation(); foFnSaveNow("button"); return; }
+}, true);
+/* каждая правка — на сервер сразу (после того, как экран применил её) */
+document.addEventListener("click", function(e){
+  if(!e.target.closest) return;
+  if(!document.querySelector("#sect .fnone")) return;
+  if(e.target.closest("[data-fncat], [data-fnck], [data-fnreg], [data-fnday], [data-fnsave]")) setTimeout(function(){ foFnSaveNow("click"); }, 200);
+});
+document.addEventListener("change", function(e){
+  var t = e.target; if(!t || !t.matches || !t.matches("[data-fnc], [data-fnname], [data-fnmin], [data-fnk]")) return;
+  if(!document.querySelector("#sect .fnone")) return;
+  setTimeout(function(){ foFnSaveNow("change"); }, 200);
 });
 
 })();
