@@ -24010,7 +24010,7 @@ function foArtsFlat(){
   Object.keys(FO_ARTS || {}).forEach(function(cid){
     ((FO_ARTS[cid] || {}).rows || []).forEach(function(r){
       out.push({id: r.id, wb: r.wb_sku, sku: r.seller_sku || "", cat: r.cat || "", person: r.employee_id ? String(r.employee_id) : "",
-                project: cid, days: (r.weekdays || []).slice()});
+                project: cid, cab: cid, days: (r.weekdays || []).slice()});   /* cab = клиент: так АОД раскладывает по кабинетам (189) */
     });
   });
   FO_ARTS_FLAT = out;
@@ -25198,6 +25198,71 @@ window.addEventListener("click", function(e){
     return v;
   };
 })();
+
+/* ===== add91: АОД — артикулы из карточек клиентов по кабинетам, всё на сервере (189)
+   Виталий: «указал в ИП Федорова артикулы — в АОД ты их не присвоил ИП Федорова,
+   по фильтру не показываешь». Артикулы уже брались с сервера (180), но без
+   привязки к кабинету — колонка «Кабинет» пустая, фильтр по кабинетам — нули.
+   Теперь: привязка есть (add84), «Добавить артикулы» из АОД уходит в кабинет
+   на сервер, «Взять свободные» назначает ответственного на сервере,
+   максимум и проценты в таблице компетенций — в карточку сотрудника.        */
+
+function foAodCabOf(cid){ var d = (typeof FO_CABFN !== "undefined") ? FO_CABFN[cid] : null; return d && d.cab ? d.cab : null; }
+
+window.addEventListener("click", function(e){
+  if(typeof foIsLive === "function" && !foIsLive()) return;
+  /* «Добавить артикулы» — в кабинет на сервере */
+  if(e.target.closest && e.target.closest("#aodSave")){
+    e.preventDefault(); e.stopImmediatePropagation();
+    var cabSel = document.getElementById("aodNewCab"), nameEl = document.getElementById("aodCabName");
+    var cid = cabSel ? cabSel.value : "", nm = nameEl ? String(nameEl.value || "").trim() : "";
+    if(!cid && nm){ try{ toast("Новый кабинет заводится в «Клиентах агентства» — там же и артикулы. Здесь выберите существующий"); }catch(x){} return; }
+    if(!cid){ try{ toast("Выберите кабинет"); }catch(x){} return; }
+    var cab = foAodCabOf(cid);
+    if(!cab){ try{ toast("У этого клиента нет кабинета на сервере"); }catch(x){} return; }
+    var txt = (document.getElementById("aodSkus") || {}).value || "";
+    var list = (typeof foParseArts === "function") ? foParseArts(txt) : [];
+    if(!list.length){ try{ toast("Не нашёл ни одного артикула ВБ — нужны числа от 5 знаков, по одному в строке"); }catch(x){} return; }
+    var b = e.target.closest("#aodSave"); b.disabled = true;
+    api("/refs/cabinets/" + encodeURIComponent(cab) + "/articles/bulk", {method:"POST", body:{items: list, replace: false}})
+      .then(function(r){
+        FO_ARTS[cid] = {rows: (r && r.items) || [], at: Date.now()};
+        try{ aodAddOpen = false; aodCab = cid; aodPage = 0; }catch(x){}
+        try{ toast("На сервере: добавлено " + (r.добавлено || 0) + ", обновлено " + (r.обновлено || 0) + " · в кабинете " + (r.всего || 0)); }catch(x){}
+        try{ renderAod(); }catch(x){}
+      })
+      .catch(function(err){ b.disabled = false; try{ toast("Не внеслось: " + (err && err.message || "")); }catch(x){} });
+    return;
+  }
+  /* «Взять свободные» — ответственный на сервере */
+  if(e.target.closest && e.target.closest("#aodMine")){
+    e.preventDefault(); e.stopImmediatePropagation();
+    var free = (typeof artsAll === "function" ? artsAll() : []).filter(function(a){ return !a.person; });
+    if(!free.length){ try{ toast("Свободных артикулов нет"); }catch(x){} return; }
+    var me = null; try{ me = person(meId); }catch(x){}
+    if(!me){ try{ toast("У вашего входа нет карточки сотрудника"); }catch(x){} return; }
+    var lim = Math.max(0, (+me.maxArt || 0) - (typeof artLoad === "function" ? artLoad(meId).n : 0));
+    if(!lim){ try{ toast("Вы уже на максимуме артикулов"); }catch(x){} return; }
+    var take = free.slice(0, lim);
+    Promise.all(take.map(function(a){ return api("/refs/articles/" + encodeURIComponent(a.id) + "/owner", {method:"POST", body:{employee_id: String(meId)}}).catch(function(){ return null; }); }))
+      .then(function(){ return (typeof foArtsAll === "function") ? foArtsAll() : null; })
+      .then(function(){ try{ toast("Взяли " + take.length + " артикулов — на сервере они за вами"); renderAod(); }catch(x){} });
+    return;
+  }
+}, true);
+
+/* таблица компетенций в АОД: максимум и проценты — в карточку сотрудника */
+document.addEventListener("change", function(e){
+  var t = e.target; if(!t || !t.matches || !(t.matches("[data-compk]") || t.matches("[data-compc]"))) return;
+  if(typeof foIsLive === "function" && !foIsLive()) return;
+  var tr = t.closest("[data-compp]"); if(!tr) return;
+  var id = tr.getAttribute("data-compp");
+  setTimeout(function(){
+    var m = null; try{ m = person(id); }catch(x){}
+    if(!m || typeof cardSave !== "function") return;
+    cardSave("employee", id, (typeof foManPatch === "function") ? foManPatch(m) : {maxArt: +m.maxArt || 0, cat: m.cat || {A:0,B:0,C:0}});
+  }, 80);
+});
 
 })();
 </script>
