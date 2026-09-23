@@ -24332,15 +24332,38 @@ function foLockBelowPm(){
       }
     }
     document.querySelectorAll("#sect [data-fnnew], #sect #fnNew, #sect .fnnew").forEach(function(b){ b.hidden = true; });
+    /* экран кабинета (по рельсе): без собственника, telegram, телефона, платежа, даты, кода приглашения (С5, 183) */
+    var cab = document.querySelector("#sect .cabh2");
+    if(cab && !cab.getAttribute("data-folocked")){
+      cab.setAttribute("data-folocked", "1");
+      var rr = cab.querySelector(".cabn .r"); if(rr) rr.textContent = "кабинет клиента";
+      cab.querySelectorAll(".cabnums .ccn1").forEach(function(t){ if(/платёж|дата платежа/i.test(t.textContent)) t.remove(); });
+      var inv = cab.querySelector(".inv"); if(inv) inv.remove();
+    }
+    document.querySelectorAll("#sect .gl").forEach(function(g){
+      var h = g.querySelector(".gl-t h2, .gl-t b, h2");
+      if(h && /Премии и штрафы|Проект по часам|Карточка организации|Тексты сообщений|Куда сообщать/.test(h.textContent)) g.hidden = true;
+    });
   }catch(e){}
   FO_LOCKING = false;
 }
 (function(){
   var t = null;
-  function kick(){ clearTimeout(t); t = setTimeout(foLockBelowPm, 40); }
-  try{
-    new MutationObserver(kick).observe(document.body, {childList:true, subtree:true});
-  }catch(e){}
+  function kick(){ clearTimeout(t); t = setTimeout(foLockBelowPm, 30); }
+  function watch(){
+    try{ new MutationObserver(kick).observe(document.body || document.documentElement, {childList:true, subtree:true}); }catch(e){}
+  }
+  if(document.body) watch(); else document.addEventListener("DOMContentLoaded", watch);
+  /* и сразу после каждой отрисовки — не ждём наблюдателя */
+  function after(fn){ return function(){ var v = fn.apply(this, arguments); try{ foLockBelowPm(); }catch(e){} kick(); return v; }; }
+  try{ if(typeof render === "function"){ render = after(render); } }catch(e){}
+  try{ if(typeof setView === "function"){ setView = after(setView); } }catch(e){}
+  try{ if(typeof renderCards === "function"){ renderCards = after(renderCards); } }catch(e){}
+  try{ if(typeof renderStaff === "function"){ renderStaff = after(renderStaff); } }catch(e){}
+  try{ if(typeof renderFns === "function"){ renderFns = after(renderFns); if(typeof SEC_RENDER !== "undefined" && SEC_RENDER) SEC_RENDER.fns = renderFns; } }catch(e){}
+  try{ if(typeof renderFnOne === "function"){ renderFnOne = after(renderFnOne); } }catch(e){}
+  try{ if(typeof renderPeople === "function"){ renderPeople = after(renderPeople); } }catch(e){}
+  try{ if(typeof renderProjects === "function"){ renderProjects = after(renderProjects); } }catch(e){}
   setTimeout(foLockBelowPm, 800);
   setInterval(foLockBelowPm, 4000);
 })();
@@ -24616,6 +24639,114 @@ window.addEventListener("click", function(e){
     foSuggCreate(wrap2).then(function(id){ if(id) setTimeout(function(){ b.click(); }, 50); });
   }
 }, true);
+
+/* ===== add87: постановка с главного экрана — дни при «Каждый день», «где посмотреть» (184, 185)
+   Виталий: «не смог выбрать несколько дней в режиме каждый день»; «поставил
+   задачу, нажал "где посмотреть" → "по сотруднику" — "задача уже не найдена",
+   и в ганте тоже не даёт посмотреть».
+   184: при «Каждый день» показываем галочки по дням (по умолчанию Пн–Пт),
+        отмеченные дни уходят на сервер; заодно починено: при «Несколько раз
+        в неделю» отмеченные дни тоже не доезжали до сервера (шёл один день).
+   185: «где посмотреть» искал задачу по старому местному номеру, а задача
+        теперь рождается на сервере. Ждём её с сервера и ведём к ней.       */
+
+var FO_NT_LAST = null;
+
+/* отмеченные дни — из галочек, а не из числа «сколько раз» */
+(function(){
+  if(typeof foDaysList !== "function") return;
+  foDaysList = function(){
+    try{
+      if(typeof ntPickDays !== "undefined" && ntPickDays && ntPickDays.length) return ntPickDays.slice().sort();
+    }catch(e){}
+    return [];
+  };
+})();
+/* «каждый день» с выбранными днями */
+(function(){
+  if(typeof foFnCycle !== "function") return;
+  var _c = foFnCycle;
+  foFnCycle = function(cyc, dow, days){
+    if(cyc === "daily"){
+      var d = (days || []).filter(function(x){ return x >= 0 && x <= 6; });
+      return {cycle_kind:"daily", cycle_n:1, cycle_weekdays: (d.length && d.length < 5) ? d : null};
+    }
+    return _c.apply(this, arguments);
+  };
+})();
+
+/* галочки по дням при «Каждый день»; день недели в одном поле не нужен */
+(function(){
+  if(typeof B === "undefined" || !B || typeof B.newtask !== "function") return;
+  var _nt = B.newtask;
+  B.newtask = function(el){
+    try{
+      if((ntState.cycle || "") === "daily" && (!ntPickDays || !ntPickDays.length)) ntPickDays = [0,1,2,3,4];
+    }catch(e){}
+    var v = _nt.apply(this, arguments);
+    try{
+      if((ntState.cycle || "") === "daily"){
+        var sel = el.querySelector("#ntDays"); if(sel) sel.remove();
+        var dsel = el.querySelector("#ntDow");
+        if(dsel){ dsel.hidden = true; var g = dsel.nextElementSibling; if(g && g.classList.contains("gsl")) g.hidden = true; }
+        var row = el.querySelector(".ntrow");
+        if(row && !el.querySelector(".ntdays") && typeof ntDayPick === "function") row.insertAdjacentHTML("afterend", ntDayPick());
+        var lab = el.querySelector(".ntdays .ntdn");
+        if(lab){ var n = (ntPickDays || []).length; lab.textContent = n === 5 ? "каждый рабочий день" : (n ? n + " из 5" : "ни одного — отметьте дни"); }
+      }
+    }catch(e){}
+    return v;
+  };
+})();
+
+/* «где посмотреть» — ждём задачу с сервера и ведём к ней */
+(function(){
+  if(typeof ntPlace !== "function") return;
+  var _np = ntPlace;
+  ntPlace = function(){
+    var before = null;
+    try{
+      ntCollect();
+      before = {title: String(ntState.title || "").trim(), project: ntState.project || "", person: ntState.person || "",
+                cyc: ntState.cycle || "once", dow: (ntState.dow != null && ntState.dow !== "") ? +ntState.dow : dow, days: foDaysList()};
+    }catch(e){}
+    var v = _np.apply(this, arguments);
+    if(!before || !before.title || !before.person || !before.project) return v;
+    if(typeof foLive === "function" && !foLive()) return v;
+    if(!foFnCycle(before.cyc, before.dow, before.days)) return v;      /* разовая — как раньше */
+    FO_NT_LAST = before;
+    var tries = 0, key = before.title.toLowerCase();
+    (function look(){
+      tries++; if(tries > 40) return;
+      var list = (S.tasks || []).filter(function(t){
+        return String(t.person) === String(before.person) && String(t.project) === String(before.project) &&
+               String(t.title || "").split(" · ")[0].trim().toLowerCase() === key;
+      });
+      if(!list.length){ setTimeout(look, 600); return; }
+      var want = before.days && before.days.length ? before.days : [before.dow];
+      var pick = list.filter(function(t){ return want.indexOf(t.dow) >= 0 && t.dow >= dow; })[0] ||
+                 list.filter(function(t){ return t.dow >= dow; })[0] || list[0];
+      ntHiTask = pick.id;
+    })();
+    return v;
+  };
+})();
+(function(){
+  if(typeof ntGoto !== "function") return;
+  var _g = ntGoto;
+  ntGoto = function(kind){
+    var t = ntHiTask ? (S.tasks || []).filter(function(x){ return x.id === ntHiTask; })[0] : null;
+    if(t || !FO_NT_LAST) return _g.apply(this, arguments);
+    /* задача ещё едет с сервера — ведём к человеку и кабинету без подсветки */
+    var b = FO_NT_LAST;
+    try{
+      if(kind === "gantt"){ selPerson = b.person || null; proj = b.project || null; scale = "день"; setView("work"); render(); }
+      else if(kind === "person"){ openPerson = b.person || null; peGantt = true; navPush("work"); setView("people", true); }
+      else if(kind === "project"){ cabOpen = b.project || null; navPush("work"); setView("cab", true); }
+      toast("Задача поставлена в кабинет — сервер раскладывает её по дням, экран обновится сам");
+    }catch(e){}
+  };
+})();
 
 })();
 </script>
