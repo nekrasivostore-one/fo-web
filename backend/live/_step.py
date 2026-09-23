@@ -1028,6 +1028,8 @@ async def fo_cab_articles_bulk(cab_id: str, body: FoArtBulkIn, p: Principal = De
                     if not ok:
                         emp = None
                 r = await c.fetchrow("SELECT id, category_id, seller_sku FROM article WHERE cabinet_id=$1::uuid AND wb_sku=$2", cab_id, wb)
+                if r and not cat and r["category_id"]:
+                    cat = next((k for k, v in cats.items() if v == r["category_id"]), None)   # 198: дни ответственного — по уже стоящей категории
                 if r:
                     await c.execute(
                         "UPDATE article SET seller_sku=COALESCE($2, seller_sku), category_id=COALESCE($3, category_id), is_active=true WHERE id=$1",
