@@ -23220,6 +23220,23 @@ document.addEventListener("input", function(e){
   };
 })();
 
+/* С5: ниже РМ — без частного и в шапке карточки: собственник, telegram, дата платежа, «не хватает» */
+(function(){
+  if(typeof clientCard !== "function") return;
+  var _cc = clientCard;
+  clientCard = function(pr){
+    var h = _cc.apply(this, arguments);
+    if(typeof foLive === "function" && !foLive()) return h;
+    if(typeof foBelowPm !== "function" || !foBelowPm()) return h;
+    try{
+      var box = document.createElement("div"); box.innerHTML = h;
+      var r = box.querySelector(".cct .r"); if(r) r.textContent = "кабинет клиента";
+      box.querySelectorAll(".ccbar2, .ccn.warn2, .ccn.ok2, .ccfill").forEach(function(el){ el.parentNode.removeChild(el); });
+      return box.innerHTML;
+    }catch(e){ return h; }
+  };
+})();
+
 /* ===== add81: артикулы и чаты в карточке клиента — на сервере (138–141, 144, 114)
    Артикулы: GET /refs/cabinets/{id}/articles, массовое внесение
    POST …/articles/bulk, ответственный/дни/категория — POST /refs/articles/{id}/owner.
