@@ -3944,12 +3944,15 @@ body.fo-nopeople #screen section.s5{ grid-column:span 8 }
 .fo-tmn{ font-size:11px; color:var(--ink-3); margin-top:8px; line-height:1.4 }
 #screen .gb[data-open], .tdr[data-task] .tdt, .tldt[data-task], .dli.fo-clk, .gb[data-fotask]{ cursor:pointer }
 
-/* ===== add89: ссылка на таблицу у задачи (187) ===== */
-.gb .fo-gbl{ position:absolute; right:2px; top:50%; transform:translateY(-50%); width:18px; height:18px; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700; color:#6B4EFF; background:rgba(255,255,255,.85); text-decoration:none; z-index:2 }
-.gb .fo-gbl:hover{ background:#6B4EFF; color:#fff }
-.gb.fo-wk{ padding-right:24px }
-.gb:hover .fo-gbl{ position:static; transform:none; margin-top:4px; width:auto; padding:0 6px }
-.gb:hover .fo-gbl::after{ content:" открыть таблицу"; font-weight:600; font-size:10.5px }
+/* ===== add89: ссылка на таблицу у задачи (187) — хвостик приклеен к правому краю плашки ===== */
+.gb{ position:absolute }
+.gb .fo-gbl{ position:absolute; right:0; top:0; bottom:0; width:18px; border-radius:0 7px 7px 0; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; color:#fff; background:rgba(70,74,100,.38); text-decoration:none; z-index:2; transform:none; margin:0; padding:0 }
+.gb .fo-gbl:hover{ background:#6B4EFF }
+.gb:has(.fo-gbl){ padding-right:24px }
+.tall .gb .fo-gbl{ border-radius:0 7px 7px 0 }
+.gb:hover .fo-gbl{ position:absolute; right:0; top:0; bottom:0; width:22px; margin:0; padding:0; font-size:13px }
+.gb:hover:has(.fo-gbl){ padding-right:32px }
+.gb.fo-wk:has(.fo-gbl){ padding-right:24px }
 .tdr .fo-tdl{ font-size:11px; font-weight:600; color:#6B4EFF; text-decoration:none; margin:0 8px 0 4px; white-space:nowrap }
 .tdr .fo-tdl:hover{ text-decoration:underline }
 .tdr.fo-open{ border-bottom-left-radius:0; border-bottom-right-radius:0 }
