@@ -2082,9 +2082,11 @@ _nlvl = [0]
 def _fo_lvl4(mm):
     _nlvl[0] += 1
     return mm.group(1) + "Depends(max_level(4))"
-_base = re.sub(r'(@router\.(?:post|patch|put|delete)\(\s*"/functions[^"]*"[^\n]*\)\s*\n(?:@[^\n]*\n)*async def \w+\([^)]*?)Depends\(current\)', _fo_lvl4, _base)
+_base = re.sub(r'(async def (?:create_function|set_norm)\([^)]*?p: Principal = )Depends\((?:[^()]|\([^()]*\))*\)', _fo_lvl4, _base)
 if _nlvl[0] and not re.search(r"^from .* import .*\bmax_level\b", _base, re.M):
     _base = re.sub(r"^(from [\w.]+ import [^\n(]*\bcurrent\b[^\n(]*)$", r"\1, max_level", _base, count=1, flags=re.M)
+for _m in re.finditer(r"async def (?:create_function|set_norm)\([^)]*\)+", _base):
+    p("  подпись:", _m.group(0)[:160])
 p("справочник функций (штатные POST/PATCH /functions): уровень РМ и выше поставлен на", _nlvl[0], "эндпоинтах")
 io.open(REFS, "w", encoding="utf-8").write(_base.rstrip("\n") + "\n" + ADD_REFS)
 io.open(SIGN, "w", encoding="utf-8").write(cut(sign_src).rstrip("\n") + "\n" + ADD_SIGN)
