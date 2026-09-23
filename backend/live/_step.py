@@ -524,6 +524,8 @@ async def fo_card_save(body: FoCardIn, p: Principal = Depends(current)):
         raise HTTPException(400, "неизвестный вид карточки")
     if not ref:
         raise HTTPException(400, "не сказано, чья карточка")
+    if int(getattr(p, "level", 9) or 9) > 4:
+        raise HTTPException(403, "Карточки сотрудников, клиентов и функций правят РМ и выше — вам доступен просмотр")
     data = body.data if isinstance(body.data, dict) else {}
     async with pool().acquire() as c:
         await c.execute(
@@ -868,6 +870,45 @@ async def fo_cab_fn_add(cab_id: str, it: FoCabFnItem, p: Principal = Depends(max
     return {"ok": True, "задачи": _sync}
 
 
+@router.post("/cabinets/{cab_id}/functions/{fn_id}/take")
+async def fo_cab_fn_take(cab_id: str, fn_id: str, p: Principal = Depends(current)):
+    """174: ниже РМ функции только смотрят и берут в работу. Функция в кабинете
+    без ответственного становится моей, задачи досводятся сразу."""
+    async with pool().acquire() as c:
+        await _fo_cab_of(c, cab_id, p.org_id)
+        me = await _fo_my_emp(c, p)
+        if not me:
+            raise HTTPException(400, "у вашего входа нет карточки сотрудника")
+        r = await c.fetchrow(
+            """SELECT cf.cabinet_id, cf.fn_id, g.employee_id FROM cabinet_fn cf
+               LEFT JOIN fo_cabinet_fn_cfg g ON g.cabinet_id=cf.cabinet_id AND g.fn_id=cf.fn_id
+               WHERE cf.cabinet_id=$1::uuid AND cf.fn_id=$2::uuid""", cab_id, fn_id)
+        if not r:
+            raise HTTPException(404, "этой функции в кабинете нет")
+        if r["employee_id"] and str(r["employee_id"]) != str(me):
+            raise HTTPException(403, "у функции уже есть ответственный — перевести может РМ и выше")
+        _old = {(r["cabinet_id"], r["fn_id"]): r["employee_id"]}
+        async with c.transaction():
+            await c.execute(
+                "INSERT INTO employee_fn (employee_id, fn_id, allowed) VALUES ($1::uuid, $2::uuid, true) "
+                "ON CONFLICT DO NOTHING", me, fn_id)
+            g = await c.fetchval(
+                "SELECT 1 FROM fo_cabinet_fn_cfg WHERE cabinet_id=$1::uuid AND fn_id=$2::uuid", cab_id, fn_id)
+            if g:
+                await c.execute(
+                    "UPDATE fo_cabinet_fn_cfg SET employee_id=$3::uuid WHERE cabinet_id=$1::uuid AND fn_id=$2::uuid",
+                    cab_id, fn_id, me)
+            else:
+                await c.execute(
+                    "INSERT INTO fo_cabinet_fn_cfg (cabinet_id, fn_id, org_id, employee_id) "
+                    "VALUES ($1::uuid, $2::uuid, $3, $4::uuid)", cab_id, fn_id, p.org_id, me)
+        try:
+            _sync = await _fo_sync_tasks(c, p.org_id, cab_id, 14, _old)
+        except Exception as _e:
+            _sync = {"ошибка": str(_e)[:200]}
+    return {"ok": True, "задачи": _sync}
+
+
 @router.post("/cabinets/{cab_id}/functions/{fn_id}/remove")
 async def fo_cab_fn_remove(cab_id: str, fn_id: str, p: Principal = Depends(max_level(4))):
     """Убрать функцию из кабинета: будущие несделанные задачи по ней снимаются."""
@@ -930,7 +971,7 @@ async def _fo_art_rows(c, cab_id):
                   (SELECT array_agg(ao.weekday ORDER BY ao.weekday) FROM article_owner ao WHERE ao.article_id=a.id) AS weekdays
              FROM article a LEFT JOIN article_category ac ON ac.id = a.category_id
             WHERE a.cabinet_id=$1::uuid AND a.is_active
-            ORDER BY ac.code NULLS LAST, a.wb_sku""", cab_id)
+            ORDER BY a.first_seen NULLS LAST, a.wb_sku""", cab_id)
     names = {}
     for r in rows:
         for e in (r["owners"] or []):
@@ -2036,7 +2077,16 @@ shutil.copy(REFS, bak + "/refs.py")
 shutil.copy(SIGN, bak + "/signup.py")
 shutil.copy(MAIN, bak + "/main.py")
 
-io.open(REFS, "w", encoding="utf-8").write(cut(refs_src).rstrip("\n") + "\n" + ADD_REFS)
+_base = cut(refs_src)
+_nlvl = [0]
+def _fo_lvl4(mm):
+    _nlvl[0] += 1
+    return mm.group(1) + "Depends(max_level(4))"
+_base = re.sub(r'(@router\.(?:post|patch|put|delete)\(\s*"/functions[^"]*"[^\n]*\)\s*\n(?:@[^\n]*\n)*async def \w+\([^)]*?)Depends\(current\)', _fo_lvl4, _base)
+if _nlvl[0] and not re.search(r"^from .* import .*\bmax_level\b", _base, re.M):
+    _base = re.sub(r"^(from [\w.]+ import [^\n(]*\bcurrent\b[^\n(]*)$", r"\1, max_level", _base, count=1, flags=re.M)
+p("справочник функций (штатные POST/PATCH /functions): уровень РМ и выше поставлен на", _nlvl[0], "эндпоинтах")
+io.open(REFS, "w", encoding="utf-8").write(_base.rstrip("\n") + "\n" + ADD_REFS)
 io.open(SIGN, "w", encoding="utf-8").write(cut(sign_src).rstrip("\n") + "\n" + ADD_SIGN)
 if re.search(r"^app\s*=\s*FastAPI\(", main_src, re.M):
     io.open(MAIN, "w", encoding="utf-8").write(cut(main_src).rstrip("\n") + "\n" + ADD_MAIN)
@@ -2072,7 +2122,7 @@ else:
     p("")
     p("== ПРОВЕРКА ЭНДПОИНТОВ ==")
     for u in ("/refs/roles", "/refs/cards", "/refs/tasks/once", "/refs/invites",
-              "/refs/me/account", "/refs/tasks/sync", "/refs/cabinets/x/functions/add", "/refs/tasks/reviews", "/refs/link-pref", "/refs/cabinets/x/articles", "/refs/admin/people", "/auth/invite-token/zzz"):
+              "/refs/me/account", "/refs/tasks/sync", "/refs/cabinets/x/functions/add", "/refs/cabinets/x/functions/y/take", "/refs/tasks/reviews", "/refs/link-pref", "/refs/cabinets/x/articles", "/refs/admin/people", "/auth/invite-token/zzz"):
         p("  %-26s %s" % (u, sh("curl -s -o /dev/null -w '%%{http_code}' http://127.0.0.1:8000%s" % u).strip()))
     p("(401/403 — эндпоинт есть и просит вход; 404 — не встал)")
     p("ГОТОВО: хранение переехало на сервер")
