@@ -637,7 +637,7 @@ async def fo_once_patch(task_id: str, body: FoOncePatch, p: Principal = Depends(
 
 
 @router.post("/tasks/once/{task_id}/remove")
-async def fo_once_remove(task_id: str, p: Principal = Depends(current)):
+async def fo_once_remove(task_id: str, p: Principal = Depends(max_level(4))):
     async with pool().acquire() as c:
         await c.execute(
             "UPDATE fo_task_once SET removed_at=now() WHERE id=$1 AND org_id=$2",
@@ -1112,7 +1112,7 @@ async def fo_client_cabs(client_id: str, p: Principal = Depends(current)):
 # по текущим настройкам кабинета.
 
 @router.post("/tasks/{task_id}/remove")
-async def fo_task_remove(task_id: str, p: Principal = Depends(max_level(5))):
+async def fo_task_remove(task_id: str, p: Principal = Depends(max_level(4))):
     """Снять задачу. Сделанные не трогаем. Уровень: главный менеджер и выше."""
     async with pool().acquire() as c:
         r = await c.fetchrow(
@@ -1485,7 +1485,7 @@ async def fo_task_done(task_id: str, body: FoDoneIn, p: Principal = Depends(curr
 
 
 @router.post("/tasks/{task_id}/undone")
-async def fo_task_undone(task_id: str, p: Principal = Depends(current)):
+async def fo_task_undone(task_id: str, p: Principal = Depends(max_level(4))):
     """Снять галочку (ошиблись): исполнитель или РМ и выше."""
     async with pool().acquire() as c:
         t = await _fo_task_for(c, task_id, p)
