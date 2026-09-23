@@ -1645,6 +1645,35 @@ async def fo_link_pref_set(body: FoLinkPrefIn, p: Principal = Depends(current)):
     return {"ok": True}
 
 
+class FoFnNameIn(_FoBM):
+    name: str
+
+
+@router.post("/functions/{fn_id}/name")
+async def fo_fn_rename(fn_id: str, body: FoFnNameIn, p: Principal = Depends(max_level(4))):
+    """197: переименовать функцию справочника. Название задач, ещё не сделанных, меняется
+    вместе с ней (часть до « · » — это имя функции, дальше кабинет)."""
+    name = (body.name or "").strip()[:200]
+    if len(name) < 2:
+        raise HTTPException(400, "название слишком короткое")
+    async with pool().acquire() as c:
+        ok = await c.fetchval("SELECT 1 FROM fn WHERE id=$1::uuid AND org_id=$2", fn_id, p.org_id)
+        if not ok:
+            raise HTTPException(404, "функция не найдена")
+        dup = await c.fetchval(
+            "SELECT code FROM fn WHERE org_id=$1 AND id<>$2::uuid AND lower(btrim(name))=lower($3) LIMIT 1",
+            p.org_id, fn_id, name)
+        if dup:
+            raise HTTPException(409, "функция «%s» уже есть (%s)" % (name, dup))
+        async with c.transaction():
+            await c.execute("UPDATE fn SET name=$3 WHERE id=$1::uuid AND org_id=$2", fn_id, p.org_id, name)
+            n = await c.execute(
+                "UPDATE task SET title = $3 || CASE WHEN position(' · ' in title) > 0 "
+                "THEN substr(title, position(' · ' in title)) ELSE '' END "
+                "WHERE fn_id=$1::uuid AND org_id=$2 AND status IN ('planned','review')", fn_id, p.org_id, name)
+    return {"ok": True, "name": name, "задач": n}
+
+
 @router.post("/functions/{fn_id}/remove")
 async def fo_fn_remove(fn_id: str, p: Principal = Depends(max_level(4))):
     """Убрать функцию из справочника агентства. Если она стоит в кабинетах — отказ."""
@@ -2143,7 +2172,7 @@ else:
     p("")
     p("== ПРОВЕРКА ЭНДПОИНТОВ ==")
     for u in ("/refs/roles", "/refs/cards", "/refs/tasks/once", "/refs/invites",
-              "/refs/me/account", "/refs/tasks/sync", "/refs/cabinets/x/functions/add", "/refs/cabinets/x/functions/y/take", "/refs/link-pref/all", "/refs/tasks/reviews", "/refs/link-pref", "/refs/cabinets/x/articles", "/refs/admin/people", "/auth/invite-token/zzz"):
+              "/refs/me/account", "/refs/tasks/sync", "/refs/cabinets/x/functions/add", "/refs/cabinets/x/functions/y/take", "/refs/link-pref/all", "/refs/functions/x/name", "/refs/tasks/reviews", "/refs/link-pref", "/refs/cabinets/x/articles", "/refs/admin/people", "/auth/invite-token/zzz"):
         p("  %-26s %s" % (u, sh("curl -s -o /dev/null -w '%%{http_code}' http://127.0.0.1:8000%s" % u).strip()))
     p("(401/403 — эндпоинт есть и просит вход; 404 — не встал)")
     p("ГОТОВО: хранение переехало на сервер")
