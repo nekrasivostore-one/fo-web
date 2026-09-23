@@ -4008,6 +4008,41 @@ td small{ color:var(--ink-3); font-size:10.5px }
 .fo-fnst{ font-size:11.5px; color:var(--ink-3) }
 .fo-fnst.ok{ color:var(--ok,#1a9d6f) }
 .fo-fnst.bad{ color:#c2394f }
+
+/* ===== add98: вставка 250+ артикулов — ответственный последним столбцом, назначение сразу всем (198) ===== */
+.fo-colsh{ display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin:0 0 8px; font-size:12px }
+.fo-colsh .fo-colt{ color:var(--ink-3) }
+.fo-colsh .fo-col{ padding:3px 9px; border-radius:8px; background:rgba(120,120,140,.12); white-space:nowrap }
+.fo-colsh .fo-col::after{ content:" →"; color:var(--ink-3) }
+.fo-colsh .fo-col.own::after{ content:"" }
+.fo-colsh .fo-col.own{ background:rgba(47,111,235,.14); color:#2f6feb; font-weight:600; box-shadow:0 0 0 1.5px rgba(47,111,235,.35) }
+.fo-colsh .fo-colx{ flex-basis:100%; color:var(--ink-3); font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:11.5px }
+
+.fo-pv98 .fo-pvsum{ justify-content:flex-start; flex-wrap:wrap; gap:6px 14px; align-items:baseline }
+.fo-pv98 .fo-pvsum .ok{ color:var(--ok,#1a9d6f) }
+.fo-pvbulk{ display:flex; flex-wrap:wrap; align-items:center; gap:8px 14px; margin:8px 0; padding:8px 10px; border-radius:10px;
+  background:rgba(47,111,235,.07); font-size:12.5px }
+.fo-pvbulk label{ display:inline-flex; align-items:center; gap:6px; white-space:nowrap }
+.fo-pvbulk .sel.sm, .fo-pvbulk .gsl{ min-width:150px }
+.fo-arts .fo-artown{ margin:6px 0 4px }
+.fo-pvmap{ display:flex; flex-direction:column; gap:6px; margin:8px 0 }
+.fo-pvmapr{ display:flex; flex-wrap:wrap; align-items:center; gap:8px; font-size:12.5px; padding:6px 10px; border-radius:10px; background:rgba(194,57,79,.07) }
+.fo-pvmapr.done{ background:rgba(26,157,111,.08) }
+.fo-pvmapr i{ font-style:normal; font-size:11.5px; color:var(--ink-3) }
+.fo-pvmapr .sel.sm, .fo-pvmapr .gsl{ min-width:160px }
+
+.fo-pv98 .fo-pvtbl{ max-height:420px; overflow:auto; margin-top:6px; border-radius:10px; background:var(--card,rgba(255,255,255,.55)); padding:0 8px }
+.fo-pv98 .fo-artr.pv{ display:grid; grid-template-columns:104px minmax(80px,1fr) 70px 180px minmax(0,auto); gap:8px; flex-wrap:nowrap }
+.fo-pv98 .fo-artr.pv.hd{ position:sticky; top:0; z-index:1; background:var(--card,#fff); font-size:11px; color:var(--ink-3); text-transform:uppercase; letter-spacing:.03em; padding:7px 0 }
+.fo-pv98 .fo-artr.pv.hd span:nth-child(4){ color:#2f6feb; font-weight:600 }
+.fo-pv98 .fo-artr.pv .fo-pvsku{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
+.fo-pv98 .fo-artr.pv em{ font-style:normal; font-size:11.5px; color:var(--ink-3); white-space:nowrap }
+.fo-pv98 .fo-artr.pv em.bad{ color:#c2394f }
+.fo-pv98 .fo-pvemp.miss{ border-color:#FFB020; box-shadow:0 0 0 2px rgba(255,176,32,.25) }
+@media (max-width:640px){
+  .fo-pv98 .fo-artr.pv{ grid-template-columns:1fr 1fr }
+  .fo-pv98 .fo-artr.pv.hd{ display:none }
+}
 </style>
 </head>
 <body>
@@ -26042,6 +26077,383 @@ document.addEventListener("focusout", function(e){
   if(t.matches('[data-fnc="own"]')) return;                 /* «как называем у себя» — только карточка */
   if(v.length >= 2) setTimeout(function(){ foFnRename(f, v); }, 100);
 });
+
+/* ===== add98: 250+ артикулов в карточку клиента — ответственный последним столбцом и сразу всем (198)
+   Виталий: «перетащить больше 250 артикулов, на мне останется добавление
+   ответственного — добавлять буду долго. Нужно, чтобы когда перетаскиваю
+   столбцы, было понятно: самым последним столбцом — ответственный. При этом
+   всё как сейчас: выставил ответственного — сформировался график. На большом
+   объёме — упрости внесение ответственных».
+   Как теперь:
+   • над полем — порядок столбцов: артикул ВБ · артикул продавца · A/B/C ·
+     ОТВЕТСТВЕННЫЙ (последним); имя можно коротко: «Вика», «Лиза», фамилией;
+   • при вставке имя из последнего столбца узнаётся; не узнанное — одной
+     строкой «не узнал «Х» — N строк → выбрать человека», выбор запоминается
+     на сервере (карточка org:owner_aliases) и в следующий раз узнаётся сам;
+   • оставшимся без ответственного — одним выбором: «всем» или по категории;
+   • «Внести» — одним запросом на сервер (по 150 в пачке), ответственные и
+     дни по категории (A пн-ср-пт, B вт-чт, C ср) ставит сервер — график и
+     блоки «Работа с РК» в гантах сразу;
+   • в списке уже внесённых — та же строка «без ответственного: K → всем /
+     по категории».                                                          */
+
+var FO_PV_KEEP = {};                 /* превью: прокрутка таблицы между перерисовками */
+var FO_OWN_DIM = [
+  ["виктория","вика","вики","викуся"], ["светлана","света","светик"], ["елизавета","лиза","лизавета"],
+  ["вероника","ника","вероничка"], ["мария","маша"], ["дарья","даша"], ["екатерина","катя"],
+  ["анастасия","настя"], ["юлия","юля"], ["ольга","оля"], ["татьяна","таня"], ["алексей","леша","алеша"],
+  ["дмитрий","дима"], ["полина","поля"], ["игорь","игорек"], ["александра","саша"], ["александр","саша"],
+  ["евгения","женя"], ["евгений","женя"], ["анна","аня"], ["ксения","ксюша"], ["наталья","наташа"],
+  ["валерия","лера"], ["кристина","кристи"], ["софья","соня"], ["софия","соня"], ["виталий","виталя"]
+];
+function foNmNorm(s){
+  return String(s || "").toLowerCase().replace(/ё/g, "е").replace(/[^a-zа-я\s-]/g, " ").replace(/[\s-]+/g, " ").trim();
+}
+function foOwnPeople(){ return (S.people || []).filter(function(p){ return p && p.id && p.name && !p.hidden && !p.isOwnerCard; }); }
+function foOwnAliases(){
+  try{ var d = (typeof SRV_CARDS !== "undefined" && SRV_CARDS) ? SRV_CARDS[cardKey("org", "owner_aliases")] : null; return (d && d.map) || {}; }catch(e){ return {}; }
+}
+/* имя → id сотрудника; неоднозначно или не нашлось — null */
+function foOwnerMatch(raw){
+  var t = foNmNorm(raw); if(t.length < 2) return null;
+  var ppl = foOwnPeople();
+  var one = function(list){ return list.length === 1 ? String(list[0].id) : null; };
+  var words = function(p){ return foNmNorm(p.name).split(" "); };
+  var r = one(ppl.filter(function(p){ return foNmNorm(p.name) === t; })); if(r) return r;
+  var al = foOwnAliases()[t];
+  if(al && ppl.some(function(p){ return String(p.id) === String(al); })) return String(al);
+  var tw = t.split(" ");
+  /* по слову: имя или фамилия (для «Вероника И.» — первое слово) */
+  for(var k = 0; k < tw.length; k++){
+    if(tw[k].length < 2) continue;
+    r = one(ppl.filter(function(p){ return words(p).indexOf(tw[k]) >= 0; })); if(r) return r;
+  }
+  /* уменьшительные: «Вика» → Виктория, «Елизавета» → Лиза */
+  for(k = 0; k < tw.length; k++){
+    var g = FO_OWN_DIM.filter(function(x){ return x.indexOf(tw[k]) >= 0; });
+    var alt = []; g.forEach(function(x){ x.forEach(function(n){ if(n !== tw[k]) alt.push(n); }); });
+    if(alt.length){ r = one(ppl.filter(function(p){ return words(p).some(function(w){ return alt.indexOf(w) >= 0; }); })); if(r) return r; }
+  }
+  /* начало имени от 3 букв: «Вер», «Свет» */
+  if(tw[0].length >= 3){
+    r = one(ppl.filter(function(p){ return words(p).some(function(w){ return w.indexOf(tw[0]) === 0; }); })); if(r) return r;
+  }
+  return null;
+}
+/* два слова через пробел — только полное имя («Вероника Иванова» / «Иванова Вероника») или запомненное */
+function foOwnerFull(raw){
+  var t = foNmNorm(raw), rv = t.split(" ").reverse().join(" ");
+  var al = foOwnAliases()[t]; if(al && foOwnPeople().some(function(p){ return String(p.id) === String(al); })) return String(al);
+  var l = foOwnPeople().filter(function(p){ var n = foNmNorm(p.name); return n === t || n === rv; });
+  return l.length === 1 ? String(l[0].id) : null;
+}
+function foOwnerName(id){ var p = foOwnPeople().filter(function(x){ return String(x.id) === String(id); })[0]; return p ? p.name : ""; }
+function foIsNameTok(t){ return /[a-zа-яё]{2,}/i.test(t) && !/\d/.test(t) && foNmNorm(t).length >= 2; }
+var FO_HDR_RX = /^(артикул( вб| продавца| wb)?|sku|категория|кат\.?|wb|вб|ответственный|ответств\.?|менеджер|сотрудник|исполнитель|кто ведет|кто ведёт)$/i;
+
+/* разбор: как раньше (колонки по содержимому) + последний столбец — ответственный */
+foParseArts = function(txt){
+  var out = [], meta = [], seen = {};
+  String(txt || "").split(/[\r\n]+/).forEach(function(line){
+    var l = line.trim(); if(!l) return;
+    var sep = /[\t;|]/.test(l) || /\s*,\s*/.test(l);
+    var toks = l.split(/[\t;|]+|\s*,\s*/).map(function(x){ return x.trim(); }).filter(Boolean);
+    if(toks.length === 1){ toks = l.split(/\s+/).filter(Boolean); sep = false; }
+    var cat = "", wb = "", rest = [];
+    toks.forEach(function(t){
+      if(!wb && /^\d{5,}$/.test(t)){ wb = t; return; }
+      if(!cat && foNormCat(t)){ cat = foNormCat(t); return; }
+      rest.push(t);
+    });
+    if(!wb){ var m = l.match(/\b(\d{6,12})\b/); if(m) wb = m[1]; }
+    if(!wb) return;                                              /* заголовок или мусор */
+    rest = rest.filter(function(t){ return t !== wb && !FO_HDR_RX.test(t); });
+    var emp = null, raw = "";
+    if(rest.length){
+      var last = rest[rest.length - 1];
+      /* столбцы через пробел: «… Вероника Иванова» — пробуем два последних слова */
+      if(!sep && rest.length >= 2 && foIsNameTok(last) && foIsNameTok(rest[rest.length - 2])){
+        var e2 = foOwnerFull(rest[rest.length - 2] + " " + last);
+        if(e2){ emp = e2; rest = rest.slice(0, -2); }
+      }
+      if(!emp && foIsNameTok(last)){
+        var e1 = foOwnerMatch(last);
+        if(e1){ emp = e1; rest = rest.slice(0, -1); }
+        else if(rest.length >= 2){ raw = last; rest = rest.slice(0, -1); }   /* последний столбец — имя, но не узнал */
+      }
+    }
+    var sku = rest[0] || "";
+    if(seen[wb]) return; seen[wb] = 1;
+    var it = {wb_sku: wb, seller_sku: sku, cat: cat};
+    if(emp) it.employee_id = emp;
+    out.push(it);
+    meta.push(raw ? {raw: raw, key: foNmNorm(raw)} : (emp ? {auto: 1} : {}));
+  });
+  out.meta = meta;                                                /* JSON.stringify массива это поле не отправит */
+  return out;
+};
+window.foParseArts = foParseArts;
+
+/* ── превью ── */
+function foPvExisting(pid){
+  var map = {}; try{ ((FO_ARTS[pid] || {}).rows || []).forEach(function(r){ map[String(r.wb_sku)] = r; }); }catch(e){}
+  return map;
+}
+function foPvOwnerOf(x, ex){ return x.employee_id || (ex[x.wb_sku] && ex[x.wb_sku].employee_id) || ""; }
+function foPvStats(pid){
+  var pv = FO_ART_PREVIEW[pid] || [], ex = foPvExisting(pid);
+  var s = {n: pv.length, set: 0, keep: 0, none: 0, nocat: 0, byCat: {A:0, B:0, C:0, "":0}, fresh: 0};
+  pv.forEach(function(x){
+    var e = ex[x.wb_sku];
+    if(!e) s.fresh++;
+    if(x.employee_id) s.set++;
+    else if(e && e.employee_id) s.keep++;
+    else { s.none++; s.byCat[x.cat || (e && e.cat) || ""]++; }
+    if(!x.cat && !(e && e.cat)) s.nocat++;
+  });
+  return s;
+}
+function foOwnOpts(sel, emptyLabel){
+  return '<option value="">'+esc(emptyLabel || "— ответственный —")+'</option>' + foOwnPeople().map(function(p){
+    return '<option value="'+esc(p.id)+'"'+(String(sel || "") === String(p.id) ? ' selected' : '')+'>'+esc(p.name)+'</option>'; }).join("");
+}
+function foPvSumHTML(pid){
+  var s = foPvStats(pid);
+  return '<b>Разобрано: '+s.n+'</b>'+
+    (s.n - s.fresh ? '<span>уже в кабинете: '+(s.n - s.fresh)+' — обновлю</span>' : '')+
+    '<span class="ok">ответственный: '+(s.set + s.keep)+(s.keep ? ' (из них как сейчас: '+s.keep+')' : '')+'</span>'+
+    (s.none ? '<span class="warn">без ответственного: '+s.none+'</span>' : '')+
+    (s.nocat ? '<span class="warn">без категории: '+s.nocat+'</span>' : '');
+}
+function foPvBulkHTML(pid){
+  var s = foPvStats(pid);
+  if(!s.none) return '';
+  var cats = ["A","B","C"].filter(function(c){ return s.byCat[c]; });
+  return '<div class="fo-pvbulk"><span>Без ответственного <b>'+s.none+'</b> — назначить одним выбором:</span>'+
+    '<label>всем <select class="sel sm" data-fopvall="1">'+foOwnOpts("", "— кому —")+'</select></label>'+
+    (cats.length > 1 || (cats.length === 1 && s.byCat[""]) ? cats.map(function(c){
+      return '<label>категория '+c+' ('+s.byCat[c]+') <select class="sel sm" data-fopvcatall="'+c+'">'+foOwnOpts("", "— кому —")+'</select></label>'; }).join("") : '')+
+  '</div>';
+}
+function foPvMapHTML(pid){
+  var pv = FO_ART_PREVIEW[pid] || [], meta = pv.meta || [], g = {}, order = [];
+  meta.forEach(function(m, i){
+    if(!m || !m.key) return;
+    if(!g[m.key]){ g[m.key] = {raw: m.raw, n: 0, emp: null, mixed: false}; order.push(m.key); }
+    var e = pv[i] && pv[i].employee_id || "";
+    if(g[m.key].n && g[m.key].emp !== e) g[m.key].mixed = true;
+    g[m.key].emp = e; g[m.key].n++;
+  });
+  if(!order.length) return '';
+  if(order.length > 10) return '<div class="fo-pvmap"><div class="fo-pvmapr"><span>В последнем столбце '+order.length+' разных значений — на имена сотрудников не похоже, ответственным не считаю. Назначьте строкой ниже или поставьте имена последним столбцом.</span></div></div>';
+  return '<div class="fo-pvmap">'+order.map(function(k){
+    var x = g[k], done = x.emp && !x.mixed;
+    return '<div class="fo-pvmapr'+(done ? ' done' : '')+'"><span>'+(done ? 'Имя' : 'Не узнал имя')+' «<b>'+esc(x.raw)+'</b>» — '+x.n+' '+foPlural(x.n, "строка", "строки", "строк")+' →</span>'+
+      '<select class="sel sm" data-fopvmap="'+esc(k)+'">'+foOwnOpts(done ? x.emp : "", "— кто это? —")+'</select>'+
+      (done ? '<i>запомнил — дальше узнаю сам</i>' : '')+'</div>';
+  }).join("")+'</div>';
+}
+function foPlural(n, a, b, c){ n = Math.abs(n) % 100; var d = n % 10; if(n > 10 && n < 20) return c; if(d > 1 && d < 5) return b; if(d === 1) return a; return c; }
+
+foArtPvHTML = function(pid){
+  var pv = FO_ART_PREVIEW[pid] || [];
+  if(!pv.length) return "";
+  var ex = foPvExisting(pid), meta = pv.meta || [];
+  var s = foPvStats(pid);
+  var rows = pv.map(function(x, i){
+    var e = ex[x.wb_sku], m = meta[i] || {};
+    var cur = e && e.employee_id ? foOwnerName(e.employee_id) || e.employee_name || "" : "";
+    var note = m.raw && !x.employee_id ? '<em class="bad">не узнал «'+esc(m.raw)+'»</em>' :
+               (e ? '<em>уже в кабинете'+(cur && !x.employee_id ? ' · останется '+esc(cur) : '')+'</em>' : '');
+    var own = !x.employee_id && !(e && e.employee_id);
+    return '<div class="fo-artr pv" data-fopv="'+i+'"><code>'+esc(x.wb_sku)+'</code><i class="fo-pvsku">'+esc(x.seller_sku || "—")+'</i>'+
+      '<select class="sel sm fo-cat'+(x.cat || (e && e.cat) ? '' : ' miss')+'" data-fopvcat="'+i+'">'+foCatOpts(x.cat || (e && e.cat) || "")+'</select>'+
+      '<select class="sel sm fo-pvemp'+(own ? ' miss' : '')+'" data-fopvemp="'+i+'">'+foOwnOpts(x.employee_id, cur ? "как сейчас: " + cur : "— ответственный —")+'</select>'+
+      note+'</div>';
+  }).join("");
+  return '<div class="fo-artpv fo-pv98" data-fopid="'+esc(pid)+'">'+
+    '<div class="fo-artpvh fo-pvsum">'+foPvSumHTML(pid)+'</div>'+
+    foPvMapHTML(pid)+
+    '<div class="fo-pvbulkw">'+foPvBulkHTML(pid)+'</div>'+
+    '<div class="fo-pvtbl"><div class="fo-artr pv hd"><span>Артикул ВБ</span><span class="fo-pvsku">Артикул продавца</span><span>Кат.</span><span>Ответственный</span></div>'+rows+'</div>'+
+    '<div class="fo-artpvb">'+
+      '<label class="fo-chk"><input type="checkbox" id="foArtReplace"> заменить список целиком (остальные снять)</label>'+
+      '<button class="bt sm pri" data-foartsave="'+esc(pid)+'">Внести '+pv.length+' '+foPlural(pv.length, "артикул", "артикула", "артикулов")+(s.set ? ' · ответственный у '+s.set : '')+'</button>'+
+      '<button class="bt sm gh2" data-foartclear="'+esc(pid)+'">Отмена</button>'+
+    '</div></div>';
+};
+window.foArtPvHTML = foArtPvHTML;
+
+function foPvHostOf(el){ var b = el && el.closest && el.closest(".fo-pv98"); return b ? {box: b, host: b.closest(".fo-arts"), pid: b.getAttribute("data-fopid")} : null; }
+function foPvRedraw(h){
+  if(!h || !h.host) return;
+  var t = h.box.querySelector(".fo-pvtbl"); FO_PV_KEEP[h.pid] = t ? t.scrollTop : 0;
+  foArtPvRefresh(h.host, h.pid);
+  var t2 = h.host.querySelector(".fo-pv98 .fo-pvtbl"); if(t2 && FO_PV_KEEP[h.pid]) t2.scrollTop = FO_PV_KEEP[h.pid];
+}
+function foPvSumRedraw(h){
+  var s = h.box.querySelector(".fo-pvsum"); if(s) s.innerHTML = foPvSumHTML(h.pid);
+  var w = h.box.querySelector(".fo-pvbulkw");
+  if(w){ w.innerHTML = foPvBulkHTML(h.pid); try{ if(typeof enhanceSelects === "function") enhanceSelects(w); }catch(e){} }
+  var st = foPvStats(h.pid), b = h.box.querySelector("[data-foartsave]");
+  if(b) b.textContent = "Внести " + st.n + " " + foPlural(st.n, "артикул", "артикула", "артикулов") + (st.set ? " · ответственный у " + st.set : "");
+}
+function foSaveAlias(key, empId){
+  var map = Object.assign({}, foOwnAliases()); map[key] = String(empId);
+  try{ if(typeof SRV_CARDS !== "undefined" && SRV_CARDS){ var k = cardKey("org", "owner_aliases"); SRV_CARDS[k] = Object.assign(SRV_CARDS[k] || {}, {map: map}); } }catch(e){}
+  return api("/refs/cards", {method:"POST", body:{kind:"org", ref_id:"owner_aliases", data:{map: map}}})
+    .catch(function(err){ try{ toast("Имя не запомнилось на сервере: " + (err && err.message || "")); }catch(x){} });
+}
+
+/* выборы в превью */
+document.addEventListener("change", function(e){
+  var el = e.target; if(!el || !el.matches) return;
+  var h, pv, v, n = 0;
+  if(el.matches("[data-fopvemp]")){
+    h = foPvHostOf(el); pv = h && FO_ART_PREVIEW[h.pid]; if(!pv) return;
+    var i = +el.getAttribute("data-fopvemp"); if(!pv[i]) return;
+    if(el.value) pv[i].employee_id = el.value; else delete pv[i].employee_id;
+    var miss = !el.value && !/^как сейчас/.test(el.options[0].text);
+    el.classList.toggle("miss", miss); var gb = el.nextElementSibling; if(gb && gb.classList.contains("gsl")) gb.classList.toggle("miss", miss);
+    foPvSumRedraw(h);
+    return;
+  }
+  if(el.matches("[data-fopvcat]") && el.closest(".fo-pv98")){
+    h = foPvHostOf(el); setTimeout(function(){ foPvSumRedraw(h); }, 0);
+    return;
+  }
+  if(el.matches("[data-fopvall], [data-fopvcatall]")){
+    h = foPvHostOf(el); pv = h && FO_ART_PREVIEW[h.pid]; v = el.value; if(!pv || !v) return;
+    var onlyCat = el.getAttribute("data-fopvcatall") || "", ex = foPvExisting(h.pid);
+    pv.forEach(function(x){
+      if(foPvOwnerOf(x, ex)) return;
+      var c = x.cat || (ex[x.wb_sku] && ex[x.wb_sku].cat) || "";
+      if(onlyCat && c !== onlyCat) return;
+      x.employee_id = v; n++;
+    });
+    try{ toast(foOwnerName(v) + " — ответственный у " + n + " " + foPlural(n, "артикула", "артикулов", "артикулов") + (onlyCat ? " категории " + onlyCat : "") + ". Сохранится по «Внести»"); }catch(x){}
+    foPvRedraw(h);
+    return;
+  }
+  if(el.matches("[data-fopvmap]")){
+    h = foPvHostOf(el); pv = h && FO_ART_PREVIEW[h.pid]; v = el.value; if(!pv) return;
+    var key = el.getAttribute("data-fopvmap"), meta = pv.meta || [];
+    meta.forEach(function(m, i){ if(m && m.key === key && pv[i]){ if(v) pv[i].employee_id = v; else delete pv[i].employee_id; n++; } });
+    if(v){ foSaveAlias(key, v); try{ toast("«" + key + "» — это " + foOwnerName(v) + ": " + n + " " + foPlural(n, "строка", "строки", "строк") + ". Запомнил на сервере"); }catch(x){} }
+    foPvRedraw(h);
+    return;
+  }
+}, true);
+
+/* ── «Внести»: одним запросом (или пачками по 150), график ставит сервер ── */
+function foArtBulkSend(cab, items, replace, onStep){
+  var size = replace ? items.length : 150, parts = [];
+  for(var i = 0; i < items.length; i += size) parts.push(items.slice(i, i + size));
+  var acc = {добавлено: 0, обновлено: 0, всего: 0, items: []}, k = 0;
+  return parts.reduce(function(p, part){
+    return p.then(function(){
+      if(onStep) onStep(k * size, items.length);
+      return api("/refs/cabinets/" + encodeURIComponent(cab) + "/articles/bulk", {method:"POST", body:{items: part, replace: !!replace}})
+        .then(function(r){ k++; acc.добавлено += +r.добавлено || 0; acc.обновлено += +r.обновлено || 0; acc.всего = +r.всего || 0; acc.items = r.items || []; });
+    });
+  }, Promise.resolve()).then(function(){ return acc; });
+}
+function foArtsApplied(pid, r){
+  FO_ARTS[pid] = {rows: (r && r.items) || [], at: Date.now()};
+  try{ if(typeof foRkInject === "function") foRkInject(); }catch(e){}
+  try{ renderCards(); }catch(e){}
+}
+window.addEventListener("click", function(e){
+  var b = e.target.closest && e.target.closest("[data-foartsave]");
+  if(!b || !b.closest(".fo-pv98")) return;
+  e.preventDefault(); e.stopImmediatePropagation();
+  var pid = b.getAttribute("data-foartsave"), pv = FO_ART_PREVIEW[pid] || [], d = FO_CABFN[pid];
+  if(!d || !d.cab){ try{ toast("У клиента нет кабинета на сервере"); }catch(x){} return; }
+  if(!pv.length) return;
+  var host = b.closest(".fo-arts");
+  var rep = !!(host && (host.querySelector("#foArtReplace") || {}).checked);
+  var ex = foPvExisting(pid), withOwner = 0;
+  var items = pv.map(function(x){
+    var it = {wb_sku: x.wb_sku, seller_sku: x.seller_sku || "", cat: x.cat || ""};
+    var cur = ex[x.wb_sku] && ex[x.wb_sku].employee_id;
+    /* тот же человек, что уже стоит, — не трогаем (его дни, возможно, настроены руками) */
+    if(x.employee_id && String(x.employee_id) !== String(cur || "")){ it.employee_id = String(x.employee_id); withOwner++; }
+    return it;
+  });
+  b.disabled = true; b.textContent = "Вношу " + items.length + "…";
+  foArtBulkSend(d.cab, items, rep, function(done, all){ if(all > 150) b.textContent = "Вношу " + Math.min(all, done + 150) + " из " + all + "…"; })
+    .then(function(r){
+      delete FO_ART_PREVIEW[pid]; try{ delete FO_ART_TEXT[pid]; }catch(x){}
+      var ta = host && host.querySelector("[data-foartpaste]"); if(ta) ta.value = "";
+      var none = (r.items || []).filter(function(a){ return !a.employee_id; }).length;
+      foArtsApplied(pid, r);
+      try{ toast("На сервере: добавлено " + r.добавлено + ", обновлено " + r.обновлено + " · в управлении " + r.всего +
+                 (withOwner ? " · ответственный назначен " + withOwner + " — график и «Работа с РК» в гантах сформированы" : "") +
+                 (none ? " · без ответственного " + none + " — назначьте строкой над списком" : "")); }catch(x){}
+    })
+    .catch(function(err){ b.disabled = false; b.textContent = "Внести ещё раз"; try{ toast("Не внеслось: " + (err && err.message || "сервер не ответил")); }catch(x){} });
+}, true);
+
+/* ── список уже внесённых: «без ответственного: K → всем / по категории» ── */
+function foArtOwnBarHTML(pid){
+  var rows = ((FO_ARTS[pid] || {}).rows || []).filter(function(r){ return !r.employee_id; });
+  if(!rows.length) return "";
+  var by = {A:0, B:0, C:0, "":0}; rows.forEach(function(r){ by[r.cat || ""]++; });
+  var cats = ["A","B","C"].filter(function(c){ return by[c]; });
+  return '<div class="fo-pvbulk fo-artown" data-fopid="'+esc(pid)+'"><span>Без ответственного <b>'+rows.length+'</b> — назначить одним выбором:</span>'+
+    '<label>всем <select class="sel sm" data-foartall="1">'+foOwnOpts("", "— кому —")+'</select></label>'+
+    (cats.length > 1 || (cats.length === 1 && by[""]) ? cats.map(function(c){
+      return '<label>категория '+c+' ('+by[c]+') <select class="sel sm" data-foartall="'+c+'">'+foOwnOpts("", "— кому —")+'</select></label>'; }).join("") : '')+
+  '</div>';
+}
+document.addEventListener("change", function(e){
+  var el = e.target; if(!el || !el.matches || !el.matches("[data-foartall]")) return;
+  var bar = el.closest(".fo-artown"); var pid = bar && bar.getAttribute("data-fopid"); var v = el.value;
+  var d = FO_CABFN[pid]; if(!pid || !v) return;
+  if(!d || !d.cab){ try{ toast("У клиента нет кабинета на сервере"); }catch(x){} return; }
+  var c = el.getAttribute("data-foartall"); c = (c === "1") ? "" : c;
+  var items = ((FO_ARTS[pid] || {}).rows || []).filter(function(r){ return !r.employee_id && (!c || r.cat === c); })
+    .map(function(r){ return {wb_sku: r.wb_sku, employee_id: String(v)}; });
+  if(!items.length) return;
+  el.disabled = true;
+  try{ toast("Назначаю " + foOwnerName(v) + " на " + items.length + " " + foPlural(items.length, "артикул", "артикула", "артикулов") + "…"); }catch(x){}
+  foArtBulkSend(d.cab, items, false)
+    .then(function(r){ foArtsApplied(pid, r); try{ toast(foOwnerName(v) + " — ответственный у " + items.length + " " + foPlural(items.length, "артикула", "артикулов", "артикулов") + (c ? " категории " + c : "") + " на сервере. Дни по категории, график сформирован"); }catch(x){} })
+    .catch(function(err){ el.disabled = false; try{ toast("Не назначилось: " + (err && err.message || "сервер не ответил")); }catch(x){} });
+}, true);
+
+/* ── карточка: новое превью, строка массового назначения, подсказка про последний столбец ── */
+(function(){
+  if(typeof foArtsBlock !== "function") return;
+  var _ab = foArtsBlock;
+  foArtsBlock = function(pr){
+    var h = _ab.apply(this, arguments);
+    try{
+      var ro = (typeof foBelowPm === "function") ? foBelowPm() : false;
+      if(ro || !FO_ARTS[pr.id]) return h;
+      var box = document.createElement("div"); box.innerHTML = h;
+      var old = box.querySelector(".fo-artpv");
+      if(old){ var w = document.createElement("div"); w.innerHTML = foArtPvHTML(pr.id); if(w.firstChild) old.parentNode.replaceChild(w.firstChild, old); else old.remove(); }
+      var bar = foArtOwnBarHTML(pr.id);
+      var list = box.querySelector(".fo-artl");
+      if(bar && list){ var w2 = document.createElement("div"); w2.innerHTML = bar; list.parentNode.insertBefore(w2.firstChild, list); }
+      var paste = box.querySelector(".fo-artpaste");
+      if(paste && !paste.querySelector(".fo-colsh")){
+        var names = foOwnPeople().map(function(p){ return String(p.name).split(" ")[0]; }).slice(0, 6).join(", ");
+        var cols = document.createElement("div"); cols.className = "fo-colsh";
+        cols.innerHTML = '<span class="fo-colt">Столбцы:</span><span class="fo-col">артикул ВБ</span><span class="fo-col">артикул продавца</span><span class="fo-col">A / B / C</span>'+
+          '<span class="fo-col own">ответственный — последним</span><span class="fo-colx">пример: 153667602 · ajrng25 · B · '+esc((foOwnPeople()[0] || {name:"Вероника"}).name.split(" ")[0])+'</span>';
+        paste.insertBefore(cols, paste.firstChild);
+        var ta = paste.querySelector("[data-foartpaste]");
+        if(ta) ta.setAttribute("placeholder", "Вставьте столбцы из таблицы как есть — хоть 300 строк. Артикул ВБ, артикул продавца и A/B/C узнаю в любом порядке; последний столбец — ответственный: " + (names || "имя сотрудника") + ". Можно коротко: «Вика», «Лиза», фамилией. Разберу сразу, как вставите.");
+      }
+      return box.innerHTML;
+    }catch(e){ return h; }
+  };
+})();
+
+window.foOwnerMatch = foOwnerMatch;
+window.foArtsOwnState = function(pid){ return pid ? {превью: foPvStats(pid), имена: foOwnAliases()} : foOwnAliases(); };
 
 })();
 </script>
