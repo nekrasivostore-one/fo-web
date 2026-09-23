@@ -3943,6 +3943,27 @@ body.fo-nopeople #screen section.s5{ grid-column:span 8 }
 .fo-tmb .bt.dangl{ color:#c2394f; border-color:rgba(194,57,79,.4) }
 .fo-tmn{ font-size:11px; color:var(--ink-3); margin-top:8px; line-height:1.4 }
 #screen .gb[data-open], .tdr[data-task] .tdt, .tldt[data-task], .dli.fo-clk, .gb[data-fotask]{ cursor:pointer }
+
+/* ===== add89: ссылка на таблицу у задачи (187) ===== */
+.gb .fo-gbl{ position:absolute; right:2px; top:50%; transform:translateY(-50%); width:18px; height:18px; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700; color:#6B4EFF; background:rgba(255,255,255,.85); text-decoration:none; z-index:2 }
+.gb .fo-gbl:hover{ background:#6B4EFF; color:#fff }
+.gb.fo-wk{ padding-right:24px }
+.gb:hover .fo-gbl{ position:static; transform:none; margin-top:4px; width:auto; padding:0 6px }
+.gb:hover .fo-gbl::after{ content:" открыть таблицу"; font-weight:600; font-size:10.5px }
+.tdr .fo-tdl{ font-size:11px; font-weight:600; color:#6B4EFF; text-decoration:none; margin:0 8px 0 4px; white-space:nowrap }
+.tdr .fo-tdl:hover{ text-decoration:underline }
+.tdr.fo-open{ border-bottom-left-radius:0; border-bottom-right-radius:0 }
+.fo-tdx{ margin:-4px 0 8px 0; padding:10px 14px 12px; border:1px solid rgba(124,92,255,.25); border-top:none; border-radius:0 0 14px 14px; background:rgba(124,92,255,.05); font-size:12.5px }
+.fo-tdxh b{ display:block; font-size:13.5px }
+.fo-tdxh i{ display:block; font-style:normal; font-size:11.5px; color:var(--ink-3); margin-top:2px }
+.fo-tdxh u{ text-decoration:none; color:var(--ok,#1a9d6f) }
+.fo-tdxr{ display:flex; gap:10px; align-items:flex-start; margin-top:8px }
+.fo-tdxr > span{ flex:0 0 92px; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:var(--ink-3); padding-top:3px }
+.fo-tdxr em{ font-style:normal; color:var(--ink-2); line-height:1.4 }
+.fo-tdxr .bt.sm{ padding:5px 11px; font-size:12px; text-decoration:none }
+.fo-tdxb{ display:flex; gap:8px; flex-wrap:wrap; margin-top:10px }
+.fo-tdxb .bt.sm{ padding:5px 11px; font-size:12px }
+.fo-tdxb .bt.dangl{ color:#c2394f; border-color:rgba(194,57,79,.4) }
 </style>
 </head>
 <body>
@@ -24880,6 +24901,8 @@ window.addEventListener("click", function(e){
            (host.closest("[data-task]") || {getAttribute:function(){ return null; }}).getAttribute("data-task");
   var t = foTaskOf(id); if(!t) return;
   e.preventDefault(); e.stopImmediatePropagation();
+  /* в списке дня задача раскрывается на месте (187), в остальных местах — карточка действий */
+  if(host.matches(".tdr[data-task] .tdt") && typeof window.foTaskExpand === "function"){ window.foTaskExpand(t, host.closest(".tdr")); return; }
   foTaskMenu(t, host);
 }, true);
 document.addEventListener("keydown", function(e){ if(e.key === "Escape") foTaskMenuClose(); });
@@ -24925,6 +24948,149 @@ document.addEventListener("keydown", function(e){ if(e.key === "Escape") foTaskM
   }
 })();
 window.foTaskMenu = foTaskMenu;
+
+/* ===== add89: ссылка на таблицу у задачи — хвостик в ганте, раскрытие в списке дня (187)
+   Просьба менеджера через Виталия: «в плашке сразу ссылку на задачу, чтобы в
+   гугл-таблицу перекидывало; в "Задачах дня" — чтобы задача раскрывалась и
+   задача там была; в ганте — хвостик у плашки, нажал — попал в гугл-страницу
+   с задачей».
+   Откуда ссылка: отчёт по этой задаче → запомненная «одна и та же таблица»
+   по функции и кабинету (ответственного, потом любого) → последняя ссылка
+   из отчётов по функции и кабинету → ссылка из текста сообщения функции →
+   документ регламента. Сервер: GET /refs/link-pref/all.                   */
+
+var FO_LINKS = {prefs: [], last: {}, tasks: {}, at: 0};
+
+function foLinksLoad(){
+  if(typeof foAuthed === "function" && !foAuthed()) return Promise.resolve();
+  if(typeof MODE !== "undefined" && MODE !== "live") return Promise.resolve();
+  return api("/refs/link-pref/all").then(function(r){
+    r = r || {};
+    var last = {}, tasks = {};
+    (r.last || []).forEach(function(x){ last[String(x.fn_id) + "|" + String(x.cabinet_id || "")] = x.link; });
+    (r.tasks || []).forEach(function(x){ tasks[String(x.task_id)] = x.link; });
+    FO_LINKS = {prefs: r.prefs || [], last: last, tasks: tasks, at: Date.now()};
+  }).catch(function(){});
+}
+function foTaskLink(t){
+  if(!t) return "";
+  try{
+    if(t.rid && FO_LINKS.tasks[String(t.rid)]) return FO_LINKS.tasks[String(t.rid)];
+    if(t.link) return t.link;
+    var fn = String(t.fn || ""), cab = String(t.cab || ""), who = String(t.person || "");
+    if(fn){
+      var ps = FO_LINKS.prefs.filter(function(p){ return String(p.fn_id) === fn && String(p.cabinet_id || "") === cab; });
+      var mine = ps.filter(function(p){ return String(p.employee_id) === who; })[0] || ps[0];
+      if(mine && mine.link) return mine.link;
+      var any = FO_LINKS.prefs.filter(function(p){ return String(p.fn_id) === fn && !p.cabinet_id; })[0];
+      if(any && any.link) return any.link;
+      if(FO_LINKS.last[fn + "|" + cab]) return FO_LINKS.last[fn + "|" + cab];
+      if(typeof fnForm === "function"){ var fm = fnForm(fn); if(fm && fm.link) return fm.link; }
+      if(typeof fnById === "function" && typeof fnCfg === "function"){ var f = fnById(fn); var c = f ? fnCfg(f) : null; if(c && c.regLink) return c.regLink; }
+    }
+  }catch(e){}
+  return "";
+}
+function foLinkA(t, cls, text){
+  var u = foTaskLink(t);
+  if(!u) return "";
+  var href = /^https?:\/\//i.test(u) ? u : "https://" + u;
+  return '<a class="'+cls+'" href="'+esc(href)+'" target="_blank" rel="noopener" title="Открыть таблицу задачи">'+(text || '↗')+'</a>';
+}
+
+/* хвостик у плашки в ганте */
+function foGanttTails(el){
+  try{
+    Array.prototype.forEach.call(el.querySelectorAll(".gb[data-open], .gb[data-fotask]"), function(gb){
+      if(gb.querySelector(".fo-gbl")) return;
+      var t = (typeof foTaskOf === "function") ? foTaskOf(gb.getAttribute("data-open") || gb.getAttribute("data-fotask")) : null;
+      if(!t) return;
+      var a = foLinkA(t, "fo-gbl", "↗");
+      if(a) gb.insertAdjacentHTML("beforeend", a);
+    });
+  }catch(e){}
+}
+(function(){
+  if(typeof B !== "undefined" && B && typeof B.gantt === "function"){
+    var _g = B.gantt;
+    B.gantt = function(el){ var v = _g.apply(this, arguments); foGanttTails(el); return v; };
+  }
+})();
+
+/* список дня: ссылка в строке и раскрытие задачи */
+var FO_TD_OPEN = {};
+function foTaskCard(t){
+  var m = t.person ? person(t.person) : null, pr = t.project ? project(t.project) : null;
+  var f = null, c = null, fm = null;
+  try{ f = t.fn ? fnById(t.fn) : null; c = f ? fnCfg(f) : null; fm = f ? fnForm(f.id) : null; }catch(e){}
+  var reg = c && c.regText ? String(c.regText).trim().split(/\n+/).slice(0, 2).join(" · ") : "";
+  if(reg.length > 200) reg = reg.slice(0, 198) + "…";
+  var link = foTaskLink(t);
+  var can = (typeof foCanDrop === "function") ? foCanDrop() : true;
+  var cycle = (typeof FO_CABFN !== "undefined" && pr && FO_CABFN[pr.id]) ? (FO_CABFN[pr.id].rows || []).filter(function(r){ return String(r.fn_id) === String(t.fn); })[0] : null;
+  var cyc = cycle && typeof foCycLabel === "function" ? foCycLabel(foCycEff(cycle)) + (foDaysEff(cycle).length && foCycEff(cycle) !== "daily" ? ' · ' + foDaysEff(cycle).map(function(i){ return FO_DOW[i]; }).join(", ") : '') : "";
+  return '<div class="fo-tdx" data-fotdx="'+esc(t.id)+'">'+
+    '<div class="fo-tdxh"><b>'+esc(String(t.title || "").split(" · ")[0])+'</b>'+
+      '<i>'+(pr ? esc(pr.name) + ' · ' : '')+(m ? esc(m.name) : 'без ответственного')+' · '+(t.minutes || 0)+' мин'+(cyc ? ' · ' + esc(cyc) : '')+
+      (t.done ? ' · <u>выполнена</u>' : t.status === "wait" ? ' · на согласовании' : '')+'</i></div>'+
+    '<div class="fo-tdxr"><span>Таблица</span>'+(link ? foLinkA(t, "bt sm", "Открыть таблицу ↗") : '<em>ссылка ещё не задана — появится после первой отметки «выполнено» со ссылкой или из карточки функции</em>')+'</div>'+
+    (reg ? '<div class="fo-tdxr"><span>Как делать</span><em>'+esc(reg)+'</em></div>' : '')+
+    (fm && (fm.body || fm.h) ? '<div class="fo-tdxr"><span>В чат уходит</span><em>'+esc(String(fm.h || "") + (fm.h && fm.body ? " — " : "") + String(fm.body || "")).slice(0, 220)+'</em></div>' : '')+
+    '<div class="fo-tdxb">'+
+      (f ? '<button class="bt sm gh2" data-fofnopen="'+esc(f.id)+'">Карточка функции</button>' : '')+
+      (can && t.done ? '<button class="bt sm gh2" data-fotundo="'+esc(t.id)+'">Отменить выполнение</button>' : '')+
+      (can ? '<button class="bt sm dangl" data-fotdrop="'+esc(t.id)+'">Снять задачу</button>' : '')+
+      '<button class="bt sm gh2" data-fotdxclose="'+esc(t.id)+'">Свернуть</button>'+
+    '</div>'+
+  '</div>';
+}
+window.foTaskExpand = function(t, row){
+  if(!t || !row) return;
+  var open = !FO_TD_OPEN[t.id];
+  FO_TD_OPEN[t.id] = open;
+  var old = row.nextElementSibling; if(old && old.classList.contains("fo-tdx")) old.remove();
+  row.classList.toggle("fo-open", open);
+  if(open) row.insertAdjacentHTML("afterend", foTaskCard(t));
+};
+(function(){
+  if(typeof tdRow !== "function") return;
+  var _td = tdRow;
+  tdRow = function(t){
+    var h = _td.apply(this, arguments);
+    try{
+      var a = foLinkA(t, "fo-tdl", "↗ таблица");
+      if(a) h = h.replace('</b>', '</b>' + a);
+      if(FO_TD_OPEN[t.id]){ h = h.replace('class="tdr', 'class="tdr fo-open') + foTaskCard(t); }
+    }catch(e){}
+    return h;
+  };
+})();
+window.addEventListener("click", function(e){
+  var b = e.target.closest && e.target.closest("[data-fotdxclose]");
+  if(!b) return;
+  e.preventDefault(); e.stopImmediatePropagation();
+  var id = b.getAttribute("data-fotdxclose"); FO_TD_OPEN[id] = false;
+  var x = b.closest(".fo-tdx"); var row = x && x.previousElementSibling; if(row) row.classList.remove("fo-open"); if(x) x.remove();
+}, true);
+
+/* ссылки грузим вместе с остальным и при автообновлении */
+(function(){
+  if(typeof loadLive !== "function") return;
+  var _ll = loadLive;
+  loadLive = function(){
+    var self = this, args = arguments;
+    return _ll.apply(self, args).then(function(v){ return foLinksLoad().then(function(){ try{ render(); }catch(e){} return v; }, function(){ return v; }); });
+  };
+  var tries = 0;
+  (function again(){
+    tries++; if(tries > 40) return;
+    var ready = false; try{ ready = foAuthed() && (typeof MODE === "undefined" || MODE === "live") && S && S.tasks && S.tasks.length; }catch(e){}
+    if(!ready){ setTimeout(again, 700); return; }
+    if(FO_LINKS.at) return;
+    foLinksLoad().then(function(){ try{ render(); }catch(e){} });
+  })();
+})();
+window.foLinksState = function(){ return {prefs: FO_LINKS.prefs.length, last: Object.keys(FO_LINKS.last).length, tasks: Object.keys(FO_LINKS.tasks).length}; };
 
 })();
 </script>
