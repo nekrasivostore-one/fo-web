@@ -23698,6 +23698,151 @@ document.addEventListener("click", function(e){
 
 window.foShadowState = function(){ return {тень: foShadow(), админОтложен: !!localStorage.getItem(FO_ADMIN_BACK)}; };
 
+/* ===== add83: режим тени и демо — в меню под именем; демо починено (134, 135, 136)
+   Виталий: «режим тени нужен, чтобы инкогнито смотреть рабочее пространство
+   сотрудника: упала к нему задача или нет, что отображается в кабинете».
+   Демо — песочница на выдуманных данных Флатера. Оба пункта — в меню под
+   именем у админа, рядом. Демо не открывалось: в браузере лежала
+   испорченная копия (живые люди вместо команды Флатера) и сверху вылезало
+   окно «Как вас зовут?». Обе причины убраны.                              */
+
+/* ── пункт «Режим тени» в меню под именем ── */
+(function(){
+  if(typeof meMenuHTML !== "function") return;
+  var _mm = meMenuHTML;
+  meMenuHTML = function(){
+    var h = _mm.apply(this, arguments);
+    try{
+      var adm = (typeof isAdmin === "function" && isAdmin());
+      var inShadow = (typeof foShadowOn === "function" && foShadowOn());
+      if(!adm && !inShadow) return h;
+      if(typeof MODE !== "undefined" && MODE === "demo") return h;
+      var item = inShadow
+        ? '<button class="memi" data-me="shadowoff">'+
+            '<svg viewBox="0 0 24 24"><path d="M10 6H5a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h5"/><path d="M14 12h7m0 0l-3-3m3 3l-3 3"/></svg>'+
+            '<span><b>Вернуться в админа</b><i>выйти из тени в свой вход</i></span></button>'
+        : '<button class="memi" data-me="shadow">'+
+            '<svg viewBox="0 0 24 24"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>'+
+            '<span><b>Режим тени</b><i>инкогнито посмотреть рабочее пространство сотрудника</i></span></button>';
+      var demo = h.indexOf('data-me="demoswitch"');
+      if(demo >= 0){
+        var i = h.lastIndexOf('<button', demo);
+        return h.slice(0, i) + item + h.slice(i);
+      }
+      return h.indexOf('<div class="memd"></div>') >= 0 ? h.replace('<div class="memd"></div>', item + '<div class="memd"></div>') : h + item;
+    }catch(e){ return h; }
+  };
+})();
+
+document.addEventListener("click", function(e){
+  var b = e.target.closest && (e.target.closest('[data-me="shadow"]') || e.target.closest('[data-me="shadowoff"]'));
+  if(!b) return;
+  e.preventDefault(); e.stopPropagation(); if(e.stopImmediatePropagation) e.stopImmediatePropagation();
+  var m = document.getElementById("meMenu");
+  if(m){ m.classList.remove("on"); setTimeout(function(){ if(m.parentNode) m.remove(); }, 200); }
+  if(b.getAttribute("data-me") === "shadowoff"){ if(typeof foShadowLeave === "function") foShadowLeave(); return; }
+  if(typeof foShadowPicker === "function") foShadowPicker();
+}, true);
+
+/* ── демо: испорченную копию не поднимаем, живые данные в неё не пишем ── */
+function foDemoSavedOk(saved){
+  try{
+    if(!saved || !saved.people || !saved.people.length) return true;   /* нечего проверять — соберётся заново */
+    var uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-/i;
+    if(saved.people.some(function(p){ return p && uuid.test(String(p.id || "")); })) return false;
+    var names = (typeof TEAM !== "undefined" ? TEAM : []).map(function(t){ return t[0]; });
+    if(names.length && !saved.people.some(function(p){ return names.indexOf(p && p.name) >= 0; })) return false;
+    return true;
+  }catch(e){ return true; }
+}
+(function(){
+  if(typeof buildDemo !== "function") return;
+  var _bd = buildDemo;
+  buildDemo = function(){
+    try{
+      var saved = (typeof restoreState === "function") ? restoreState() : null;
+      if(!foDemoSavedOk(saved)){ try{ localStorage.removeItem(LSK); }catch(e){} }
+    }catch(e){}
+    return _bd.apply(this, arguments);
+  };
+})();
+(function(){
+  if(typeof saveState !== "function") return;
+  var _ss = saveState;
+  saveState = function(){
+    try{
+      if(typeof MODE !== "undefined" && MODE === "demo" && S && S.people &&
+         S.people.some(function(p){ return p && /^[0-9a-f]{8}-[0-9a-f]{4}-/i.test(String(p.id || "")); })) return;  /* живые люди в демо не пишем */
+    }catch(e){}
+    return _ss.apply(this, arguments);
+  };
+})();
+/* окно «Как вас зовут?» — только в живом агентстве */
+(function(){
+  if(typeof askNameIfMissing === "function"){
+    var _ask = askNameIfMissing;
+    askNameIfMissing = function(){ if(typeof MODE !== "undefined" && MODE === "demo") return; return _ask.apply(this, arguments); };
+  }
+  if(typeof startScreen === "function"){
+    var _st = startScreen;
+    startScreen = function(){
+      var r = _st.apply(this, arguments);
+      var tidy = function(){ try{ if(MODE === "demo"){ var g = document.getElementById("nameGate"); if(g) g.remove(); NAME_GATE_ON = false; } }catch(e){} };
+      tidy(); setTimeout(tidy, 300); setTimeout(tidy, 1500);
+      return r;
+    };
+  }
+})();
+
+/* ── демо-данные: 10 сотрудников, 10 кабинетов, функции — настоящий список агентства ── */
+var FO_LIVE_FNS = [];
+(function(){
+  if(typeof loadLive !== "function") return;
+  var _ll = loadLive;
+  loadLive = function(){
+    var self = this, args = arguments;
+    return _ll.apply(self, args).then(function(v){
+      try{ if(S && S.fns && S.fns.length) FO_LIVE_FNS = S.fns.map(function(f){ return {id:f.id, code:f.code, name:f.name, minutes:f.minutes || 30}; }); }catch(e){}
+      return v;
+    });
+  };
+})();
+try{
+  TEAM = [["Вероника","Руководитель отдела","ВК",128],["Игорь","Менеджер главный","ИС",116],
+          ["Светлана","Менеджер","СМ",114],["Виктория","Менеджер младший","ВЛ",88],
+          ["Елизавета","Ассистент","ЕР",92],["Мария","Менеджер","МА",110],
+          ["Алексей","Проджект","АЛ",120],["Дарья","Менеджер главный","ДА",118],
+          ["Кирилл","Менеджер младший","КИ",84],["Полина","Ассистент","ПО",90]];
+  PROJ = [["ИП Аббясова",2,148],["Пуфики Home",1,96],["Textile Pro",2,210],["Мебель Юг",1,64],
+          ["Свет и Дом",1,120],["ИП Крылова",1,58],["Bella Shoes",2,175],["Садовод Плюс",1,72],
+          ["ИП Мартынов",1,44],["Kids Wear",1,130]];
+}catch(e){}
+(function(){
+  if(typeof buildRefs !== "function") return;
+  var _br = buildRefs;
+  buildRefs = function(){
+    /* до пересборки в S.fns лежит живой справочник агентства (id с сервера) — запоминаем */
+    try{
+      var before = (S && S.fns || []).filter(function(f){ return f && /^[0-9a-f]{8}-[0-9a-f]{4}-/i.test(String(f.id || "")); });
+      if(before.length) FO_LIVE_FNS = before.map(function(f){ return {id:f.id, code:f.code, name:f.name, minutes:f.minutes || 30}; });
+    }catch(e){}
+    var v = _br.apply(this, arguments);
+    try{
+      if(FO_LIVE_FNS.length) S.fns = FO_LIVE_FNS.map(function(f){ return {id:f.id, code:f.code, name:f.name, minutes:f.minutes || 30}; });
+    }catch(e){}
+    return v;
+  };
+})();
+/* демо-копию, собранную на старом составе (5 человек, 4 кабинета), пересобираем на 10/10 */
+(function(){
+  var _ok = foDemoSavedOk;
+  foDemoSavedOk = function(saved){
+    if(!_ok(saved)) return false;
+    try{ if(saved && saved.people && saved.people.length && saved.people.length < 10) return false; }catch(e){}
+    return true;
+  };
+})();
+
 })();
 </script>
 </body>
