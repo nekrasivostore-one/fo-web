@@ -25730,6 +25730,70 @@ window.addEventListener("click", function(e){
   }
 }, true);
 
+/* ===== add95: «Несколько раз в неделю» в цикличности функции в карточке клиента (194)
+   Виталий: «в карточке клиента в выборе цикличности нет "несколько раз в
+   неделю" — добавь». На сервере это weekly с несколькими днями; в карточке —
+   свой пункт списка, дни отмечаются галочками, часы считаются по числу дней. */
+
+(function(){
+  if(typeof FO_CYC === "undefined" || !FO_CYC) return;
+  if(!FO_CYC.some(function(c){ return c[0] === "wdays"; })){
+    var i = FO_CYC.findIndex(function(c){ return c[0] === "weekly"; });
+    FO_CYC.splice(i >= 0 ? i + 1 : FO_CYC.length, 0, ["wdays", "Несколько раз в неделю"]);
+  }
+  if(typeof foCycEff === "function"){
+    var _ce = foCycEff;
+    foCycEff = function(r){
+      var k = _ce.apply(this, arguments);
+      try{ if(k === "weekly" && foDaysEff(r).length > 1) return "wdays"; }catch(e){}
+      return k;
+    };
+  }
+  if(typeof foWeekMin === "function"){
+    var _wm = foWeekMin;
+    foWeekMin = function(r){
+      try{ if(foCycEff(r) === "wdays") return foMinEff(r) * Math.max(1, foDaysEff(r).length); }catch(e){}
+      return _wm.apply(this, arguments);
+    };
+  }
+  if(typeof foRowBody === "function"){
+    var _rb = foRowBody;
+    foRowBody = function(row){
+      var body = _rb.apply(this, arguments);
+      try{
+        var sel = row.querySelector('[data-fok="cycle_kind"], [data-foa="cycle_kind"]');
+        if(sel && sel.value === "wdays"){
+          body.cycle_kind = "weekly"; body.cycle_n = 1;
+          var days = Array.prototype.map.call(row.querySelectorAll(".fo-day.on"), function(b){ return +b.getAttribute("data-foday"); });
+          if(days.length) body.cycle_weekdays = days;
+        }
+      }catch(e){}
+      return body;
+    };
+  }
+  if(typeof foCabFnBlock === "function"){
+    var _b = foCabFnBlock;
+    foCabFnBlock = function(pr){
+      var h = _b.apply(this, arguments);
+      try{
+        var box = document.createElement("div"); box.innerHTML = h;
+        box.querySelectorAll(".fo-fnr, .fo-fnadd").forEach(function(row){
+          var sel = row.querySelector('[data-fok="cycle_kind"], [data-foa="cycle_kind"]'); if(!sel) return;
+          var on = sel.querySelector("option[selected]"); var v = on ? on.value : sel.value;
+          if(v === "wdays"){ var d = row.querySelector(".fo-days"); if(d) d.removeAttribute("hidden"); }
+        });
+        return box.innerHTML;
+      }catch(e){ return h; }
+    };
+  }
+})();
+/* выбрали «несколько раз в неделю» — дни показываем (add79 их прячет для незнакомого цикла) */
+document.addEventListener("change", function(e){
+  var el = e.target; if(!el || !el.matches || !el.matches('.fo-fnr [data-fok="cycle_kind"], .fo-fnadd [data-foa="cycle_kind"]')) return;
+  var row = el.closest(".fo-fnr, .fo-fnadd"); var d = row && row.querySelector(".fo-days");
+  if(d && el.value === "wdays"){ d.hidden = false; if(!row.querySelector(".fo-day.on")){ try{ toast("Отметьте дни недели — задачи родятся на каждый отмеченный"); }catch(x){} } }
+});
+
 })();
 </script>
 </body>
