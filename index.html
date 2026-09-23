@@ -3979,6 +3979,27 @@ body.fo-nopeople #screen section.s5{ grid-column:span 8 }
 .fo-rkrule .ccl{ font-style:normal }
 .mcard .fo-rkrule{ margin-top:14px }
 td small{ color:var(--ink-3); font-size:10.5px }
+
+/* ===== add93: функция в кабинете — про частное (191) ===== */
+.fo-fnc{ margin:0 0 10px; padding:10px 12px 12px; border-radius:12px; background:rgba(0,179,154,.06); border:1px solid rgba(0,179,154,.22) }
+.fo-fnch{ font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:var(--ink-3); margin-bottom:8px; display:flex; gap:10px; align-items:baseline; flex-wrap:wrap }
+.fo-fnch i{ font-style:normal; text-transform:none; letter-spacing:0; font-size:11px; color:var(--ink-3) }
+.fo-fncl{ display:block; margin-top:8px }
+.fo-fncl > span{ display:block; font-size:11px; color:var(--ink-3); margin-bottom:4px }
+.fo-fncl .fi{ width:100%; box-sizing:border-box; font-size:12.5px }
+.fo-fncl .fi.sm{ padding:6px 9px }
+.fo-fncrow{ display:flex; gap:6px; align-items:center }
+.fo-fncrow .fi{ flex:1 }
+.fo-fncrow .bt.sm{ padding:5px 9px; text-decoration:none }
+.fo-fncb{ display:flex; gap:10px; align-items:center; margin-top:10px }
+.fo-fncb .bt.sm{ padding:6px 12px; font-size:12px }
+.fo-fncs{ font-size:11.5px; color:var(--ink-3) }
+.fo-fncr{ display:flex; gap:10px; padding:3px 0; font-size:12px; line-height:1.45 }
+.fo-fncr > span{ flex:0 0 96px; color:var(--ink-3); font-size:11px; text-transform:uppercase; letter-spacing:.03em; padding-top:2px }
+.fo-fncr em{ font-style:normal; color:var(--ink) }
+.fo-fncr .bt.sm{ padding:4px 10px; font-size:12px; text-decoration:none }
+.fo-fndg{ font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:var(--ink-3); margin:4px 0 2px }
+.fo-spdrop{ margin-left:8px }
 </style>
 </head>
 <body>
@@ -25464,6 +25485,221 @@ function foRkRuleHTML(m){
   }
 })();
 window.foRkState = function(){ return {блоков: (S.tasks || []).filter(function(t){ return t.rk; }).length, минут: (S.tasks || []).filter(function(t){ return t.rk; }).reduce(function(a, t){ return a + t.minutes; }, 0)}; };
+
+/* ===== add93: функция в кабинете — про частное: таблица кабинета, свой текст в чат, свои особенности (191)
+   Виталий: «В кнопке функции (раздел «Функции») — условный шаблон: сообщения и
+   заполнения функции. В карточке кабинета — уникальный шаблон и уникальный
+   текст сообщения на отправку. При развёртывании плашки функции в карточке
+   клиента не перекидывай в кнопку функции: там про общее, здесь — про частное,
+   про функцию внутри кабинета. Хочу туда вставить ссылку на таблицу по
+   конкретному кабинету».
+   Хранение: карточка кабинета на сервере (fo_card, kind cab) — поля
+   fn_<функция>_link / _msg / _note. Правят РМ и выше, ниже — просмотр.
+   Ссылка кабинета становится главной для хвостика «↗» в ганте и списке дня и
+   подставляется в окно «Задача выполнена».                                  */
+
+function foCabX(cabId, fnId){
+  var out = {link: "", msg: "", note: ""};
+  try{
+    var d = (typeof SRV_CARDS !== "undefined" && SRV_CARDS) ? SRV_CARDS[cardKey("cab", cabId)] : null;
+    if(d){ out.link = d["fn_" + fnId + "_link"] || ""; out.msg = d["fn_" + fnId + "_msg"] || ""; out.note = d["fn_" + fnId + "_note"] || ""; }
+  }catch(e){}
+  return out;
+}
+function foCabXSave(cabId, fnId, patch){
+  var data = {};
+  Object.keys(patch).forEach(function(k){ data["fn_" + fnId + "_" + k] = String(patch[k] || "").trim(); });
+  return api("/refs/cards", {method:"POST", body:{kind:"cab", ref_id:String(cabId), data:data}}).then(function(){
+    try{ if(typeof SRV_CARDS !== "undefined" && SRV_CARDS) SRV_CARDS[cardKey("cab", cabId)] = Object.assign(SRV_CARDS[cardKey("cab", cabId)] || {}, data); }catch(e){}
+  });
+}
+function foCabBlockHTML(cli, cabId, fnId){
+  var x = foCabX(cabId, fnId);
+  var ro = (typeof foRoLive === "function") ? foRoLive() : false;
+  var f = null; try{ f = fnById(fnId); }catch(e){}
+  var gmsg = ""; try{ if(f && typeof fnPreview === "function" && typeof fnForm === "function"){ var fm = fnForm(f.id); if(fm && (fm.body || fm.h)) gmsg = fnPreview(f, fm); } }catch(e){}
+  var href = x.link ? (/^https?:\/\//i.test(x.link) ? x.link : "https://" + x.link) : "";
+  if(ro){
+    return '<div class="fo-fnc" data-fox-cab="'+esc(cabId)+'" data-fox-fn="'+esc(fnId)+'"><div class="fo-fnch">В этом кабинете</div>'+
+      '<div class="fo-fncr"><span>Таблица</span>'+(href ? '<a class="bt sm" href="'+esc(href)+'" target="_blank" rel="noopener">Открыть таблицу ↗</a>' : '<em>ссылка не задана</em>')+'</div>'+
+      '<div class="fo-fncr"><span>В чат уходит</span><em>'+(x.msg ? esc(x.msg) : (gmsg ? 'по общему шаблону: '+esc(gmsg.split("\n")[0]) : 'текст не задан'))+'</em></div>'+
+      (x.note ? '<div class="fo-fncr"><span>Особенности</span><em>'+esc(x.note)+'</em></div>' : '')+
+    '</div>';
+  }
+  return '<div class="fo-fnc" data-fox-cab="'+esc(cabId)+'" data-fox-fn="'+esc(fnId)+'" data-fox-cli="'+esc(cli)+'">'+
+    '<div class="fo-fnch">В этом кабинете <i>частное для этой функции здесь; общий шаблон — в разделе «Функции»</i></div>'+
+    '<label class="fo-fncl"><span>Таблица кабинета по этой функции</span><div class="fo-fncrow"><input class="fi sm" data-fox="link" placeholder="https://docs.google.com/…" value="'+esc(x.link)+'">'+
+      (href ? '<a class="bt sm gh2" href="'+esc(href)+'" target="_blank" rel="noopener" title="Открыть таблицу">↗</a>' : '')+'</div></label>'+
+    '<label class="fo-fncl"><span>Текст сообщения в чат — для этого кабинета</span><textarea class="fi" rows="3" data-fox="msg" placeholder="'+esc(gmsg ? 'Пусто — уйдёт общий шаблон: ' + gmsg.split("\n")[0] : 'Что сделано, на что смотреть — своими словами для этого кабинета')+'">'+esc(x.msg)+'</textarea></label>'+
+    '<label class="fo-fncl"><span>Как делать здесь — особенности кабинета</span><textarea class="fi" rows="2" data-fox="note" placeholder="Что в этом кабинете иначе, чем в общем регламенте">'+esc(x.note)+'</textarea></label>'+
+    '<div class="fo-fncb"><button class="bt sm pri" data-foxsave="1">Сохранить на сервере</button><span class="fo-fncs"></span></div>'+
+  '</div>';
+}
+/* общий блок (add84) — под частным, кнопка в «Функции» второстепенная */
+function foCabBriefHTML(cli, cabId, fnId){
+  var g = (typeof foFnBrief === "function") ? foFnBrief(fnId) : "";
+  try{
+    g = g.replace('>Открыть карточку функции<', '>Общий шаблон функции — в «Функциях» →<').replace('>Посмотреть функцию<', '>Общий шаблон функции →<');
+    g = g.replace('<div class="fo-fnd" data-fofnd="'+esc(fnId)+'">', '<div class="fo-fnd" data-fofnd="'+esc(fnId)+'">' + (cabId ? foCabBlockHTML(cli, cabId, fnId) : '') + '<div class="fo-fndg">Общее о функции</div>');
+  }catch(e){}
+  return g;
+}
+(function(){
+  if(typeof foCabFnBlock !== "function") return;
+  var _b = foCabFnBlock;
+  foCabFnBlock = function(pr){
+    var h = _b.apply(this, arguments);
+    try{
+      var d = FO_CABFN[pr.id]; if(!d || !d.cab) return h;
+      var box = document.createElement("div"); box.innerHTML = h;
+      box.querySelectorAll(".fo-fnd[data-fofnd]").forEach(function(el){
+        var w = document.createElement("div"); w.innerHTML = foCabBriefHTML(pr.id, d.cab, el.getAttribute("data-fofnd"));
+        el.parentNode.replaceChild(w.firstChild, el);
+      });
+      return box.innerHTML;
+    }catch(e){ return h; }
+  };
+})();
+/* разворот по клику — со своим кабинетом (перехватываем раньше add84) */
+window.addEventListener("click", function(e){
+  var t = e.target.closest && e.target.closest(".fo-cabfn .fo-fnt");
+  if(!t) return;
+  if(e.target.closest("select, input, button, label, .fo-days, a")) return;
+  var row = t.closest(".fo-fnr"); if(!row) return;
+  var fid = row.getAttribute("data-fofnx"); if(!fid) return;
+  var cli = row.getAttribute("data-focli") || "";
+  if(!cli){ var sec = row.closest("[data-opencab]"); cli = sec ? sec.getAttribute("data-opencab") : ""; }
+  var d = FO_CABFN[cli]; if(!d || !d.cab) return;                  /* без кабинета — как раньше (add84) */
+  e.preventDefault(); e.stopImmediatePropagation();
+  var key = cli + ":" + fid, open = !FO_FN_OPEN[key];
+  FO_FN_OPEN[key] = open;
+  var old = row.nextElementSibling; if(old && old.classList.contains("fo-fnd")) old.remove();
+  row.classList.toggle("open", open);
+  if(open){ var w = document.createElement("div"); w.innerHTML = foCabBriefHTML(cli, d.cab, fid); row.parentNode.insertBefore(w.firstChild, row.nextSibling); }
+}, true);
+
+/* сохранение: кнопка и автосохранение при уходе из поля */
+function foCabXFromBox(box){
+  var get = function(k){ var el = box.querySelector('[data-fox="'+k+'"]'); return el ? el.value : ""; };
+  return {link: get("link"), msg: get("msg"), note: get("note")};
+}
+function foCabXSubmit(box, quiet){
+  var cab = box.getAttribute("data-fox-cab"), fn = box.getAttribute("data-fox-fn");
+  var st = box.querySelector(".fo-fncs"), b = box.querySelector("[data-foxsave]");
+  var patch = foCabXFromBox(box);
+  if(b){ b.disabled = true; } if(st) st.textContent = "сохраняю…";
+  return foCabXSave(cab, fn, patch).then(function(){
+    if(b) b.disabled = false; if(st) st.textContent = "сохранено на сервере ✓";
+    if(!quiet){ try{ toast("Сохранено: " + (patch.link ? "таблица, " : "") + (patch.msg ? "текст в чат, " : "") + "функция в кабинете"); }catch(e){} }
+    try{ render(); }catch(e){}
+    setTimeout(function(){ if(st) st.textContent = ""; }, 3000);
+  }).catch(function(err){ if(b) b.disabled = false; if(st) st.textContent = "не сохранилось: " + (err && err.message || ""); });
+}
+window.addEventListener("click", function(e){
+  var b = e.target.closest && e.target.closest("[data-foxsave]"); if(!b) return;
+  e.preventDefault(); e.stopImmediatePropagation();
+  foCabXSubmit(b.closest(".fo-fnc"), false);
+}, true);
+document.addEventListener("focusout", function(e){
+  var el = e.target; if(!el || !el.matches || !el.matches(".fo-fnc [data-fox]")) return;
+  var box = el.closest(".fo-fnc"); if(!box) return;
+  var cab = box.getAttribute("data-fox-cab"), fn = box.getAttribute("data-fox-fn");
+  var cur = foCabX(cab, fn), now = foCabXFromBox(box);
+  if(cur.link === now.link.trim() && cur.msg === now.msg.trim() && cur.note === now.note.trim()) return;
+  foCabXSubmit(box, true);
+});
+/* поля внутри блока не должны схлопывать карточку */
+window.addEventListener("click", function(e){ if(e.target.closest && e.target.closest(".fo-fnc")) e.stopPropagation(); }, true);
+
+/* ссылка кабинета — главная для хвостика и окна отметки */
+(function(){
+  if(typeof foTaskLink === "function"){
+    var _tl = foTaskLink;
+    foTaskLink = function(t){
+      try{
+        if(t && t.cab && t.fn){
+          var own = (t.rid && typeof FO_LINKS !== "undefined" && FO_LINKS.tasks && FO_LINKS.tasks[String(t.rid)]) || t.link;
+          if(!own){ var x = foCabX(t.cab, t.fn); if(x.link) return x.link; }
+        }
+      }catch(e){}
+      return _tl.apply(this, arguments);
+    };
+  }
+  if(typeof foDoneDialog === "function"){
+    var _dd = foDoneDialog;
+    foDoneDialog = function(tasks){
+      var v = _dd.apply(this, arguments);
+      setTimeout(function(){
+        try{
+          (tasks || []).forEach(function(t){
+            if(!t.cab || !t.fn) return;
+            var x = foCabX(t.cab, t.fn); if(!x.link) return;
+            var inp = document.querySelector('#foDone [data-fol="'+t.id+'"]');
+            if(inp && !inp.value) inp.value = x.link;
+          });
+        }catch(e){}
+      }, 250);
+      return v;
+    };
+  }
+})();
+
+/* ===== add94: замеры скорости — «Не принимать замер»; принятый норматив уходит на сервер (192)
+   Виталий: «напиши кнопку — не принимать замер». Замер отклоняется: норматив
+   функции остаётся прежним, замер уходит из списка. «Принять N мин как
+   норматив» теперь пишет норматив на сервер (PATCH /refs/functions/{id}/norm
+   и карточка функции), а не только на экран.                               */
+
+(function(){
+  if(typeof B === "undefined" || !B || typeof B.speed !== "function") return;
+  var _sp = B.speed;
+  B.speed = function(el){
+    var v = _sp.apply(this, arguments);
+    try{
+      el.querySelectorAll(".spapply").forEach(function(box){
+        if(box.querySelector("[data-spdrop]")) return;
+        var acc = box.querySelector("[data-spapply]"); if(!acc) return;
+        var b = document.createElement("button");
+        b.className = "bt gh2 sm fo-spdrop"; b.setAttribute("data-spdrop", acc.getAttribute("data-spapply"));
+        b.textContent = "Не принимать замер";
+        acc.parentNode.insertBefore(b, acc.nextSibling);
+      });
+    }catch(e){}
+    return v;
+  };
+})();
+
+window.addEventListener("click", function(e){
+  var t = e.target.closest && e.target.closest("[data-spdrop]");
+  if(t){
+    e.preventDefault(); e.stopImmediatePropagation();
+    var id = t.getAttribute("data-spdrop");
+    var s = (typeof speedAll === "function" ? speedAll() : []).filter(function(x){ return x.id === id; })[0];
+    if(!s) return;
+    var f = null; try{ f = fnById(s.fn); }catch(x){}
+    S.speed = speedAll().filter(function(x){ return x.id !== id; });
+    try{ spOpen = null; }catch(x){}
+    try{ saveState(); }catch(x){}
+    try{ toast("Замер не принят — норматив «" + (f ? fnTitle(f) : "") + "» остаётся " + (s.norm || (f && f.minutes) || 0) + " мин"); }catch(x){}
+    try{ render(); }catch(x){}
+    return;
+  }
+  /* «Принять … как норматив» — ещё и на сервер */
+  var a = e.target.closest && e.target.closest("[data-spapply]");
+  if(a && typeof foLive === "function" && foLive()){
+    var id2 = a.getAttribute("data-spapply");
+    var s2 = (typeof speedAll === "function" ? speedAll() : []).filter(function(x){ return x.id === id2; })[0];
+    if(!s2 || !s2.fn) return;
+    var mins = 0; try{ mins = speedFact(s2); }catch(x){}
+    if(!mins) return;
+    setTimeout(function(){
+      api("/refs/functions/" + encodeURIComponent(s2.fn) + "/norm?minutes=" + encodeURIComponent(mins), {method:"PATCH"})
+        .catch(function(){ return api("/refs/functions/" + encodeURIComponent(s2.fn) + "/norm", {method:"PATCH", body:{minutes: mins}}); })
+        .then(function(){ try{ if(typeof cardSave === "function") cardSave("fn", s2.fn, {minutes: mins}); }catch(x){} try{ toast("Норматив " + mins + " мин записан на сервер"); }catch(x){} })
+        .catch(function(err){ try{ toast("Норматив на сервер не ушёл: " + (err && err.message || "")); }catch(x){} });
+    }, 100);
+  }
+}, true);
 
 })();
 </script>
