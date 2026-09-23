@@ -24322,7 +24322,7 @@ document.addEventListener("click", function(e){
         return (typeof foCabFnLoad === "function" ? foCabFnLoad(cli2) : Promise.resolve());
       })
       .then(function(){ return (typeof loadLive === "function") ? loadLive() : null; })
-      .then(function(){ try{ render(); }catch(x){} try{ renderCards(); }catch(x){} try{ if(typeof view !== "undefined" && view === "fns") renderFns(); }catch(x){} })
+      .then(function(){ try{ render(); }catch(x){} try{ if(typeof view !== "undefined" && view === "cards") renderCards(); }catch(x){} try{ if(typeof view !== "undefined" && view === "fns") renderFns(); }catch(x){} })
       .catch(function(err){ tk.disabled = false; tk.textContent = "Взять в работу"; try{ toast("Не взялось: " + (err && err.message || "")); }catch(x){} });
     return;
   }
@@ -24447,14 +24447,20 @@ function foBusy(){
     var a = document.activeElement;
     if(a && a.matches && a.matches("input, textarea, select, [contenteditable=true]") && !a.matches('[type="checkbox"], [type="radio"], [type="range"]')) return true;
     if(document.querySelector(".fo-modal, #gsPop, #meMenu.on, .modal.on, .ovl.on, dialog[open]")) return true;
-    if(Date.now() - FO_LAST_TOUCH < 15000) return true;
+    if(Date.now() - FO_LAST_TOUCH < 30000) return true;
   }catch(e){}
   return false;
+}
+function foEditing(){
+  /* открытая форма: карточка менеджера/сотрудника, функция в кабинете, карточка функции, вставка артикулов, окно отметки */
+  try{ return !!document.querySelector("#sect .mcard, #sect .edbox, #sect .fo-fnc, #sect .fnone, #sect [data-ed], #sect .fo-artpaste, .fo-modal, #foTaskMenu"); }catch(e){ return false; }
 }
 function foRefresh(reason){
   if(FO_SYNCING || !foIsLive()) return Promise.resolve();
   if(document.hidden) return Promise.resolve();
   if(typeof loadLive !== "function") return Promise.resolve();
+  /* пока человек в форме — сервер не перечитываем вовсе: любая перерисовка моргает и теряет ввод (193) */
+  if(foEditing() || foBusy()) return Promise.resolve();
   FO_SYNCING = true;
   var keepView = (typeof view !== "undefined") ? view : null;
   return loadLive().then(function(){
@@ -24463,10 +24469,14 @@ function foRefresh(reason){
     FO_LAST_SYNC = Date.now();
     try{ if(typeof foDecorate === "function") foDecorate(); }catch(e){}
     try{
-      if(keepView && keepView !== "work" && typeof setView === "function" && !foBusy()) setView(keepView, true);
+      /* открытая форма (карточка менеджера, сотрудника, функции в кабинете, функция) — раздел не перерисовываем,
+         иначе поля моргают и теряют ввод; обновится при следующем переходе */
+      var editing = foEditing();
+      if(keepView && keepView !== "work" && typeof setView === "function" && !foBusy() && !editing) setView(keepView, true);
       else { try{ render(); }catch(e){} }
+      /* карточки клиентов перерисовываем только в их разделе: .cc2 есть и у карточек людей (193) */
+      if(keepView === "cards" && document.querySelector(".cc2") && typeof renderCards === "function" && !foBusy() && !editing) renderCards();
     }catch(e){}
-    try{ if(document.querySelector(".cc2") && typeof renderCards === "function" && !foBusy()) renderCards(); }catch(e){}
   }).catch(function(){}).then(function(){ FO_SYNCING = false; });
 }
 window.foRefresh = foRefresh;
@@ -24503,7 +24513,7 @@ window.addEventListener("focus", function(){ if(Date.now() - FO_LAST_SYNC > 4500
     if(Object.keys(FO_ARTS).length) return;
     Promise.all([foArtsAll(), foChatsAll()]).then(function(){
       try{ render(); }catch(e){}
-      try{ if(typeof view !== "undefined" && view !== "work" && typeof setView === "function") setView(view, true); }catch(e){}
+      try{ if(typeof view !== "undefined" && view !== "work" && typeof setView === "function" && !document.querySelector("#sect .mcard, #sect .edbox, #sect .fo-fnc, #sect .fnone")) setView(view, true); }catch(e){}
     });
   })();
 })();
@@ -24877,7 +24887,7 @@ function foTaskDrop(t){
     return (typeof loadLive === "function" && (typeof foLive !== "function" || foLive())) ? loadLive() : null;
   }).then(function(){
     try{ if(typeof view !== "undefined" && view !== "work" && typeof setView === "function") setView(view, true); }catch(e){}
-    try{ if(document.querySelector(".cc2") && typeof renderCards === "function") renderCards(); }catch(e){}
+    try{ if(typeof view !== "undefined" && view === "cards" && typeof renderCards === "function") renderCards(); }catch(e){}
   }).catch(function(err){ try{ toast("Не снялось: " + (err && err.message || "сервер не ответил")); }catch(e){} });
 }
 function foTaskUndo(t){
