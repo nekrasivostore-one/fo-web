@@ -406,6 +406,18 @@ CREATE TABLE IF NOT EXISTS fo_ai_task (
   task_once_id bigint, ai_raw jsonb, created_at timestamptz NOT NULL DEFAULT now());
 CREATE INDEX IF NOT EXISTS fo_ai_task_org_idx ON fo_ai_task (org_id, status, created_at);
 ALTER TABLE fo_ai_task ADD COLUMN IF NOT EXISTS approver_users uuid[];
+-- чаты, внесённые в карточку ссылкой-приглашением: номер Telegram — по названию из регистрации бота
+DO $$
+BEGIN
+  UPDATE chat c SET chat_id = n.chat_id, is_active = true
+    FROM chat n
+   WHERE c.chat_id !~ '^-?[0-9]+$' AND n.chat_id ~ '^-?[0-9]+$'
+     AND lower(btrim(n.title)) = lower(btrim(c.title)) AND n.id <> c.id
+     AND EXISTS (SELECT 1 FROM client_chat cc WHERE cc.chat_pk = c.id)
+     AND NOT EXISTS (SELECT 1 FROM chat x WHERE x.org_id = c.org_id AND x.channel = c.channel AND x.chat_id = n.chat_id);
+EXCEPTION WHEN OTHERS THEN
+  RAISE NOTICE 'chat id fix: %', SQLERRM;
+END $$;
 
 ALTER TABLE app_user ADD COLUMN IF NOT EXISTS phone text;
 ALTER TABLE app_user ADD COLUMN IF NOT EXISTS display_name text;
@@ -2047,6 +2059,7 @@ async def fo_step_report(p: Principal = Depends(max_level(1))):
         return {"ok": False, "text": "отчёта нет: %s" % e}
 
 
+
 # ══ ИИ ИЗ ЧАТОВ (С11, этап 1) ════════════════════════════════════
 # Клиент пишет в чат кабинета → Telegram шлёт сообщение сюда (свой
 # webhook, с тем же секретом, что штатный) → сообщение хранится →
@@ -2323,14 +2336,36 @@ async def _fo_ai_process(msg_pk):
     return {"state": "task", "ai_task_id": str(rid), "ai": js}
 
 
+async def _fo_tg_claim(c, tg, title):
+    """Чат внесли в карточку ссылкой-приглашением (t.me/+…), а Telegram присылает номер группы.
+    Находим такой чат по названию и ставим ему настоящий номер — тогда бот и читает, и пишет в него."""
+    if not title:
+        return False
+    row = await c.fetchrow(
+        "SELECT ch.id, ch.org_id FROM chat ch JOIN client_chat cc ON cc.chat_pk = ch.id "
+        "WHERE lower(btrim(ch.title)) = lower(btrim($1)) AND ch.chat_id !~ '^-?[0-9]+$' ORDER BY ch.id LIMIT 1", title)
+    if not row:
+        return False
+    busy = await c.fetchval("SELECT 1 FROM chat WHERE org_id=$1 AND channel='telegram' AND chat_id=$2", row["org_id"], tg)
+    if busy:
+        return False
+    await c.execute("UPDATE chat SET chat_id=$2, is_active=true WHERE id=$1", row["id"], tg)
+    return True
+
+
 async def _fo_tg_register(upd):
-    """Как штатный webhook: бот добавлен в группу — чат попадает в список чатов агентства."""
+    """Как штатный webhook: бот добавлен в группу — чат попадает в список чатов агентства.
+    Если чат уже внесён в карточку клиента ссылкой — привязываем его номер по названию."""
     ev = upd.get("my_chat_member") or upd.get("message") or {}
     chat = ev.get("chat") or {}
     if not chat.get("id") or chat.get("type") == "private":
         return
     title = chat.get("title") or str(chat["id"])
     async with pool().acquire() as c:
+        linked = await c.fetchval("SELECT 1 FROM chat ch JOIN client_chat cc ON cc.chat_pk = ch.id WHERE ch.chat_id=$1 LIMIT 1",
+                                  str(chat["id"]))
+        if linked or await _fo_tg_claim(c, str(chat["id"]), chat.get("title") or ""):
+            return
         org = await c.fetchval("SELECT org_id FROM chat WHERE chat_id=$1 ORDER BY added_at LIMIT 1", str(chat["id"]))
         if not org:
             org = await c.fetchval("SELECT id FROM org ORDER BY created_at LIMIT 1")
@@ -2861,7 +2896,7 @@ except Exception as _e:
 p("")
 p("== ЯЩИК ДЛЯ КЛЮЧЕЙ ==")
 # ключ из «Ключи ФО.txt»: приехал зашифрованным (ключ шифра — токен бота, он есть и на Маке, и здесь)
-_FO_BLOB = "U2FsdGVkX19FhBQD3zjkSzqiLWGScWceChoGlIqtgZj51NhFK7fQvFVVryCtJeXdIGob9EnRaeLA/gSJYELFqSw6oIdP4mHiKox9Z6sHQiFXPUgiGqQSDqQ3wDcYX/X1E/mGQshFz1JYIMIMF+3jWg=="
+_FO_BLOB = "__FO_BLOB__"
 if _FO_BLOB and not _FO_BLOB.startswith("__"):
     try:
         _bt = ""
@@ -2975,5 +3010,10 @@ try:
         p("токена или секрета бота нет — webhook не трогаю")
 except Exception as _e:
     p("webhook бота не переключился:", (str(_e).replace(_tk2, "***") if _tk2 else str(_e))[:200])
+
+p("")
+p("== ЧАТЫ КЛИЕНТОВ ==")
+p(sh("sudo -u postgres psql -d fo -Atc \"SELECT ch.id||' · '||ch.title||' · '||cc.kind||' · '||CASE WHEN ch.chat_id ~ '^-?[0-9]+$' THEN 'номер Telegram ✓' ELSE 'ссылка, номера нет' END FROM chat ch JOIN client_chat cc ON cc.chat_pk=ch.id ORDER BY ch.id\""))
+p(sh("sudo -u postgres psql -d fo -Atc \"SELECT 'сообщений из чатов: '||count(*)||', последнее: '||COALESCE(max(msg_at)::text,'—') FROM fo_chat_msg WHERE tg_chat_id<>'test'\""))
 
 print("\n".join(out))
