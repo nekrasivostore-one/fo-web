@@ -4101,6 +4101,9 @@ td small{ color:var(--ink-3); font-size:10.5px }
 .fo-aisetl{ display:flex; flex-wrap:wrap; gap:8px 16px; align-items:center; padding:10px 12px; border-radius:12px; background:rgba(109,75,216,.06) }
 .fo-aisetl .fo-hint{ flex-basis:100%; font-size:11.5px; color:var(--ink-3) }
 .fo-aisetl .bt{ width:auto; flex:0 0 auto }
+.fo-aiex{ margin:4px 0 8px }
+.fo-aiexh{ font-size:11.5px; font-weight:600; color:#6d4bd8; margin-bottom:2px }
+.fo-aiq2{ margin:4px 0; background:rgba(255,255,255,.35); border-left-color:rgba(109,75,216,.3) }
 </style>
 </head>
 <body>
@@ -26972,6 +26975,16 @@ function foAiPending(){ return (FO_AI || []).filter(function(a){ return a.status
 
 function foAiDate(v){ if(!v) return ""; var d = new Date(v); if(isNaN(d)) return ""; return ("0"+d.getDate()).slice(-2)+"."+("0"+(d.getMonth()+1)).slice(-2)+" "+("0"+d.getHours()).slice(-2)+":"+("0"+d.getMinutes()).slice(-2); }
 function foAiIso(v){ var d = v ? new Date(v) : new Date(); if(isNaN(d)) d = new Date(); return d.getFullYear()+"-"+("0"+(d.getMonth()+1)).slice(-2)+"-"+("0"+d.getDate()).slice(-2); }
+// Уточнения: клиент повторил или дополнил уже поставленную задачу — ИИ не заводит новую, а добавляет сюда (v41)
+function foAiExtraHTML(a){
+  var ex = Array.isArray(a.extra) ? a.extra : [];
+  if(!ex.length) return "";
+  return '<div class="fo-aiex"><div class="fo-aiexh">Уточнения клиента · '+ex.length+'</div>'+ex.map(function(it){
+    return '<blockquote class="fo-aiq fo-aiq2">«'+esc(it.text || "")+'»<span>— '+esc(it.author || "клиент")+(it.at ? ', '+esc(foAiDate(it.at)) : '')+
+      (it.link ? ' · <a href="'+esc(it.link)+'" target="_blank" rel="noopener">открыть в чате ↗</a>' : '')+'</span></blockquote>';
+  }).join("")+'</div>';
+}
+
 function foAiCard(a){
   var cands = Array.isArray(a.candidates) ? a.candidates : [];
   var seen = {}, opts = '<option value="">— выберите ответственного —</option>';
@@ -26992,6 +27005,7 @@ function foAiCard(a){
     (a.goal ? '<div class="fo-aiwhy"><b>Цель:</b> '+esc(a.goal)+'</div>' : '')+
     '<blockquote class="fo-aiq">«'+esc(a.quote || "")+'»<span>— '+esc(a.author || "клиент")+(a.msg_at ? ', '+esc(foAiDate(a.msg_at)) : '')+
       (a.msg_link ? ' · <a href="'+esc(a.msg_link)+'" target="_blank" rel="noopener">открыть в чате ↗</a>' : '')+'</span></blockquote>'+
+    foAiExtraHTML(a)+
     '<div class="fo-airow">'+
       '<label>Ответственный <select class="sel sm" data-foaiemp>'+opts+'</select></label>'+
       '<label>День <input class="fi sm" type="date" data-foaiday value="'+esc(foAiIso(a.deadline))+'"></label>'+
