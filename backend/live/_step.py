@@ -2219,4 +2219,69 @@ else:
     p("(401/403 — эндпоинт есть и просит вход; 404 — не встал)")
     p("ГОТОВО: хранение переехало на сервер")
 
+
+# ── разведка: бот и ИИ (ничего не меняет, токен не печатается) ──
+p("")
+p("== РАЗВЕДКА: БОТ И ИИ (без изменений) ==")
+_tok = ""
+try:
+    import json as _rj, urllib.request as _ru
+    _env = {}
+    try:
+        for _ln in open("/opt/fo/.env", encoding="utf-8"):
+            _ln = _ln.strip()
+            if not _ln or _ln.startswith("#") or "=" not in _ln:
+                continue
+            _k, _v = _ln.split("=", 1)
+            _env[_k.strip()] = _v.strip().strip('"').strip("'")
+    except Exception as _e:
+        p("  .env не прочитался:", _e)
+    for _k in sorted(_env):
+        if re.search(r"TELEGRAM|TG_|BOT|YANDEX|YC_|GPT|FOLDER|FLUSH|LLM|AI_", _k, re.I):
+            p("  %-26s %s" % (_k, ("заполнен, знаков: %d" % len(_env[_k])) if _env[_k] else "пусто"))
+    _tok = next((_env[_k] for _k in ("TELEGRAM_BOT_TOKEN", "TG_BOT_TOKEN", "BOT_TOKEN", "TELEGRAM_TOKEN") if _env.get(_k)), "")
+    def _hide(x):
+        x = str(x)
+        return x.replace(_tok, "***") if _tok else x
+    p("  api.telegram.org:", sh("curl -s -o /dev/null -m 8 -w '%{http_code}' https://api.telegram.org/").strip())
+    p("  llm.api.cloud.yandex.net:", sh("curl -s -o /dev/null -m 8 -w '%{http_code}' https://llm.api.cloud.yandex.net/").strip())
+    if _tok:
+        def _tg(m, q=""):
+            try:
+                with _ru.urlopen("https://api.telegram.org/bot%s/%s%s" % (_tok, m, q), timeout=12) as _r:
+                    return _rj.loads(_r.read().decode())
+            except Exception as _e:
+                return {"ok": False, "err": _hide(_e)}
+        _me = _tg("getMe")
+        _mr = _me.get("result") or {}
+        p("  бот:", ("@" + str(_mr.get("username"))) if _me.get("ok") else _hide(_me),
+          "· читает все сообщения в группах:", _mr.get("can_read_all_group_messages"))
+        _wh = (_tg("getWebhookInfo").get("result") or {})
+        p("  webhook:", _hide(_wh.get("url") or "нет")[:90], "· ждут доставки:", _wh.get("pending_update_count"),
+          "· ошибка:", _hide(_wh.get("last_error_message") or "—")[:120])
+        if not _wh.get("url"):
+            _up = _tg("getUpdates", "?timeout=0&limit=100")
+            _chats = {}
+            for _u in (_up.get("result") or []):
+                _m = _u.get("message") or _u.get("my_chat_member") or _u.get("channel_post") or {}
+                _c = _m.get("chat") or {}
+                if _c.get("id"):
+                    _chats[_c["id"]] = (_c.get("type"), _c.get("title") or _c.get("username") or "")
+            p("  getUpdates:", "ok" if _up.get("ok") else _hide(_up.get("err") or _up.get("description")),
+              "· событий:", len(_up.get("result") or []))
+            for _cid, (_t, _ti) in _chats.items():
+                p("    чат %s · %s · %s" % (_cid, _t, _ti))
+    else:
+        p("  токена бота в .env нет")
+    p("  client_chat колонки:", sh("sudo -u postgres psql -d fo -Atc \"SELECT string_agg(column_name,', ' ORDER BY ordinal_position) FROM information_schema.columns WHERE table_name='client_chat'\"").strip())
+    p("  client_chat строки:")
+    p(_hide(sh("sudo -u postgres psql -d fo -Atc \"SELECT * FROM client_chat LIMIT 30\""))[:2000])
+    p("  роутеры:", sh("ls /opt/fo/backend/app/routers/ | tr '\\n' ' '").strip())
+    p("  где читают токен/ключи:")
+    p(_hide(sh("grep -rn 'BOT_TOKEN\\|TELEGRAM_\\|YANDEX\\|FOLDER_ID\\|getUpdates\\|setWebhook\\|webhook' /opt/fo/backend/app --include=*.py | grep -v FO-STEP | head -25"))[:2500])
+    p("  службы fo:", sh("systemctl list-units --all --no-pager --plain 'fo*' | head -12").strip()[:900])
+    p("  таймеры fo:", sh("systemctl list-timers --all --no-pager | grep -i fo").strip()[:600])
+except Exception as _e:
+    p("  разведка упала:", str(_e).replace(_tok, "***") if _tok else _e)
+
 print("\n".join(out))
