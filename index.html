@@ -4096,6 +4096,11 @@ td small{ color:var(--ink-3); font-size:10.5px }
 .fo-aiwhy2{ font-size:11.5px; color:var(--ink-3); margin-top:6px }
 .fo-aibtns{ display:flex; gap:8px; margin-top:10px }
 .fo-aibtns .bt{ width:auto; flex:0 0 auto }
+.fo-aiset{ display:flex; flex-wrap:wrap; align-items:center; gap:6px 12px; font-size:12.5px }
+.fo-aiset .fo-lnk{ background:none; border:none; padding:0; color:#6d4bd8; cursor:pointer; font:inherit }
+.fo-aisetl{ display:flex; flex-wrap:wrap; gap:8px 16px; align-items:center; padding:10px 12px; border-radius:12px; background:rgba(109,75,216,.06) }
+.fo-aisetl .fo-hint{ flex-basis:100%; font-size:11.5px; color:var(--ink-3) }
+.fo-aisetl .bt{ width:auto; flex:0 0 auto }
 </style>
 </head>
 <body>
@@ -26933,6 +26938,22 @@ function foAiLoad(){
   return api("/refs/ai/tasks").then(function(r){ FO_AI = Array.isArray(r) ? r : []; })
     .catch(function(){ FO_AI = FO_AI || []; });
 }
+var FO_AI_SET = null, FO_AI_SETOPEN = false;
+function foAiSetLoad(){ return api("/refs/ai/settings").then(function(r){ FO_AI_SET = r || null; }).catch(function(){}); }
+function foAiIsTop(){ return (typeof role !== "undefined") && (role === "owner" || role === "dir"); }
+function foAiSetHTML(){
+  var label = FO_AI_SET && FO_AI_SET.label ? FO_AI_SET.label : "Собственник";
+  var h = '<div class="fo-aiset"><span>Задачи от ИИ согласует: <b>'+esc(label)+'</b></span>'+
+    (foAiIsTop() ? '<button class="fo-lnk" data-foaiset>'+(FO_AI_SETOPEN ? 'Свернуть' : 'Передать право согласования')+'</button>' : '')+'</div>';
+  if(FO_AI_SETOPEN && foAiIsTop()){
+    var sel = {}; ((FO_AI_SET && FO_AI_SET.approvers) || []).forEach(function(a){ sel[String(a.employee_id)] = 1; });
+    h += '<div class="fo-aisetl">'+(S.people || []).map(function(p){
+        return '<label class="fo-chk"><input type="checkbox" data-foaisetp="'+esc(p.id)+'"'+(sel[String(p.id)] ? ' checked' : '')+'> '+esc(p.name)+'</label>'; }).join("")+
+      '<div class="fo-hint">Никого не отметили — согласует собственник. Отмеченные видят задачи от ИИ у себя в «На согласование» и решают сами; собственник видит все.</div>'+
+      '<button class="bt sm pri" data-foaisetsave>Сохранить</button></div>';
+  }
+  return h;
+}
 function foAiPending(){ return (FO_AI || []).filter(function(a){ return a.status === "pending"; }); }
 (function(){
   if(typeof foReviewsLoad === "function"){
@@ -26944,7 +26965,7 @@ function foAiPending(){ return (FO_AI || []).filter(function(a){ return a.status
     tries++; if(tries > 40) return;
     var ok = false; try{ ok = typeof foLive === "function" && foLive() && S && S.people && S.people.length; }catch(e){}
     if(!ok){ setTimeout(first, 800); return; }
-    foAiLoad().then(function(){ try{ render(); }catch(e){} });
+    Promise.all([foAiLoad(), foAiSetLoad()]).then(function(){ try{ render(); }catch(e){} });
   })();
   setInterval(function(){ if(document.hidden) return; var n = foAiPending().length; foAiLoad().then(function(){ if(foAiPending().length !== n){ try{ render(); }catch(e){} } }); }, 60000);
 })();
@@ -26965,7 +26986,7 @@ function foAiCard(a){
       (a.urgent ? '<span class="fo-aiurg">срочно</span>' : '')+
       (a.deadline ? '<span class="fo-aidl">дедлайн '+esc(foAiDate(a.deadline))+'</span>' : '')+
       (a.fn_name ? '<span class="fo-aifn">'+esc(a.fn_code || "")+' '+esc(a.fn_name)+'</span>' : '')+
-      (a.mine ? '' : '<span class="fo-aiwho">согласует: '+esc(a.approver_name || a.approver_label || "—")+'</span>')+'</div>'+
+      '<span class="fo-aiwho">согласует: '+esc(a.approver_label || a.approver_name || "—")+'</span></div>'+
     '<input class="fi sm fo-aititle" data-foait value="'+esc(a.title || "")+'">'+
     (a.why ? '<div class="fo-aiwhy"><b>Зачем:</b> '+esc(a.why)+'</div>' : '')+
     (a.goal ? '<div class="fo-aiwhy"><b>Цель:</b> '+esc(a.goal)+'</div>' : '')+
@@ -26998,12 +27019,13 @@ function foAiCard(a){
         btn.textContent = "На согласование" + (n ? " · " + n : "") + (ai.length ? " (ИИ " + ai.length + ")" : "");
         btn.classList.toggle("fo-blink", !!n); btn.classList.toggle("on", !!n);
       }
-      if(foRevOpen && ai.length){
+      if(foRevOpen && (ai.length || foAiIsTop())){
         var pane = el.querySelector(".fo-revpane");
         if(pane){
           if(!rv) pane.innerHTML = "";
           var w = document.createElement("div"); w.className = "fo-aipane";
-          w.innerHTML = '<div class="fo-aih">От ИИ из чатов с клиентами · ' + ai.length + '</div>' + ai.map(foAiCard).join("");
+          w.innerHTML = '<div class="fo-aih">От ИИ из чатов с клиентами · ' + ai.length + '</div>' + foAiSetHTML() +
+            (ai.length ? ai.map(foAiCard).join("") : '<div class="empty">Задач от ИИ сейчас нет</div>');
           pane.insertBefore(w, pane.firstChild);
           try{ if(typeof enhanceSelects === "function") enhanceSelects(w); }catch(x){}
         }
@@ -27041,6 +27063,22 @@ window.addEventListener("click", function(e){
     .then(function(){ try{ render(); }catch(x){} })
     .catch(function(err){ delete FO_AI_BUSY[id]; b.disabled = false; b.textContent = ok ? "Принять — поставить" : "Отклонить";
       try{ toast("Не получилось: " + (err && err.message || "сервер не ответил")); }catch(x){} });
+}, true);
+
+window.addEventListener("click", function(e){
+  var b = e.target.closest && e.target.closest("[data-foaiset]");
+  if(b){ e.preventDefault(); e.stopImmediatePropagation(); FO_AI_SETOPEN = !FO_AI_SETOPEN; try{ render(); }catch(x){} return; }
+  b = e.target.closest && e.target.closest("[data-foaisetsave]");
+  if(!b) return;
+  e.preventDefault(); e.stopImmediatePropagation();
+  var box = b.closest(".fo-aisetl");
+  var ids = Array.prototype.filter.call(box.querySelectorAll("[data-foaisetp]"), function(x){ return x.checked; }).map(function(x){ return x.getAttribute("data-foaisetp"); });
+  b.disabled = true; b.textContent = "Сохраняю…";
+  api("/refs/ai/settings", {method:"POST", body:{approvers: ids}})
+    .then(function(r){ FO_AI_SETOPEN = false; try{ toast("Задачи от ИИ согласует: " + (r && r.label || "собственник") + (r && r["переназначено_ждущих"] ? " · ждущих передано: " + r["переназначено_ждущих"] : "")); }catch(x){}
+      return Promise.all([foAiSetLoad(), foAiLoad()]); })
+    .then(function(){ try{ render(); }catch(x){} })
+    .catch(function(err){ b.disabled = false; b.textContent = "Сохранить"; try{ toast("Не сохранилось: " + (err && err.message || "")); }catch(x){} });
 }, true);
 
 window.foAiState = function(){ return {ждут: foAiPending().length, всего: (FO_AI || []).length}; };
