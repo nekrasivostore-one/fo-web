@@ -2284,4 +2284,72 @@ try:
 except Exception as _e:
     p("  разведка упала:", str(_e).replace(_tok, "***") if _tok else _e)
 
+# ── ящик для ключей: секрет едет на сервер зашифрованным, мимо переписки и GitHub ──
+p("")
+p("== ЯЩИК ДЛЯ КЛЮЧЕЙ ==")
+try:
+    _KB = "/opt/fo/.keybox"
+    os.makedirs(_KB, exist_ok=True); os.chmod(_KB, 0o700)
+    if not os.path.exists(_KB + "/priv.pem"):
+        sh("openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:3072 -out %s/priv.pem 2>&1; chmod 600 %s/priv.pem" % (_KB, _KB))
+    _pub = sh("openssl pkey -in %s/priv.pem -pubout 2>&1" % _KB).strip()
+    p("публичный ключ ящика (им шифруют; расшифровать может только сервер):")
+    p(_pub)
+    _enc = os.path.join(os.path.dirname(os.path.abspath(__file__)), "_secrets.enc")
+    if os.path.exists(_enc):
+        _raw = sh("base64 -d %s | openssl pkeyutl -decrypt -inkey %s/priv.pem -pkeyopt rsa_padding_mode:oaep 2>/dev/null" % (_enc, _KB))
+        _ok = {}
+        for _ln in _raw.splitlines():
+            if "=" not in _ln: continue
+            _k, _v = _ln.split("=", 1); _k = _k.strip(); _v = _v.strip()
+            if _k in ("YC_API_KEY", "YC_FOLDER_ID") and _v and re.match(r"^[A-Za-z0-9_\-\.]+$", _v):
+                _ok[_k] = _v
+        if _ok:
+            _envp = "/opt/fo/.env"
+            _lines = open(_envp, encoding="utf-8").read().splitlines() if os.path.exists(_envp) else []
+            _lines = [l for l in _lines if l.split("=", 1)[0].strip() not in _ok]
+            _lines += ["%s=%s" % (k, v) for k, v in _ok.items()]
+            open(_envp, "w", encoding="utf-8").write("\n".join(_lines) + "\n")
+            os.chmod(_envp, 0o600)
+            p("из ящика записано в .env:", ", ".join("%s (знаков: %d)" % (k, len(v)) for k, v in _ok.items()))
+            sh("systemctl restart fo"); sh("sleep 3")
+            p("health после записи ключей:", sh("curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8000/health").strip())
+        else:
+            p("в ящике есть файл, но расшифровать не удалось или ключей нет")
+    else:
+        p("зашифрованных ключей пока нет")
+    # проба Яндекса: только код ответа, без текста ключа
+    _yk = ""; _yf = ""
+    for _ln in open("/opt/fo/.env", encoding="utf-8"):
+        if _ln.startswith("YC_API_KEY="): _yk = _ln.split("=", 1)[1].strip()
+        if _ln.startswith("YC_FOLDER_ID="): _yf = _ln.split("=", 1)[1].strip()
+    if _yk and _yf:
+        import json as _yj, urllib.request as _yu
+        _body = _yj.dumps({"modelUri": "gpt://%s/yandexgpt-lite/latest" % _yf, "completionOptions": {"stream": False, "temperature": 0, "maxTokens": 20},
+                           "messages": [{"role": "user", "text": "Ответь одним словом: работает?"}]}).encode()
+        _rq = _yu.Request("https://llm.api.cloud.yandex.net/foundationModels/v1/completion", data=_body,
+                          headers={"Authorization": "Api-Key " + _yk, "x-folder-id": _yf, "Content-Type": "application/json"})
+        try:
+            with _yu.urlopen(_rq, timeout=20) as _r:
+                _res = _yj.loads(_r.read().decode())
+            _t = (((_res.get("result") or {}).get("alternatives") or [{}])[0].get("message") or {}).get("text", "")
+            p("ЯНДЕКС ОТВЕЧАЕТ ✓:", _t[:60])
+        except Exception as _e:
+            _m = str(_e)
+            try: _m += " " + _e.read().decode()[:300]
+            except Exception: pass
+            p("Яндекс не ответил:", _m.replace(_yk, "***")[:400])
+    else:
+        p("ключей Яндекса в .env нет — пробу не делаю")
+except Exception as _e:
+    p("ящик/проба упали:", _e)
+
+p("")
+p("== РАЗВЕДКА: КАК УСТРОЕН WEBHOOK ==")
+p(sh("sed -n 1,220p /opt/fo/backend/app/routers/chats.py")[:9000])
+p("-- routing.py: функции --")
+p(sh("grep -n 'def \\|@router' /opt/fo/backend/app/routers/routing.py | head -60")[:3000])
+p("-- таблицы чатов --")
+p(sh("sudo -u postgres psql -d fo -Atc \"SELECT table_name||': '||string_agg(column_name,', ' ORDER BY ordinal_position) FROM information_schema.columns WHERE table_name IN ('chat','tg_chat','client_chat','chat_message','tg_message','routing_rule','notify_queue') GROUP BY table_name\"")[:2500])
+
 print("\n".join(out))
