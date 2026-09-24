@@ -405,6 +405,7 @@ CREATE TABLE IF NOT EXISTS fo_ai_task (
   status text NOT NULL DEFAULT 'pending', decided_by uuid, decided_at timestamptz, decision_note text,
   task_once_id bigint, ai_raw jsonb, created_at timestamptz NOT NULL DEFAULT now());
 CREATE INDEX IF NOT EXISTS fo_ai_task_org_idx ON fo_ai_task (org_id, status, created_at);
+ALTER TABLE fo_ai_task ADD COLUMN IF NOT EXISTS approver_users uuid[];
 
 ALTER TABLE app_user ADD COLUMN IF NOT EXISTS phone text;
 ALTER TABLE app_user ADD COLUMN IF NOT EXISTS display_name text;
@@ -2045,6 +2046,7 @@ async def fo_step_report(p: Principal = Depends(max_level(1))):
     except Exception as e:
         return {"ok": False, "text": "отчёта нет: %s" % e}
 
+
 # ══ ИИ ИЗ ЧАТОВ (С11, этап 1) ════════════════════════════════════
 # Клиент пишет в чат кабинета → Telegram шлёт сообщение сюда (свой
 # webhook, с тем же секретом, что штатный) → сообщение хранится →
@@ -2080,8 +2082,13 @@ def _fo_env(k):
     return _fo_os.environ.get(k) or _FO_ENVC["v"].get(k, "")
 
 
+def _fo_ai_keyok(k):
+    k = str(k or "")
+    return bool(k) and k.isascii() and len(k) >= 20 and " " not in k
+
+
 def _fo_ai_ready():
-    return bool(_fo_env("YC_API_KEY") and _fo_env("YC_FOLDER_ID"))
+    return _fo_ai_keyok(_fo_env("YC_API_KEY")) and bool(_fo_env("YC_FOLDER_ID")) and _fo_env("YC_FOLDER_ID").isascii()
 
 
 _FO_AI_SKIP = re.compile(r"^\s*(спасибо|спс|благодарю|ок|окей|ok|хорошо|понял|поняла|принято|да|нет|угу|ага|супер|отлично|класс|👍|🙏|👌|\+)[\s!.)]*$", re.I)
@@ -2110,6 +2117,8 @@ def _fo_ygpt_sync(messages, max_tokens=600):
     model = _fo_env("YC_MODEL") or "yandexgpt-lite/latest"
     if not key or not folder:
         raise RuntimeError("нет ключа Яндекса на сервере")
+    if not _fo_ai_keyok(key) or not folder.isascii():
+        raise RuntimeError("ключ Яндекса на сервере — не ключ (заглушка или русские буквы): вставьте настоящий")
     body = _fo_json.dumps({"modelUri": "gpt://%s/%s" % (folder, model),
                            "completionOptions": {"stream": False, "temperature": 0.1, "maxTokens": max_tokens},
                            "messages": messages}).encode()
@@ -2210,22 +2219,29 @@ async def _fo_ai_people(c, org_id, cab_id, fn_id):
     return sorted(ppl.values(), key=lambda x: -x["score"])
 
 
-async def _fo_ai_approver(c, org_id, cand_ids):
-    """Согласующий: главный менеджер, потом проджект — сначала из людей кабинета, потом по агентству; иначе собственник."""
-    try:
-        rows = await c.fetch(
-            "SELECT e.id AS emp, e.name, u.id AS uid, u.role_code FROM employee e JOIN app_user u ON u.id=e.user_id "
-            "WHERE e.org_id=$1 AND u.is_active AND u.role_code IN ('head','project')", org_id)
-    except Exception:
-        rows = []
-    order = {"head": 0, "project": 1}
-    rows = sorted(rows, key=lambda r: (0 if str(r["emp"]) in cand_ids else 1, order.get(r["role_code"], 9)))
-    if rows:
-        r = rows[0]
-        return str(r["emp"]), r["uid"], r["name"]
-    uid = await c.fetchval("SELECT id FROM app_user WHERE org_id=$1 AND role_code='owner' AND is_active "
-                           "ORDER BY created_at LIMIT 1", org_id)
-    return None, uid, "Собственник"
+async def _fo_ai_settings(c, org_id):
+    d = await c.fetchval("SELECT data FROM fo_card WHERE kind='org' AND ref_id=$1", "ai:" + str(org_id))
+    if isinstance(d, str):
+        try:
+            d = _fo_json.loads(d)
+        except Exception:
+            d = {}
+    return d or {}
+
+
+async def _fo_ai_approvers(c, org_id):
+    """Кто согласует задачи от ИИ: кого назначил собственник; никого — собственник.
+    Возвращает (user_id-список, подпись, employee_id первого)."""
+    st = await _fo_ai_settings(c, org_id)
+    ids = [str(x) for x in (st.get("approvers") or []) if x]
+    if ids:
+        rows = await c.fetch("SELECT id, name, user_id FROM employee WHERE org_id=$1 AND id = ANY($2::uuid[]) "
+                             "AND user_id IS NOT NULL ORDER BY name", org_id, ids)
+        if rows:
+            return [r["user_id"] for r in rows], ", ".join(r["name"] or "" for r in rows), str(rows[0]["id"])
+    own = await c.fetch("SELECT id FROM app_user WHERE org_id=$1 AND role_code='owner' AND is_active "
+                        "ORDER BY created_at", org_id)
+    return [r["id"] for r in own], "Собственник", None
 
 
 def _fo_ai_deadline(s):
@@ -2284,7 +2300,8 @@ async def _fo_ai_process(msg_pk):
         fn_id = fn["id"] if fn else None
         cands = await _fo_ai_people(c, m["org_id"], cab_id, fn_id)
         emp = cands[0]["employee_id"] if cands else None
-        a_emp, a_uid, a_name = await _fo_ai_approver(c, m["org_id"], [x["employee_id"] for x in cands])
+        a_uids, a_name, a_emp = await _fo_ai_approvers(c, m["org_id"])
+        a_uid = a_uids[0] if a_uids else None
         try:
             mins = max(5, min(240, int(js.get("minutes") or 30)))
         except Exception:
@@ -2294,14 +2311,14 @@ async def _fo_ai_process(msg_pk):
         rid = await c.fetchval(
             """INSERT INTO fo_ai_task (org_id, client_id, cabinet_id, msg_pk, tg_chat_id, msg_id, msg_link, quote, author, msg_at,
                                        title, fn_id, employee_id, candidates, urgent, deadline, minutes, why, goal,
-                                       approver_employee_id, approver_user_id, approver_label, ai_raw)
-               VALUES ($1,$2::uuid,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13::uuid,$14::jsonb,$15,$16,$17,$18,$19,$20::uuid,$21,$22,$23::jsonb)
+                                       approver_employee_id, approver_user_id, approver_label, ai_raw, approver_users)
+               VALUES ($1,$2::uuid,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13::uuid,$14::jsonb,$15,$16,$17,$18,$19,$20::uuid,$21,$22,$23::jsonb,$24::uuid[])
                RETURNING id""",
             m["org_id"], str(m["client_id"]), cab_id, msg_pk, m["tg_chat_id"], m["msg_id"],
             _fo_msg_link(m["tg_chat_id"], m["msg_id"]), (m["text"] or "")[:2000], m["author"], m["msg_at"],
             title, fn_id, emp, _fo_json.dumps(cands[:6], ensure_ascii=False), bool(js.get("urgent")), dl, mins,
             str(js.get("why") or "")[:500], str(js.get("goal") or "")[:500], a_emp, a_uid, a_name,
-            _fo_json.dumps(js, ensure_ascii=False))
+            _fo_json.dumps(js, ensure_ascii=False), [str(x) for x in a_uids])
         await c.execute("UPDATE fo_chat_msg SET ai_state='task', ai_tokens=$2 WHERE id=$1", msg_pk, tokens)
     return {"state": "task", "ai_task_id": str(rid), "ai": js}
 
@@ -2389,6 +2406,7 @@ def _fo_ai_row(r):
               "decided_by", "msg_pk", "task_once_id"):
         if d.get(k) is not None:
             d[k] = str(d[k])
+    d["approver_users"] = [str(x) for x in (d.get("approver_users") or [])]
     for k in ("candidates", "ai_raw"):
         if isinstance(d.get(k), str):
             try:
@@ -2416,7 +2434,8 @@ async def fo_ai_tasks(status: str = "pending", p: Principal = Depends(current)):
                 ORDER BY a.created_at DESC LIMIT 200""", p.org_id, status)
     out = []
     for r in rows:
-        mine = bool(r["approver_user_id"] and str(r["approver_user_id"]) == str(uid))
+        mine = str(uid) in [str(x) for x in (r["approver_users"] or [])] or bool(
+            r["approver_user_id"] and str(r["approver_user_id"]) == str(uid))
         if not (mine or lvl <= 2):
             continue
         d = _fo_ai_row(r)
@@ -2451,9 +2470,10 @@ async def fo_ai_decide(ai_id: str, body: FoAiDecideIn, p: Principal = Depends(cu
             raise HTTPException(404, "не найдено")
         if a["status"] != "pending":
             raise HTTPException(409, "уже решено")
-        mine = a["approver_user_id"] and str(a["approver_user_id"]) == str(uid)
-        if not mine and lvl > 4:
-            raise HTTPException(403, "решает согласующий, собственник, директор или РМ")
+        mine = str(uid) in [str(x) for x in (a["approver_users"] or [])] or (
+            a["approver_user_id"] and str(a["approver_user_id"]) == str(uid))
+        if not mine and lvl > 2:
+            raise HTTPException(403, "решает согласующий, которого назначил собственник, или собственник")
         note = (body.note or "").strip()[:1000] or None
         if not body.ok:
             await c.execute("UPDATE fo_ai_task SET status='rejected', decided_by=$2, decided_at=now(), decision_note=$3 WHERE id=$1",
@@ -2532,6 +2552,41 @@ async def fo_ai_status(p: Principal = Depends(max_level(4))):
     return {"yandex": _fo_ai_ready(), "model": _fo_env("YC_MODEL") or "yandexgpt-lite/latest",
             "сообщений_за_сутки": int(msgs or 0), "ждут_согласования": int(pend or 0),
             "токенов_за_месяц": int(toks or 0), "последние": [dict(r) for r in last]}
+
+
+class FoAiSettingsIn(_FoBM):
+    approvers: list[str] = []
+
+
+@router.get("/ai/settings")
+async def fo_ai_settings_get(p: Principal = Depends(max_level(6))):
+    async with pool().acquire() as c:
+        st = await _fo_ai_settings(c, p.org_id)
+        uids, label, _e = await _fo_ai_approvers(c, p.org_id)
+        ids = [str(x) for x in (st.get("approvers") or [])]
+        rows = await c.fetch("SELECT id, name FROM employee WHERE org_id=$1 AND id = ANY($2::uuid[])", p.org_id, ids) if ids else []
+    return {"approvers": [{"employee_id": str(r["id"]), "name": r["name"]} for r in rows], "label": label,
+            "по_умолчанию": "Собственник"}
+
+
+@router.post("/ai/settings")
+async def fo_ai_settings_set(body: FoAiSettingsIn, p: Principal = Depends(max_level(2))):
+    """Собственник раздаёт право согласовывать задачи от ИИ любым людям агентства (пусто — согласует сам)."""
+    ids = [x for x in (body.approvers or []) if re.match(r"^[0-9a-fA-F-]{36}$", str(x or ""))]
+    async with pool().acquire() as c:
+        if ids:
+            ok = await c.fetch("SELECT id FROM employee WHERE org_id=$1 AND id = ANY($2::uuid[])", p.org_id, ids)
+            ids = [str(r["id"]) for r in ok]
+        await c.execute(
+            "INSERT INTO fo_card (kind, ref_id, org_id, data) VALUES ('org', $1, $2, $3::jsonb) "
+            "ON CONFLICT (kind, ref_id) DO UPDATE SET data = fo_card.data || EXCLUDED.data, updated_at = now()",
+            "ai:" + str(p.org_id), p.org_id, _fo_json.dumps({"approvers": ids}))
+        uids, label, emp = await _fo_ai_approvers(c, p.org_id)
+        n = await c.fetchval(
+            "WITH u AS (UPDATE fo_ai_task SET approver_users=$2::uuid[], approver_user_id=$3, approver_label=$4, "
+            "approver_employee_id=$5::uuid WHERE org_id=$1 AND status='pending' RETURNING 1) SELECT count(*) FROM u",
+            p.org_id, [str(x) for x in uids], uids[0] if uids else None, label, emp)
+    return {"ok": True, "label": label, "переназначено_ждущих": int(n or 0)}
 
 '''
 
@@ -2732,7 +2787,7 @@ else:
     p("")
     p("== ПРОВЕРКА ЭНДПОИНТОВ ==")
     for u in ("/refs/roles", "/refs/cards", "/refs/tasks/once", "/refs/invites",
-              "/refs/me/account", "/refs/tasks/sync", "/refs/cabinets/x/functions/add", "/refs/cabinets/x/functions/y/take", "/refs/link-pref/all", "/refs/functions/x/name", "/refs/tasks/reviews", "/refs/link-pref", "/refs/cabinets/x/articles", "/refs/cabinets/x/articles/remove", "/refs/ai/tasks", "/refs/ai/status", "/refs/admin/people", "/auth/invite-token/zzz"):
+              "/refs/me/account", "/refs/tasks/sync", "/refs/cabinets/x/functions/add", "/refs/cabinets/x/functions/y/take", "/refs/link-pref/all", "/refs/functions/x/name", "/refs/tasks/reviews", "/refs/link-pref", "/refs/cabinets/x/articles", "/refs/cabinets/x/articles/remove", "/refs/ai/tasks", "/refs/ai/status", "/refs/ai/settings", "/refs/admin/people", "/auth/invite-token/zzz"):
         p("  %-26s %s" % (u, sh("curl -s -o /dev/null -w '%%{http_code}' http://127.0.0.1:8000%s" % u).strip()))
     p("(401/403 — эндпоинт есть и просит вход; 404 — не встал)")
     p("ГОТОВО: хранение переехало на сервер")
