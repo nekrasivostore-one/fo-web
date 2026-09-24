@@ -2060,6 +2060,7 @@ async def fo_step_report(p: Principal = Depends(max_level(1))):
 
 
 
+
 # ══ ИИ ИЗ ЧАТОВ (С11, этап 1) ════════════════════════════════════
 # Клиент пишет в чат кабинета → Telegram шлёт сообщение сюда (свой
 # webhook, с тем же секретом, что штатный) → сообщение хранится →
@@ -2073,6 +2074,7 @@ import os as _fo_os
 import time as _fo_time
 import datetime as _fo_dt
 import urllib.request as _fo_ur
+import urllib.parse as _fo_up
 from fastapi import Request as _FoReq
 
 _FO_MSK = _fo_dt.timezone(_fo_dt.timedelta(hours=3))
@@ -2144,6 +2146,29 @@ def _fo_ygpt_sync(messages, max_tokens=600):
     txt = (((res.get("alternatives") or [{}])[0].get("message")) or {}).get("text", "")
     usage = res.get("usage") or {}
     return txt, usage
+
+
+def _fo_tg_react_sync(chat_id, msg_id):
+    """Бот ставит реакцию на сообщение клиента, в котором ИИ увидел задачу (Виталий: 🧑‍💻).
+    У Telegram свой список разрешённых реакций: не приняли 🧑‍💻 — ставим 👨‍💻."""
+    tok = _fo_env("TG_BOT_TOKEN")
+    if not tok or not chat_id or str(chat_id) == "test" or not msg_id:
+        return "без реакции"
+    last = ""
+    for emo in ("\U0001F9D1\u200D\U0001F4BB", "\U0001F468\u200D\U0001F4BB"):
+        data = _fo_up.urlencode({"chat_id": str(chat_id), "message_id": str(msg_id),
+                                 "reaction": _fo_json.dumps([{"type": "emoji", "emoji": emo}])}).encode()
+        try:
+            with _fo_ur.urlopen("https://api.telegram.org/bot%s/setMessageReaction" % tok, data=data, timeout=15) as r:
+                if _fo_json.loads(r.read().decode()).get("ok"):
+                    return "реакция " + emo
+        except Exception as e:
+            last = str(e)
+            try:
+                last += " " + e.read().decode()[:200]
+            except Exception:
+                pass
+    return ("реакция не встала: " + last.replace(tok, "***"))[:300]
 
 
 def _fo_ai_json(txt):
@@ -2333,7 +2358,14 @@ async def _fo_ai_process(msg_pk):
             str(js.get("why") or "")[:500], str(js.get("goal") or "")[:500], a_emp, a_uid, a_name,
             _fo_json.dumps(js, ensure_ascii=False), [str(x) for x in a_uids])
         await c.execute("UPDATE fo_chat_msg SET ai_state='task', ai_tokens=$2 WHERE id=$1", msg_pk, tokens)
-    return {"state": "task", "ai_task_id": str(rid), "ai": js}
+    react = ""
+    try:
+        react = await _fo_aio.to_thread(_fo_tg_react_sync, m["tg_chat_id"], m["msg_id"])
+        async with pool().acquire() as c:
+            await c.execute("UPDATE fo_chat_msg SET ai_note=$2 WHERE id=$1", msg_pk, react)
+    except Exception:
+        pass
+    return {"state": "task", "ai_task_id": str(rid), "ai": js, "реакция": react}
 
 
 async def _fo_tg_claim(c, tg, title):
