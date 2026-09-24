@@ -2063,6 +2063,7 @@ async def fo_step_report(p: Principal = Depends(max_level(1))):
 
 
 
+
 # ══ ИИ ИЗ ЧАТОВ (С11, этап 1) ════════════════════════════════════
 # Клиент пишет в чат кабинета → Telegram шлёт сообщение сюда (свой
 # webhook, с тем же секретом, что штатный) → сообщение хранится →
@@ -2340,8 +2341,17 @@ async def _fo_ai_process(msg_pk, dry=False, use_prev=True):
         ctx += "Предыдущие сообщения чата (старые сверху):\n" + "\n".join(
             "— %s: %s" % (p_["author"] or "?", (p_["text"] or "")[:300]) for p_ in reversed(prev)) + "\n"
     ctx += "Новое сообщение (от %s): «%s»" % (m["author"] or "клиент", (m["text"] or "")[:1500])
+    sys_txt = _FO_AI_SYS
     try:
-        txt, usage = await _fo_aio.to_thread(_fo_ygpt_sync, [{"role": "system", "text": _FO_AI_SYS},
+        async with pool().acquire() as c:
+            st = await _fo_ai_settings(c, m["org_id"])
+        rules = [str(r).strip() for r in (st.get("rules") or []) if str(r).strip()]
+        if rules:
+            sys_txt += "\n\nПравила этого агентства (важнее общих, соблюдай строго):\n" + "\n".join("- " + r for r in rules[:60])
+    except Exception:
+        pass
+    try:
+        txt, usage = await _fo_aio.to_thread(_fo_ygpt_sync, [{"role": "system", "text": sys_txt},
                                                              {"role": "user", "text": ctx}])
     except Exception as e:
         async with pool().acquire() as c:
@@ -2687,6 +2697,37 @@ async def fo_ai_settings_set(body: FoAiSettingsIn, p: Principal = Depends(max_le
             "approver_employee_id=$5::uuid WHERE org_id=$1 AND status='pending' RETURNING 1) SELECT count(*) FROM u",
             p.org_id, [str(x) for x in uids], uids[0] if uids else None, label, emp)
     return {"ok": True, "label": label, "переназначено_ждущих": int(n or 0)}
+
+
+class FoAiRuleIn(_FoBM):
+    add: str | None = None
+    remove: int | None = None
+
+
+@router.get("/ai/rules")
+async def fo_ai_rules_get(p: Principal = Depends(max_level(4))):
+    async with pool().acquire() as c:
+        st = await _fo_ai_settings(c, p.org_id)
+    return {"rules": st.get("rules") or []}
+
+
+@router.post("/ai/rules")
+async def fo_ai_rules_set(body: FoAiRuleIn, p: Principal = Depends(max_level(2))):
+    """Учим ИИ: правило агентства словами собственника — Яндекс читает их перед каждым разбором."""
+    async with pool().acquire() as c:
+        st = await _fo_ai_settings(c, p.org_id)
+        rules = [str(r) for r in (st.get("rules") or [])]
+        if body.add and body.add.strip():
+            r = body.add.strip()[:500]
+            if r not in rules:
+                rules.append(r)
+        if body.remove is not None and 0 <= int(body.remove) < len(rules):
+            rules.pop(int(body.remove))
+        await c.execute(
+            "INSERT INTO fo_card (kind, ref_id, org_id, data) VALUES ('org', $1, $2, $3::jsonb) "
+            "ON CONFLICT (kind, ref_id) DO UPDATE SET data = fo_card.data || EXCLUDED.data, updated_at = now()",
+            "ai:" + str(p.org_id), p.org_id, _fo_json.dumps({"rules": rules}, ensure_ascii=False))
+    return {"ok": True, "rules": rules}
 
 '''
 
