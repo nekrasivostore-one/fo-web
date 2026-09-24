@@ -2061,6 +2061,7 @@ async def fo_step_report(p: Principal = Depends(max_level(1))):
 
 
 
+
 # ══ ИИ ИЗ ЧАТОВ (С11, этап 1) ════════════════════════════════════
 # Клиент пишет в чат кабинета → Telegram шлёт сообщение сюда (свой
 # webhook, с тем же секретом, что штатный) → сообщение хранится →
@@ -2292,7 +2293,7 @@ def _fo_ai_deadline(s):
     return None
 
 
-async def _fo_ai_process(msg_pk):
+async def _fo_ai_process(msg_pk, dry=False, use_prev=True):
     """Разобрать одно сообщение: Яндекс → предложение задачи на согласование."""
     async with pool().acquire() as c:
         m = await c.fetchrow("SELECT * FROM fo_chat_msg WHERE id=$1", msg_pk)
@@ -2306,7 +2307,7 @@ async def _fo_ai_process(msg_pk):
             fns = await c.fetch("SELECT f.id, f.code, f.name FROM cabinet_fn cf JOIN fn f ON f.id=cf.fn_id "
                                 "WHERE cf.cabinet_id=$1::uuid ORDER BY f.code", str(cab_id))
         prev = await c.fetch("SELECT author, text FROM fo_chat_msg WHERE tg_chat_id=$1 AND id<$2 AND text<>'' "
-                             "ORDER BY id DESC LIMIT 4", m["tg_chat_id"], m["id"])
+                             "ORDER BY id DESC LIMIT 6", m["tg_chat_id"], m["id"]) if use_prev else []
     now = _fo_dt.datetime.now(_FO_MSK)
     days = ["понедельник", "вторник", "среда", "четверг", "пятница", "суббота", "воскресенье"]
     ctx = ("Сейчас: %s (Москва), %s.\nКабинет: %s.\nФункции кабинета:\n%s\n" % (
@@ -2332,12 +2333,17 @@ async def _fo_ai_process(msg_pk):
     async with pool().acquire() as c:
         if not js.get("is_task"):
             await c.execute("UPDATE fo_chat_msg SET ai_state='no_task', ai_tokens=$2 WHERE id=$1", msg_pk, tokens)
-            return {"state": "no_task", "ai": js}
+            return {"state": "no_task", "ai": js, "контекст": [p_["text"][:120] for p_ in reversed(prev)]}
         code = str(js.get("function_code") or "").strip()
         fn = next((f for f in fns if str(f["code"]).lower() == code.lower()), None) if code else None
         fn_id = fn["id"] if fn else None
         cands = await _fo_ai_people(c, m["org_id"], cab_id, fn_id)
         emp = cands[0]["employee_id"] if cands else None
+        if dry:
+            await c.execute("UPDATE fo_chat_msg SET ai_state='task', ai_tokens=$2 WHERE id=$1", msg_pk, tokens)
+            return {"state": "task", "ai": js, "ответственный": (cands[0]["name"] if cands else None),
+                    "почему": (cands[0]["why"] if cands else []), "функция": (fn["code"] + " " + fn["name"]) if fn else None,
+                    "контекст": [p_["text"][:120] for p_ in reversed(prev)]}
         a_uids, a_name, a_emp = await _fo_ai_approvers(c, m["org_id"])
         a_uid = a_uids[0] if a_uids else None
         try:
@@ -2588,6 +2594,9 @@ class FoAiTestIn(_FoBM):
     client_id: str
     text: str
     author: str | None = None
+    dry: bool = False            # только разбор: предложение на согласование не создаём
+    context: bool = True         # учитывать предыдущие сообщения этой «переписки»
+    thread: str | None = None    # имя тестовой переписки: у каждой своя история
 
 
 @router.post("/ai/test")
@@ -2599,12 +2608,13 @@ async def fo_ai_test(body: FoAiTestIn, p: Principal = Depends(max_level(2))):
         ok = await c.fetchval("SELECT 1 FROM client WHERE id=$1::uuid AND org_id=$2", body.client_id, p.org_id)
         if not ok:
             raise HTTPException(404, "клиент не найден")
-        n = await c.fetchval("SELECT count(*) FROM fo_chat_msg WHERE tg_chat_id='test'")
+        th = "test" if not body.thread else ("test:" + re.sub(r"[^A-Za-z0-9_\-]", "", body.thread)[:40])
+        n = await c.fetchval("SELECT count(*) FROM fo_chat_msg WHERE tg_chat_id=$1", th)
         pk = await c.fetchval(
             "INSERT INTO fo_chat_msg (org_id, client_id, chat_pk, kind, tg_chat_id, msg_id, author, author_tg, text, msg_at) "
-            "VALUES ($1,$2::uuid,NULL,'client','test',$3,$4,'',$5,now()) RETURNING id",
-            p.org_id, body.client_id, int(n or 0) + 1, (body.author or "Клиент (проверка)")[:120], body.text[:4000])
-    return await _fo_ai_process(pk)
+            "VALUES ($1,$2::uuid,NULL,'client',$3,$4,$5,'',$6,now()) RETURNING id",
+            p.org_id, body.client_id, th, int(n or 0) + 1, (body.author or "Клиент (проверка)")[:120], body.text[:4000])
+    return await _fo_ai_process(pk, dry=body.dry, use_prev=body.context)
 
 
 @router.get("/ai/status")
