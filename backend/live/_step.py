@@ -406,6 +406,7 @@ CREATE TABLE IF NOT EXISTS fo_ai_task (
   task_once_id bigint, ai_raw jsonb, created_at timestamptz NOT NULL DEFAULT now());
 CREATE INDEX IF NOT EXISTS fo_ai_task_org_idx ON fo_ai_task (org_id, status, created_at);
 ALTER TABLE fo_ai_task ADD COLUMN IF NOT EXISTS approver_users uuid[];
+ALTER TABLE fo_ai_task ADD COLUMN IF NOT EXISTS extra jsonb NOT NULL DEFAULT '[]'::jsonb;
 -- чаты, внесённые в карточку ссылкой-приглашением: номер Telegram — по названию из регистрации бота
 DO $$
 BEGIN
@@ -2137,18 +2138,79 @@ _FO_AI_SYS = (
     "Ты — ассистент digital-агентства, которое ведёт кабинеты продавцов на Wildberries и OZON: реклама, цены, "
     "карточки товаров, аналитика, поставки, отзывы. Тебе дают новое сообщение из чата с клиентом и контекст. "
     "Реши, просит ли клиент агентство что-то сделать (это задача), или это вопрос, благодарность, информация без действия.\n"
+    "Как решать:\n"
+    "1. Решаешь только про НОВОЕ сообщение. Предыдущие сообщения — контекст, чтобы понять размытую просьбу; "
+    "просьбы из прошлых сообщений заново задачей не ставь.\n"
+    "2. Прямая просьба в новом сообщении (сделайте, поменяйте, поднимите, снизьте, добавьте, проверьте, «нужно …», «участвуем в …») — задача.\n"
+    "3. Размытая просьба, которая опирается на обсуждение выше («давайте так», «делайте, как обсуждали», «да, запускайте», "
+    "обращение «@ник» без текста) — задача: суть собери из контекста.\n"
+    "4. Статус, отчёт, информация, обещание написать позже («как примут — напишу», «остатки отображаются корректно», "
+    "«колонку выделил»), вопрос без просьбы — не задача.\n"
+    "5. Если новое сообщение просит то же, что уже есть в списке «Уже поставленные задачи», или уточняет её "
+    "(срок, цифру, артикул), — новую не создавай: верни is_task=true и same_as = номер той задачи, "
+    "а в title коротко напиши, что уточнилось.\n"
     "Если это задача — сформулируй её для менеджера агентства коротко и по делу, в повелительном наклонении "
     "(например: «Снизить цену на артикул 153667602 до 1990 ₽»).\n"
     "function_code — код функции только из списка функций кабинета, если подходит; иначе null.\n"
-    "urgent=true — если клиент просит сегодня, срочно, сейчас, до конкретного часа, или это останавливает продажи.\n"
+    "urgent=true — только если клиент прямо пишет «срочно», «сегодня», «сейчас», называет ближайший час, "
+    "или без этого встают продажи; иначе false.\n"
     "deadline — дата и время по Москве в формате YYYY-MM-DD HH:MM, если срок назван или очевиден; иначе null.\n"
     "why — одно предложение: зачем делается задача, что за ней стоит у клиента.\n"
     "goal — одно предложение: какая конечная цель, какой результат для бизнеса клиента.\n"
     "minutes — сколько минут это займёт у менеджера, число от 5 до 240.\n"
     "Ответь только JSON, без пояснений и без markdown:\n"
-    "{\"is_task\": true, \"title\": \"...\", \"function_code\": null, \"urgent\": false, \"deadline\": null, "
+    "{\"is_task\": true, \"same_as\": null, \"title\": \"...\", \"function_code\": null, \"urgent\": false, \"deadline\": null, "
     "\"why\": \"...\", \"goal\": \"...\", \"minutes\": 30}"
 )
+
+_FO_AI_CTX_N = 15      # сколько прошлых сообщений чата видит ИИ (Виталий 25.09: «последние 10–15»)
+_FO_AI_DUP_DAYS = 2    # за сколько дней искать уже поставленную такую же задачу
+
+
+def _fo_ai_stems(s):
+    t = str(s or "").lower().replace("ё", "е")
+    t = re.sub(r"\bтн\s*вэд\b", "тнвэд", t)
+    words = re.findall(r"[a-zа-я]{3,}|\d{3,}", t)
+    stop = {"для", "что", "это", "как", "все", "всех", "всем", "всеми", "так", "его", "она", "они", "там", "тут",
+            "уже", "еще", "пожалуйста", "нужно", "надо", "товар", "товары", "товаре", "товаров", "товарах"}
+    return {w if w.isdigit() else w[:5] for w in words if w not in stop}
+
+
+def _fo_ai_same(a, b):
+    """Похожи ли две формулировки задачи настолько, что это одна задача.
+    Разные номера артикулов — всегда разные задачи."""
+    A, B = _fo_ai_stems(a), _fo_ai_stems(b)
+    na = {w for w in A if w.isdigit() and len(w) >= 5}
+    nb = {w for w in B if w.isdigit() and len(w) >= 5}
+    if na and nb and not (na & nb):
+        return False
+    if not A or not B:
+        return False
+    if A == B:
+        return True
+    k = len(A & B) / float(min(len(A), len(B)))
+    return min(len(A), len(B)) >= 3 and k >= 0.75
+
+
+def _fo_tg_react_emo_sync(chat_id, msg_id, emos):
+    tok = _fo_env("TG_BOT_TOKEN")
+    if not tok or not chat_id or str(chat_id).startswith("test") or not msg_id:
+        return "без реакции"
+    last = ""
+    for emo in emos:
+        data = _fo_up.urlencode({"chat_id": str(chat_id), "message_id": str(msg_id),
+                                 "reaction": _fo_json.dumps([{"type": "emoji", "emoji": emo}])}).encode()
+        try:
+            with _fo_ur.urlopen("https://api.telegram.org/bot%s/setMessageReaction" % tok, data=data, timeout=15) as r:
+                if _fo_json.loads(r.read().decode()).get("ok"):
+                    return "реакция " + emo
+        except Exception as e:
+            last = str(e)
+            try:
+                last += " " + e.read().decode()[:200]
+            except Exception:
+                pass
+    return ("реакция не встала: " + last.replace(tok, "***"))[:300]
 
 
 def _fo_ygpt_sync(messages, max_tokens=600):
@@ -2176,24 +2238,7 @@ def _fo_ygpt_sync(messages, max_tokens=600):
 def _fo_tg_react_sync(chat_id, msg_id):
     """Бот ставит реакцию на сообщение клиента, в котором ИИ увидел задачу (Виталий: 🧑‍💻).
     У Telegram свой список разрешённых реакций: не приняли 🧑‍💻 — ставим 👨‍💻."""
-    tok = _fo_env("TG_BOT_TOKEN")
-    if not tok or not chat_id or str(chat_id) == "test" or not msg_id:
-        return "без реакции"
-    last = ""
-    for emo in ("\U0001F9D1\u200D\U0001F4BB", "\U0001F468\u200D\U0001F4BB"):
-        data = _fo_up.urlencode({"chat_id": str(chat_id), "message_id": str(msg_id),
-                                 "reaction": _fo_json.dumps([{"type": "emoji", "emoji": emo}])}).encode()
-        try:
-            with _fo_ur.urlopen("https://api.telegram.org/bot%s/setMessageReaction" % tok, data=data, timeout=15) as r:
-                if _fo_json.loads(r.read().decode()).get("ok"):
-                    return "реакция " + emo
-        except Exception as e:
-            last = str(e)
-            try:
-                last += " " + e.read().decode()[:200]
-            except Exception:
-                pass
-    return ("реакция не встала: " + last.replace(tok, "***"))[:300]
+    return _fo_tg_react_emo_sync(chat_id, msg_id, ("\U0001F9D1\u200D\U0001F4BB", "\U0001F468\u200D\U0001F4BB"))
 
 
 def _fo_ai_json(txt):
@@ -2318,7 +2363,9 @@ def _fo_ai_deadline(s):
 
 
 async def _fo_ai_process(msg_pk, dry=False, use_prev=True):
-    """Разобрать одно сообщение: Яндекс → предложение задачи на согласование."""
+    """Разобрать одно сообщение: Яндекс → предложение задачи на согласование.
+    ИИ видит 15 прошлых сообщений чата и задачи клиента за 2 дня: повтор или уточнение
+    уже поставленной задачи не создаёт новую, а добавляется к ней («уточнение», реакция ✍)."""
     async with pool().acquire() as c:
         m = await c.fetchrow("SELECT * FROM fo_chat_msg WHERE id=$1", msg_pk)
         if not m:
@@ -2331,12 +2378,23 @@ async def _fo_ai_process(msg_pk, dry=False, use_prev=True):
             fns = await c.fetch("SELECT f.id, f.code, f.name FROM cabinet_fn cf JOIN fn f ON f.id=cf.fn_id "
                                 "WHERE cf.cabinet_id=$1::uuid ORDER BY f.code", str(cab_id))
         prev = await c.fetch("SELECT author, text FROM fo_chat_msg WHERE tg_chat_id=$1 AND id<$2 AND text<>'' "
-                             "ORDER BY id DESC LIMIT 6", m["tg_chat_id"], m["id"]) if use_prev else []
+                             "ORDER BY id DESC LIMIT %d" % _FO_AI_CTX_N, m["tg_chat_id"], m["id"]) if use_prev else []
+        have = []
+        if m["client_id"]:
+            have = await c.fetch(
+                "SELECT id, title, status, quote, task_once_id FROM fo_ai_task WHERE org_id=$1 AND client_id=$2::uuid "
+                "AND status IN ('pending','accepted') AND created_at > now() - make_interval(days => $3) "
+                "AND coalesce(msg_pk, 0) <> $4 ORDER BY id DESC LIMIT 12",
+                m["org_id"], str(m["client_id"]), _FO_AI_DUP_DAYS, msg_pk)
     now = _fo_dt.datetime.now(_FO_MSK)
     days = ["понедельник", "вторник", "среда", "четверг", "пятница", "суббота", "воскресенье"]
     ctx = ("Сейчас: %s (Москва), %s.\nКабинет: %s.\nФункции кабинета:\n%s\n" % (
         now.strftime("%Y-%m-%d %H:%M"), days[now.weekday()], (cab["name"] if cab else "—"),
         "\n".join("%s — %s" % (f["code"], f["name"]) for f in fns[:80]) or "(не назначены)"))
+    if have:
+        ctx += "Уже поставленные задачи по этому клиенту (за %d дня):\n" % _FO_AI_DUP_DAYS + "\n".join(
+            "#%s [%s] %s — клиент писал: «%s»" % (h["id"], "ждёт согласования" if h["status"] == "pending" else "принята",
+                                               h["title"], (h["quote"] or "").replace("\n", " ")[:120]) for h in have) + "\n"
     if prev:
         ctx += "Предыдущие сообщения чата (старые сверху):\n" + "\n".join(
             "— %s: %s" % (p_["author"] or "?", (p_["text"] or "")[:300]) for p_ in reversed(prev)) + "\n"
@@ -2363,10 +2421,56 @@ async def _fo_ai_process(msg_pk, dry=False, use_prev=True):
         tokens = int(usage.get("totalTokens") or 0)
     except Exception:
         pass
+    ctx_list = [p_["text"][:120] for p_ in reversed(prev)]
+    title = str(js.get("title") or m["text"] or "")[:300].strip() or "Задача из чата"
+    # повтор или уточнение уже поставленной задачи: что сказал ИИ (same_as), затем проверка сервера по формулировке
+    dup, dup_how = None, ""
+    if js.get("is_task") and have:
+        try:
+            sa = int(re.sub(r"[^0-9]", "", str(js.get("same_as") or "")) or 0)
+        except Exception:
+            sa = 0
+        dup = next((h for h in have if int(h["id"]) == sa), None) if sa else None
+        dup_how = "ИИ" if dup else ""
+        if not dup:
+            for h in have:
+                if _fo_ai_same(title, h["title"]) or _fo_ai_same(m["text"] or "", h["quote"] or ""):
+                    dup, dup_how = h, "похожа по формулировке"
+                    break
     async with pool().acquire() as c:
         if not js.get("is_task"):
             await c.execute("UPDATE fo_chat_msg SET ai_state='no_task', ai_tokens=$2 WHERE id=$1", msg_pk, tokens)
-            return {"state": "no_task", "ai": js, "контекст": [p_["text"][:120] for p_ in reversed(prev)]}
+            return {"state": "no_task", "ai": js, "контекст": ctx_list}
+        if dup:
+            note = "уточнение к задаче #%s «%s» (%s)" % (dup["id"], (dup["title"] or "")[:80], dup_how)
+            if dry:
+                await c.execute("UPDATE fo_chat_msg SET ai_state='clarify', ai_note=$3, ai_tokens=$2 WHERE id=$1",
+                                msg_pk, tokens, note)
+                return {"state": "clarify", "к_задаче": int(dup["id"]), "как_понял": dup_how, "ai": js, "контекст": ctx_list}
+            item = {"text": (m["text"] or "")[:1000], "author": m["author"] or "", "what": title[:200],
+                    "at": m["msg_at"].isoformat() if m["msg_at"] else None, "msg_pk": int(msg_pk),
+                    "link": _fo_msg_link(m["tg_chat_id"], m["msg_id"])}
+            await c.execute("UPDATE fo_ai_task SET extra = coalesce(extra, '[]'::jsonb) || $2::jsonb WHERE id=$1",
+                            int(dup["id"]), _fo_json.dumps([item], ensure_ascii=False))
+            if dup["status"] == "accepted" and dup["task_once_id"]:
+                when = m["msg_at"].astimezone(_FO_MSK).strftime("%d.%m %H:%M") if m["msg_at"] else ""
+                try:
+                    await c.execute("UPDATE fo_task_once SET note = coalesce(note, '') || $2 WHERE id=$1",
+                                    dup["task_once_id"], "\nУточнение клиента (%s, %s): «%s»" % (
+                                        m["author"] or "клиент", when, (m["text"] or "")[:600]))
+                except Exception:
+                    pass
+            await c.execute("UPDATE fo_chat_msg SET ai_state='clarify', ai_note=$3, ai_tokens=$2 WHERE id=$1",
+                            msg_pk, tokens, note)
+    if dup:
+        try:
+            react = await _fo_aio.to_thread(_fo_tg_react_emo_sync, m["tg_chat_id"], m["msg_id"], ("\u270D", "\U0001F440"))
+            async with pool().acquire() as c:
+                await c.execute("UPDATE fo_chat_msg SET ai_note=$2 WHERE id=$1", msg_pk, (note + " · " + react)[:300])
+        except Exception:
+            pass
+        return {"state": "clarify", "к_задаче": int(dup["id"]), "как_понял": dup_how, "ai": js}
+    async with pool().acquire() as c:
         code = str(js.get("function_code") or "").strip()
         fn = next((f for f in fns if str(f["code"]).lower() == code.lower()), None) if code else None
         fn_id = fn["id"] if fn else None
@@ -2376,7 +2480,7 @@ async def _fo_ai_process(msg_pk, dry=False, use_prev=True):
             await c.execute("UPDATE fo_chat_msg SET ai_state='task', ai_tokens=$2 WHERE id=$1", msg_pk, tokens)
             return {"state": "task", "ai": js, "ответственный": (cands[0]["name"] if cands else None),
                     "почему": (cands[0]["why"] if cands else []), "функция": (fn["code"] + " " + fn["name"]) if fn else None,
-                    "контекст": [p_["text"][:120] for p_ in reversed(prev)]}
+                    "контекст": ctx_list}
         a_uids, a_name, a_emp = await _fo_ai_approvers(c, m["org_id"])
         a_uid = a_uids[0] if a_uids else None
         try:
@@ -2384,7 +2488,6 @@ async def _fo_ai_process(msg_pk, dry=False, use_prev=True):
         except Exception:
             mins = 30
         dl = _fo_ai_deadline(js.get("deadline"))
-        title = str(js.get("title") or m["text"] or "")[:300].strip() or "Задача из чата"
         rid = await c.fetchval(
             """INSERT INTO fo_ai_task (org_id, client_id, cabinet_id, msg_pk, tg_chat_id, msg_id, msg_link, quote, author, msg_at,
                                        title, fn_id, employee_id, candidates, urgent, deadline, minutes, why, goal,
@@ -2513,7 +2616,7 @@ def _fo_ai_row(r):
         if d.get(k) is not None:
             d[k] = str(d[k])
     d["approver_users"] = [str(x) for x in (d.get("approver_users") or [])]
-    for k in ("candidates", "ai_raw"):
+    for k in ("candidates", "ai_raw", "extra"):
         if isinstance(d.get(k), str):
             try:
                 d[k] = _fo_json.loads(d[k])
@@ -2613,6 +2716,18 @@ async def fo_ai_decide(ai_id: str, body: FoAiDecideIn, p: Principal = Depends(cu
             ("\nОткрыть в чате: " + a["msg_link"]) if a["msg_link"] else "",
             ("\nДедлайн: " + a["deadline"].astimezone(_FO_MSK).strftime("%d.%m %H:%M")) if a["deadline"] else "",
             ("\nКомментарий: " + note) if note else "")
+        ex = a["extra"] if "extra" in a.keys() else None
+        if isinstance(ex, str):
+            try:
+                ex = _fo_json.loads(ex)
+            except Exception:
+                ex = []
+        for it in (ex or [])[:10]:
+            try:
+                w = _fo_dt.datetime.fromisoformat(it.get("at")).astimezone(_FO_MSK).strftime("%d.%m %H:%M") if it.get("at") else ""
+            except Exception:
+                w = ""
+            full += "\nУточнение клиента (%s, %s): «%s»" % (it.get("author") or "клиент", w, str(it.get("text") or "")[:400])
         tid = await c.fetchval(
             "INSERT INTO fo_task_once (org_id, title, client_id, employee_id, fn_id, day, dow, minutes, kind, note, created_by) "
             "VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING id",
@@ -2651,14 +2766,14 @@ async def fo_ai_test(body: FoAiTestIn, p: Principal = Depends(max_level(2))):
 
 
 @router.get("/ai/status")
-async def fo_ai_status(p: Principal = Depends(max_level(4))):
+async def fo_ai_status(n: int = 5, p: Principal = Depends(max_level(4))):
     async with pool().acquire() as c:
         msgs = await c.fetchval("SELECT count(*) FROM fo_chat_msg WHERE org_id=$1 AND msg_at > now() - interval '1 day'", p.org_id)
         pend = await c.fetchval("SELECT count(*) FROM fo_ai_task WHERE org_id=$1 AND status='pending'", p.org_id)
         toks = await c.fetchval("SELECT COALESCE(sum(ai_tokens),0) FROM fo_chat_msg WHERE org_id=$1 "
                                 "AND msg_at > date_trunc('month', now())", p.org_id)
         last = await c.fetch("SELECT author, left(text, 80) AS text, ai_state, ai_note, msg_at FROM fo_chat_msg "
-                             "WHERE org_id=$1 ORDER BY id DESC LIMIT 5", p.org_id)
+                             "WHERE org_id=$1 ORDER BY id DESC LIMIT $2", p.org_id, max(1, min(100, int(n or 5))))
     return {"yandex": _fo_ai_ready(), "model": _fo_env("YC_MODEL") or "yandexgpt-lite/latest",
             "сообщений_за_сутки": int(msgs or 0), "ждут_согласования": int(pend or 0),
             "токенов_за_месяц": int(toks or 0), "последние": [dict(r) for r in last]}
@@ -2728,7 +2843,6 @@ async def fo_ai_rules_set(body: FoAiRuleIn, p: Principal = Depends(max_level(2))
             "ON CONFLICT (kind, ref_id) DO UPDATE SET data = fo_card.data || EXCLUDED.data, updated_at = now()",
             "ai:" + str(p.org_id), p.org_id, _fo_json.dumps({"rules": rules}, ensure_ascii=False))
     return {"ok": True, "rules": rules}
-
 '''
 
 ADD_MAIN = r'''
