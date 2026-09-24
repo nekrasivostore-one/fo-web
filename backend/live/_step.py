@@ -2860,6 +2860,33 @@ except Exception as _e:
 # ── ящик для ключей: секрет едет на сервер зашифрованным, мимо переписки и GitHub ──
 p("")
 p("== ЯЩИК ДЛЯ КЛЮЧЕЙ ==")
+# ключ из «Ключи ФО.txt»: приехал зашифрованным (ключ шифра — токен бота, он есть и на Маке, и здесь)
+_FO_BLOB = "U2FsdGVkX19FhBQD3zjkSzqiLWGScWceChoGlIqtgZj51NhFK7fQvFVVryCtJeXdIGob9EnRaeLA/gSJYELFqSw6oIdP4mHiKox9Z6sHQiFXPUgiGqQSDqQ3wDcYX/X1E/mGQshFz1JYIMIMF+3jWg=="
+if _FO_BLOB and not _FO_BLOB.startswith("__"):
+    try:
+        _bt = ""
+        for _ln in open("/opt/fo/.env", encoding="utf-8"):
+            if _ln.startswith("TG_BOT_TOKEN="): _bt = _ln.split("=", 1)[1].strip().strip('"').strip("'")
+        _r = subprocess.run(["openssl", "enc", "-d", "-aes-256-cbc", "-pbkdf2", "-iter", "100000", "-a", "-A", "-pass", "env:FOK"],
+                            input=_FO_BLOB + "\n", capture_output=True, text=True, timeout=30, env=dict(os.environ, FOK=_bt))
+        _got = {}
+        for _ln in (_r.stdout or "").splitlines():
+            if "=" not in _ln: continue
+            _k, _v = _ln.split("=", 1); _k = _k.strip(); _v = _v.strip()
+            if _k == "YC_API_KEY" and re.match(r"^AQVN[A-Za-z0-9_\-]{20,}$", _v): _got[_k] = _v
+            if _k == "YC_FOLDER_ID" and re.match(r"^b1g[a-z0-9]{10,}$", _v): _got[_k] = _v
+        if len(_got) == 2:
+            _envp = "/opt/fo/.env"
+            _lines = [l for l in open(_envp, encoding="utf-8").read().splitlines() if l.split("=", 1)[0].strip() not in _got]
+            _lines += ["%s=%s" % (k, v) for k, v in _got.items()]
+            open(_envp, "w", encoding="utf-8").write("\n".join(_lines) + "\n"); os.chmod(_envp, 0o600)
+            sh("systemctl restart fo"); sh("sleep 3")
+            p("ключ Яндекса из «Ключи ФО.txt» записан на сервер: YC_API_KEY (знаков %d), YC_FOLDER_ID; заглушка убрана; health:" % len(_got["YC_API_KEY"]),
+              sh("curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8000/health").strip())
+        else:
+            p("зашифрованный ключ не расшифровался (токен бота на Маке и на сервере разный?)")
+    except Exception as _e:
+        p("ключ из txt: ошибка", str(_e)[:200])
 try:
     _KB = "/opt/fo/.keybox"
     os.makedirs(_KB, exist_ok=True); os.chmod(_KB, 0o700)
