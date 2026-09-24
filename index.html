@@ -4076,6 +4076,26 @@ td small{ color:var(--ink-3); font-size:10.5px }
 .fo-arts > .ccdh .fo-delall{ margin-left:auto; width:auto; flex:0 0 auto; text-transform:none; letter-spacing:0;
   color:#c2394f; border-color:rgba(194,57,79,.45); font-weight:600 }
 .fo-arts > .ccdh .fo-delall.arm{ background:#c2394f; color:#fff; border-color:#c2394f }
+
+/* ===== add101: задачи от ИИ из чатов — на согласовании (202) ===== */
+.fo-aipane{ display:flex; flex-direction:column; gap:10px; margin-bottom:10px }
+.fo-aih{ font-size:12px; font-weight:600; color:#6d4bd8; text-transform:uppercase; letter-spacing:.03em }
+.fo-aicard{ padding:12px 14px; border-radius:14px; background:rgba(109,75,216,.06); box-shadow:inset 0 0 0 1px rgba(109,75,216,.22) }
+.fo-aitop{ display:flex; flex-wrap:wrap; align-items:center; gap:6px 10px; font-size:12.5px; margin-bottom:8px }
+.fo-aibadge{ padding:2px 8px; border-radius:8px; background:#6d4bd8; color:#fff; font-size:11px; font-weight:600 }
+.fo-aiurg{ padding:2px 8px; border-radius:8px; background:#c2394f; color:#fff; font-size:11px; font-weight:600 }
+.fo-aidl, .fo-aifn, .fo-aiwho{ color:var(--ink-3); font-size:12px }
+.fo-aititle{ width:100%; box-sizing:border-box; font-weight:600; margin-bottom:6px }
+.fo-aiwhy{ font-size:12.5px; margin:2px 0 }
+.fo-aiq{ margin:8px 0; padding:8px 12px; border-left:3px solid rgba(109,75,216,.5); background:rgba(255,255,255,.55); border-radius:0 10px 10px 0; font-size:12.5px; white-space:pre-wrap }
+.fo-aiq span{ display:block; margin-top:4px; color:var(--ink-3); font-size:11.5px; white-space:normal }
+.fo-airow{ display:flex; flex-wrap:wrap; align-items:center; gap:8px 14px; font-size:12px; margin-top:6px }
+.fo-airow label{ display:inline-flex; align-items:center; gap:6px }
+.fo-airow .sel.sm, .fo-airow .gsl{ min-width:220px }
+.fo-airow .fo-aimin{ width:70px }
+.fo-aiwhy2{ font-size:11.5px; color:var(--ink-3); margin-top:6px }
+.fo-aibtns{ display:flex; gap:8px; margin-top:10px }
+.fo-aibtns .bt{ width:auto; flex:0 0 auto }
 </style>
 </head>
 <body>
@@ -26891,6 +26911,140 @@ window.addEventListener("click", function(e){
     })
     .catch(function(err){ b.disabled = false; b.classList.remove("arm"); b.textContent = "Удалить все артикулы: " + n; try{ toast("Не удалилось: " + (err && err.message || "сервер не ответил")); }catch(x){} });
 }, true);
+
+/* ===== add101: задачи от ИИ из чатов с клиентом — на согласовании (202, С11)
+   Виталий: «ИИ не ставит задачу сам — отправляет на согласование, чтобы я
+   увидел её (или проджект, или главный менеджер). Пометка, что задачу увидел
+   ИИ в чате с клиентом и поставил ИИ. Два предложения: зачем задача и какая
+   конечная цель». Сервер (v32): сообщение клиента → YandexGPT → предложение
+   с ответственным (кто ведёт кабинет / умеет функцию / свободнее) и
+   согласующим (главный менеджер кабинета, иначе собственник).
+   Здесь: в «Задачах дня» кнопка «На согласование · N» считает и задачи от
+   ИИ; в раскрытой панели сверху — карточки «ИИ · из чата с клиентом»:
+   что сделать (можно поправить), кабинет, срочность, дедлайн, зачем, цель,
+   цитата клиента со ссылкой «открыть в чате», ответственный (кандидаты с
+   причинами), день, минуты → «Принять — поставить» / «Отклонить».
+   После «Принять» задача у ответственного, в названии «ИИ · …».            */
+
+var FO_AI = [];
+var FO_AI_BUSY = {};
+function foAiLoad(){
+  if(typeof foLive === "function" && !foLive()) return Promise.resolve();
+  return api("/refs/ai/tasks").then(function(r){ FO_AI = Array.isArray(r) ? r : []; })
+    .catch(function(){ FO_AI = FO_AI || []; });
+}
+function foAiPending(){ return (FO_AI || []).filter(function(a){ return a.status === "pending"; }); }
+(function(){
+  if(typeof foReviewsLoad === "function"){
+    var _rl = foReviewsLoad;
+    foReviewsLoad = function(){ var a = _rl.apply(this, arguments); return Promise.all([a, foAiLoad()]).then(function(v){ return v[0]; }); };
+  }
+  var tries = 0;
+  (function first(){
+    tries++; if(tries > 40) return;
+    var ok = false; try{ ok = typeof foLive === "function" && foLive() && S && S.people && S.people.length; }catch(e){}
+    if(!ok){ setTimeout(first, 800); return; }
+    foAiLoad().then(function(){ try{ render(); }catch(e){} });
+  })();
+  setInterval(function(){ if(document.hidden) return; var n = foAiPending().length; foAiLoad().then(function(){ if(foAiPending().length !== n){ try{ render(); }catch(e){} } }); }, 60000);
+})();
+
+function foAiDate(v){ if(!v) return ""; var d = new Date(v); if(isNaN(d)) return ""; return ("0"+d.getDate()).slice(-2)+"."+("0"+(d.getMonth()+1)).slice(-2)+" "+("0"+d.getHours()).slice(-2)+":"+("0"+d.getMinutes()).slice(-2); }
+function foAiIso(v){ var d = v ? new Date(v) : new Date(); if(isNaN(d)) d = new Date(); return d.getFullYear()+"-"+("0"+(d.getMonth()+1)).slice(-2)+"-"+("0"+d.getDate()).slice(-2); }
+function foAiCard(a){
+  var cands = Array.isArray(a.candidates) ? a.candidates : [];
+  var seen = {}, opts = '<option value="">— выберите ответственного —</option>';
+  cands.forEach(function(c){ seen[c.employee_id] = 1;
+    opts += '<option value="'+esc(c.employee_id)+'"'+(String(a.employee_id) === String(c.employee_id) ? ' selected' : '')+'>'+esc(c.name)+(c.why && c.why.length ? ' — '+esc(c.why.join(", ")) : '')+'</option>'; });
+  var rest = (S.people || []).filter(function(p){ return !seen[String(p.id)]; });
+  if(rest.length) opts += '<option disabled>── вся команда ──</option>' + rest.map(function(p){
+    return '<option value="'+esc(p.id)+'"'+(String(a.employee_id) === String(p.id) ? ' selected' : '')+'>'+esc(p.name)+'</option>'; }).join("");
+  var pick = cands.filter(function(c){ return String(c.employee_id) === String(a.employee_id); })[0];
+  return '<div class="fo-aicard" data-foai="'+esc(a.id)+'">'+
+    '<div class="fo-aitop"><span class="fo-aibadge">ИИ · из чата с клиентом</span><b>'+esc(a.client_name || "")+'</b>'+
+      (a.urgent ? '<span class="fo-aiurg">срочно</span>' : '')+
+      (a.deadline ? '<span class="fo-aidl">дедлайн '+esc(foAiDate(a.deadline))+'</span>' : '')+
+      (a.fn_name ? '<span class="fo-aifn">'+esc(a.fn_code || "")+' '+esc(a.fn_name)+'</span>' : '')+
+      (a.mine ? '' : '<span class="fo-aiwho">согласует: '+esc(a.approver_name || a.approver_label || "—")+'</span>')+'</div>'+
+    '<input class="fi sm fo-aititle" data-foait value="'+esc(a.title || "")+'">'+
+    (a.why ? '<div class="fo-aiwhy"><b>Зачем:</b> '+esc(a.why)+'</div>' : '')+
+    (a.goal ? '<div class="fo-aiwhy"><b>Цель:</b> '+esc(a.goal)+'</div>' : '')+
+    '<blockquote class="fo-aiq">«'+esc(a.quote || "")+'»<span>— '+esc(a.author || "клиент")+(a.msg_at ? ', '+esc(foAiDate(a.msg_at)) : '')+
+      (a.msg_link ? ' · <a href="'+esc(a.msg_link)+'" target="_blank" rel="noopener">открыть в чате ↗</a>' : '')+'</span></blockquote>'+
+    '<div class="fo-airow">'+
+      '<label>Ответственный <select class="sel sm" data-foaiemp>'+opts+'</select></label>'+
+      '<label>День <input class="fi sm" type="date" data-foaiday value="'+esc(foAiIso(a.deadline))+'"></label>'+
+      '<label>Минут <input class="fi sm fo-aimin" type="number" min="5" max="480" data-foaimin value="'+esc(a.minutes || 30)+'"></label>'+
+      '<label class="fo-chk"><input type="checkbox" data-foaiurg'+(a.urgent ? ' checked' : '')+'> срочно</label>'+
+    '</div>'+
+    (pick && pick.why && pick.why.length ? '<div class="fo-aiwhy2">ИИ предложил '+esc(pick.name)+': '+esc(pick.why.join(", "))+'</div>' : '')+
+    '<div class="fo-aibtns"><button class="bt sm pri" data-foaiok>Принять — поставить</button>'+
+      '<button class="bt sm gh2" data-foaino>Отклонить</button></div>'+
+  '</div>';
+}
+
+(function(){
+  if(typeof foDayExtras !== "function") return;
+  var _fx = foDayExtras;
+  foDayExtras = function(el){
+    _fx.apply(this, arguments);
+    try{
+      if(typeof foLive === "function" && !foLive()) return;
+      var ai = foAiPending();
+      var rv = (typeof foMyReviews === "function") ? foMyReviews().length : 0;
+      var btn = el.querySelector("#foRevBtn");
+      if(btn){
+        var n = rv + ai.length;
+        btn.textContent = "На согласование" + (n ? " · " + n : "") + (ai.length ? " (ИИ " + ai.length + ")" : "");
+        btn.classList.toggle("fo-blink", !!n); btn.classList.toggle("on", !!n);
+      }
+      if(foRevOpen && ai.length){
+        var pane = el.querySelector(".fo-revpane");
+        if(pane){
+          if(!rv) pane.innerHTML = "";
+          var w = document.createElement("div"); w.className = "fo-aipane";
+          w.innerHTML = '<div class="fo-aih">От ИИ из чатов с клиентами · ' + ai.length + '</div>' + ai.map(foAiCard).join("");
+          pane.insertBefore(w, pane.firstChild);
+          try{ if(typeof enhanceSelects === "function") enhanceSelects(w); }catch(x){}
+        }
+      }
+    }catch(e){}
+  };
+})();
+
+window.addEventListener("click", function(e){
+  var b = e.target.closest && (e.target.closest("[data-foaiok]") || e.target.closest("[data-foaino]"));
+  if(!b) return;
+  e.preventDefault(); e.stopImmediatePropagation();
+  var card = b.closest(".fo-aicard"), id = card && card.getAttribute("data-foai");
+  if(!id || FO_AI_BUSY[id]) return;
+  var ok = b.hasAttribute("data-foaiok");
+  var get = function(s){ var x = card.querySelector(s); return x ? x : {}; };
+  var body = {ok: ok};
+  if(ok){
+    body.employee_id = get("[data-foaiemp]").value || "";
+    if(!body.employee_id){ try{ toast("Выберите ответственного"); }catch(x){} return; }
+    body.title = String(get("[data-foait]").value || "").trim();
+    body.day = get("[data-foaiday]").value || null;
+    body.minutes = +get("[data-foaimin]").value || null;
+    body.urgent = !!get("[data-foaiurg]").checked;
+  }
+  FO_AI_BUSY[id] = true; b.disabled = true; b.textContent = ok ? "Ставлю…" : "Отклоняю…";
+  api("/refs/ai/tasks/" + encodeURIComponent(id) + "/decide", {method:"POST", body: body})
+    .then(function(){
+      delete FO_AI_BUSY[id];
+      FO_AI = (FO_AI || []).filter(function(a){ return String(a.id) !== String(id); });
+      var who = ok ? ((S.people || []).filter(function(p){ return String(p.id) === String(body.employee_id); })[0] || {}).name : "";
+      try{ toast(ok ? "Задача поставлена: " + (who || "ответственный") + " · помечена «ИИ»" : "Отклонено — задача не поставлена"); }catch(x){}
+      return (ok && typeof onceLoad === "function") ? onceLoad() : null;
+    })
+    .then(function(){ try{ render(); }catch(x){} })
+    .catch(function(err){ delete FO_AI_BUSY[id]; b.disabled = false; b.textContent = ok ? "Принять — поставить" : "Отклонить";
+      try{ toast("Не получилось: " + (err && err.message || "сервер не ответил")); }catch(x){} });
+}, true);
+
+window.foAiState = function(){ return {ждут: foAiPending().length, всего: (FO_AI || []).length}; };
+window.foAiLoad = foAiLoad;
 
 })();
 </script>
