@@ -2985,9 +2985,12 @@ p(sh("grep -n 'def \\|@router' /opt/fo/backend/app/routers/routing.py | head -60
 p("-- таблицы чатов --")
 p(sh("sudo -u postgres psql -d fo -Atc \"SELECT table_name||': '||string_agg(column_name,', ' ORDER BY ordinal_position) FROM information_schema.columns WHERE table_name IN ('chat','tg_chat','client_chat','chat_message','tg_message','routing_rule','notify_queue') GROUP BY table_name\"")[:2500])
 
-# ── webhook бота → наш приём /refs/tg/hook (тот же секрет); не встал — вернуть штатный ──
+# ── бот: сервер сам забирает сообщения у Telegram (опрос), а не ждёт webhook ──
+# Telegram до сервера достучаться не может («Connection timed out» в getWebhookInfo),
+# а сервер до Telegram — может. Служба fo-tgpoll забирает обновления и отдаёт их
+# в наш приём /refs/tg/hook на этом же сервере (с тем же секретом).
 p("")
-p("== WEBHOOK БОТА ==")
+p("== БОТ: ПРИЁМ СООБЩЕНИЙ ==")
 _tk2 = ""
 try:
     _e2 = {}
@@ -2995,21 +2998,87 @@ try:
         _ln = _ln.strip()
         if "=" in _ln and not _ln.startswith("#"):
             _a, _b = _ln.split("=", 1); _e2[_a.strip()] = _b.strip().strip('"').strip("'")
-    _tk2 = _e2.get("TG_BOT_TOKEN", ""); _sc2 = _e2.get("TG_WEBHOOK_SECRET", "")
+    _tk2 = _e2.get("TG_BOT_TOKEN", "")
     _hc = sh("curl -s -o /dev/null -w '%{http_code}' -X POST http://127.0.0.1:8000/refs/tg/hook -H 'Content-Type: application/json' -d '{}'").strip()
-    _url = "https://fo.flater.pro/refs/tg/hook" if _hc == "403" else "https://fo.flater.pro/chats/telegram/webhook"
     p("наш приём отвечает:", _hc)
-    if _tk2 and _sc2:
-        import json as _wj, urllib.request as _wu, urllib.parse as _wp
-        _q = _wp.urlencode({"url": _url, "secret_token": _sc2,
-                            "allowed_updates": _wj.dumps(["message", "my_chat_member"])}).encode()
-        with _wu.urlopen("https://api.telegram.org/bot%s/setWebhook" % _tk2, data=_q, timeout=15) as _r:
-            _res = _wj.loads(_r.read().decode())
-        p("webhook бота →", _url, "·", "ok" if _res.get("ok") else str(_res).replace(_tk2, "***")[:200])
+    _POLL = """import json, time, urllib.request, urllib.parse
+
+def env():
+    d = {}
+    for ln in open("/opt/fo/.env", encoding="utf-8"):
+        ln = ln.strip()
+        if "=" in ln and not ln.startswith("#"):
+            a, b = ln.split("=", 1)
+            d[a.strip()] = b.strip().strip('"').strip("'")
+    return d
+
+E = env()
+TOK = E.get("TG_BOT_TOKEN", "")
+SEC = E.get("TG_WEBHOOK_SECRET", "")
+API = "https://api.telegram.org/bot%s/" % TOK
+
+def call(m, params, timeout=40):
+    data = urllib.parse.urlencode(params).encode()
+    with urllib.request.urlopen(API + m, data=data, timeout=timeout) as r:
+        return json.loads(r.read().decode())
+
+def hide(x):
+    return str(x).replace(TOK, "***") if TOK else str(x)
+
+while True:
+    try:
+        call("deleteWebhook", {"drop_pending_updates": "false"})
+        break
+    except Exception as e:
+        print("deleteWebhook:", hide(e), flush=True); time.sleep(10)
+off = 0
+print("fo-tgpoll: старт", flush=True)
+while True:
+    try:
+        res = call("getUpdates", {"offset": off, "timeout": 25,
+                                  "allowed_updates": json.dumps(["message", "my_chat_member", "edited_message"])}, timeout=45)
+        for u in res.get("result", []):
+            off = u["update_id"] + 1
+            rq = urllib.request.Request("http://127.0.0.1:8000/refs/tg/hook", data=json.dumps(u).encode(),
+                                        headers={"Content-Type": "application/json", "X-Telegram-Bot-Api-Secret-Token": SEC})
+            try:
+                urllib.request.urlopen(rq, timeout=20).read()
+                c = (u.get("message") or u.get("my_chat_member") or {}).get("chat") or {}
+                print("принято:", c.get("title"), c.get("id"), flush=True)
+            except Exception as e:
+                print("hook:", hide(e), flush=True)
+    except Exception as e:
+        print("poll:", hide(e), flush=True)
+        time.sleep(5)
+"""
+    _UNIT = """[Unit]
+Description=FO: бот забирает сообщения из Telegram (опрос) и отдаёт в /refs/tg/hook
+After=network-online.target fo.service
+
+[Service]
+ExecStart=/opt/fo/venv/bin/python /opt/fo/tgpoll.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+"""
+    if _hc == "403" and _tk2:
+        open("/opt/fo/tgpoll.py", "w", encoding="utf-8").write(_POLL)
+        open("/etc/systemd/system/fo-tgpoll.service", "w", encoding="utf-8").write(_UNIT)
+        sh("systemctl daemon-reload; systemctl enable fo-tgpoll >/dev/null 2>&1; systemctl restart fo-tgpoll; sleep 4")
+        p("служба fo-tgpoll:", sh("systemctl is-active fo-tgpoll").strip())
+        p(sh("journalctl -u fo-tgpoll -n 8 --no-pager -o cat").replace(_tk2, "***")[-1200:])
     else:
-        p("токена или секрета бота нет — webhook не трогаю")
+        sh("systemctl stop fo-tgpoll >/dev/null 2>&1")
+        import json as _wj, urllib.request as _wu, urllib.parse as _wp
+        _sc2 = _e2.get("TG_WEBHOOK_SECRET", "")
+        if _tk2 and _sc2:
+            _q = _wp.urlencode({"url": "https://fo.flater.pro/chats/telegram/webhook", "secret_token": _sc2}).encode()
+            with _wu.urlopen("https://api.telegram.org/bot%s/setWebhook" % _tk2, data=_q, timeout=15) as _r:
+                p("наш приём не встал — вернул штатный webhook:", _wj.loads(_r.read().decode()).get("ok"))
 except Exception as _e:
-    p("webhook бота не переключился:", (str(_e).replace(_tk2, "***") if _tk2 else str(_e))[:200])
+    p("приём сообщений бота: ошибка", (str(_e).replace(_tk2, "***") if _tk2 else str(_e))[:200])
 
 p("")
 p("== ЧАТЫ КЛИЕНТОВ ==")
