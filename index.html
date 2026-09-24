@@ -27149,7 +27149,7 @@ function foAiSelIds(){
 }
 function foAiFiltHTML(){
   var all = foAiPending(), gr = foAiGroups(all);
-  if(gr.length < 2 && !FO_AI_FILTER) return "";
+  if(!all.length) return "";
   return '<div class="fo-aifilt"><span class="fo-aifl">Кабинет:</span>'+
     '<button class="fo-aichip'+(FO_AI_FILTER ? '' : ' on')+'" data-foaifilt="">Все · '+all.length+'</button>'+
     gr.map(function(g){ return '<button class="fo-aichip'+(FO_AI_FILTER === g.id ? ' on' : '')+'" data-foaifilt="'+esc(g.id)+'">'+esc(g.name)+' · '+g.n+'</button>'; }).join("")+
