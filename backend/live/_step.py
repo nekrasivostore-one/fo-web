@@ -377,10 +377,39 @@ CREATE TABLE IF NOT EXISTS pwd_code (
 );
 CREATE INDEX IF NOT EXISTS pwd_code_user_idx ON pwd_code (user_id, made_at DESC);
 
+CREATE TABLE IF NOT EXISTS fo_chat_msg (
+  id bigserial PRIMARY KEY,
+  org_id uuid NOT NULL,
+  client_id uuid,
+  chat_pk bigint,
+  kind text,
+  tg_chat_id text NOT NULL,
+  msg_id bigint NOT NULL,
+  author text,
+  author_tg text,
+  text text NOT NULL DEFAULT '',
+  msg_at timestamptz,
+  ai_state text,
+  ai_note text,
+  ai_tokens int,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (tg_chat_id, msg_id));
+CREATE TABLE IF NOT EXISTS fo_ai_task (
+  id bigserial PRIMARY KEY,
+  org_id uuid NOT NULL,
+  client_id uuid, cabinet_id uuid, msg_pk bigint, tg_chat_id text, msg_id bigint, msg_link text,
+  quote text, author text, msg_at timestamptz,
+  title text NOT NULL, fn_id uuid, employee_id uuid, candidates jsonb, urgent boolean NOT NULL DEFAULT false,
+  deadline timestamptz, minutes int, why text, goal text,
+  approver_employee_id uuid, approver_user_id uuid, approver_label text,
+  status text NOT NULL DEFAULT 'pending', decided_by uuid, decided_at timestamptz, decision_note text,
+  task_once_id bigint, ai_raw jsonb, created_at timestamptz NOT NULL DEFAULT now());
+CREATE INDEX IF NOT EXISTS fo_ai_task_org_idx ON fo_ai_task (org_id, status, created_at);
+
 ALTER TABLE app_user ADD COLUMN IF NOT EXISTS phone text;
 ALTER TABLE app_user ADD COLUMN IF NOT EXISTS display_name text;
 
-GRANT SELECT, INSERT, UPDATE, DELETE ON fo_card, fo_task_once, org_invite, pwd_code, fo_cabinet_fn_cfg, fo_task_report, fo_link_pref, fo_task_review, fo_shadow_log TO fo;
+GRANT SELECT, INSERT, UPDATE, DELETE ON fo_card, fo_task_once, org_invite, pwd_code, fo_cabinet_fn_cfg, fo_task_report, fo_link_pref, fo_task_review, fo_shadow_log, fo_chat_msg, fo_ai_task TO fo;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO fo;
 
 -- задача генератора на кабинет+функцию+день одна: дубли (гонка воркеров) убрать, индекс поставить
@@ -2015,6 +2044,495 @@ async def fo_step_report(p: Principal = Depends(max_level(1))):
             return {"ok": True, "text": _f.read()}
     except Exception as e:
         return {"ok": False, "text": "отчёта нет: %s" % e}
+
+# ══ ИИ ИЗ ЧАТОВ (С11, этап 1) ════════════════════════════════════
+# Клиент пишет в чат кабинета → Telegram шлёт сообщение сюда (свой
+# webhook, с тем же секретом, что штатный) → сообщение хранится →
+# YandexGPT разбирает: задача ли это, что сделать, функция, срочность,
+# дедлайн, зачем и конечная цель → сервер по правилам подбирает
+# ответственного из людей кабинета и согласующего (главный менеджер /
+# проджект кабинета, иначе собственник) → предложение ждёт «Принять».
+# Ответственному задача ставится только после согласования.
+import asyncio as _fo_aio
+import os as _fo_os
+import time as _fo_time
+import datetime as _fo_dt
+import urllib.request as _fo_ur
+from fastapi import Request as _FoReq
+
+_FO_MSK = _fo_dt.timezone(_fo_dt.timedelta(hours=3))
+_FO_ENVC = {"t": 0.0, "v": {}}
+
+
+def _fo_env(k):
+    if _fo_time.time() - _FO_ENVC["t"] > 30:
+        d = {}
+        try:
+            for ln in open("/opt/fo/.env", encoding="utf-8"):
+                ln = ln.strip()
+                if ln and not ln.startswith("#") and "=" in ln:
+                    a, b = ln.split("=", 1)
+                    d[a.strip()] = b.strip().strip('"').strip("'")
+        except Exception:
+            pass
+        _FO_ENVC["t"] = _fo_time.time()
+        _FO_ENVC["v"] = d
+    return _fo_os.environ.get(k) or _FO_ENVC["v"].get(k, "")
+
+
+def _fo_ai_ready():
+    return bool(_fo_env("YC_API_KEY") and _fo_env("YC_FOLDER_ID"))
+
+
+_FO_AI_SKIP = re.compile(r"^\s*(спасибо|спс|благодарю|ок|окей|ok|хорошо|понял|поняла|принято|да|нет|угу|ага|супер|отлично|класс|👍|🙏|👌|\+)[\s!.)]*$", re.I)
+
+_FO_AI_SYS = (
+    "Ты — ассистент digital-агентства, которое ведёт кабинеты продавцов на Wildberries и OZON: реклама, цены, "
+    "карточки товаров, аналитика, поставки, отзывы. Тебе дают новое сообщение из чата с клиентом и контекст. "
+    "Реши, просит ли клиент агентство что-то сделать (это задача), или это вопрос, благодарность, информация без действия.\n"
+    "Если это задача — сформулируй её для менеджера агентства коротко и по делу, в повелительном наклонении "
+    "(например: «Снизить цену на артикул 153667602 до 1990 ₽»).\n"
+    "function_code — код функции только из списка функций кабинета, если подходит; иначе null.\n"
+    "urgent=true — если клиент просит сегодня, срочно, сейчас, до конкретного часа, или это останавливает продажи.\n"
+    "deadline — дата и время по Москве в формате YYYY-MM-DD HH:MM, если срок назван или очевиден; иначе null.\n"
+    "why — одно предложение: зачем делается задача, что за ней стоит у клиента.\n"
+    "goal — одно предложение: какая конечная цель, какой результат для бизнеса клиента.\n"
+    "minutes — сколько минут это займёт у менеджера, число от 5 до 240.\n"
+    "Ответь только JSON, без пояснений и без markdown:\n"
+    "{\"is_task\": true, \"title\": \"...\", \"function_code\": null, \"urgent\": false, \"deadline\": null, "
+    "\"why\": \"...\", \"goal\": \"...\", \"minutes\": 30}"
+)
+
+
+def _fo_ygpt_sync(messages, max_tokens=600):
+    key = _fo_env("YC_API_KEY")
+    folder = _fo_env("YC_FOLDER_ID")
+    model = _fo_env("YC_MODEL") or "yandexgpt-lite/latest"
+    if not key or not folder:
+        raise RuntimeError("нет ключа Яндекса на сервере")
+    body = _fo_json.dumps({"modelUri": "gpt://%s/%s" % (folder, model),
+                           "completionOptions": {"stream": False, "temperature": 0.1, "maxTokens": max_tokens},
+                           "messages": messages}).encode()
+    rq = _fo_ur.Request("https://llm.api.cloud.yandex.net/foundationModels/v1/completion", data=body,
+                        headers={"Authorization": "Api-Key " + key, "x-folder-id": folder,
+                                 "Content-Type": "application/json"})
+    with _fo_ur.urlopen(rq, timeout=45) as r:
+        res = _fo_json.loads(r.read().decode())
+    res = res.get("result") or {}
+    txt = (((res.get("alternatives") or [{}])[0].get("message")) or {}).get("text", "")
+    usage = res.get("usage") or {}
+    return txt, usage
+
+
+def _fo_ai_json(txt):
+    s = str(txt or "")
+    a, b = s.find("{"), s.rfind("}")
+    if a < 0 or b <= a:
+        return None
+    try:
+        return _fo_json.loads(s[a:b + 1])
+    except Exception:
+        try:
+            return _fo_json.loads(re.sub(r",\s*}", "}", s[a:b + 1]))
+        except Exception:
+            return None
+
+
+def _fo_msg_link(tg_chat_id, msg_id):
+    s = str(tg_chat_id or "")
+    if s.startswith("-100") and msg_id:
+        return "https://t.me/c/%s/%s" % (s[4:], msg_id)
+    return None
+
+
+async def _fo_ai_people(c, org_id, cab_id, fn_id):
+    """Кандидаты в ответственные: люди этого кабинета (ведут его функции и артикулы),
+    плюс кто умеет функцию; минус нагрузка сегодня. Собственник и директор — не исполнители."""
+    ppl = {}
+
+    def add(eid, name, score, why):
+        if not eid:
+            return
+        k = str(eid)
+        d = ppl.setdefault(k, {"employee_id": k, "name": name or "", "score": 0.0, "why": []})
+        d["score"] += score
+        if why and why not in d["why"]:
+            d["why"].append(why)
+
+    if cab_id:
+        try:
+            for r in await c.fetch(
+                    "SELECT g.employee_id, g.fn_id, e.name FROM fo_cabinet_fn_cfg g JOIN employee e ON e.id=g.employee_id "
+                    "WHERE g.cabinet_id=$1::uuid AND g.employee_id IS NOT NULL", str(cab_id)):
+                same = fn_id and str(r["fn_id"]) == str(fn_id)
+                add(r["employee_id"], r["name"], 10 if same else 2,
+                    "ведёт эту функцию в кабинете" if same else "ведёт функции этого кабинета")
+        except Exception:
+            pass
+        try:
+            for r in await c.fetch(
+                    "SELECT ao.employee_id, e.name, count(DISTINCT ao.article_id) AS n FROM article_owner ao "
+                    "JOIN article a ON a.id=ao.article_id JOIN employee e ON e.id=ao.employee_id "
+                    "WHERE a.cabinet_id=$1::uuid AND a.is_active GROUP BY 1,2", str(cab_id)):
+                add(r["employee_id"], r["name"], 1, "ведёт артикулы кабинета: %d" % r["n"])
+        except Exception:
+            pass
+    if fn_id:
+        try:
+            for r in await c.fetch(
+                    "SELECT ef.employee_id, e.name FROM employee_fn ef JOIN employee e ON e.id=ef.employee_id "
+                    "WHERE ef.fn_id=$1::uuid AND e.org_id=$2", str(fn_id), org_id):
+                if str(r["employee_id"]) in ppl or not ppl:
+                    add(r["employee_id"], r["name"], 3, "умеет эту функцию")
+        except Exception:
+            pass
+    if not ppl:
+        return []
+    try:
+        top = await c.fetch(
+            "SELECT e.id FROM employee e JOIN app_user u ON u.id=e.user_id "
+            "WHERE e.org_id=$1 AND u.role_code IN ('owner','admin','director')", org_id)
+        for r in top:
+            ppl.pop(str(r["id"]), None)
+    except Exception:
+        pass
+    try:
+        today = _fo_msk_today()
+        for r in await c.fetch(
+                "SELECT assignee_id, count(*) AS n FROM task WHERE plan_date=$1 AND status IN ('planned','review') "
+                "AND assignee_id = ANY($2::uuid[]) GROUP BY 1", today, list(ppl.keys())):
+            d = ppl.get(str(r["assignee_id"]))
+            if d:
+                d["score"] -= 0.3 * int(r["n"])
+                d["why"].append("сегодня задач: %d" % int(r["n"]))
+    except Exception:
+        pass
+    return sorted(ppl.values(), key=lambda x: -x["score"])
+
+
+async def _fo_ai_approver(c, org_id, cand_ids):
+    """Согласующий: главный менеджер, потом проджект — сначала из людей кабинета, потом по агентству; иначе собственник."""
+    try:
+        rows = await c.fetch(
+            "SELECT e.id AS emp, e.name, u.id AS uid, u.role_code FROM employee e JOIN app_user u ON u.id=e.user_id "
+            "WHERE e.org_id=$1 AND u.is_active AND u.role_code IN ('head','project')", org_id)
+    except Exception:
+        rows = []
+    order = {"head": 0, "project": 1}
+    rows = sorted(rows, key=lambda r: (0 if str(r["emp"]) in cand_ids else 1, order.get(r["role_code"], 9)))
+    if rows:
+        r = rows[0]
+        return str(r["emp"]), r["uid"], r["name"]
+    uid = await c.fetchval("SELECT id FROM app_user WHERE org_id=$1 AND role_code='owner' AND is_active "
+                           "ORDER BY created_at LIMIT 1", org_id)
+    return None, uid, "Собственник"
+
+
+def _fo_ai_deadline(s):
+    s = str(s or "").strip()
+    for fmt in ("%Y-%m-%d %H:%M", "%Y-%m-%dT%H:%M", "%Y-%m-%d"):
+        try:
+            return _fo_dt.datetime.strptime(s[:16] if "H" in fmt else s[:10], fmt).replace(tzinfo=_FO_MSK)
+        except Exception:
+            continue
+    return None
+
+
+async def _fo_ai_process(msg_pk):
+    """Разобрать одно сообщение: Яндекс → предложение задачи на согласование."""
+    async with pool().acquire() as c:
+        m = await c.fetchrow("SELECT * FROM fo_chat_msg WHERE id=$1", msg_pk)
+        if not m:
+            return {"state": "нет сообщения"}
+        cab = await c.fetchrow("SELECT cb.id, cl.name FROM cabinet cb JOIN client cl ON cl.id=cb.client_id "
+                               "WHERE cb.client_id=$1::uuid ORDER BY cb.name LIMIT 1", str(m["client_id"]))
+        cab_id = cab["id"] if cab else None
+        fns = []
+        if cab_id:
+            fns = await c.fetch("SELECT f.id, f.code, f.name FROM cabinet_fn cf JOIN fn f ON f.id=cf.fn_id "
+                                "WHERE cf.cabinet_id=$1::uuid ORDER BY f.code", str(cab_id))
+        prev = await c.fetch("SELECT author, text FROM fo_chat_msg WHERE tg_chat_id=$1 AND id<$2 AND text<>'' "
+                             "ORDER BY id DESC LIMIT 4", m["tg_chat_id"], m["id"])
+    now = _fo_dt.datetime.now(_FO_MSK)
+    days = ["понедельник", "вторник", "среда", "четверг", "пятница", "суббота", "воскресенье"]
+    ctx = ("Сейчас: %s (Москва), %s.\nКабинет: %s.\nФункции кабинета:\n%s\n" % (
+        now.strftime("%Y-%m-%d %H:%M"), days[now.weekday()], (cab["name"] if cab else "—"),
+        "\n".join("%s — %s" % (f["code"], f["name"]) for f in fns[:80]) or "(не назначены)"))
+    if prev:
+        ctx += "Предыдущие сообщения чата (старые сверху):\n" + "\n".join(
+            "— %s: %s" % (p_["author"] or "?", (p_["text"] or "")[:300]) for p_ in reversed(prev)) + "\n"
+    ctx += "Новое сообщение (от %s): «%s»" % (m["author"] or "клиент", (m["text"] or "")[:1500])
+    try:
+        txt, usage = await _fo_aio.to_thread(_fo_ygpt_sync, [{"role": "system", "text": _FO_AI_SYS},
+                                                             {"role": "user", "text": ctx}])
+    except Exception as e:
+        async with pool().acquire() as c:
+            await c.execute("UPDATE fo_chat_msg SET ai_state='error', ai_note=$2 WHERE id=$1", msg_pk, str(e)[:300])
+        return {"state": "error", "note": str(e)[:300]}
+    js = _fo_ai_json(txt) or {}
+    tokens = 0
+    try:
+        tokens = int(usage.get("totalTokens") or 0)
+    except Exception:
+        pass
+    async with pool().acquire() as c:
+        if not js.get("is_task"):
+            await c.execute("UPDATE fo_chat_msg SET ai_state='no_task', ai_tokens=$2 WHERE id=$1", msg_pk, tokens)
+            return {"state": "no_task", "ai": js}
+        code = str(js.get("function_code") or "").strip()
+        fn = next((f for f in fns if str(f["code"]).lower() == code.lower()), None) if code else None
+        fn_id = fn["id"] if fn else None
+        cands = await _fo_ai_people(c, m["org_id"], cab_id, fn_id)
+        emp = cands[0]["employee_id"] if cands else None
+        a_emp, a_uid, a_name = await _fo_ai_approver(c, m["org_id"], [x["employee_id"] for x in cands])
+        try:
+            mins = max(5, min(240, int(js.get("minutes") or 30)))
+        except Exception:
+            mins = 30
+        dl = _fo_ai_deadline(js.get("deadline"))
+        title = str(js.get("title") or m["text"] or "")[:300].strip() or "Задача из чата"
+        rid = await c.fetchval(
+            """INSERT INTO fo_ai_task (org_id, client_id, cabinet_id, msg_pk, tg_chat_id, msg_id, msg_link, quote, author, msg_at,
+                                       title, fn_id, employee_id, candidates, urgent, deadline, minutes, why, goal,
+                                       approver_employee_id, approver_user_id, approver_label, ai_raw)
+               VALUES ($1,$2::uuid,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13::uuid,$14::jsonb,$15,$16,$17,$18,$19,$20::uuid,$21,$22,$23::jsonb)
+               RETURNING id""",
+            m["org_id"], str(m["client_id"]), cab_id, msg_pk, m["tg_chat_id"], m["msg_id"],
+            _fo_msg_link(m["tg_chat_id"], m["msg_id"]), (m["text"] or "")[:2000], m["author"], m["msg_at"],
+            title, fn_id, emp, _fo_json.dumps(cands[:6], ensure_ascii=False), bool(js.get("urgent")), dl, mins,
+            str(js.get("why") or "")[:500], str(js.get("goal") or "")[:500], a_emp, a_uid, a_name,
+            _fo_json.dumps(js, ensure_ascii=False))
+        await c.execute("UPDATE fo_chat_msg SET ai_state='task', ai_tokens=$2 WHERE id=$1", msg_pk, tokens)
+    return {"state": "task", "ai_task_id": str(rid), "ai": js}
+
+
+async def _fo_tg_register(upd):
+    """Как штатный webhook: бот добавлен в группу — чат попадает в список чатов агентства."""
+    ev = upd.get("my_chat_member") or upd.get("message") or {}
+    chat = ev.get("chat") or {}
+    if not chat.get("id") or chat.get("type") == "private":
+        return
+    title = chat.get("title") or str(chat["id"])
+    async with pool().acquire() as c:
+        org = await c.fetchval("SELECT org_id FROM chat WHERE chat_id=$1 ORDER BY added_at LIMIT 1", str(chat["id"]))
+        if not org:
+            org = await c.fetchval("SELECT id FROM org ORDER BY created_at LIMIT 1")
+        await c.execute(
+            "INSERT INTO chat (org_id, channel, chat_id, title) VALUES ($1, 'telegram', $2, $3) "
+            "ON CONFLICT (org_id, channel, chat_id) DO UPDATE SET title=EXCLUDED.title, is_active=true",
+            org, str(chat["id"]), title)
+
+
+async def _fo_ai_on_msg(msg):
+    try:
+        chat = msg.get("chat") or {}
+        tg = str(chat.get("id") or "")
+        if not tg or chat.get("type") == "private":
+            return
+        frm = msg.get("from") or {}
+        if frm.get("is_bot"):
+            return
+        text = str(msg.get("text") or msg.get("caption") or "").strip()
+        async with pool().acquire() as c:
+            link = await c.fetchrow(
+                "SELECT ch.id AS chat_pk, ch.org_id, cc.client_id, cc.kind FROM chat ch "
+                "JOIN client_chat cc ON cc.chat_pk = ch.id WHERE ch.chat_id=$1 "
+                "ORDER BY (cc.kind='client') DESC LIMIT 1", tg)
+            if not link:
+                return
+            author = " ".join(x for x in (frm.get("first_name"), frm.get("last_name")) if x) or frm.get("username") or ""
+            at = _fo_dt.datetime.fromtimestamp(int(msg.get("date") or _fo_time.time()), tz=_fo_dt.timezone.utc)
+            pk = await c.fetchval(
+                "INSERT INTO fo_chat_msg (org_id, client_id, chat_pk, kind, tg_chat_id, msg_id, author, author_tg, text, msg_at) "
+                "VALUES ($1,$2::uuid,$3,$4,$5,$6,$7,$8,$9,$10) ON CONFLICT (tg_chat_id, msg_id) DO NOTHING RETURNING id",
+                link["org_id"], str(link["client_id"]), link["chat_pk"], link["kind"], tg, int(msg.get("message_id") or 0),
+                author[:120], str(frm.get("username") or "")[:64], text[:4000], at)
+            if not pk:
+                return
+            why = None
+            if link["kind"] != "client":
+                why = "не чат с клиентом"
+            elif len(text) < 6 or _FO_AI_SKIP.match(text):
+                why = "короткое / благодарность"
+            elif not _fo_ai_ready():
+                why = "нет ключа Яндекса"
+            if why:
+                await c.execute("UPDATE fo_chat_msg SET ai_state='skip', ai_note=$2 WHERE id=$1", pk, why)
+                return
+        await _fo_ai_process(pk)
+    except Exception as e:
+        try:
+            print("fo_ai_on_msg:", e)
+        except Exception:
+            pass
+
+
+@router.post("/tg/hook", include_in_schema=False)
+async def fo_tg_hook(request: _FoReq):
+    secret = _fo_env("TG_WEBHOOK_SECRET")
+    if not secret or request.headers.get("x-telegram-bot-api-secret-token", "") != secret:
+        raise HTTPException(403, "нет")
+    upd = await request.json()
+    try:
+        await _fo_tg_register(upd)
+    except Exception:
+        pass
+    msg = upd.get("message")
+    if msg:
+        _fo_aio.get_running_loop().create_task(_fo_ai_on_msg(msg))
+    return {"ok": True}
+
+
+def _fo_ai_row(r):
+    d = dict(r)
+    for k in ("id", "client_id", "cabinet_id", "fn_id", "employee_id", "approver_employee_id", "approver_user_id",
+              "decided_by", "msg_pk", "task_once_id"):
+        if d.get(k) is not None:
+            d[k] = str(d[k])
+    for k in ("candidates", "ai_raw"):
+        if isinstance(d.get(k), str):
+            try:
+                d[k] = _fo_json.loads(d[k])
+            except Exception:
+                pass
+    return d
+
+
+@router.get("/ai/tasks")
+async def fo_ai_tasks(status: str = "pending", p: Principal = Depends(current)):
+    """Задачи, которые ИИ нашёл в чатах: мои на согласовании; собственнику и директору — все."""
+    uid = _fo_uid(p)
+    lvl = int(getattr(p, "level", 9) or 9)
+    async with pool().acquire() as c:
+        rows = await c.fetch(
+            """SELECT a.*, cl.name AS client_name, e.name AS employee_name, fn.code AS fn_code, fn.name AS fn_name,
+                      ea.name AS approver_name
+                 FROM fo_ai_task a
+                 LEFT JOIN client cl ON cl.id = a.client_id
+                 LEFT JOIN employee e ON e.id = a.employee_id
+                 LEFT JOIN fn ON fn.id = a.fn_id
+                 LEFT JOIN employee ea ON ea.id = a.approver_employee_id
+                WHERE a.org_id=$1 AND ($2 = 'all' OR a.status=$2)
+                ORDER BY a.created_at DESC LIMIT 200""", p.org_id, status)
+    out = []
+    for r in rows:
+        mine = bool(r["approver_user_id"] and str(r["approver_user_id"]) == str(uid))
+        if not (mine or lvl <= 2):
+            continue
+        d = _fo_ai_row(r)
+        d["mine"] = mine
+        out.append(d)
+    return out
+
+
+class FoAiDecideIn(_FoBM):
+    ok: bool = True
+    employee_id: str | None = None
+    title: str | None = None
+    day: str | None = None
+    minutes: int | None = None
+    urgent: bool | None = None
+    note: str | None = None
+
+
+@router.post("/ai/tasks/{ai_id}/decide")
+async def fo_ai_decide(ai_id: str, body: FoAiDecideIn, p: Principal = Depends(current)):
+    """Согласующий принимает (задача ставится ответственному) или отклоняет."""
+    uid = _fo_uid(p)
+    lvl = int(getattr(p, "level", 9) or 9)
+    try:
+        aid = int(str(ai_id))
+    except Exception:
+        raise HTTPException(404, "не найдено")
+    async with pool().acquire() as c:
+        a = await c.fetchrow("SELECT a.*, cl.name AS client_name FROM fo_ai_task a LEFT JOIN client cl ON cl.id=a.client_id "
+                             "WHERE a.id=$1 AND a.org_id=$2", aid, p.org_id)
+        if not a:
+            raise HTTPException(404, "не найдено")
+        if a["status"] != "pending":
+            raise HTTPException(409, "уже решено")
+        mine = a["approver_user_id"] and str(a["approver_user_id"]) == str(uid)
+        if not mine and lvl > 4:
+            raise HTTPException(403, "решает согласующий, собственник, директор или РМ")
+        note = (body.note or "").strip()[:1000] or None
+        if not body.ok:
+            await c.execute("UPDATE fo_ai_task SET status='rejected', decided_by=$2, decided_at=now(), decision_note=$3 WHERE id=$1",
+                            aid, uid, note)
+            return {"ok": True, "status": "rejected"}
+        emp = (body.employee_id or "").strip() or (str(a["employee_id"]) if a["employee_id"] else "")
+        if not emp:
+            raise HTTPException(400, "выберите ответственного")
+        ok = await c.fetchval("SELECT 1 FROM employee WHERE id=$1::uuid AND org_id=$2", emp, p.org_id)
+        if not ok:
+            raise HTTPException(400, "ответственный не из этого агентства")
+        title = (body.title or "").strip() or a["title"]
+        urgent = a["urgent"] if body.urgent is None else bool(body.urgent)
+        day = None
+        if body.day:
+            try:
+                day = _fo_dt.date.fromisoformat(str(body.day)[:10])
+            except Exception:
+                day = None
+        if not day and a["deadline"]:
+            day = a["deadline"].astimezone(_FO_MSK).date()
+        if not day:
+            day = _fo_msk_today()
+        mins = max(1, min(2880, int(body.minutes or a["minutes"] or 30)))
+        who = await c.fetchval("SELECT name FROM employee WHERE user_id=$1 AND org_id=$2 LIMIT 1", uid, p.org_id)
+        when = a["msg_at"].astimezone(_FO_MSK).strftime("%d.%m %H:%M") if a["msg_at"] else ""
+        full = ("[ИИ] Увидел ИИ в чате с клиентом («%s»), поставил ИИ; согласовал(а): %s.\n"
+                "Зачем: %s\nЦель: %s\nСообщение (%s, %s): «%s»%s%s%s") % (
+            a["client_name"] or "", who or "согласующий", a["why"] or "—", a["goal"] or "—",
+            a["author"] or "клиент", when, (a["quote"] or "")[:600],
+            ("\nОткрыть в чате: " + a["msg_link"]) if a["msg_link"] else "",
+            ("\nДедлайн: " + a["deadline"].astimezone(_FO_MSK).strftime("%d.%m %H:%M")) if a["deadline"] else "",
+            ("\nКомментарий: " + note) if note else "")
+        tid = await c.fetchval(
+            "INSERT INTO fo_task_once (org_id, title, client_id, employee_id, fn_id, day, dow, minutes, kind, note, created_by) "
+            "VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING id",
+            p.org_id, ("ИИ · " + title)[:300], str(a["client_id"]) if a["client_id"] else None, emp,
+            str(a["fn_id"]) if a["fn_id"] else None, day, day.weekday(), mins, "urg" if urgent else "once", full, uid)
+        await c.execute("UPDATE fo_ai_task SET status='accepted', decided_by=$2, decided_at=now(), decision_note=$3, "
+                        "task_once_id=$4, employee_id=$5::uuid, title=$6 WHERE id=$1", aid, uid, note, tid, emp, title)
+    return {"ok": True, "status": "accepted", "task_once_id": str(tid)}
+
+
+class FoAiTestIn(_FoBM):
+    client_id: str
+    text: str
+    author: str | None = None
+
+
+@router.post("/ai/test")
+async def fo_ai_test(body: FoAiTestIn, p: Principal = Depends(max_level(2))):
+    """Проверка без Telegram: как будто клиент написал это в чат кабинета."""
+    if not _fo_ai_ready():
+        raise HTTPException(409, "на сервере нет ключа Яндекса")
+    async with pool().acquire() as c:
+        ok = await c.fetchval("SELECT 1 FROM client WHERE id=$1::uuid AND org_id=$2", body.client_id, p.org_id)
+        if not ok:
+            raise HTTPException(404, "клиент не найден")
+        n = await c.fetchval("SELECT count(*) FROM fo_chat_msg WHERE tg_chat_id='test'")
+        pk = await c.fetchval(
+            "INSERT INTO fo_chat_msg (org_id, client_id, chat_pk, kind, tg_chat_id, msg_id, author, author_tg, text, msg_at) "
+            "VALUES ($1,$2::uuid,NULL,'client','test',$3,$4,'',$5,now()) RETURNING id",
+            p.org_id, body.client_id, int(n or 0) + 1, (body.author or "Клиент (проверка)")[:120], body.text[:4000])
+    return await _fo_ai_process(pk)
+
+
+@router.get("/ai/status")
+async def fo_ai_status(p: Principal = Depends(max_level(4))):
+    async with pool().acquire() as c:
+        msgs = await c.fetchval("SELECT count(*) FROM fo_chat_msg WHERE org_id=$1 AND msg_at > now() - interval '1 day'", p.org_id)
+        pend = await c.fetchval("SELECT count(*) FROM fo_ai_task WHERE org_id=$1 AND status='pending'", p.org_id)
+        toks = await c.fetchval("SELECT COALESCE(sum(ai_tokens),0) FROM fo_chat_msg WHERE org_id=$1 "
+                                "AND msg_at > date_trunc('month', now())", p.org_id)
+        last = await c.fetch("SELECT author, left(text, 80) AS text, ai_state, ai_note, msg_at FROM fo_chat_msg "
+                             "WHERE org_id=$1 ORDER BY id DESC LIMIT 5", p.org_id)
+    return {"yandex": _fo_ai_ready(), "model": _fo_env("YC_MODEL") or "yandexgpt-lite/latest",
+            "сообщений_за_сутки": int(msgs or 0), "ждут_согласования": int(pend or 0),
+            "токенов_за_месяц": int(toks or 0), "последние": [dict(r) for r in last]}
+
 '''
 
 ADD_MAIN = r'''
@@ -2214,7 +2732,7 @@ else:
     p("")
     p("== ПРОВЕРКА ЭНДПОИНТОВ ==")
     for u in ("/refs/roles", "/refs/cards", "/refs/tasks/once", "/refs/invites",
-              "/refs/me/account", "/refs/tasks/sync", "/refs/cabinets/x/functions/add", "/refs/cabinets/x/functions/y/take", "/refs/link-pref/all", "/refs/functions/x/name", "/refs/tasks/reviews", "/refs/link-pref", "/refs/cabinets/x/articles", "/refs/cabinets/x/articles/remove", "/refs/admin/people", "/auth/invite-token/zzz"):
+              "/refs/me/account", "/refs/tasks/sync", "/refs/cabinets/x/functions/add", "/refs/cabinets/x/functions/y/take", "/refs/link-pref/all", "/refs/functions/x/name", "/refs/tasks/reviews", "/refs/link-pref", "/refs/cabinets/x/articles", "/refs/cabinets/x/articles/remove", "/refs/ai/tasks", "/refs/ai/status", "/refs/admin/people", "/auth/invite-token/zzz"):
         p("  %-26s %s" % (u, sh("curl -s -o /dev/null -w '%%{http_code}' http://127.0.0.1:8000%s" % u).strip()))
     p("(401/403 — эндпоинт есть и просит вход; 404 — не встал)")
     p("ГОТОВО: хранение переехало на сервер")
@@ -2345,11 +2863,35 @@ except Exception as _e:
     p("ящик/проба упали:", _e)
 
 p("")
-p("== РАЗВЕДКА: КАК УСТРОЕН WEBHOOK ==")
-p(sh("sed -n 1,220p /opt/fo/backend/app/routers/chats.py")[:9000])
 p("-- routing.py: функции --")
 p(sh("grep -n 'def \\|@router' /opt/fo/backend/app/routers/routing.py | head -60")[:3000])
 p("-- таблицы чатов --")
 p(sh("sudo -u postgres psql -d fo -Atc \"SELECT table_name||': '||string_agg(column_name,', ' ORDER BY ordinal_position) FROM information_schema.columns WHERE table_name IN ('chat','tg_chat','client_chat','chat_message','tg_message','routing_rule','notify_queue') GROUP BY table_name\"")[:2500])
+
+# ── webhook бота → наш приём /refs/tg/hook (тот же секрет); не встал — вернуть штатный ──
+p("")
+p("== WEBHOOK БОТА ==")
+_tk2 = ""
+try:
+    _e2 = {}
+    for _ln in open("/opt/fo/.env", encoding="utf-8"):
+        _ln = _ln.strip()
+        if "=" in _ln and not _ln.startswith("#"):
+            _a, _b = _ln.split("=", 1); _e2[_a.strip()] = _b.strip().strip('"').strip("'")
+    _tk2 = _e2.get("TG_BOT_TOKEN", ""); _sc2 = _e2.get("TG_WEBHOOK_SECRET", "")
+    _hc = sh("curl -s -o /dev/null -w '%{http_code}' -X POST http://127.0.0.1:8000/refs/tg/hook -H 'Content-Type: application/json' -d '{}'").strip()
+    _url = "https://fo.flater.pro/refs/tg/hook" if _hc == "403" else "https://fo.flater.pro/chats/telegram/webhook"
+    p("наш приём отвечает:", _hc)
+    if _tk2 and _sc2:
+        import json as _wj, urllib.request as _wu, urllib.parse as _wp
+        _q = _wp.urlencode({"url": _url, "secret_token": _sc2,
+                            "allowed_updates": _wj.dumps(["message", "my_chat_member"])}).encode()
+        with _wu.urlopen("https://api.telegram.org/bot%s/setWebhook" % _tk2, data=_q, timeout=15) as _r:
+            _res = _wj.loads(_r.read().decode())
+        p("webhook бота →", _url, "·", "ok" if _res.get("ok") else str(_res).replace(_tk2, "***")[:200])
+    else:
+        p("токена или секрета бота нет — webhook не трогаю")
+except Exception as _e:
+    p("webhook бота не переключился:", (str(_e).replace(_tk2, "***") if _tk2 else str(_e))[:200])
 
 print("\n".join(out))
