@@ -407,6 +407,11 @@ CREATE TABLE IF NOT EXISTS fo_ai_task (
 CREATE INDEX IF NOT EXISTS fo_ai_task_org_idx ON fo_ai_task (org_id, status, created_at);
 ALTER TABLE fo_ai_task ADD COLUMN IF NOT EXISTS approver_users uuid[];
 ALTER TABLE fo_ai_task ADD COLUMN IF NOT EXISTS extra jsonb NOT NULL DEFAULT '[]'::jsonb;
+CREATE TABLE IF NOT EXISTS fo_state (
+  org_id uuid NOT NULL, scope text NOT NULL, key text NOT NULL,
+  data jsonb NOT NULL DEFAULT 'null'::jsonb, updated_at timestamptz NOT NULL DEFAULT now(), updated_by uuid,
+  PRIMARY KEY (org_id, scope, key));
+GRANT SELECT, INSERT, UPDATE, DELETE ON fo_state TO fo;
 -- чаты, внесённые в карточку ссылкой-приглашением: номер Telegram — по названию из регистрации бота
 DO $$
 BEGIN
@@ -1873,6 +1878,17 @@ async def fo_me(p: Principal = Depends(current)):
             "JOIN org o ON o.id = u.org_id WHERE u.id = $1", uid)
         if not u:
             raise HTTPException(404, "аккаунт не найден")
+        try:
+            if await _fo_promise_apply(c, u):
+                u = await c.fetchrow(
+            "SELECT u.id, u.email, u.role_code, u.created_at, u.first_login, "
+            "       u.phone, u.display_name, u." + _FO_NAME_COL + " AS base_name, "
+            "       r.level, r.__ROLE_TITLE__ AS role_title, "
+            "       o.name AS org_name, o.invite_code, o.id AS org_id "
+            "FROM app_user u JOIN role r ON r.code = u.role_code "
+            "JOIN org o ON o.id = u.org_id WHERE u.id = $1", uid)
+        except Exception:
+            pass
     return {"id": str(u["id"]), "email": u["email"],
             "name": u["display_name"] or u["base_name"] or "",
             "phone": u["phone"] or "", "role_code": u["role_code"],
@@ -2064,6 +2080,176 @@ async def fo_step_report(p: Principal = Depends(max_level(1))):
 
 
 
+
+# ══ СОСТОЯНИЕ АГЕНТСТВА НА СЕРВЕРЕ (123, 25.09) ═════════════════════
+# Всё, что жило в браузере или только в памяти вкладки, — здесь:
+# настройки ролей, выданные доступы, обещанные уровни, история
+# поставленных задач и черновики, замеры скорости и таймеры, регламенты,
+# лиды, рекомендации по грейду, прайс тарифов. Браузер — не хранилище.
+# Ключ: (где живёт, как сливать, кто пишет — уровень ≤, кто читает — уровень ≤, предел списка)
+#   org — общее для агентства; me — своё у каждого человека; svc — общее для сервиса (прайс).
+#   obj — целиком; list — по id (add / remove); map — по ключам (set / delete).
+from typing import Any as _FoAny
+_FO_ST_ZERO = "00000000-0000-0000-0000-000000000000"
+_FO_ST_KEYS = {
+    "roleCfg":  ("org", "obj",  2, 9, 0),
+    "access":   ("org", "list", 3, 3, 500),
+    "promised": ("org", "map",  3, 3, 0),
+    "speed":    ("org", "list", 9, 9, 3000),
+    "regDocs":  ("org", "list", 3, 9, 500),
+    "regUniq":  ("org", "map",  3, 9, 0),
+    "leads":    ("org", "list", 4, 4, 2000),
+    "gradeRec": ("org", "map",  2, 3, 0),
+    "placed":   ("me",  "list", 9, 9, 200),
+    "drafts":   ("me",  "list", 9, 9, 200),
+    "runs":     ("me",  "obj",  9, 9, 0),
+    "tariff":   ("svc", "obj",  0, 9, 0),
+}
+_FO_ST_FRONT = {"access", "leads", "placed", "drafts"}   # новые записи — в начало списка
+
+
+def _fo_st_lvl(p):
+    try:
+        return int(getattr(p, "level", 9))
+    except Exception:
+        return 9
+
+
+def _fo_st_where(key, p):
+    sc = _FO_ST_KEYS[key][0]
+    if sc == "svc":
+        return _FO_ST_ZERO, "svc"
+    if sc == "me":
+        return str(p.org_id), "u:" + str(_fo_uid(p))
+    return str(p.org_id), "org"
+
+
+def _fo_st_load(v):
+    if isinstance(v, str):
+        try:
+            return _fo_json.loads(v)
+        except Exception:
+            return None
+    return v
+
+
+@router.get("/state")
+async def fo_state_get(p: Principal = Depends(current)):
+    """Всё сохранённое состояние, которое этому человеку положено видеть."""
+    lvl = _fo_st_lvl(p)
+    out = {"org": {}, "me": {}, "svc": {}}
+    async with pool().acquire() as c:
+        rows = await c.fetch(
+            "SELECT scope, key, data, updated_at FROM fo_state WHERE (org_id=$1::uuid AND scope IN ('org', $2)) "
+            "OR (org_id=$3::uuid AND scope='svc')", str(p.org_id), "u:" + str(_fo_uid(p)), _FO_ST_ZERO)
+    for r in rows:
+        k = r["key"]
+        spec = _FO_ST_KEYS.get(k)
+        if not spec or lvl > spec[3]:
+            continue
+        sc = "me" if str(r["scope"]).startswith("u:") else r["scope"]
+        out[sc][k] = _fo_st_load(r["data"])
+    out["keys"] = {k: {"scope": v[0], "type": v[1], "write": lvl <= v[2]} for k, v in _FO_ST_KEYS.items() if lvl <= v[3]}
+    return out
+
+
+class FoStIn(_FoBM):
+    data: _FoAny = None          # obj — целиком; list — замена целиком (только первая загрузка)
+    add: list | None = None      # list: записи с id — добавить или заменить
+    remove: list | None = None   # list: id — убрать
+    set: dict | None = None      # map: ключ → значение
+    delete: list | None = None   # map: ключи — убрать
+    only_if_empty: bool = False  # перенос из браузера: записать, только если на сервере ещё пусто
+
+
+@router.post("/state/{key}")
+async def fo_state_put(key: str, body: FoStIn, p: Principal = Depends(current)):
+    spec = _FO_ST_KEYS.get(key)
+    if not spec:
+        raise HTTPException(404, "такого раздела нет")
+    lvl = _fo_st_lvl(p)
+    if lvl > spec[2]:
+        raise HTTPException(403, "этот раздел правят старшие роли")
+    kind, cap = spec[1], spec[4]
+    raw = _fo_json.dumps({"data": body.data, "add": body.add, "set": body.set}, ensure_ascii=False, default=str)
+    if len(raw) > 2_000_000:
+        raise HTTPException(413, "слишком большой объём за один раз")
+    org, scope = _fo_st_where(key, p)
+    uid = _fo_uid(p)
+    async with pool().acquire() as c:
+        async with c.transaction():
+            await c.execute("INSERT INTO fo_state (org_id, scope, key, data) VALUES ($1::uuid, $2, $3, 'null'::jsonb) "
+                            "ON CONFLICT (org_id, scope, key) DO NOTHING", org, scope, key)
+            cur = _fo_st_load(await c.fetchval("SELECT data FROM fo_state WHERE org_id=$1::uuid AND scope=$2 AND key=$3 "
+                                               "FOR UPDATE", org, scope, key))
+            empty = cur is None or cur == [] or cur == {}
+            if body.only_if_empty and not empty:
+                return {"ok": True, "skipped": "на сервере уже есть данные"}
+            if kind == "obj":
+                new = body.data
+            elif kind == "map":
+                new = dict(cur) if isinstance(cur, dict) else {}
+                if isinstance(body.data, dict):
+                    new = dict(body.data)
+                for k2 in (body.delete or []):
+                    new.pop(str(k2), None)
+                for k2, v2 in (body.set or {}).items():
+                    new[str(k2)] = v2
+            else:
+                lst = list(cur) if isinstance(cur, list) else []
+                if isinstance(body.data, list):
+                    lst = [x for x in body.data if isinstance(x, dict)]
+                rm = {str(x) for x in (body.remove or [])}
+                if rm:
+                    lst = [x for x in lst if str(x.get("id")) not in rm]
+                pos = {str(x.get("id")): i for i, x in enumerate(lst) if isinstance(x, dict) and x.get("id") is not None}
+                fresh = []
+                for it in (body.add or []):
+                    if not isinstance(it, dict) or it.get("id") is None:
+                        continue
+                    i = pos.get(str(it["id"]))
+                    if i is not None:
+                        lst[i] = it
+                    else:
+                        fresh.append(it)
+                if key in _FO_ST_FRONT:
+                    lst = fresh + lst
+                    if cap and len(lst) > cap:
+                        lst = lst[:cap]
+                else:
+                    lst = lst + fresh
+                    if cap and len(lst) > cap:
+                        lst = lst[-cap:]
+                new = lst
+            await c.execute("UPDATE fo_state SET data=$4::jsonb, updated_at=now(), updated_by=$5 "
+                            "WHERE org_id=$1::uuid AND scope=$2 AND key=$3",
+                            org, scope, key, _fo_json.dumps(new, ensure_ascii=False, default=str), uid)
+    n = len(new) if isinstance(new, (list, dict)) else 1
+    return {"ok": True, "n": n}
+
+
+async def _fo_promise_apply(c, u):
+    """Обещанный уровень: начальник завёл карточку и выбрал, каким уровнем человек войдёт.
+    Выдаёт сервер при входе человека — не браузер начальника. Только повышение, не выше директора."""
+    d = _fo_st_load(await c.fetchval("SELECT data FROM fo_state WHERE org_id=$1::uuid AND scope='org' AND key='promised'",
+                                     str(u["org_id"])))
+    if not isinstance(d, dict) or not d:
+        return False
+    em = str(u["email"] or "").lower()
+    nm = str(u["display_name"] or u["base_name"] or "").lower()
+    keys = [k for k in (em, em.split("@")[0] if em else "", nm) if k]
+    want = next((str(d[k]) for k in keys if d.get(k)), None)
+    if not want:
+        return False
+    wl = await c.fetchval("SELECT level FROM role WHERE code=$1", want)
+    ok = wl is not None and int(wl) >= 2 and int(u["level"]) > int(wl)
+    if ok:
+        await c.execute("UPDATE app_user SET role_code=$2 WHERE id=$1", u["id"], want)
+    for k in keys:
+        d.pop(k, None)
+    await c.execute("UPDATE fo_state SET data=$2::jsonb, updated_at=now() WHERE org_id=$1::uuid AND scope='org' AND key='promised'",
+                    str(u["org_id"]), _fo_json.dumps(d, ensure_ascii=False))
+    return ok
 
 # ══ ИИ ИЗ ЧАТОВ (С11, этап 1) ════════════════════════════════════
 # Клиент пишет в чат кабинета → Telegram шлёт сообщение сюда (свой
