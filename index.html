@@ -27285,6 +27285,256 @@ window.addEventListener("click", function(e){
     });
 }, true);
 
+/* ===== add103: всё, что жило в браузере, — на сервере (123, Виталий 25.09)
+   «Всё на сервере, никаких браузерных временных решений». До сих пор в
+   браузере (или только в памяти вкладки, до перезагрузки) жили:
+   настройки ролей, выданные доступы, обещанные уровни, история
+   поставленных задач и черновики, замеры скорости и таймеры «старт»,
+   регламенты, лиды отдела продаж, рекомендации по грейду, прайс тарифов.
+   Теперь: при входе сервис читает их с сервера (GET /refs/state); что
+   поменялось на экране — через секунду уходит на сервер
+   (POST /refs/state/{ключ}) только изменённой частью: для списков —
+   добавленные и убранные записи, для словарей — изменённые ключи.
+   Первый вход после выкладки переносит то, что уже лежало в браузере,
+   если на сервере по этому разделу пусто, — и чистит браузер.
+   Код агентства берётся с сервера, а не выдумывается. Буфер «заведено,
+   но сервер не принял» больше не воскрешает записи после перезагрузки.
+   Демо не трогаем: оно целиком живёт в браузере — это витрина.        */
+
+var FO_ST = {ok:false, busy:false, keys:{}, org:{}, me:{}, svc:{}, snap:{}, fail:{}, told:false, t:null, promised:{}};
+/* ключ состояния S → серверный ключ и как сливать */
+var FO_ST_MAP = {
+  roleCfg:"obj", access:"list", speed:"list", regDocs:"list", regUniq:"map",
+  leads:"list", gradeRec:"map", placed:"list", drafts:"list", runs:"obj"
+};
+var FO_ST_FAKE_ACCESS = /@flater\.pro$|^\+7 999 000-0/;
+
+function foStVal(k){
+  var v = FO_ST.org[k]; if(v === undefined || v === null) v = FO_ST.me[k];
+  if(v === undefined || v === null) v = FO_ST.svc[k];
+  return v === undefined ? null : v;
+}
+function foStCan(k){ return !!(FO_ST.keys[k] && FO_ST.keys[k].write); }
+function foStJson(v){ try{ return JSON.stringify(v === undefined ? null : v); }catch(e){ return "null"; } }
+function foStClone(v){ try{ return JSON.parse(JSON.stringify(v)); }catch(e){ return v; } }
+function foStEmpty(v){ return v == null || (Array.isArray(v) && !v.length) || (typeof v === "object" && !Array.isArray(v) && !Object.keys(v).length); }
+function foStPost(k, body){ return api("/refs/state/" + encodeURIComponent(k), {method:"POST", body:body}); }
+
+/* что изменилось с последней записи на сервер */
+function foStDiff(k, type, oldJ, cur){
+  var old = null; try{ old = JSON.parse(oldJ || "null"); }catch(e){}
+  if(type === "obj") return {data: cur};
+  if(type === "map"){
+    old = old || {}; cur = cur || {};
+    var set = {}, del = [], n = 0;
+    Object.keys(cur).forEach(function(x){ if(foStJson(cur[x]) !== foStJson(old[x])){ set[x] = cur[x]; n++; } });
+    Object.keys(old).forEach(function(x){ if(!(x in cur)){ del.push(x); n++; } });
+    return n ? {set:set, delete:del} : null;
+  }
+  old = Array.isArray(old) ? old : []; cur = Array.isArray(cur) ? cur : [];
+  if(cur.some(function(x){ return !x || x.id == null; })) return {data: cur};
+  var was = {}; old.forEach(function(x){ if(x && x.id != null) was[String(x.id)] = foStJson(x); });
+  var now = {}, add = [], remove = [];
+  cur.forEach(function(x){ var id = String(x.id); now[id] = 1; if(was[id] !== foStJson(x)) add.push(x); });
+  Object.keys(was).forEach(function(id){ if(!now[id]) remove.push(id); });
+  if(!add.length && !remove.length) return null;
+  /* порядок как на экране: у «свежие сверху» сервер кладёт новые в начало в том же порядке */
+  return {add: add, remove: remove};
+}
+
+function foStSync(){
+  if(!FO_ST.ok || FO_ST.busy || !foLive()) return;
+  var jobs = [];
+  Object.keys(FO_ST_MAP).forEach(function(k){
+    var cur = S[k], j = foStJson(cur);
+    if(j === FO_ST.snap[k]) return;
+    if(!foStCan(k)){ FO_ST.snap[k] = j; return; }         /* правят старшие роли — не шлём */
+    var d = foStDiff(k, FO_ST_MAP[k], FO_ST.snap[k], foStClone(cur));
+    if(!d){ FO_ST.snap[k] = j; return; }
+    jobs.push({k:k, j:j, d:d});
+  });
+  if(!jobs.length) return;
+  FO_ST.busy = true;
+  jobs.reduce(function(ch, x){
+    return ch.then(function(){
+      return foStPost(x.k, x.d).then(function(){ FO_ST.snap[x.k] = x.j; delete FO_ST.fail[x.k]; })
+        .catch(function(err){ FO_ST.fail[x.k] = (err && err.message) || "сервер не ответил"; });
+    });
+  }, Promise.resolve()).then(function(){
+    FO_ST.busy = false;
+    var bad = Object.keys(FO_ST.fail);
+    if(bad.length && !FO_ST.told){
+      FO_ST.told = true;
+      try{ toast("Не сохранилось на сервере: " + bad.join(", ") + " — " + FO_ST.fail[bad[0]] + ". Повторю сам"); }catch(e){}
+    }
+    if(!bad.length) FO_ST.told = false;
+  });
+}
+function foStSoon(){ if(!FO_ST.ok) return; clearTimeout(FO_ST.t); FO_ST.t = setTimeout(foStSync, 900); }
+
+/* первая загрузка: сервер → экран; то, что лежало в браузере, — на сервер, если там пусто */
+function foStLoad(){
+  if(!foLive()) return Promise.resolve();
+  return api("/refs/state").then(function(r){
+    r = r || {};
+    FO_ST.keys = r.keys || {}; FO_ST.org = r.org || {}; FO_ST.me = r.me || {}; FO_ST.svc = r.svc || {};
+    var moves = [];
+    Object.keys(FO_ST_MAP).forEach(function(k){
+      var srv = foStVal(k), loc = S[k];
+      if(k === "access" && Array.isArray(loc))
+        loc = loc.filter(function(a){ return a && !FO_ST_FAKE_ACCESS.test(String(a.val || "")); });
+      if(foStEmpty(srv) && !foStEmpty(loc) && foStCan(k)){
+        moves.push(foStPost(k, {data: foStClone(loc), only_if_empty: true}).then(function(){ S[k] = loc; }).catch(function(){}));
+        S[k] = loc;
+      } else if(srv !== null){
+        S[k] = foStClone(srv);
+      } else if(!foStCan(k) || k === "access"){
+        S[k] = FO_ST_MAP[k] === "list" ? [] : {};           /* своего в браузере больше не держим */
+      }
+      FO_ST.snap[k] = foStJson(S[k]);
+    });
+    /* обещанные уровни */
+    var lp = {}; try{ lp = JSON.parse(localStorage.getItem("fo_promised") || "{}") || {}; }catch(e){}
+    FO_ST.promised = FO_ST.org.promised || {};
+    if(Object.keys(lp).length && foStCan("promised")){
+      Object.keys(lp).forEach(function(x){ if(!FO_ST.promised[x]) FO_ST.promised[x] = lp[x]; });
+      moves.push(foStPost("promised", {set: lp}).catch(function(){}));
+    }
+    /* прайс тарифов — общий для сервиса, правит админ */
+    var lt = null; try{ lt = JSON.parse(localStorage.getItem("fo_tariff") || "null"); }catch(e){}
+    if(lt && !FO_ST.svc.tariff && foStCan("tariff")){
+      FO_ST.svc.tariff = lt;
+      moves.push(foStPost("tariff", {data: lt, only_if_empty: true}).catch(function(){}));
+    }
+    return Promise.all(moves).then(function(){
+      FO_ST.ok = true;
+      /* браузер больше не хранилище: чистим то, что переехало */
+      try{
+        localStorage.removeItem(foLiveKey());
+        localStorage.removeItem("fo_promised");
+        localStorage.removeItem("fo_tariff");
+      }catch(e){}
+      try{ if(typeof LIVE_KEEP !== "undefined") LIVE_KEEP.splice(0); }catch(e){}
+      try{ if(typeof foPromiseApply === "function") foPromiseApply(); }catch(e){}
+    });
+  }).catch(function(err){
+    /* сервер не ответил — браузер не трогаем, попробуем позже */
+    setTimeout(foStLoad, 30000);
+  });
+}
+
+/* подтягиваем чужие правки (регламенты, лиды, замеры) — без перерисовки экрана */
+function foStRefresh(){
+  if(!FO_ST.ok || FO_ST.busy || !foLive() || document.hidden) return;
+  api("/refs/state").then(function(r){
+    if(!r) return;
+    FO_ST.org = r.org || {}; FO_ST.me = r.me || {}; FO_ST.svc = r.svc || FO_ST.svc;
+    FO_ST.promised = FO_ST.org.promised || FO_ST.promised;
+    Object.keys(FO_ST_MAP).forEach(function(k){
+      if(foStJson(S[k]) !== FO_ST.snap[k]) return;          /* свои несохранённые правки главнее */
+      var srv = foStVal(k); if(srv === null) return;
+      var j = foStJson(srv); if(j === FO_ST.snap[k]) return;
+      S[k] = foStClone(srv); FO_ST.snap[k] = j;
+    });
+  }).catch(function(){});
+}
+
+(function(){
+  /* браузерное сохранение живого режима — больше не нужно */
+  if(typeof foLiveSave === "function"){
+    var _fls = foLiveSave;
+    foLiveSave = function(){ if(FO_ST.ok) return; return _fls.apply(this, arguments); };
+  }
+  /* любое сохранение на экране — повод отправить изменения на сервер */
+  if(typeof saveState === "function"){
+    var _ss = saveState;
+    saveState = function(){ var v = _ss.apply(this, arguments); try{ if(foLive()) foStSoon(); }catch(e){} return v; };
+  }
+  /* в живом режиме список доступов не выдумываем */
+  if(typeof accSeed === "function"){
+    var _as = accSeed;
+    accSeed = function(){ if(foLive()){ S.accSeeded = true; return; } return _as.apply(this, arguments); };
+  }
+  /* код агентства — с сервера */
+  if(typeof projectCode === "function"){
+    var _pc = projectCode;
+    projectCode = function(){
+      if(!foLive()) return _pc.apply(this, arguments);
+      var c = "";
+      try{ c = (typeof ACC !== "undefined" && ACC && ACC.invite_code) || localStorage.getItem("fo_invite") || ""; }catch(e){}
+      return c || "—";
+    };
+  }
+  /* обещанные уровни — на сервере; выдаёт их сервер при входе человека */
+  if(typeof foPromised === "function"){
+    var _pd = foPromised, _pm = foPromise, _pr = foPromiseDrop;
+    foPromised = function(){ return foLive() ? (FO_ST.promised || {}) : _pd(); };
+    foPromise = function(key, rc){
+      if(!foLive()) return _pm(key, rc);
+      if(!key || !rc) return;
+      var k = String(key).toLowerCase(), o = {}; o[k] = rc;
+      FO_ST.promised[k] = rc;
+      foStPost("promised", {set:o}).catch(function(err){ try{ toast("Обещанный уровень не сохранился: " + (err.message || "")); }catch(e){} });
+    };
+    foPromiseDrop = function(key){
+      if(!foLive()) return _pr(key);
+      var k = String(key || "").toLowerCase();
+      if(!(k in FO_ST.promised)) return;
+      delete FO_ST.promised[k];
+      foStPost("promised", {delete:[k]}).catch(function(){});
+    };
+  }
+  /* прайс тарифов — на сервере, правит админ сервиса */
+  if(typeof tarPlan === "function" && typeof tarSave === "function"){
+    var _tp = tarPlan, _ts = tarSave;
+    tarPlan = function(){
+      if(!foLive()) return _tp();
+      var v = FO_ST.svc.tariff;
+      if(v && v.packs && v.packs.length === 5 && v.terms) return v;
+      return TAR_DEF;
+    };
+    tarSave = function(v){
+      if(!foLive()) return _ts(v);
+      FO_ST.svc.tariff = v;
+      foStPost("tariff", {data:v}).catch(function(err){ try{ toast("Прайс не сохранился: " + (err.message || "")); }catch(e){} });
+    };
+  }
+  /* буфер «заведено, но сервер не принял» больше не воскрешаем */
+  if(typeof foLiveRestore === "function"){
+    var _flr = foLiveRestore;
+    foLiveRestore = function(){
+      var v = _flr.apply(this, arguments);
+      try{
+        if(!foLive()) return v;
+        ["projects","people","cabs"].forEach(function(k){
+          if(Array.isArray(S[k])) S[k] = S[k].filter(function(o){ return !(o && o.local); });
+        });
+      }catch(e){}
+      return v;
+    };
+  }
+
+  var tries = 0;
+  (function first(){
+    tries++; if(tries > 60) return;
+    var ok = false; try{ ok = foLive() && S && ((S.people && S.people.length) || tries > 12); }catch(e){}
+    if(!ok){ setTimeout(first, 800); return; }
+    foStLoad();
+  })();
+  setInterval(foStSync, 8000);
+  setInterval(foStRefresh, 90000);
+  window.addEventListener("beforeunload", function(){ try{ foStSync(); }catch(e){} });
+})();
+
+window.foStState = function(){
+  var o = {загружено: FO_ST.ok, ошибки: FO_ST.fail, разделы: {}};
+  Object.keys(FO_ST_MAP).forEach(function(k){
+    var v = S[k]; o.разделы[k] = Array.isArray(v) ? v.length : (v && typeof v === "object" ? Object.keys(v).length : (v == null ? 0 : 1));
+  });
+  o.обещано = Object.keys(FO_ST.promised || {}).length;
+  return o;
+};
+
 })();
 </script>
 </body>
