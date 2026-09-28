@@ -27978,7 +27978,11 @@ function foMtLoad(force){
     FO_MT.srvP = null; FO_MT.srvAt = Date.now(); FO_MT.err = "";
     if(JSON.stringify(d) !== JSON.stringify(FO_MT.srv)){ FO_MT.srv = d; FO_MT.chg = true; FO_MT.timesAt = 0; }
     return d;
-  }).catch(function(e){ FO_MT.srvP = null; FO_MT.srvAt = Date.now(); FO_MT.err = (e && e.message) || "сервер не ответил"; return null; });
+  }).catch(function(e){
+    FO_MT.srvP = null; FO_MT.srvAt = Date.now(); FO_MT.err = (e && e.message) || "сервер не ответил"; FO_MT.chg = true;
+    setTimeout(function(){ if(!FO_MT.srv) foMtLoad(true).then(function(){ if(FO_MT.chg){ FO_MT.chg = false; foMtRenderSoft(); } }); }, 5000);
+    return null;
+  });
   return FO_MT.srvP;
 }
 function foMtTimes(){
