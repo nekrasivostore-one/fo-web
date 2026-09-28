@@ -560,6 +560,7 @@ async def fo_cards(kind: str = "", p: Principal = Depends(current)):
             except Exception: d = {}
         out.append({"kind": r["kind"], "ref_id": r["ref_id"],
                     "data": d or {}, "updated_at": r["updated_at"]})
+    out = await _fo_cards_scope(p, out)
     return out
 
 
@@ -631,7 +632,7 @@ async def fo_once_list(p: Principal = Depends(current)):
         rows = await c.fetch(
             "SELECT * FROM fo_task_once WHERE org_id=$1 AND removed_at IS NULL "
             "ORDER BY created_at DESC LIMIT 1000", p.org_id)
-    return [_fo_once_row(r) for r in rows]
+    return await _fo_scope_rows(p, [_fo_once_row(r) for r in rows], "employee_id")
 
 
 @router.post("/tasks/once")
@@ -2382,6 +2383,76 @@ async def fo_diag_roles(p: Principal = Depends(max_level(2))):
         ppl.append(row)
     return {"неделя": [d.isoformat() for d in week], "люди": ppl, "кабинеты": cab_out}
 
+
+# ══ КАЖДЫЙ ВИДИТ СВОЁ — НА СЕРВЕРЕ (28.09, Виталий: «частное — только старшим», «чужие задачи не отдавать») ══
+# Задачи: проджект и выше — все; главный менеджер — свои и младших с ассистентами;
+# младший и ассистент — только свои. Экран и раньше прятал чужое, теперь его не
+# отдаёт сервер. Частное клиента (сумма, дата платежа, собственник, телефон,
+# Telegram, таблица) — проджект и выше. Оклады и проценты премий/штрафов коллег —
+# собственник и директор; свою карточку каждый видит целиком.
+_FO_PRIV_CLIENT = {"amount", "owner", "payDate", "phone", "sheet", "tg", "telegram", "mail", "email", "inn",
+                   "price", "sum", "contract", "payDay", "ownerName", "ownerPhone", "ownerTg", "table"}
+_FO_PRIV_PAY = re.compile(r"^(pay|salary|oklad|rate|prem|bonus|fine|shtraf|penalty)", re.I)
+
+
+async def _fo_scope_ids(c, p):
+    """None — видно всё; иначе множество id сотрудников, чьи задачи можно отдать."""
+    lvl = _fo_st_lvl(p)
+    if lvl <= 4:
+        return None
+    me = await c.fetchval("SELECT id FROM employee WHERE user_id=$1 AND org_id=$2::uuid LIMIT 1", _fo_uid(p), str(p.org_id))
+    ids = {str(me)} if me else set()
+    if lvl == 5:
+        for r in await c.fetch(
+                "SELECT e.id FROM employee e JOIN app_user u ON u.id=e.user_id JOIN role r ON r.code=u.role_code "
+                "WHERE e.org_id=$1::uuid AND r.level >= 6", str(p.org_id)):
+            ids.add(str(r["id"]))
+    return ids
+
+
+def _fo_row_get(x, k):
+    if isinstance(x, dict):
+        return x.get(k)
+    try:
+        return getattr(x, k)
+    except Exception:
+        try:
+            return x[k]
+        except Exception:
+            return None
+
+
+async def _fo_scope_rows(p, rows, field):
+    try:
+        async with pool().acquire() as c:
+            ids = await _fo_scope_ids(c, p)
+    except Exception:
+        return rows
+    if ids is None:
+        return rows
+    return [x for x in (rows or []) if str(_fo_row_get(x, field)) in ids]
+
+
+async def _fo_cards_scope(p, out):
+    lvl = _fo_st_lvl(p)
+    if lvl <= 2:
+        return out
+    try:
+        async with pool().acquire() as c:
+            me = await c.fetchval("SELECT id FROM employee WHERE user_id=$1 AND org_id=$2::uuid LIMIT 1", _fo_uid(p), str(p.org_id))
+    except Exception:
+        me = None
+    res = []
+    for cd in out:
+        k = cd.get("kind")
+        d = cd.get("data") or {}
+        if k in ("cab", "client") and lvl >= 5:
+            d = {a: b for a, b in d.items() if a not in _FO_PRIV_CLIENT and not str(a).lower().startswith(("owner", "pay", "phone"))}
+        elif k == "employee" and str(cd.get("ref_id")) != str(me):
+            d = {a: b for a, b in d.items() if not _FO_PRIV_PAY.search(str(a))}
+        res.append(dict(cd, data=d))
+    return res
+
 # ══ ИИ ИЗ ЧАТОВ (С11, этап 1) ════════════════════════════════════
 # Клиент пишет в чат кабинета → Telegram шлёт сообщение сюда (свой
 # webhook, с тем же секретом, что штатный) → сообщение хранится →
@@ -3175,6 +3246,49 @@ async def _fo_shadow_guard(request, call_next):
     if request.headers.get("x-fo-shadow") and request.method not in ("GET", "HEAD", "OPTIONS"):
         return _FoJSON({"detail": "режим тени: только смотреть, менять нельзя"}, status_code=403)
     return await call_next(request)
+
+# Задачи дня — каждому своё (28.09): штатный GET /tasks/day обёрнут —
+# младший и ассистент получают только свои задачи, главный менеджер — свои
+# и младших, проджект и выше — все. Фильтр живёт в refs (_fo_scope_rows).
+def _fo_wrap_tasks_day():
+    import inspect as _fo_i, sys as _fo_s
+    from fastapi.routing import APIRoute as _FoRoute
+    refs = next((m for m in list(_fo_s.modules.values()) if m is not None and hasattr(m, "_fo_scope_rows")), None)
+    if refs is None:
+        return "нет модуля с фильтром"
+    for r in list(app.router.routes):
+        if isinstance(r, _FoRoute) and r.path == "/tasks/day" and "GET" in (r.methods or set()):
+            if getattr(r.endpoint, "_fo_scoped", False):
+                return "уже обёрнут"
+            orig = r.endpoint
+
+            async def scoped(*a, **kw):
+                res = orig(*a, **kw)
+                if _fo_i.isawaitable(res):
+                    res = await res
+                p = next((v for v in kw.values() if hasattr(v, "org_id") and hasattr(v, "level")), None)
+                if p is None or not isinstance(res, list):
+                    return res
+                return await refs._fo_scope_rows(p, res, "assignee_id")
+
+            scoped.__signature__ = _fo_i.signature(orig)
+            scoped.__name__ = getattr(orig, "__name__", "tasks_day")
+            scoped.__doc__ = getattr(orig, "__doc__", None)
+            scoped._fo_scoped = True
+            idx = app.router.routes.index(r)
+            app.router.routes.remove(r)
+            app.add_api_route("/tasks/day", scoped, methods=["GET"], response_model=r.response_model,
+                              tags=r.tags, name=r.name, dependencies=r.dependencies)
+            app.router.routes.insert(idx, app.router.routes.pop())
+            return "обёрнут"
+    return "маршрут не найден"
+
+
+try:
+    _FO_TASKS_DAY = _fo_wrap_tasks_day()
+except Exception as _fo_e:
+    _FO_TASKS_DAY = "ошибка: %s" % _fo_e
+print("FO tasks/day:", _FO_TASKS_DAY, flush=True)
 '''
 
 ADD_SIGN = r'''
