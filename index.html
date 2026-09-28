@@ -4272,6 +4272,7 @@ td small{ color:var(--ink-3); font-size:10.5px }
 .fo-mtlast{ font-size:12px; color:var(--ink-2); margin-top:6px }
 .gb.fo-gmeet.fo-gmeet-q{ background:repeating-linear-gradient(135deg, #7c5cff 0 7px, #9f8bff 7px 14px) !important }
 @media (max-width: 720px){ .fo-mtsls, .fo-mtlast, .fo-mted2 .fo-mtattn{ margin-left:0 } .fo-mtmc{ min-height:70px } }
+.fo-mthint2{ font-size:12px; color:var(--ink-3); margin:0 0 8px }
 </style>
 </head>
 <body>
@@ -28116,7 +28117,9 @@ function foMtBotHTML(){
   }
   return '<section class="gl fo-mtbot"><div class="gl-t"><h2>Бот планёрок</h2><span class="m">предлагает время по приоритету клиента, фиксирует ответ, закрепляет в чате, уведомляет проджекта, напоминает за час</span></div>' +
     '<div class="fo-mtbs">' + ["proposed", "agreed", "draft", "queued"].map(function(k){ return '<span class="fo-mtstat st-' + k + '">' + FO_MT_ST[k].s + ' · ' + (cnt[k] || 0) + '</span>'; }).join("") +
-      '<span class="fo-mtbok">' + (d.bot ? (d.own_bot ? 'пишет отдельный бот планёрок' : 'пишет бот сервиса') : 'нет токена бота на сервере') + '</span></div>' +
+      '<span class="fo-mtbok">' + (d.bot ? (d.own_bot ? 'пишет бот планёрок' : 'пока пишет бот сервиса') + (d.bot_name ? ' @' + esc(d.bot_name) : '') : 'нет токена бота на сервере') + '</span></div>' +
+    (d.bot_name ? '<div class="fo-mthint2">Проджектам: откройте @' + esc(d.bot_name) + ' в Telegram и нажмите «Start» — туда придут подтверждения клиентов, просьбы решить вопрос и напоминания за час. ' +
+      'В чатах клиентов бот должен быть администратором с правом закреплять сообщения.</div>' : '') +
     '<div class="fo-mtbc">' + esc(ct) + '</div>' + attn +
     '<div class="fo-mtbset">Перерыв между планёрками ' + sel("brk", [5, 10, 15, 20, 30], st.brk, function(n){ return n + ' мин'; }) +
       ' · окно ' + '<input class="fi sm" type="time" data-mtset="from" value="' + esc(st.from || "10:00") + '">–<input class="fi sm" type="time" data-mtset="to" value="' + esc(st.to || "19:00") + '">' +
