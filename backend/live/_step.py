@@ -3724,13 +3724,38 @@ async def _fo_mt_botname():
         return ""
     if _FO_MT_ME["tok"] == tok and _fo_time.time() - _FO_MT_ME["t"] < 3600:
         return _FO_MT_ME["v"]
-    res = await _fo_aio.to_thread(_fo_tg_api_sync, "getMe", {})
+    res = await _fo_aio.to_thread(_fo_tg_api_sync, "getMe", {}, None, 8)
     me = (res.get("result") or {}) if res.get("ok") else {}
     _FO_MT_ME.update({"t": _fo_time.time(), "tok": tok, "v": me.get("username") or "", "id": me.get("id")})
     return _FO_MT_ME["v"]
 
 
 _FO_MT_CM = {}
+
+
+_FO_MT_BG = set()
+
+
+def _fo_mt_chatstate_fast(chat_id):
+    """Для страницы: только кэш; устарел или нет — обновляем в фоне, Telegram не ждём."""
+    if not chat_id:
+        return {"in": False, "pin": False, "why": ""}
+    hit = _FO_MT_CM.get(str(chat_id))
+    if (not hit or _fo_time.time() - hit["t"] >= 600) and str(chat_id) not in _FO_MT_BG:
+        _FO_MT_BG.add(str(chat_id))
+
+        async def _bg():
+            try:
+                await _fo_mt_chatstate(chat_id)
+            except Exception:
+                pass
+            finally:
+                _FO_MT_BG.discard(str(chat_id))
+        try:
+            _fo_aio.get_running_loop().create_task(_bg())
+        except Exception:
+            _FO_MT_BG.discard(str(chat_id))
+    return hit["v"] if hit else {"in": None, "pin": None, "why": "проверяю"}
 
 
 async def _fo_mt_chatstate(chat_id):
@@ -3742,7 +3767,7 @@ async def _fo_mt_chatstate(chat_id):
     hit = _FO_MT_CM.get(str(chat_id))
     if hit and _fo_time.time() - hit["t"] < 600:
         return hit["v"]
-    res = await _fo_aio.to_thread(_fo_tg_api_sync, "getChatMember", {"chat_id": str(chat_id), "user_id": str(bid)})
+    res = await _fo_aio.to_thread(_fo_tg_api_sync, "getChatMember", {"chat_id": str(chat_id), "user_id": str(bid)}, None, 8)
     r = res.get("result") or {}
     st = r.get("status") or ""
     v = {"in": st in ("administrator", "member", "creator", "restricted"),
@@ -3752,7 +3777,7 @@ async def _fo_mt_chatstate(chat_id):
     return v
 
 
-def _fo_tg_api_sync(method, params, tok=None):
+def _fo_tg_api_sync(method, params, tok=None, timeout=20):
     tok = tok or _fo_mt_tok()
     if not tok:
         return {"ok": False, "description": "на сервере нет токена бота"}
@@ -3770,7 +3795,7 @@ def _fo_tg_api_sync(method, params, tok=None):
             data[k] = _fo_json.dumps(v, ensure_ascii=False)
     try:
         with _fo_ur.urlopen("https://api.telegram.org/bot%s/%s" % (tok, method),
-                            data=_fo_up.urlencode(data).encode(), timeout=20) as r:
+                            data=_fo_up.urlencode(data).encode(), timeout=timeout) as r:
             return _fo_json.loads(r.read().decode())
     except Exception as e:
         body = ""
@@ -4486,10 +4511,7 @@ async def fo_meet_get(p: Principal = Depends(max_level(4))):
     out = []
     for cid in sorted(lv, key=lambda k: lv[k]["rank"]):
         o = _fo_mt_out(cid, rows.get(cid), lv, cid in chats)
-        try:
-            cs = await _fo_mt_chatstate(chats.get(cid)) if cid in chats else {"in": False, "pin": False, "why": ""}
-        except Exception:
-            cs = {"in": None, "pin": None, "why": ""}
+        cs = _fo_mt_chatstate_fast(chats.get(cid)) if cid in chats else {"in": False, "pin": False, "why": ""}
         o["bot_in"], o["bot_pin"] = cs["in"], cs["pin"]
         out.append(o)
     cp = None
@@ -4497,10 +4519,12 @@ async def fo_meet_get(p: Principal = Depends(max_level(4))):
         cp = {"id": camp["id"], "status": camp["status"], "wave": camp["wave"], "gap_min": camp["gap_min"],
               "test": bool(camp["test"]), "started_at": camp["started_at"].isoformat(),
               "wave_at": camp["wave_at"].isoformat() if camp["wave_at"] else None}
-    try:
-        bname = await _fo_mt_botname()
-    except Exception:
-        bname = ""
+    bname = _FO_MT_ME.get("v") or ""
+    if not bname or _fo_time.time() - _FO_MT_ME.get("t", 0) > 3600:
+        try:
+            _fo_aio.get_running_loop().create_task(_fo_mt_botname())
+        except Exception:
+            pass
     mon = _fo_mt_mon()
     async with pool().acquire() as c:
         occ = [{"client_id": str(o["client_id"]), "day": o["day"].isoformat(), "time": o["time"], "minutes": int(o["minutes"]),
