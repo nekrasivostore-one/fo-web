@@ -412,6 +412,23 @@ CREATE TABLE IF NOT EXISTS fo_state (
   data jsonb NOT NULL DEFAULT 'null'::jsonb, updated_at timestamptz NOT NULL DEFAULT now(), updated_by uuid,
   PRIMARY KEY (org_id, scope, key));
 GRANT SELECT, INSERT, UPDATE, DELETE ON fo_state TO fo;
+-- 219: планёрки — график и статус по клиенту, рассылка волнами; функция кабинета — по дням свой ведущий
+CREATE TABLE IF NOT EXISTS fo_meet (
+  org_id uuid NOT NULL, client_id uuid NOT NULL,
+  slots jsonb NOT NULL DEFAULT '{}'::jsonb, fixed boolean NOT NULL DEFAULT false, since date,
+  status text NOT NULL DEFAULT 'draft', kind text, offer jsonb, wave int, level int, camp_id bigint,
+  rounds int NOT NULL DEFAULT 0, attn text, reminded date,
+  tg_chat_id text, msg_id bigint, pin_msg_id bigint, pinned boolean NOT NULL DEFAULT false,
+  sent_at timestamptz, answered_at timestamptz, agreed_at timestamptz, answer text,
+  log jsonb NOT NULL DEFAULT '[]'::jsonb, updated_at timestamptz NOT NULL DEFAULT now(), updated_by uuid,
+  PRIMARY KEY (org_id, client_id));
+CREATE TABLE IF NOT EXISTS fo_meet_camp (
+  id bigserial PRIMARY KEY, org_id uuid NOT NULL, started_by uuid, started_at timestamptz NOT NULL DEFAULT now(),
+  wave int NOT NULL DEFAULT -1, wave_at timestamptz, gap_min int NOT NULL DEFAULT 180,
+  test boolean NOT NULL DEFAULT false, status text NOT NULL DEFAULT 'active', note text);
+CREATE INDEX IF NOT EXISTS fo_meet_camp_org_idx ON fo_meet_camp (org_id, status);
+ALTER TABLE fo_cabinet_fn_cfg ADD COLUMN IF NOT EXISTS day_cfg jsonb;
+GRANT SELECT, INSERT, UPDATE, DELETE ON fo_meet, fo_meet_camp TO fo;
 -- чаты, внесённые в карточку ссылкой-приглашением: номер Telegram — по названию из регистрации бота
 DO $$
 BEGIN
@@ -783,6 +800,52 @@ class FoCabFnItem(_FoBM):
     cycle_kind: str | None = None
     cycle_n: int | None = None
     cycle_weekdays: list[int] | None = None
+    day_cfg: dict | None = None        # 219: по дням свой ответственный и минуты {"0": {"e": "<сотрудник>", "m": 60}}
+
+
+def _fo_dc_parse(v):
+    """219: {"0": {"e": "<uuid>", "m": 60}} → {0: (UUID|None, минуты|None)}."""
+    import uuid as _uu
+    if isinstance(v, str):
+        try:
+            v = _fo_json.loads(v)
+        except Exception:
+            v = None
+    out = {}
+    if isinstance(v, dict):
+        for k, x in v.items():
+            try:
+                wd = int(k)
+            except Exception:
+                continue
+            if not (0 <= wd <= 6) or not isinstance(x, dict):
+                continue
+            e = m = None
+            try:
+                e = _uu.UUID(str(x.get("e"))) if x.get("e") else None
+            except Exception:
+                e = None
+            try:
+                m = max(1, min(2880, int(x.get("m")))) if x.get("m") else None
+            except Exception:
+                m = None
+            out[wd] = (e, m)
+    return out
+
+
+async def _fo_daycfg(c, org_id, fid, dc):
+    """Проверка: сотрудники по дням — из агентства; генератор их видит (employee_fn). Вернёт JSON или None."""
+    if not dc:
+        return None
+    norm = {}
+    for wd, (e, m) in _fo_dc_parse(dc).items():
+        if e:
+            if not await c.fetchval("SELECT 1 FROM employee WHERE id=$1 AND org_id=$2", e, org_id):
+                raise HTTPException(400, "сотрудник на день недели не из этого агентства")
+            await c.execute("INSERT INTO employee_fn (employee_id, fn_id, allowed) VALUES ($1, $2::uuid, true) "
+                            "ON CONFLICT DO NOTHING", e, str(fid))
+        norm[str(wd)] = {"e": str(e) if e else None, "m": m}
+    return _fo_json.dumps(norm) if norm else None
 
 
 async def _fo_cab_of(c, cab_id, org_id):
@@ -830,6 +893,9 @@ async def fo_cab_fns_put(cab_id: str, body: list[FoCabFnItem], p: Principal = De
                    LEFT JOIN fo_cabinet_fn_cfg g ON g.cabinet_id=cf.cabinet_id AND g.fn_id=cf.fn_id
                    WHERE cf.cabinet_id=$1::uuid""", cab_id):
             _old[(_r["cabinet_id"], _r["fn_id"])] = _r["employee_id"]
+        _dcold = {}
+        for _r in await c.fetch("SELECT fn_id, day_cfg FROM fo_cabinet_fn_cfg WHERE cabinet_id=$1::uuid AND day_cfg IS NOT NULL", cab_id):
+            _dcold[str(_r["fn_id"])] = _r["day_cfg"]
         fn_ids = []
         for it in body:
             fid = (it.fn_id or "").strip()
@@ -856,13 +922,14 @@ async def fo_cab_fns_put(cab_id: str, body: list[FoCabFnItem], p: Principal = De
                     await c.execute(
                         "INSERT INTO employee_fn (employee_id, fn_id, allowed) VALUES ($1::uuid, $2::uuid, true) "
                         "ON CONFLICT DO NOTHING", emp, fid)
+                _dc = (await _fo_daycfg(c, p.org_id, fid, it.day_cfg)) if it.day_cfg is not None else _dcold.get(fid)
                 await c.execute(
                     """INSERT INTO fo_cabinet_fn_cfg
-                         (cabinet_id, fn_id, org_id, employee_id, minutes, cycle_kind, cycle_n, cycle_weekdays)
-                       VALUES ($1::uuid, $2::uuid, $3, $4::uuid, $5, $6, $7, $8)""",
+                         (cabinet_id, fn_id, org_id, employee_id, minutes, cycle_kind, cycle_n, cycle_weekdays, day_cfg)
+                       VALUES ($1::uuid, $2::uuid, $3, $4::uuid, $5, $6, $7, $8, $9::jsonb)""",
                     cab_id, fid, p.org_id, emp,
                     (max(1, min(2880, int(it.minutes))) if it.minutes else None),
-                    (it.cycle_kind or None), it.cycle_n, it.cycle_weekdays)
+                    (it.cycle_kind or None), it.cycle_n, it.cycle_weekdays, _dc)
         # функция = задача: задачи рождаются сразу, на две недели вперёд
         try:
             _sync = await _fo_sync_tasks(c, p.org_id, cab_id, 14, _old)
@@ -895,6 +962,9 @@ async def fo_cab_fn_add(cab_id: str, it: FoCabFnItem, p: Principal = Depends(max
                WHERE cf.cabinet_id=$1::uuid AND cf.fn_id=$2::uuid""", cab_id, fid)
         if _r:
             _old[(_r["cabinet_id"], _r["fn_id"])] = _r["employee_id"]
+        _dc = await c.fetchval("SELECT day_cfg FROM fo_cabinet_fn_cfg WHERE cabinet_id=$1::uuid AND fn_id=$2::uuid", cab_id, fid)
+        if it.day_cfg is not None:
+            _dc = await _fo_daycfg(c, p.org_id, fid, it.day_cfg)
         async with c.transaction():
             await c.execute("DELETE FROM cabinet_fn WHERE cabinet_id=$1::uuid AND fn_id=$2::uuid", cab_id, fid)
             await c.execute(
@@ -907,11 +977,11 @@ async def fo_cab_fn_add(cab_id: str, it: FoCabFnItem, p: Principal = Depends(max
                     "ON CONFLICT DO NOTHING", emp, fid)
             await c.execute(
                 """INSERT INTO fo_cabinet_fn_cfg
-                     (cabinet_id, fn_id, org_id, employee_id, minutes, cycle_kind, cycle_n, cycle_weekdays)
-                   VALUES ($1::uuid, $2::uuid, $3, $4::uuid, $5, $6, $7, $8)""",
+                     (cabinet_id, fn_id, org_id, employee_id, minutes, cycle_kind, cycle_n, cycle_weekdays, day_cfg)
+                   VALUES ($1::uuid, $2::uuid, $3, $4::uuid, $5, $6, $7, $8, $9::jsonb)""",
                 cab_id, fid, p.org_id, emp,
                 (max(1, min(2880, int(it.minutes))) if it.minutes else None),
-                (it.cycle_kind or None), it.cycle_n, it.cycle_weekdays)
+                (it.cycle_kind or None), it.cycle_n, it.cycle_weekdays, _dc)
         try:
             _sync = await _fo_sync_tasks(c, p.org_id, cab_id, 14, _old)
         except Exception as _e:
@@ -1333,7 +1403,7 @@ async def _fo_sync_body(c, org_id, cabinet_id, days, old):
                   COALESCE(g.cycle_kind, f.cycle_kind) AS cycle_kind,
                   COALESCE(g.cycle_n, cf.cycle_n, f.cycle_n) AS cycle_n,
                   COALESCE(g.cycle_weekdays, f.cycle_weekdays) AS cycle_weekdays,
-                  g.employee_id AS wanted
+                  g.employee_id AS wanted, g.day_cfg
              FROM cabinet_fn cf
              JOIN cabinet cb ON cb.id = cf.cabinet_id
              JOIN client cl ON cl.id = cb.client_id
@@ -1348,8 +1418,9 @@ async def _fo_sync_body(c, org_id, cabinet_id, days, old):
     unassigned = []
     for r in rows:
         key = (r["cabinet_id"], r["fn_id"])
+        dc = _fo_dc_parse(r["day_cfg"])      # 219: по дням свой ответственный — ниже, по каждой задаче
         # сменили ответственного - будущие несделанные задачи переезжают к нему
-        if old is not None and key in old and old.get(key) != r["wanted"] and r["wanted"]:
+        if (not dc) and old is not None and key in old and old.get(key) != r["wanted"] and r["wanted"]:
             res = await c.execute(
                 """UPDATE task SET assignee_id=$4::uuid
                     WHERE org_id=$1 AND cabinet_id=$2::uuid AND fn_id=$3::uuid
@@ -1358,31 +1429,45 @@ async def _fo_sync_body(c, org_id, cabinet_id, days, old):
                 org_id, r["cabinet_id"], r["fn_id"], r["wanted"], start)
             moved += _fo_n(res)
         # норма времени - на будущие несделанные
-        await c.execute(
+        if not dc:
+          await c.execute(
             """UPDATE task SET plan_minutes=$4
                 WHERE org_id=$1 AND cabinet_id=$2::uuid AND fn_id=$3::uuid
                   AND source='generator' AND status='planned' AND plan_date >= $5
                   AND plan_minutes IS DISTINCT FROM $4""",
             org_id, r["cabinet_id"], r["fn_id"], int(r["minutes"] or 30), start)
         have = await c.fetch(
-            """SELECT id, plan_date, status FROM task
+            """SELECT id, plan_date, status, assignee_id, plan_minutes FROM task
                 WHERE org_id=$1 AND cabinet_id=$2::uuid AND fn_id=$3::uuid
                   AND source='generator' AND plan_date >= $4 AND plan_date <= $5""",
             org_id, r["cabinet_id"], r["fn_id"], horizon[0], horizon[-1])
         by_day = {}
         for h in have:
             by_day.setdefault(h["plan_date"], []).append(h)
+        if dc:
+            for h in have:
+                if h["status"] != "planned" or h["plan_date"] < start:
+                    continue
+                _e, _m = dc.get(h["plan_date"].weekday(), (None, None))
+                _e = _e or r["wanted"]
+                _m = int(_m or r["minutes"] or 30)
+                if _e and h["assignee_id"] != _e:
+                    await c.execute("UPDATE task SET assignee_id=$2 WHERE id=$1", h["id"], _e)
+                    moved += 1
+                if h["plan_minutes"] != _m:
+                    await c.execute("UPDATE task SET plan_minutes=$2 WHERE id=$1", h["id"], _m)
         for d in horizon:
             due = _fo_due(r["cycle_kind"], r["cycle_n"], r["cycle_weekdays"], d)
             if due and d not in by_day:
-                who = await _fo_pick(c, org_id, r["fn_id"], r["wanted"], d)
+                _e, _m = dc.get(d.weekday(), (None, None))
+                who = await _fo_pick(c, org_id, r["fn_id"], _e or r["wanted"], d)
                 await c.execute(
                     """INSERT INTO task (org_id, kind, fn_id, client_id, cabinet_id, title,
                                          source, assignee_id, plan_date, plan_minutes)
                        VALUES ($1,'cyclic',$2,$3,$4,$5,'generator',$6,$7,$8)
                        ON CONFLICT DO NOTHING""",
                     org_id, r["fn_id"], r["client_id"], r["cabinet_id"],
-                    "%s · %s" % (r["fn"], r["cabinet"]), who, d, int(r["minutes"] or 30))
+                    "%s · %s" % (r["fn"], r["cabinet"]), who, d, int(_m or r["minutes"] or 30))
                 created += 1
                 if not who:
                     unassigned.append("%s · %s" % (r["fn"], r["cabinet"]))
@@ -3117,7 +3202,17 @@ async def _fo_ai_on_msg(msg):
             if not pk:
                 return
             why = None
-            if link["kind"] != "client":
+            _neg = None
+            if link["kind"] == "client":
+                try:
+                    _neg = await _fo_meet_match(c, link["org_id"], str(link["client_id"]), tg, msg, text)
+                except Exception:
+                    _neg = None
+            if _neg:
+                why = "ответ по времени планёрки — разбирает бот планёрок"
+                _fo_aio.get_running_loop().create_task(
+                    _fo_meet_answer(link["org_id"], _neg, text, int(msg.get("message_id") or 0), pk))
+            elif link["kind"] != "client":
                 why = "не чат с клиентом"
             elif len(text) < 6 or _FO_AI_SKIP.match(text) or _fo_ai_noise(text):
                 why = "приветствие / прощание / благодарность / мат — в Яндекс не отправляли"
@@ -3146,7 +3241,10 @@ async def fo_tg_hook(request: _FoReq):
         pass
     msg = upd.get("message")
     if msg:
-        _fo_aio.get_running_loop().create_task(_fo_ai_on_msg(msg))
+        if (msg.get("chat") or {}).get("type") == "private":
+            _fo_aio.get_running_loop().create_task(_fo_mt_private(msg))
+        else:
+            _fo_aio.get_running_loop().create_task(_fo_ai_on_msg(msg))
     return {"ok": True}
 
 
@@ -3384,6 +3482,1077 @@ async def fo_ai_rules_set(body: FoAiRuleIn, p: Principal = Depends(max_level(2))
             "ON CONFLICT (kind, ref_id) DO UPDATE SET data = fo_card.data || EXCLUDED.data, updated_at = now()",
             "ai:" + str(p.org_id), p.org_id, _fo_json.dumps({"rules": rules}, ensure_ascii=False))
     return {"ok": True, "rules": rules}
+
+
+# ══ ПЛАНЁРКИ: ГРАФИК, ПРИОРИТЕТ, БОТ СОГЛАСУЕТ ВРЕМЯ (219, 28.09) ══════
+# Виталий: «Делегировать договорённость по времени планёрки. Клиенты — на шкалу
+# приоритета от большей суммы платежа к меньшей. Сначала уточняем у тех, у кого
+# время фиксировано, всё ли в порядке; далее расставляем время приоритетным, далее
+# средним, далее низкому. Бот предлагает время в чате, клиент отвечает на сообщение
+# или предлагает своё — соглашаться с ним не обязательно: планёрки ведущего идут
+# одним блоком, между ними перерыв, тайминг сохраняется. Согласовали — бот
+# закрепляет время в чате и меняет статус. В календаре три статуса: предложена на
+# согласование → назначена → проведена.» Длительность: высокий приоритет 60–80 мин,
+# средний 40–50, низкий 35–40.
+# fo_meet — график и статус по клиенту (по дням: время, минуты, ведущий);
+# fo_meet_camp — рассылка волнами. График → функция «Совещание» в кабинете
+# (по дням свой ведущий — day_cfg) → задачи ведущим рождает _fo_sync_tasks.
+
+_FO_MT_DOWS = ["понедельникам", "вторникам", "средам", "четвергам", "пятницам", "субботам", "воскресеньям"]
+_FO_MT_DOWA = ["в понедельник", "во вторник", "в среду", "в четверг", "в пятницу", "в субботу", "в воскресенье"]
+_FO_MT_LVL = {1: (60, 80, 60), 2: (40, 50, 45), 3: (35, 40, 40)}      # мин, макс, по умолчанию
+_FO_MT_DEF = {"brk": 15, "gap": 180, "from": 10 * 60, "to": 19 * 60}
+_FO_MT_LOOP = {"task": None}
+_FO_MT_ROUNDS = 2          # после двух встречных предложений без согласия — решает проджект
+
+
+def _fo_mt_m(t):
+    try:
+        h, m = str(t or "").strip().replace(".", ":").split(":")[:2]
+        v = int(h) * 60 + int(m)
+        return v if 0 <= v < 24 * 60 else None
+    except Exception:
+        return None
+
+
+def _fo_mt_hm(v):
+    v = int(v)
+    return "%02d:%02d" % (v // 60, v % 60)
+
+
+def _fo_mt_load(v, dflt):
+    if isinstance(v, str):
+        try:
+            v = _fo_json.loads(v)
+        except Exception:
+            return dflt
+    return dflt if v is None else v
+
+
+def _fo_mt_slots(v):
+    """{"0": {"time": "11:00", "minutes": 60, "host": "<сотрудник>"}} → {0: {...}}; только пн–пт."""
+    v = _fo_mt_load(v, {})
+    out = {}
+    if isinstance(v, dict):
+        for k, x in v.items():
+            try:
+                d = int(k)
+            except Exception:
+                continue
+            if not (0 <= d <= 4) or not isinstance(x, dict):
+                continue
+            t = _fo_mt_m(x.get("time"))
+            try:
+                mi = max(15, min(180, int(x.get("minutes") or 60)))
+            except Exception:
+                mi = 60
+            out[d] = {"time": _fo_mt_hm(t) if t is not None else "", "minutes": mi, "host": str(x.get("host") or "")}
+    return out
+
+
+def _fo_mt_dump(sl):
+    return {str(d): {"time": s["time"], "minutes": int(s["minutes"]), "host": s["host"]} for d, s in sorted(sl.items())}
+
+
+def _fo_mt_eff(r):
+    """Какое время сейчас действует: предложенное (ждём ответа клиента) или график."""
+    if r["status"] == "proposed":
+        o = _fo_mt_slots(r["offer"])
+        if o:
+            return o
+    return _fo_mt_slots(r["slots"])
+
+
+def _fo_mt_item(what, **kw):
+    it = {"at": _fo_dt.datetime.now(_FO_MSK).strftime("%d.%m %H:%M"), "what": what}
+    for k, v in kw.items():
+        if v is not None and v != "":
+            it[k] = v
+    return _fo_json.dumps([it], ensure_ascii=False)
+
+
+async def _fo_mt_settings(c, org_id):
+    d = await c.fetchval("SELECT data FROM fo_card WHERE kind='org' AND ref_id=$1", "meet:" + str(org_id))
+    d = _fo_mt_load(d, {}) or {}
+    st = dict(_FO_MT_DEF)
+    try:
+        st["brk"] = max(0, min(60, int(d.get("brk", st["brk"]))))
+        st["gap"] = max(15, min(72 * 60, int(d.get("gap", st["gap"]))))
+        f, t = _fo_mt_m(d.get("from")), _fo_mt_m(d.get("to"))
+        if f is not None and t is not None and t - f >= 120:
+            st["from"], st["to"] = f, t
+    except Exception:
+        pass
+    return st
+
+
+async def _fo_mt_levels(c, org_id):
+    """Шкала приоритета по сумме платежа (карточка клиента), от большей к меньшей:
+    верхняя треть — 1 (высокий), средняя — 2, нижняя и без суммы — 3."""
+    cls = await c.fetch("SELECT id, name FROM client WHERE org_id=$1", org_id)
+    amt = {}
+    for r in await c.fetch("SELECT ref_id, data FROM fo_card WHERE org_id=$1 AND kind IN ('client','cab')", org_id):
+        d = _fo_mt_load(r["data"], {}) or {}
+        try:
+            a = float(d.get("amount") or 0)
+        except Exception:
+            a = 0.0
+        k = str(r["ref_id"])
+        amt[k] = max(amt.get(k, 0.0), a)
+    paid = sorted([x for x in cls if amt.get(str(x["id"]), 0) > 0], key=lambda x: (-amt[str(x["id"])], str(x["name"])))
+    n = len(paid)
+    out = {}
+    for i, x in enumerate(paid):
+        lv = 1 if i < -(-n // 3) else (2 if i < -(-2 * n // 3) else 3)
+        out[str(x["id"])] = {"level": lv, "rank": i + 1, "amount": amt[str(x["id"])], "name": x["name"]}
+    rest = sorted([x for x in cls if str(x["id"]) not in out], key=lambda x: str(x["name"]))
+    for j, x in enumerate(rest):
+        out[str(x["id"])] = {"level": 3, "rank": n + j + 1, "amount": 0, "name": x["name"]}
+    return out
+
+
+async def _fo_mt_names(c, org_id):
+    return {str(r["id"]): r["name"] for r in await c.fetch("SELECT id, name FROM employee WHERE org_id=$1", org_id)}
+
+
+async def _fo_mt_fn(c, org_id):
+    r = await c.fetchval("SELECT id FROM fn WHERE org_id=$1 AND lower(btrim(name))='совещание' ORDER BY code LIMIT 1", org_id)
+    if not r:
+        r = await c.fetchval("SELECT id FROM fn WHERE org_id=$1 AND name ILIKE '%совещан%' AND name NOT ILIKE '%подготов%' "
+                             "ORDER BY code LIMIT 1", org_id)
+    return r
+
+
+async def _fo_mt_migrate(c, org_id):
+    """Первый заход: график из прежнего хранилища (fo_state meetPlan) — в fo_meet, статус «не согласована»."""
+    if await c.fetchval("SELECT 1 FROM fo_meet WHERE org_id=$1::uuid LIMIT 1", str(org_id)):
+        return
+    v = await c.fetchval("SELECT data FROM fo_state WHERE org_id=$1::uuid AND scope='org' AND key='meetPlan'", str(org_id))
+    plan = _fo_mt_load(v, {}) or {}
+    if not isinstance(plan, dict):
+        return
+    today = _fo_msk_today()
+    mon = today - _fo_dt.timedelta(days=today.weekday())
+    for pid, pl in plan.items():
+        if not isinstance(pl, dict) or not re.match(r"^[0-9a-fA-F-]{36}$", str(pid)):
+            continue
+        if isinstance(pl.get("slots"), dict):
+            sl = _fo_mt_slots(pl["slots"])
+        else:
+            sl = _fo_mt_slots({str(d): {"time": pl.get("time"), "minutes": pl.get("minutes"), "host": pl.get("host")}
+                               for d in (pl.get("days") or [])})
+        if not sl:
+            continue
+        if not await c.fetchval("SELECT 1 FROM client WHERE id=$1::uuid AND org_id=$2", str(pid), org_id):
+            continue
+        await c.execute("INSERT INTO fo_meet (org_id, client_id, slots, since, status, log) "
+                        "VALUES ($1::uuid, $2::uuid, $3::jsonb, $4, 'draft', $5::jsonb) ON CONFLICT DO NOTHING",
+                        str(org_id), str(pid), _fo_json.dumps(_fo_mt_dump(sl)), mon,
+                        _fo_mt_item("график перенесён из прежнего хранилища"))
+
+
+async def _fo_mt_apply(c, org_id, client_id, sl):
+    """График → функция «Совещание» в кабинете клиента: дни недели, по дням свой ведущий и минуты.
+    Задачи ведущим досводит _fo_sync_tasks на две недели вперёд."""
+    fid = await _fo_mt_fn(c, org_id)
+    if not fid:
+        return "в справочнике нет функции «Совещание»"
+    cab = await c.fetchval("SELECT id FROM cabinet WHERE client_id=$1::uuid ORDER BY name LIMIT 1", str(client_id))
+    if not cab:
+        return "у клиента нет кабинета"
+    days = sorted(d for d, s in sl.items() if s.get("host"))
+    hosts = [sl[d]["host"] for d in days]
+    main = max(set(hosts), key=hosts.count) if hosts else None
+    old = await c.fetchval("SELECT employee_id FROM fo_cabinet_fn_cfg WHERE cabinet_id=$1 AND fn_id=$2", cab, fid)
+    dc = {str(d): {"e": sl[d]["host"], "m": int(sl[d]["minutes"])} for d in days}
+    async with c.transaction():
+        await c.execute("INSERT INTO cabinet_fn (cabinet_id, fn_id, cycle_n) VALUES ($1, $2, 1) ON CONFLICT DO NOTHING", cab, fid)
+        for h in set(hosts):
+            await c.execute("INSERT INTO employee_fn (employee_id, fn_id, allowed) VALUES ($1::uuid, $2, true) "
+                            "ON CONFLICT DO NOTHING", h, fid)
+        await c.execute("DELETE FROM fo_cabinet_fn_cfg WHERE cabinet_id=$1 AND fn_id=$2", cab, fid)
+        await c.execute(
+            """INSERT INTO fo_cabinet_fn_cfg
+                 (cabinet_id, fn_id, org_id, employee_id, minutes, cycle_kind, cycle_n, cycle_weekdays, day_cfg)
+               VALUES ($1, $2, $3, $4::uuid, $5, $6, 1, $7, $8::jsonb)""",
+            cab, fid, org_id, main, (int(sl[days[0]]["minutes"]) if days else None),
+            "weekly" if days else "none", days, _fo_json.dumps(dc) if days else None)
+    try:
+        res = await _fo_sync_tasks(c, org_id, str(cab), 14, {(cab, fid): old})
+        return "задачи: создано %s, снято %s, переведено %s" % (res.get("создано"), res.get("снято"), res.get("переведено"))
+    except Exception as e:
+        return "задачи не досвелись: " + str(e)[:150]
+
+
+# ── Telegram: бот планёрок (свой токен TG_MEET_BOT_TOKEN, иначе основной бот) ──
+def _fo_mt_tok():
+    return _fo_env("TG_MEET_BOT_TOKEN") or _fo_env("TG_BOT_TOKEN")
+
+
+def _fo_tg_api_sync(method, params, tok=None):
+    tok = tok or _fo_mt_tok()
+    if not tok:
+        return {"ok": False, "description": "на сервере нет токена бота"}
+    data = {}
+    for k, v in params.items():
+        if v is None:
+            continue
+        if isinstance(v, str):
+            data[k] = v
+        elif isinstance(v, bool):
+            data[k] = "true" if v else "false"
+        elif isinstance(v, (int, float)):
+            data[k] = str(v)
+        else:
+            data[k] = _fo_json.dumps(v, ensure_ascii=False)
+    try:
+        with _fo_ur.urlopen("https://api.telegram.org/bot%s/%s" % (tok, method),
+                            data=_fo_up.urlencode(data).encode(), timeout=20) as r:
+            return _fo_json.loads(r.read().decode())
+    except Exception as e:
+        body = ""
+        try:
+            body = e.read().decode()[:400]
+        except Exception:
+            pass
+        try:
+            return _fo_json.loads(body)
+        except Exception:
+            return {"ok": False, "description": (str(e) + " " + body).replace(tok, "***")[:300]}
+
+
+async def _fo_mt_chat(c, client_id):
+    return await c.fetchrow(
+        "SELECT ch.id AS chat_pk, ch.chat_id FROM chat ch JOIN client_chat cc ON cc.chat_pk = ch.id "
+        "WHERE cc.client_id=$1::uuid AND cc.kind='client' AND ch.chat_id ~ '^-?[0-9]+$' "
+        "AND coalesce(ch.is_active, true) ORDER BY ch.id LIMIT 1", str(client_id))
+
+
+async def _fo_mt_send(c, org_id, client_id, text, reply_to=None, test=False):
+    """Бот пишет в чат клиента. Сообщение ложится и в историю чата — ИИ видит контекст.
+    test — проверка: в Telegram не уходит, пишется в тестовую переписку."""
+    if test:
+        tg = "test-meet-" + str(client_id)[:8]
+        mid = int(await c.fetchval("SELECT count(*) FROM fo_chat_msg WHERE tg_chat_id=$1", tg) or 0) + 1
+        chat_pk = None
+    else:
+        ch = await _fo_mt_chat(c, client_id)
+        if not ch:
+            return None, "у клиента нет чата с ботом"
+        prm = {"chat_id": ch["chat_id"], "text": text}
+        if reply_to:
+            prm["reply_parameters"] = {"message_id": int(reply_to), "allow_sending_without_reply": True}
+        res = await _fo_aio.to_thread(_fo_tg_api_sync, "sendMessage", prm)
+        if not res.get("ok"):
+            return None, "Telegram: " + str(res.get("description") or "не отправилось")[:200]
+        tg, mid, chat_pk = ch["chat_id"], int(res["result"]["message_id"]), ch["chat_pk"]
+    try:
+        await c.execute(
+            "INSERT INTO fo_chat_msg (org_id, client_id, chat_pk, kind, tg_chat_id, msg_id, author, author_tg, text, msg_at, ai_state, ai_note) "
+            "VALUES ($1,$2::uuid,$3,'client',$4,$5,'Бот планёрок','',$6,now(),'skip','сообщение бота планёрок') "
+            "ON CONFLICT (tg_chat_id, msg_id) DO NOTHING",
+            org_id, str(client_id), chat_pk, tg, mid, text[:4000])
+    except Exception:
+        pass
+    return {"tg": tg, "msg_id": mid}, ""
+
+
+def _fo_mt_lines(sl, names, end=False):
+    out = []
+    for d, s in sorted(sl.items()):
+        t = _fo_mt_m(s["time"])
+        tt = s["time"] + (("–" + _fo_mt_hm(t + int(s["minutes"]))) if end and t is not None else "")
+        out.append("• по %s в %s, %d мин — ведёт %s" % (_FO_MT_DOWS[d], tt, int(s["minutes"]), names.get(s["host"], "проджект")))
+    return "\n".join(out)
+
+
+def _fo_mt_text(kind, cab, sl, names):
+    if kind == "confirm":
+        return ("Здравствуйте! Сверяем график планёрок по кабинету «%s»:\n%s\n\n"
+                "Всё в силе? Ответьте, пожалуйста, на это сообщение: «да» — или напишите, что поменять." % (cab, _fo_mt_lines(sl, names)))
+    return ("Здравствуйте! Предлагаем время еженедельной планёрки по кабинету «%s»:\n%s\n\n"
+            "Удобно? Ответьте, пожалуйста, на это сообщение: «да» — или напишите, какой день и время вам подходят." % (cab, _fo_mt_lines(sl, names)))
+
+
+# ── проджекту — в личку от основного бота (сотрудник один раз нажимает /start) ──
+async def _fo_mt_dm(c, emp_id, text, test=False):
+    if not emp_id:
+        return "нет ведущего"
+    if test:
+        return "проверка: проджекту не писали"
+    d = _fo_mt_load(await c.fetchval("SELECT data FROM fo_card WHERE kind='employee' AND ref_id=$1", str(emp_id)), {}) or {}
+    if not d.get("tg_id"):
+        return "проджект ещё не подключил бота (/start в личке с ботом)"
+    res = await _fo_aio.to_thread(_fo_tg_api_sync, "sendMessage", {"chat_id": str(d["tg_id"]), "text": text}, _fo_env("TG_BOT_TOKEN"))
+    return "проджект уведомлён" if res.get("ok") else "проджекту не дошло: " + str(res.get("description") or "")[:120]
+
+
+async def _fo_mt_notify(c, sl, text, test=False):
+    out = []
+    for h in sorted({s["host"] for s in sl.values() if s.get("host")}):
+        out.append(await _fo_mt_dm(c, h, text, test))
+    return "; ".join(sorted(set(out)))
+
+
+async def _fo_mt_private(msg):
+    """Личка с основным ботом: сотрудник пишет /start — привязываем его по нику из карточки сотрудника;
+    сюда приходят уведомления о планёрках и напоминание за час до начала."""
+    try:
+        frm = msg.get("from") or {}
+        uid, un = frm.get("id"), str(frm.get("username") or "").lower()
+        if not uid or frm.get("is_bot"):
+            return
+        ans = ""
+        async with pool().acquire() as c:
+            hit = None
+            for r in await c.fetch("SELECT ref_id, org_id, data FROM fo_card WHERE kind='employee'"):
+                d = _fo_mt_load(r["data"], {}) or {}
+                tg = str(d.get("tg") or "").strip().lstrip("@").lower()
+                if (un and tg == un) or str(d.get("tg_id") or "") == str(uid):
+                    hit = r
+                    break
+            if hit:
+                await c.execute("UPDATE fo_card SET data = data || $2::jsonb, updated_at = now() WHERE kind='employee' AND ref_id=$1",
+                                hit["ref_id"], _fo_json.dumps({"tg_id": int(uid)}))
+                name = await c.fetchval("SELECT name FROM employee WHERE id=$1::uuid", str(hit["ref_id"])) or ""
+                ans = ("Готово, %s! Сюда будут приходить уведомления о планёрках: кто из клиентов подтвердил время, "
+                       "кто просит другое, где нужно ваше решение, и напоминание за час до начала." % name).replace(", !", "!")
+            else:
+                ans = ("Не нашли вас в команде агентства. Попросите руководителя вписать ваш ник @%s в карточку "
+                       "сотрудника в сервисе и нажмите /start ещё раз." % (frm.get("username") or "…"))
+        await _fo_aio.to_thread(_fo_tg_api_sync, "sendMessage", {"chat_id": str(uid), "text": ans}, _fo_env("TG_BOT_TOKEN"))
+    except Exception as e:
+        try:
+            print("fo_mt_private:", e)
+        except Exception:
+            pass
+
+
+# ── расстановка: планёрки ведущего одним блоком, между ними перерыв ──
+async def _fo_mt_busy(c, org_id, skip=None, with_queued=False):
+    """Занятость ведущих: {(ведущий, день): [(начало, конец, клиент)]} — назначенные, предложенные и график."""
+    busy = {}
+    skip = set(str(x) for x in (skip or []))
+    for r in await c.fetch("SELECT client_id, status, slots, offer FROM fo_meet WHERE org_id=$1::uuid", str(org_id)):
+        cid = str(r["client_id"])
+        if cid in skip or r["status"] == "off" or (r["status"] == "queued" and not with_queued):
+            continue
+        for d, s in _fo_mt_eff(r).items():
+            t = _fo_mt_m(s["time"])
+            if t is None or not s["host"]:
+                continue
+            busy.setdefault((s["host"], d), []).append((t, t + int(s["minutes"]), cid))
+    return busy
+
+
+def _fo_mt_fits(busy, host, d, t, mins, st):
+    if t is None or t < st["from"] or t + mins > st["to"]:
+        return False
+    b = st["brk"]
+    return all(t + mins + b <= x or t >= y + b for x, y, _ in busy.get((host, d), []))
+
+
+def _fo_mt_place(busy, host, d, pref, mins, st, n=1):
+    """Куда поставить планёрку: вплотную к другим планёркам ведущего в этот день (с перерывом), чтобы они шли
+    одним блоком; первая в дне — в желаемое время. Варианты — ближайшие к желаемому."""
+    have = sorted(busy.get((host, d), []))
+    p0 = pref if pref is not None else st["from"]
+    if not have:
+        t = max(st["from"], min(p0, st["to"] - mins))
+        return [t] if _fo_mt_fits(busy, host, d, t, mins, st) else []
+    cands = set()
+    for x, y, _ in have:
+        cands.add(y + st["brk"])
+        cands.add(x - st["brk"] - mins)
+    good = sorted((t for t in cands if _fo_mt_fits(busy, host, d, t, mins, st)), key=lambda t: (abs(t - p0), t))
+    if not good:
+        mid = (have[0][0] + have[-1][1]) // 2
+        good = sorted((t for t in range(st["from"], st["to"] - mins + 1, 5) if _fo_mt_fits(busy, host, d, t, mins, st)),
+                      key=lambda t: (abs(t - mid), t))
+    return good[:n]
+
+
+def _fo_mt_mins(level, m, fixed=False):
+    mn, mx, df = _FO_MT_LVL.get(level or 3, _FO_MT_LVL[3])
+    if fixed:
+        return int(m or df)
+    return int(m) if m and mn <= int(m) <= mx else df
+
+
+def _fo_mt_offer(busy, sl, level, fixed, st, cid):
+    """Предложение по графику клиента: фиксированное — как есть; остальное — в блок ведущего."""
+    offer = {}
+    for d, s in sorted(sl.items()):
+        if not s["host"]:
+            continue
+        mins = _fo_mt_mins(level, s["minutes"], fixed)
+        pref = _fo_mt_m(s["time"])
+        if fixed and pref is not None:
+            t = pref
+        else:
+            pl = _fo_mt_place(busy, s["host"], d, pref, mins, st, 1)
+            t = pl[0] if pl else (pref if pref is not None else st["from"])
+        offer[d] = {"time": _fo_mt_hm(t), "minutes": mins, "host": s["host"]}
+        busy.setdefault((s["host"], d), []).append((t, t + mins, cid))
+    return offer
+
+
+# ── ответ клиента ──
+_FO_MT_YESW = {"да", "ага", "ок", "окей", "ok", "okay", "подходит", "удобно", "договорились", "согласен", "согласна",
+               "согласны", "отлично", "хорошо", "супер", "конечно", "давайте", "спасибо", "все", "в", "силе", "норм",
+               "нормально", "пойдет", "устраивает", "да,", "идет", "принято", "так", "и", "оставляем", "оставим"}
+_FO_MT_YESK = {"да", "ага", "ок", "окей", "ok", "okay", "подходит", "удобно", "договорились", "согласен", "согласна",
+               "согласны", "отлично", "хорошо", "супер", "конечно", "силе", "норм", "нормально", "пойдет", "устраивает",
+               "идет", "принято", "оставляем", "оставим"}
+_FO_MT_DAYRX = [(0, r"понедельн|\bпн\b"), (1, r"вторн|\bвт\b"), (2, r"\bсред[аеуы]\b|\bср\b"), (3, r"четверг|\bчт\b"),
+                (4, r"пятниц|\bпт\b")]
+_FO_MT_ANS_RX = re.compile(
+    r"(^|[\s,.!])(да|ок|окей|ok|ага|подходит|удобно|неудобно|не удобно|договорились|согласн\w*|давайте|норм\w*|хорошо|"
+    r"отлично|не могу|не можем|не получится|в силе)([\s,.!)]|$)|\b([01]?\d|2[0-3])[:.][0-5]\d\b|\bв\s*([01]?\d|2[0-3])\b|"
+    r"понедельн|вторник|\bсред[уаы]\b|четверг|пятниц|\bпн\b|\bвт\b|\bср\b|\bчт\b|\bпт\b|план[её]рк|созвон|встреч|перенес|врем",
+    re.I)
+
+_FO_MT_SYS = (
+    "Агентство договаривается с клиентом о времени еженедельной планёрки (созвона по кабинету на маркетплейсе). "
+    "Тебе дают, что предложило агентство, и ответ клиента. Определи смысл ответа.\n"
+    "answer: yes — клиент согласен с предложенным (да, ок, подходит, удобно, договорились, всё в силе); "
+    "other — клиент называет свой день и/или время; no — не может, но своего времени не назвал; "
+    "unclear — непонятно; not_about — сообщение вообще не про планёрку (просьба по работе, вопрос по товару).\n"
+    "slots — только для other: список {\"day\": 0–4 (0 — понедельник … 4 — пятница; если день не назван — null), "
+    "\"time\": \"HH:MM\" (если время не названо — null)}.\n"
+    "Ответь только JSON без пояснений: {\"answer\": \"yes\", \"slots\": []}")
+
+
+def _fo_mt_rx(text):
+    t = str(text or "").lower().replace("ё", "е")
+    days = [d for d, rx in _FO_MT_DAYRX if re.search(rx, t)]
+    tv = None
+    m = re.search(r"\b([01]?\d|2[0-3])[:.]([0-5]\d)\b", t)
+    if m:
+        tv = "%02d:%02d" % (int(m.group(1)), int(m.group(2)))
+    else:
+        m = re.search(r"\b(?:в|на|к|с|после|до)\s*([01]?\d|2[0-3])\s*(?:ч\b|час\w*)?(?![:.]?\d)", t)
+        if m and 8 <= int(m.group(1)) <= 20:
+            tv = "%02d:00" % int(m.group(1))
+    words = re.findall(r"[a-zа-я]+|\+|👍|✅", t)
+    yes = bool(words) and all(w in _FO_MT_YESW or w in ("+", "👍", "✅") for w in words) and \
+        any(w in _FO_MT_YESK or w in ("+", "👍", "✅") for w in words) and not days and not tv
+    return {"days": days, "time": tv, "yes": yes}
+
+
+async def _fo_mt_parse(text, offer):
+    rx = _fo_mt_rx(text)
+    if rx["yes"]:
+        return {"answer": "yes", "slots": [], "by": "правило"}
+    if _fo_ai_ready():
+        now = _fo_dt.datetime.now(_FO_MSK)
+        usr = "Сейчас: %s.\nАгентство предложило:\n%s\nОтвет клиента: «%s»" % (
+            now.strftime("%Y-%m-%d %H:%M"), _fo_mt_lines(offer, {}), str(text or "")[:800])
+        try:
+            txt, _u = await _fo_aio.to_thread(_fo_ygpt_sync, [{"role": "system", "text": _FO_MT_SYS},
+                                                              {"role": "user", "text": usr}], 200)
+            js = _fo_ai_json(txt) or {}
+            if js.get("answer") in ("yes", "other", "no", "unclear", "not_about"):
+                js["by"] = "ИИ"
+                if js["answer"] == "other" and not js.get("slots") and (rx["days"] or rx["time"]):
+                    js["slots"] = [{"day": d, "time": rx["time"]} for d in (rx["days"] or [None])]
+                if js["answer"] in ("no", "unclear") and (rx["days"] or rx["time"]):
+                    js["answer"] = "other"
+                    js["slots"] = [{"day": d, "time": rx["time"]} for d in (rx["days"] or [None])]
+                return js
+        except Exception:
+            pass
+    if rx["days"] or rx["time"]:
+        return {"answer": "other", "slots": [{"day": d, "time": rx["time"]} for d in (rx["days"] or [None])], "by": "правило"}
+    return {"answer": "unclear", "slots": [], "by": "правило"}
+
+
+async def _fo_mt_row(c, org_id, client_id):
+    return await c.fetchrow("SELECT * FROM fo_meet WHERE org_id=$1::uuid AND client_id=$2::uuid", str(org_id), str(client_id))
+
+
+async def _fo_mt_agree(c, org_id, client_id, sl, reply_to=None, test=False, how="клиент подтвердил"):
+    """Согласовано: бот пишет итог, закрепляет его в чате (прежнее закрепление снимает), статус «назначена»,
+    функция «Совещание» в кабинете — по этому времени."""
+    names = await _fo_mt_names(c, org_id)
+    cab = await c.fetchval("SELECT name FROM client WHERE id=$1::uuid", str(client_id)) or ""
+    r = await _fo_mt_row(c, org_id, client_id)
+    txt = "Зафиксировали планёрку по кабинету «%s»:\n%s\n\nЗакрепляем это сообщение в чате. До встречи!" % (
+        cab, _fo_mt_lines(sl, names, end=True))
+    sent, err = await _fo_mt_send(c, org_id, client_id, txt, reply_to=reply_to, test=test)
+    pin = ""
+    if sent and not test:
+        if r and r["pin_msg_id"] and r["tg_chat_id"] == sent["tg"]:
+            await _fo_aio.to_thread(_fo_tg_api_sync, "unpinChatMessage", {"chat_id": sent["tg"], "message_id": int(r["pin_msg_id"])})
+        pr = await _fo_aio.to_thread(_fo_tg_api_sync, "pinChatMessage",
+                                     {"chat_id": sent["tg"], "message_id": sent["msg_id"], "disable_notification": True})
+        pin = "закреплено в чате" if pr.get("ok") else ("не закрепилось: " + str(pr.get("description") or "")[:150] +
+                                                         " — дайте боту в чате право закреплять сообщения")
+    elif sent:
+        pin = "закреплено в чате (проверка)"
+    await c.execute(
+        "UPDATE fo_meet SET slots=$3::jsonb, offer=NULL, status='agreed', agreed_at=now(), pin_msg_id=$4, pinned=$5, "
+        "tg_chat_id=coalesce($6, tg_chat_id), attn=NULL, log=log||$7::jsonb, updated_at=now() "
+        "WHERE org_id=$1::uuid AND client_id=$2::uuid",
+        str(org_id), str(client_id), _fo_json.dumps(_fo_mt_dump(sl)), sent["msg_id"] if sent else None,
+        pin.startswith("закреплено"), sent["tg"] if sent else None,
+        _fo_mt_item("назначена: " + how, pin=pin, send=err))
+    applied = await _fo_mt_apply(c, org_id, client_id, sl)
+    dm = await _fo_mt_notify(c, sl, "✅ %s: планёрка назначена (%s)\n%s\nЗадача — у вас в ганте и в задачах." % (
+        cab, how, _fo_mt_lines(sl, names, end=True)), test)
+    await c.execute("UPDATE fo_meet SET log=log||$3::jsonb WHERE org_id=$1::uuid AND client_id=$2::uuid",
+                    str(org_id), str(client_id), _fo_mt_item("уведомление проджекту", итог=dm))
+    return {"state": "agreed", "pin": pin, "send": err or "отправлено", "задачи": applied, "проджекту": dm}
+
+
+async def _fo_mt_offer_send(c, org_id, client_id, kind, offer, reply_to=None, test=False, text=None, camp=None, wave=None):
+    names = await _fo_mt_names(c, org_id)
+    cab = await c.fetchval("SELECT name FROM client WHERE id=$1::uuid", str(client_id)) or ""
+    txt = text or _fo_mt_text(kind, cab, offer, names)
+    sent, err = await _fo_mt_send(c, org_id, client_id, txt, reply_to=reply_to, test=test)
+    if not sent:
+        await c.execute("UPDATE fo_meet SET status=CASE WHEN status IN ('queued','proposed') THEN 'draft' ELSE status END, "
+                        "attn=$3, log=log||$4::jsonb, updated_at=now() WHERE org_id=$1::uuid AND client_id=$2::uuid",
+                        str(org_id), str(client_id), err, _fo_mt_item("не отправилось", why=err))
+        return {"state": "error", "why": err}
+    await c.execute(
+        "UPDATE fo_meet SET status='proposed', kind=$3, offer=$4::jsonb, tg_chat_id=$5, msg_id=$6, sent_at=now(), "
+        "answered_at=CASE WHEN $7::bigint IS NULL THEN NULL ELSE answered_at END, attn=NULL, "
+        "camp_id=coalesce($8, camp_id), wave=coalesce($9, wave), log=log||$10::jsonb, updated_at=now() "
+        "WHERE org_id=$1::uuid AND client_id=$2::uuid",
+        str(org_id), str(client_id), kind, _fo_json.dumps(_fo_mt_dump(offer)), sent["tg"], sent["msg_id"],
+        reply_to, camp, wave, _fo_mt_item("предложено клиенту" if kind != "confirm" else "спросили, всё ли в силе",
+                                          text=txt[:400], test=("да" if test else None)))
+    applied = await _fo_mt_apply(c, org_id, client_id, offer)
+    return {"state": "proposed", "msg_id": sent["msg_id"], "задачи": applied}
+
+
+async def _fo_meet_answer(org_id, client_id, text, msg_id=None, pk=None, test=False):
+    """Разбор ответа клиента: «да» — фиксируем и закрепляем; своё время — берём, только если оно встаёт в блок
+    ведущего с перерывом, иначе предлагаем ближайшие окна блока; после двух кругов — решает проджект."""
+    async with pool().acquire() as c:
+        r = await _fo_mt_row(c, org_id, client_id)
+        if not r or r["status"] != "proposed":
+            return {"state": "не ждём ответа"}
+        offer = _fo_mt_slots(r["offer"]) or _fo_mt_slots(r["slots"])
+    js = await _fo_mt_parse(text, offer)
+    kind = js.get("answer")
+    if kind == "not_about":
+        if pk and _fo_ai_ready() and not test:
+            try:
+                async with pool().acquire() as c:
+                    await c.execute("UPDATE fo_chat_msg SET ai_state=NULL, ai_note='не про планёрку — в разбор задач' WHERE id=$1", pk)
+                await _fo_ai_process(pk)
+            except Exception:
+                pass
+        return {"state": "не про планёрку", "понял": js}
+    async with pool().acquire() as c:
+        await c.execute("UPDATE fo_meet SET answered_at=now(), answer=$3, log=log||$4::jsonb, updated_at=now() "
+                        "WHERE org_id=$1::uuid AND client_id=$2::uuid", str(org_id), str(client_id), str(text or "")[:500],
+                        _fo_mt_item("ответ клиента", text=str(text or "")[:300],
+                                    понял={"yes": "согласен", "other": "предлагает своё время", "no": "не может",
+                                           "unclear": "непонятно"}.get(kind, kind), by=js.get("by")))
+        if kind == "yes":
+            return await _fo_mt_agree(c, org_id, client_id, offer, reply_to=msg_id, test=test)
+        st = await _fo_mt_settings(c, org_id)
+        lv = (await _fo_mt_levels(c, org_id)).get(str(client_id), {"level": 3})
+        rounds = int(r["rounds"] or 0)
+        if kind == "other":
+            want = {}
+            for x in js.get("slots") or []:
+                t = _fo_mt_m(x.get("time")) if x.get("time") else None
+                try:
+                    ds = [int(x.get("day"))] if x.get("day") not in (None, "", "null") else []
+                except Exception:
+                    ds = []
+                ds = [d for d in ds if 0 <= d <= 4] or list(offer.keys())
+                for d in ds:
+                    want[d] = t
+            if want:
+                base = [offer[d] for d in sorted(offer)] or [{"time": "", "minutes": 60, "host": ""}]
+                if set(want) <= set(offer):
+                    new = {d: dict(s) for d, s in offer.items()}
+                else:
+                    new = {}
+                for i, d in enumerate(sorted(want)):
+                    src = offer.get(d) or base[min(i, len(base) - 1)]
+                    new[d] = {"time": _fo_mt_hm(want[d]) if want[d] is not None else src["time"],
+                              "minutes": src["minutes"], "host": src["host"]}
+                busy = await _fo_mt_busy(c, org_id, skip=[client_id])
+                bad = [d for d in sorted(want) if not _fo_mt_fits(busy, new[d]["host"], d, _fo_mt_m(new[d]["time"]),
+                                                                  int(new[d]["minutes"]), st)
+                       or (busy.get((new[d]["host"], d)) and not _fo_mt_adjacent(busy, new[d]["host"], d,
+                                                                                _fo_mt_m(new[d]["time"]), int(new[d]["minutes"]), st))]
+                if not bad:
+                    return await _fo_mt_agree(c, org_id, client_id, new, reply_to=msg_id, test=test,
+                                              how="время клиента встало в блок ведущего")
+                if rounds >= _FO_MT_ROUNDS:
+                    return await _fo_mt_handoff(c, org_id, client_id, msg_id, test, "клиент просит другое время: «%s»" % str(text)[:120])
+                alt = {}
+                opts = []
+                names = await _fo_mt_names(c, org_id)
+                for d in bad:
+                    s = new[d]
+                    pl = _fo_mt_place(busy, s["host"], d, _fo_mt_m(s["time"]), int(s["minutes"]), st, 3)
+                    if not pl:
+                        continue
+                    alt[d] = pl
+                    opts.append("%s — %s" % (_FO_MT_DOWA[d], " или ".join(_fo_mt_hm(t) for t in pl)))
+                if not alt:
+                    return await _fo_mt_handoff(c, org_id, client_id, msg_id, test, "у ведущего нет окна: «%s»" % str(text)[:120])
+                for d, pl in alt.items():
+                    new[d]["time"] = _fo_mt_hm(pl[0])
+                txt = ("Спасибо! На это время поставить не получится: планёрки у %s идут одним блоком с перерывами, "
+                       "так мы держим тайминг. Можем предложить: %s.\nПодойдёт первый вариант? Ответьте «да» или выберите другой."
+                       % (", ".join(sorted({names.get(new[d]["host"], "проджекта") for d in alt})), "; ".join(opts)))
+                await c.execute("UPDATE fo_meet SET rounds=coalesce(rounds,0)+1 WHERE org_id=$1::uuid AND client_id=$2::uuid",
+                                str(org_id), str(client_id))
+                res = await _fo_mt_offer_send(c, org_id, client_id, "offer", new, reply_to=msg_id, test=test, text=txt)
+                res["встречное"] = opts
+                cab = await c.fetchval("SELECT name FROM client WHERE id=$1::uuid", str(client_id)) or ""
+                res["проджекту"] = await _fo_mt_notify(c, new, "↔ %s: клиент просит «%s». Бот предложил: %s." % (
+                    cab, str(text)[:150], "; ".join(opts)), test)
+                return res
+        # «не могу» или непонятно — просим назвать удобное время
+        if rounds >= _FO_MT_ROUNDS:
+            return await _fo_mt_handoff(c, org_id, client_id, msg_id, test, "не договорились: «%s»" % str(text)[:120])
+        await c.execute("UPDATE fo_meet SET rounds=coalesce(rounds,0)+1 WHERE org_id=$1::uuid AND client_id=$2::uuid",
+                        str(org_id), str(client_id))
+        txt = "Поняли. Подскажите, пожалуйста, какой день и время вам удобны — подберём ближайшее окно."
+        return await _fo_mt_offer_send(c, org_id, client_id, r["kind"] or "offer", offer, reply_to=msg_id, test=test, text=txt)
+
+
+def _fo_mt_adjacent(busy, host, d, t, mins, st):
+    """Встаёт ли время в блок ведущего: вплотную к соседней планёрке (перерыв ±5 минут)."""
+    if t is None:
+        return False
+    for x, y, _ in busy.get((host, d), []):
+        if abs(t - (y + st["brk"])) <= 5 or abs((t + mins + st["brk"]) - x) <= 5:
+            return True
+    return False
+
+
+async def _fo_mt_handoff(c, org_id, client_id, msg_id, test, why):
+    txt = "Спасибо! Передали ваш вопрос проджекту — он свяжется с вами и согласует удобное время."
+    sent, err = await _fo_mt_send(c, org_id, client_id, txt, reply_to=msg_id, test=test)
+    r = await _fo_mt_row(c, org_id, client_id)
+    cab = await c.fetchval("SELECT name FROM client WHERE id=$1::uuid", str(client_id)) or ""
+    dm = await _fo_mt_notify(c, _fo_mt_eff(r) if r else {}, "⚠ %s: нужно ваше решение по времени планёрки — %s. "
+                             "Договоритесь с клиентом и отметьте время в сервисе («Календарь планёрок»)." % (cab, why), test)
+    await c.execute("UPDATE fo_meet SET attn=$3, log=log||$4::jsonb, updated_at=now() WHERE org_id=$1::uuid AND client_id=$2::uuid",
+                    str(org_id), str(client_id), "нужно решение проджекта: " + why, _fo_mt_item("передано проджекту", why=why, итог=dm))
+    return {"state": "handoff", "why": why, "проджекту": dm}
+
+
+async def _fo_meet_match(c, org_id, client_id, tg, msg, text):
+    """Сообщение клиента — ответ боту планёрок? Реплай на сообщение бота — да; без реплая — если ждём ответа
+    не дольше трёх суток и в тексте есть «да», время, день недели или «планёрка». Ошибиться не страшно:
+    сообщение не про планёрку ИИ вернёт в обычный разбор задач."""
+    r = await c.fetchrow("SELECT client_id, msg_id, sent_at FROM fo_meet WHERE org_id=$1::uuid AND client_id=$2::uuid "
+                         "AND status='proposed' AND tg_chat_id=$3", str(org_id), str(client_id), str(tg))
+    if not r:
+        return None
+    rep = msg.get("reply_to_message") or {}
+    if rep.get("message_id") and r["msg_id"] and int(rep["message_id"]) == int(r["msg_id"]):
+        return str(r["client_id"])
+    if rep.get("message_id") and not (rep.get("from") or {}).get("is_bot"):
+        return None
+    if r["sent_at"] and (_fo_dt.datetime.now(_fo_dt.timezone.utc) - r["sent_at"]).total_seconds() > 3 * 86400:
+        return None
+    return str(r["client_id"]) if _FO_MT_ANS_RX.search(str(text or "")) else None
+
+
+# ── волны: фиксированные «всё в силе?» → высокий → средний → низкий приоритет ──
+async def _fo_mt_advance(c, org_id, camp_id):
+    camp = await c.fetchrow("SELECT * FROM fo_meet_camp WHERE id=$1", camp_id)
+    if not camp or camp["status"] != "active":
+        return {"state": "рассылка не идёт"}
+    w = int(camp["wave"])
+    mem = []
+    while w < 3:
+        w += 1
+        mem = await c.fetch("SELECT * FROM fo_meet WHERE org_id=$1::uuid AND camp_id=$2 AND status='queued' AND wave=$3",
+                            str(org_id), camp_id, w)
+        if mem:
+            break
+    if not mem:
+        await c.execute("UPDATE fo_meet_camp SET status='done', wave=4, wave_at=now() WHERE id=$1", camp_id)
+        return {"state": "все волны отправлены"}
+    lv = await _fo_mt_levels(c, org_id)
+    st = await _fo_mt_settings(c, org_id)
+    busy = await _fo_mt_busy(c, org_id)
+    mem = sorted(mem, key=lambda r: lv.get(str(r["client_id"]), {}).get("rank", 999))
+    out = []
+    for r in mem:
+        cid = str(r["client_id"])
+        L = lv.get(cid, {"level": 3})
+        offer = _fo_mt_offer(busy, _fo_mt_slots(r["slots"]), L["level"], bool(r["fixed"]), st, cid)
+        if not offer:
+            await c.execute("UPDATE fo_meet SET status='draft', attn='нет ведущего в графике', updated_at=now() "
+                            "WHERE org_id=$1::uuid AND client_id=$2::uuid", str(org_id), cid)
+            out.append({"client": L.get("name"), "state": "нет ведущего"})
+            continue
+        res = await _fo_mt_offer_send(c, org_id, cid, "confirm" if r["fixed"] else "offer", offer,
+                                      test=bool(camp["test"]), camp=camp_id, wave=w)
+        out.append({"client": L.get("name"), "state": res.get("state"), "why": res.get("why")})
+    await c.execute("UPDATE fo_meet_camp SET wave=$2, wave_at=now() WHERE id=$1", camp_id, w)
+    return {"волна": w, "клиенты": out}
+
+
+async def _fo_mt_remind(c):
+    """За час до начала: клиенту в чат (если время согласовано) и проджекту в личку."""
+    now = _fo_dt.datetime.now(_FO_MSK)
+    d, today = now.weekday(), now.date()
+    if d > 4:
+        return 0
+    mnow = now.hour * 60 + now.minute
+    n = 0
+    for r in await c.fetch("SELECT * FROM fo_meet WHERE status IN ('agreed','draft','proposed') "
+                           "AND (reminded IS NULL OR reminded < $1)", today):
+        s = _fo_mt_eff(r).get(d)
+        t = _fo_mt_m(s["time"]) if s else None
+        if t is None or not (0 < t - mnow <= 60) or (r["since"] and r["since"] > today):
+            continue
+        ok = await c.fetchval("UPDATE fo_meet SET reminded=$3 WHERE org_id=$1 AND client_id=$2 "
+                              "AND (reminded IS NULL OR reminded < $3) RETURNING 1", r["org_id"], r["client_id"], today)
+        if not ok:
+            continue
+        test = str(r["tg_chat_id"] or "").startswith("test")
+        names = await _fo_mt_names(c, r["org_id"])
+        cab = await c.fetchval("SELECT name FROM client WHERE id=$1", r["client_id"]) or ""
+        end = _fo_mt_hm(t + int(s["minutes"]))
+        notes = []
+        if r["status"] == "agreed":
+            sent, err = await _fo_mt_send(c, r["org_id"], r["client_id"],
+                                          "Напоминаем: сегодня в %s планёрка по кабинету «%s» (до %s), ведёт %s. До встречи через час!"
+                                          % (s["time"], cab, end, names.get(s["host"], "проджект")), test=test)
+            notes.append("клиенту: " + ("напомнили" if sent else err))
+        notes.append(await _fo_mt_dm(c, s["host"], "⏰ Через час планёрка: %s, %s–%s." % (cab, s["time"], end), test))
+        await c.execute("UPDATE fo_meet SET log=log||$3::jsonb WHERE org_id=$1 AND client_id=$2", r["org_id"], r["client_id"],
+                        _fo_mt_item("напоминание за час", итог="; ".join(notes)))
+        n += 1
+    return n
+
+
+async def _fo_mt_loop():
+    await _fo_aio.sleep(40)
+    while True:
+        try:
+            async with pool().acquire() as c:
+                await _fo_mt_remind(c)
+        except Exception as e:
+            try:
+                print("fo_mt_remind:", e)
+            except Exception:
+                pass
+        try:
+            async with pool().acquire() as c:
+                camps = await c.fetch("SELECT id, org_id, wave, wave_at, gap_min FROM fo_meet_camp WHERE status='active'")
+            for cp in camps:
+                try:
+                    async with pool().acquire() as c:
+                        if not await c.fetchval("SELECT pg_try_advisory_lock(hashtext($1))", "fo-meet:" + str(cp["org_id"])):
+                            continue
+                        try:
+                            left = await c.fetchval("SELECT count(*) FROM fo_meet WHERE org_id=$1::uuid AND camp_id=$2 AND wave=$3 "
+                                                    "AND status='proposed' AND attn IS NULL", str(cp["org_id"]), cp["id"], cp["wave"])
+                            late = cp["wave_at"] is None or (_fo_dt.datetime.now(_fo_dt.timezone.utc) - cp["wave_at"]).total_seconds() \
+                                >= 60 * int(cp["gap_min"] or 180)
+                            if int(left or 0) == 0 or late:
+                                await _fo_mt_advance(c, cp["org_id"], cp["id"])
+                        finally:
+                            await c.execute("SELECT pg_advisory_unlock(hashtext($1))", "fo-meet:" + str(cp["org_id"]))
+                except Exception as e:
+                    try:
+                        print("fo_mt_loop:", e)
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+        await _fo_aio.sleep(120)
+
+
+def _fo_mt_kick():
+    t = _FO_MT_LOOP.get("task")
+    if t is not None and not t.done():
+        return
+    try:
+        _FO_MT_LOOP["task"] = _fo_aio.get_running_loop().create_task(_fo_mt_loop())
+    except Exception:
+        pass
+
+
+@router.on_event("startup")
+async def _fo_mt_boot():
+    _fo_mt_kick()
+
+
+# ── API ──
+def _fo_mt_out(cid, r, lv, chat, names=None):
+    L = lv.get(cid, {"level": 3, "rank": 999, "amount": 0, "name": ""})
+    d = {"client_id": cid, "name": L.get("name"), "level": L["level"], "rank": L["rank"], "amount": L.get("amount") or 0,
+         "chat": bool(chat), "slots": {}, "fixed": False, "since": None, "status": "off", "kind": None, "offer": None,
+         "sent_at": None, "answered_at": None, "agreed_at": None, "answer": None, "pinned": False, "attn": None,
+         "wave": None, "camp_id": None, "log": []}
+    if r:
+        d.update({"slots": _fo_mt_dump(_fo_mt_slots(r["slots"])), "fixed": bool(r["fixed"]),
+                  "since": r["since"].isoformat() if r["since"] else None, "status": r["status"], "kind": r["kind"],
+                  "offer": _fo_mt_dump(_fo_mt_slots(r["offer"])) if r["offer"] else None,
+                  "sent_at": r["sent_at"].isoformat() if r["sent_at"] else None,
+                  "answered_at": r["answered_at"].isoformat() if r["answered_at"] else None,
+                  "agreed_at": r["agreed_at"].isoformat() if r["agreed_at"] else None,
+                  "answer": r["answer"], "pinned": bool(r["pinned"]), "attn": r["attn"], "wave": r["wave"],
+                  "camp_id": r["camp_id"], "log": (_fo_mt_load(r["log"], []) or [])[-12:],
+                  "test": str(r["tg_chat_id"] or "").startswith("test")})
+    return d
+
+
+@router.get("/meet")
+async def fo_meet_get(p: Principal = Depends(max_level(4))):
+    _fo_mt_kick()
+    async with pool().acquire() as c:
+        await _fo_mt_migrate(c, p.org_id)
+        lv = await _fo_mt_levels(c, p.org_id)
+        rows = {str(r["client_id"]): r for r in await c.fetch("SELECT * FROM fo_meet WHERE org_id=$1::uuid", str(p.org_id))}
+        chats = {str(r["client_id"]) for r in await c.fetch(
+            "SELECT DISTINCT cc.client_id FROM client_chat cc JOIN chat ch ON ch.id=cc.chat_pk "
+            "WHERE cc.kind='client' AND ch.chat_id ~ '^-?[0-9]+$' AND ch.org_id=$1", p.org_id)}
+        st = await _fo_mt_settings(c, p.org_id)
+        camp = await c.fetchrow("SELECT * FROM fo_meet_camp WHERE org_id=$1::uuid ORDER BY id DESC LIMIT 1", str(p.org_id))
+        fid = await _fo_mt_fn(c, p.org_id)
+        held = {}
+        if fid:
+            for r in await c.fetch("SELECT client_id, plan_date FROM task WHERE org_id=$1 AND fn_id=$2 AND status='done' "
+                                   "AND plan_date >= $3", p.org_id, fid, _fo_msk_today() - _fo_dt.timedelta(days=75)):
+                if r["client_id"]:
+                    held.setdefault(str(r["client_id"]), []).append(r["plan_date"].isoformat())
+    out = [_fo_mt_out(cid, rows.get(cid), lv, cid in chats) for cid in sorted(lv, key=lambda k: lv[k]["rank"])]
+    cp = None
+    if camp:
+        cp = {"id": camp["id"], "status": camp["status"], "wave": camp["wave"], "gap_min": camp["gap_min"],
+              "test": bool(camp["test"]), "started_at": camp["started_at"].isoformat(),
+              "wave_at": camp["wave_at"].isoformat() if camp["wave_at"] else None}
+    return {"rows": out, "camp": cp, "held": held, "fn": bool(fid), "bot": bool(_fo_mt_tok()),
+            "own_bot": bool(_fo_env("TG_MEET_BOT_TOKEN")),
+            "settings": {"brk": st["brk"], "gap": st["gap"], "from": _fo_mt_hm(st["from"]), "to": _fo_mt_hm(st["to"])},
+            "levels": {str(k): {"min": v[0], "max": v[1], "def": v[2]} for k, v in _FO_MT_LVL.items()}}
+
+
+@router.get("/meet/times")
+async def fo_meet_times(p: Principal = Depends(current)):
+    """Время планёрок для ганта: РМ и выше — все, остальным — где ведут сами."""
+    async with pool().acquire() as c:
+        me = None if _fo_st_lvl(p) <= 4 else str(await _fo_my_emp(c, p) or "")
+        out = {}
+        for r in await c.fetch("SELECT client_id, status, slots, offer FROM fo_meet WHERE org_id=$1::uuid AND status<>'off'",
+                               str(p.org_id)):
+            sl = {d: s for d, s in _fo_mt_eff(r).items() if me is None or s["host"] == me}
+            if sl:
+                out[str(r["client_id"])] = {"status": r["status"], "slots": _fo_mt_dump(sl)}
+    return {"times": out}
+
+
+class FoMtSaveIn(_FoBM):
+    slots: dict | None = None
+    fixed: bool | None = None
+    mark: str | None = None        # agreed — согласовано проджектом вручную; draft — вернуть в «не согласована»
+
+
+@router.post("/meet/{client_id}/save")
+async def fo_meet_save(client_id: str, body: FoMtSaveIn, p: Principal = Depends(max_level(4))):
+    async with pool().acquire() as c:
+        if not await c.fetchval("SELECT 1 FROM client WHERE id=$1::uuid AND org_id=$2", client_id, p.org_id):
+            raise HTTPException(404, "клиент не найден")
+        await _fo_mt_migrate(c, p.org_id)
+        r = await _fo_mt_row(c, p.org_id, client_id)
+        sl = _fo_mt_slots(body.slots) if body.slots is not None else (_fo_mt_slots(r["slots"]) if r else {})
+        for d, s in sl.items():
+            if not s["time"] or not s["host"]:
+                raise HTTPException(400, "%s: укажите время и кто ведёт" % ["пн", "вт", "ср", "чт", "пт"][d])
+            ok = await c.fetchval(
+                "SELECT 1 FROM employee e WHERE e.id=$1::uuid AND e.org_id=$2 AND e.is_active AND NOT EXISTS "
+                "(SELECT 1 FROM app_user u WHERE u.id=e.user_id AND u.role_code IN ('owner','admin'))", s["host"], p.org_id)
+            if not ok:
+                raise HTTPException(400, "Ведущий на %s не подходит: собственнику задачи не ставятся — выберите проджекта"
+                                    % ["пн", "вт", "ср", "чт", "пт"][d])
+        fixed = bool(body.fixed) if body.fixed is not None else bool(r and r["fixed"])
+        same = bool(r) and _fo_mt_dump(_fo_mt_slots(r["slots"])) == _fo_mt_dump(sl) and bool(r["fixed"]) == fixed
+        if not sl:
+            status = "off"
+        elif body.mark == "agreed":
+            status = "agreed"
+        elif body.mark == "draft":
+            status = "draft"
+        elif same and r["status"] in ("agreed", "proposed", "queued"):
+            status = r["status"]
+        else:
+            status = "draft"
+        today = _fo_msk_today()
+        mon = today - _fo_dt.timedelta(days=today.weekday())
+        what = {"agreed": "назначена вручную (проджект согласовал сам)", "off": "снято с графика"}.get(status, "график изменён — ещё не согласован с клиентом")
+        await c.execute(
+            """INSERT INTO fo_meet (org_id, client_id, slots, fixed, since, status, log, updated_by)
+               VALUES ($1::uuid, $2::uuid, $3::jsonb, $4, $5, $6, $7::jsonb, $8)
+               ON CONFLICT (org_id, client_id) DO UPDATE SET slots=EXCLUDED.slots, fixed=EXCLUDED.fixed,
+                 since=coalesce(fo_meet.since, EXCLUDED.since), status=EXCLUDED.status,
+                 offer=CASE WHEN EXCLUDED.status='proposed' THEN fo_meet.offer ELSE NULL END,
+                 attn=CASE WHEN EXCLUDED.status IN ('agreed','off') THEN NULL ELSE fo_meet.attn END,
+                 rounds=CASE WHEN EXCLUDED.status='proposed' THEN fo_meet.rounds ELSE 0 END,
+                 agreed_at=CASE WHEN EXCLUDED.status='agreed' AND fo_meet.status<>'agreed' THEN now() ELSE fo_meet.agreed_at END,
+                 log=fo_meet.log || EXCLUDED.log, updated_at=now(), updated_by=EXCLUDED.updated_by""",
+            str(p.org_id), client_id, _fo_json.dumps(_fo_mt_dump(sl)), fixed, mon, status,
+            _fo_mt_item(what), _fo_uid(p) if re.match(r"^[0-9a-fA-F-]{36}$", str(_fo_uid(p))) else None)
+        r = await _fo_mt_row(c, p.org_id, client_id)
+        applied = await _fo_mt_apply(c, p.org_id, client_id, _fo_mt_eff(r))
+        lv = await _fo_mt_levels(c, p.org_id)
+        chat = await _fo_mt_chat(c, client_id)
+    return {"ok": True, "row": _fo_mt_out(client_id, r, lv, chat), "задачи": applied}
+
+
+class FoMtSendIn(_FoBM):
+    test: bool = False
+
+
+@router.post("/meet/{client_id}/send")
+async def fo_meet_send(client_id: str, body: FoMtSendIn, p: Principal = Depends(max_level(4))):
+    """Предложить время одному клиенту сейчас, вне волн."""
+    async with pool().acquire() as c:
+        r = await _fo_mt_row(c, p.org_id, client_id)
+        if not r or not _fo_mt_slots(r["slots"]):
+            raise HTTPException(400, "сначала задайте график: дни, время и кто ведёт")
+        lv = (await _fo_mt_levels(c, p.org_id)).get(client_id, {"level": 3})
+        st = await _fo_mt_settings(c, p.org_id)
+        busy = await _fo_mt_busy(c, p.org_id, skip=[client_id])
+        offer = _fo_mt_offer(busy, _fo_mt_slots(r["slots"]), lv["level"], bool(r["fixed"]), st, client_id)
+        await c.execute("UPDATE fo_meet SET rounds=0 WHERE org_id=$1::uuid AND client_id=$2::uuid", str(p.org_id), client_id)
+        return await _fo_mt_offer_send(c, p.org_id, client_id, "confirm" if r["fixed"] else "offer", offer, test=body.test)
+
+
+class FoMtReplyIn(_FoBM):
+    text: str
+
+
+@router.post("/meet/{client_id}/reply")
+async def fo_meet_reply(client_id: str, body: FoMtReplyIn, p: Principal = Depends(max_level(2))):
+    """Проверка без Telegram: как будто клиент ответил боту планёрок (только для тестовой переписки)."""
+    async with pool().acquire() as c:
+        r = await _fo_mt_row(c, p.org_id, client_id)
+        if not r or not str(r["tg_chat_id"] or "").startswith("test"):
+            raise HTTPException(400, "проверочный ответ — только для тестовой рассылки")
+        tg = str(r["tg_chat_id"])
+        mid = int(await c.fetchval("SELECT count(*) FROM fo_chat_msg WHERE tg_chat_id=$1", tg) or 0) + 1
+        await c.execute("INSERT INTO fo_chat_msg (org_id, client_id, chat_pk, kind, tg_chat_id, msg_id, author, author_tg, text, msg_at, ai_state) "
+                        "VALUES ($1,$2::uuid,NULL,'client',$3,$4,'Клиент (проверка)','',$5,now(),'skip') ON CONFLICT DO NOTHING",
+                        p.org_id, client_id, tg, mid, body.text[:2000])
+    return await _fo_meet_answer(p.org_id, client_id, body.text, msg_id=mid, test=True)
+
+
+class FoMtCampIn(_FoBM):
+    clients: list[str] | None = None
+    all: bool = False              # и тех, у кого время уже назначено
+    gap_min: int | None = None
+    dry: bool = True
+    test: bool = False
+
+
+@router.post("/meet/campaign")
+async def fo_meet_campaign(body: FoMtCampIn, p: Principal = Depends(max_level(4))):
+    """Рассылка волнами: 0 — фиксированным «всё в силе?», 1 — высокий приоритет, 2 — средний, 3 — низкий.
+    Следующая волна — когда все ответили или прошло gap минут. dry — только показать, что и кому уйдёт."""
+    async with pool().acquire() as c:
+        await _fo_mt_migrate(c, p.org_id)
+        lv = await _fo_mt_levels(c, p.org_id)
+        st = await _fo_mt_settings(c, p.org_id)
+        names = await _fo_mt_names(c, p.org_id)
+        rows = {str(r["client_id"]): r for r in await c.fetch("SELECT * FROM fo_meet WHERE org_id=$1::uuid", str(p.org_id))}
+        want = set(body.clients or rows.keys())
+        cand, skip = [], []
+        for cid, r in rows.items():
+            if cid not in want:
+                continue
+            sl = _fo_mt_slots(r["slots"])
+            if not sl or r["status"] == "off":
+                continue
+            if r["status"] == "agreed" and not body.all:
+                skip.append({"client": lv.get(cid, {}).get("name"), "why": "уже назначена"})
+                continue
+            cand.append((cid, r))
+        if not cand:
+            raise HTTPException(400, "некому предлагать: задайте график (дни и ведущего) или включите «и назначенным»")
+        chats = {str(r["client_id"]) for r in await c.fetch(
+            "SELECT DISTINCT cc.client_id FROM client_chat cc JOIN chat ch ON ch.id=cc.chat_pk "
+            "WHERE cc.kind='client' AND ch.chat_id ~ '^-?[0-9]+$' AND ch.org_id=$1", p.org_id)}
+        wv = lambda cid, r: 0 if r["fixed"] else lv.get(cid, {"level": 3})["level"]
+        cand.sort(key=lambda x: (wv(*x), lv.get(x[0], {}).get("rank", 999)))
+        busy = await _fo_mt_busy(c, p.org_id, skip=[x[0] for x in cand])
+        preview = []
+        for cid, r in cand:
+            L = lv.get(cid, {"level": 3, "name": ""})
+            offer = _fo_mt_offer(busy, _fo_mt_slots(r["slots"]), L["level"], bool(r["fixed"]), st, cid)
+            preview.append({"client_id": cid, "client": L.get("name"), "wave": wv(cid, r), "level": L["level"],
+                            "fixed": bool(r["fixed"]), "chat": cid in chats or body.test,
+                            "offer": _fo_mt_dump(offer),
+                            "text": _fo_mt_text("confirm" if r["fixed"] else "offer", L.get("name") or "", offer, names)})
+        if body.dry:
+            return {"dry": True, "waves": preview, "skip": skip, "brk": st["brk"]}
+        gap = max(15, min(72 * 60, int(body.gap_min or st["gap"])))
+        await c.execute("UPDATE fo_meet_camp SET status='stopped' WHERE org_id=$1::uuid AND status='active'", str(p.org_id))
+        camp_id = await c.fetchval("INSERT INTO fo_meet_camp (org_id, started_by, gap_min, test) VALUES ($1::uuid, $2, $3, $4) RETURNING id",
+                                   str(p.org_id), _fo_uid(p) if re.match(r"^[0-9a-fA-F-]{36}$", str(_fo_uid(p))) else None,
+                                   gap, bool(body.test))
+        for x in preview:
+            await c.execute("UPDATE fo_meet SET status='queued', wave=$3, level=$4, camp_id=$5, rounds=0, attn=NULL, "
+                            "log=log||$6::jsonb, updated_at=now() WHERE org_id=$1::uuid AND client_id=$2::uuid",
+                            str(p.org_id), x["client_id"], x["wave"], x["level"], camp_id,
+                            _fo_mt_item("в очереди рассылки, волна %s" % x["wave"]))
+        if not await c.fetchval("SELECT pg_try_advisory_lock(hashtext($1))", "fo-meet:" + str(p.org_id)):
+            return {"ok": True, "camp_id": camp_id, "state": "первая волна уйдёт в течение двух минут"}
+        try:
+            res = await _fo_mt_advance(c, p.org_id, camp_id)
+        finally:
+            await c.execute("SELECT pg_advisory_unlock(hashtext($1))", "fo-meet:" + str(p.org_id))
+    _fo_mt_kick()
+    return {"ok": True, "camp_id": camp_id, **res}
+
+
+@router.post("/meet/campaign/stop")
+async def fo_meet_campaign_stop(p: Principal = Depends(max_level(4))):
+    async with pool().acquire() as c:
+        ids = [r["id"] for r in await c.fetch("UPDATE fo_meet_camp SET status='stopped' WHERE org_id=$1::uuid AND status='active' "
+                                             "RETURNING id", str(p.org_id))]
+        n = 0
+        if ids:
+            n = _fo_n(await c.execute("UPDATE fo_meet SET status='draft', log=log||$3::jsonb, updated_at=now() "
+                                      "WHERE org_id=$1::uuid AND camp_id = ANY($2::bigint[]) AND status='queued'",
+                                      str(p.org_id), ids, _fo_mt_item("рассылка остановлена")))
+    return {"ok": True, "остановлено": len(ids), "вернули_из_очереди": n}
+
+
+class FoMtSetIn(_FoBM):
+    brk: int | None = None
+    gap: int | None = None
+    start: str | None = None
+    end: str | None = None
+
+
+@router.post("/meet/settings")
+async def fo_meet_settings(body: FoMtSetIn, p: Principal = Depends(max_level(4))):
+    d = {}
+    if body.brk is not None:
+        d["brk"] = max(0, min(60, int(body.brk)))
+    if body.gap is not None:
+        d["gap"] = max(15, min(72 * 60, int(body.gap)))
+    if body.start and _fo_mt_m(body.start) is not None:
+        d["from"] = _fo_mt_hm(_fo_mt_m(body.start))
+    if body.end and _fo_mt_m(body.end) is not None:
+        d["to"] = _fo_mt_hm(_fo_mt_m(body.end))
+    async with pool().acquire() as c:
+        await c.execute(
+            "INSERT INTO fo_card (kind, ref_id, org_id, data) VALUES ('org', $1, $2, $3::jsonb) "
+            "ON CONFLICT (kind, ref_id) DO UPDATE SET data = fo_card.data || EXCLUDED.data, updated_at = now()",
+            "meet:" + str(p.org_id), p.org_id, _fo_json.dumps(d))
+        st = await _fo_mt_settings(c, p.org_id)
+    return {"ok": True, "settings": {"brk": st["brk"], "gap": st["gap"], "from": _fo_mt_hm(st["from"]), "to": _fo_mt_hm(st["to"])}}
 '''
 
 ADD_MAIN = r'''
