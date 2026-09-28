@@ -4190,6 +4190,88 @@ td small{ color:var(--ink-3); font-size:10.5px }
 .fo-mted > *{ flex:0 0 auto }
 .fo-mtslot .fo-lnk, .fo-mtbar .fo-lnk{ background:none; border:none; padding:0; color:#7c5cff; cursor:pointer; font:inherit; font-weight:600 }
 .fo-mtbar input[type="date"]{ width:160px }
+
+/* ===== 219: бот планёрок, статусы, календарь руководителю и проджекту ===== */
+.fo-mtstat{ display:inline-flex; align-items:center; gap:4px; font-size:11.5px; font-weight:600; padding:3px 9px; border-radius:999px; background:var(--panel-2); color:var(--ink-2); white-space:nowrap }
+.fo-mtstat.st-proposed{ background:rgba(245,165,36,.16); color:#a86400 }
+.fo-mtstat.st-agreed{ background:rgba(124,92,255,.14); color:#5a3fd6 }
+.fo-mtstat.st-held{ background:rgba(18,161,80,.14); color:#0e7a3d }
+.fo-mtstat.st-draft{ background:transparent; color:var(--ink-3); box-shadow:inset 0 0 0 1px var(--stroke-2) }
+.fo-mtstat.st-queued{ background:transparent; color:var(--ink-3); border:1px dashed var(--stroke-2) }
+.fo-mtpl{ display:inline-block; font-size:11px; font-weight:800; padding:2px 7px; border-radius:7px; color:#fff; background:#8e8ea0 }
+.fo-mtpl.p1{ background:#e5484d } .fo-mtpl.p2{ background:#f5a524 } .fo-mtpl.p3{ background:#8e8ea0 }
+.fo-mtev.st-proposed{ background:#f5a524 }
+.fo-mtev.st-held{ background:#12A150 }
+.fo-mtev.st-draft{ background:var(--panel-2); color:var(--ink); box-shadow:inset 0 0 0 1.5px rgba(124,92,255,.45) }
+.fo-mtev.st-queued{ background:transparent; color:var(--ink-2); border:1.5px dashed rgba(124,92,255,.45) }
+.fo-mtev.past{ opacity:.72 }
+.fo-mtev.clash{ box-shadow:0 0 0 2px #c2394f }
+.fo-mtbar2{ display:flex; flex-wrap:wrap; align-items:center; gap:10px 14px; margin:4px 0 10px }
+.fo-mtnav{ display:inline-flex; gap:4px }
+.fo-mtnav button{ border:none; font:inherit; font-weight:600; padding:7px 11px; border-radius:9px; background:var(--panel-2); color:var(--ink); cursor:pointer; box-shadow:inset 0 0 0 1px var(--stroke-2) }
+.fo-mtrg{ font-size:14px }
+.fo-mtlg{ display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin-bottom:10px; font-size:12px; color:var(--ink-3) }
+.fo-mtscroll{ overflow-x:auto }
+.fo-mtday{ border-top:1px solid var(--stroke-2); padding:10px 0; min-width:max-content }
+.fo-mtday.empty1{ padding:7px 0 }
+.fo-mtdh{ display:flex; align-items:baseline; gap:10px; margin-bottom:6px }
+.fo-mtdh b{ font-size:14px } .fo-mtdh span{ font-size:12px; color:var(--ink-3) } .fo-mtdh.today b{ color:#7c5cff }
+.fo-mtgr{ display:grid; gap:6px; align-items:start; padding:3px 0 }
+.fo-mtgh span{ font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:var(--ink-3) }
+.fo-mtgh span b{ display:block; text-transform:none; font-size:13px; color:var(--ink); letter-spacing:0 }
+.fo-mtgh span i{ font-style:normal; font-weight:500; text-transform:none; letter-spacing:0 }
+.fo-mtt{ font-weight:700; font-size:13px; padding-top:7px; color:var(--ink-2) }
+.fo-mtmh, .fo-mtmg{ display:grid; grid-template-columns:repeat(5, minmax(0, 1fr)); gap:6px }
+.fo-mtmh span{ font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-3); padding:4px 6px }
+.fo-mtmc{ min-height:96px; border-radius:10px; padding:6px; background:var(--panel-2); display:flex; flex-direction:column; gap:3px; min-width:0 }
+.fo-mtmc > b{ font-size:12px; color:var(--ink-3) } .fo-mtmc.today > b{ color:#7c5cff } .fo-mtmc.out{ opacity:.45 }
+.fo-mtmi{ text-align:left; border:none; font:inherit; font-size:11.5px; padding:3px 6px; border-radius:7px; cursor:pointer; background:#7c5cff; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis }
+.fo-mtmi i{ font-style:normal; opacity:.8; margin-left:4px }
+.fo-mtmi.st-proposed{ background:#f5a524 } .fo-mtmi.st-held{ background:#12A150 }
+.fo-mtmi.st-draft{ background:var(--panel); color:var(--ink); box-shadow:inset 0 0 0 1px rgba(124,92,255,.45) }
+.fo-mtmi.st-queued{ background:transparent; color:var(--ink-2); border:1px dashed rgba(124,92,255,.45) }
+.fo-mtmi.clash{ box-shadow:0 0 0 2px #c2394f }
+.fo-mthsel{ display:flex; align-items:center; gap:8px; margin-bottom:8px }
+.fo-mthsel .mdl{ font-size:11px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-3) }
+.fo-mthsel select, .fo-mthsel .gsl{ width:auto !important; min-width:180px }
+.fo-mthl{ border-top:1px solid var(--stroke-2); padding:8px 0 }
+.fo-mthr{ display:flex; flex-wrap:wrap; align-items:center; gap:8px; padding:5px 0 5px 10px; border-left:3px solid #7c5cff; margin:4px 0 }
+.fo-mthr.st-proposed{ border-left-color:#f5a524 } .fo-mthr.st-held{ border-left-color:#12A150 } .fo-mthr.st-draft, .fo-mthr.st-queued{ border-left-color:var(--stroke-2) }
+.fo-mthr i{ font-style:normal; font-size:12px; color:var(--ink-3) } .fo-mthr i.bad{ color:var(--crit) }
+.fo-mthr .fo-lnk{ background:none; border:none; padding:0; font:inherit; font-weight:600; color:var(--ink); cursor:pointer }
+.fo-mtbs{ display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin:4px 0 8px }
+.fo-mtbok{ font-size:12px; color:var(--ink-3); margin-left:6px }
+.fo-mtbc{ font-size:13px; margin-bottom:6px }
+.fo-mtbset{ display:flex; flex-wrap:wrap; align-items:center; gap:8px; font-size:13px; margin:8px 0 }
+.fo-mtbset select, .fo-mtbset .gsl, .fo-mtbset input{ width:auto !important; flex:0 0 auto }
+.fo-mtbset input[type="time"]{ width:112px !important }
+.fo-mtbb{ display:flex; flex-wrap:wrap; gap:8px; margin-top:6px } .fo-mtbb .bt{ width:auto }
+.fo-mtattn{ font-size:12.5px; color:var(--crit); margin:4px 0 }
+.fo-mtattn .fo-lnk{ background:none; border:none; padding:0; font:inherit; font-weight:600; color:inherit; cursor:pointer; text-decoration:underline }
+.fo-mtprev{ margin-top:12px; padding:12px; border-radius:12px; background:rgba(124,92,255,.06) }
+.fo-mtprev > b{ display:block; margin-bottom:8px }
+.fo-mtpw{ margin-bottom:8px } .fo-mtpw > b{ display:block; margin-bottom:4px; font-size:13px }
+.fo-mtpi{ font-size:13px; padding:2px 0 } .fo-mtpi i.bad{ font-style:normal; color:var(--crit) }
+.fo-mtprev pre{ white-space:pre-wrap; font:inherit; font-size:12.5px; background:var(--panel); padding:8px; border-radius:8px }
+.fo-mtprev details{ margin:6px 0 } .fo-mtprev summary{ cursor:pointer; font-size:12.5px; color:#5a3fd6 }
+.fo-mtlv{ font-size:12.5px; color:var(--ink-2); margin-bottom:6px }
+.fo-mted2{ padding:10px 6px; border-bottom:1px solid var(--stroke-2); border-radius:8px }
+.fo-mted2.dirty{ background:rgba(245,165,36,.06) }
+.fo-mtrh{ display:flex; flex-wrap:wrap; align-items:center; gap:8px 10px }
+.fo-mtrh > b{ min-width:150px }
+.fo-mtrh .bt{ width:auto }
+.fo-mtam{ font-style:normal; font-size:12px; color:var(--ink-3) }
+.fo-mtfix{ font-size:12.5px; display:inline-flex; align-items:center; gap:5px; cursor:pointer; color:var(--ink-2) }
+.fo-mtsls{ display:flex; flex-direction:column; gap:6px; margin:8px 0 0 34px }
+.fo-mtsl{ display:flex; flex-wrap:wrap; align-items:center; gap:8px }
+.fo-mtsl > b{ width:26px; color:#7c5cff }
+.fo-mtsl > i{ font-style:normal; font-size:12px; color:var(--ink-3) }
+.fo-mtsl input[type="time"]{ width:118px !important; flex:0 0 118px }
+.fo-mtsl select, .fo-mtsl .gsl{ width:auto !important; min-width:120px; flex:0 0 auto }
+.fo-mted2 .fo-mtattn, .fo-mtlast{ margin-left:34px }
+.fo-mtlast{ font-size:12px; color:var(--ink-2); margin-top:6px }
+.gb.fo-gmeet.fo-gmeet-q{ background:repeating-linear-gradient(135deg, #7c5cff 0 7px, #9f8bff 7px 14px) !important }
+@media (max-width: 720px){ .fo-mtsls, .fo-mtlast, .fo-mted2 .fo-mtattn{ margin-left:0 } .fo-mtmc{ min-height:70px } }
 </style>
 </head>
 <body>
@@ -27629,7 +27711,9 @@ window.foStState = function(){
    · «Планёрка проведена» — снимок в историю с датой, закрытые проблемы уходят в историю,
      открытые переносятся на следующую неделю.                                             */
 
-var FO_MT = {tab: "cab", pid: null, open: {}, hist: {}, saving: {}};
+var FO_MT = {tab: "cab", pid: null, open: {}, hist: {}, saving: {},
+  srv: null, srvAt: 0, srvP: null, chg: false, err: "", times: null, timesAt: 0, timesBusy: false,
+  per: "week", off: 0, mode: "lead", host: "", draft: {}, prev: null, busy: ""};   /* 219: бот планёрок, календарь */
 var FO_MT_IDS = {};
 var FO_MT_DOW = ["пн", "вт", "ср", "чт", "пт"];
 
@@ -27649,8 +27733,6 @@ function foMtOf(pid){
   ["say", "nosay", "cheat", "date", "sheet"].forEach(function(k){ if(typeof x[k] !== "string") x[k] = x[k] ? String(x[k]) : ""; });
   return x;
 }
-function foMtPlanAll(){ if(!S.meetPlan || typeof S.meetPlan !== "object" || Array.isArray(S.meetPlan)) S.meetPlan = {}; return S.meetPlan; }
-function foMtPlan(pid){ var p = foMtPlanAll()[pid]; return p && typeof p === "object" ? p : null; }
 function foMtSave(){ try{ saveState(); }catch(e){} }
 function foMtId(p){ try{ return nextId(p || "mt"); }catch(e){ return (p || "mt") + Date.now().toString(36) + Math.random().toString(36).slice(2, 5); } }
 function foMtName(id){ try{ var p = person(id); return p ? p.name : ""; }catch(e){ return ""; } }
@@ -27735,7 +27817,7 @@ function foMtCabHTML(){
     return '<button class="fo-mtchip' + (p.id === pid ? ' on' : '') + '" data-mtcab="' + esc(p.id) + '">' + esc(p.name) + (has ? '' : ' <i>без графика</i>') + '</button>'; }).join("") + '</div>';
   var nx = foMtNextDate(pid);
   var slot = pl && (pl.days || []).length
-    ? (pl.days.map(function(d){ return FO_MT_DOW[d]; }).join(", ") + (pl.time ? " · " + pl.time : "") + " · " + (pl.minutes || 60) + " мин" + (pl.host ? " · ведёт " + esc(foMtName(pl.host)) : ""))
+    ? foMtSlotText(pid)
     : 'не в графике — <button class="fo-lnk" data-mttab="cal">назначить в календаре</button>';
   var topics = m.topics.map(function(t, i){
     var probs = t.probs || [], open = probs.filter(function(x){ return !x.fact; }).length;
@@ -27809,94 +27891,374 @@ function foMtCabHTML(){
     '<section class="gl"><div class="gl-t"><h2>История планёрок</h2><span class="m">' + m.history.length + '</span></div>' +
       (hist || '<div class="empty">История появится после первой «Планёрка проведена».</div>') + '</section>';
 }
-function foMtCalHTML(){
-  var mon = foMtMon(), today = foMtIso(new Date()), plan = foMtPlanAll(), cabs = foMtCabs();
-  var hosts = {};
-  cabs.forEach(function(p){ var pl = plan[p.id]; if(pl && (pl.days || []).length) (hosts[pl.host || "—"] = hosts[pl.host || "—"] || []).push({p: p, pl: pl}); });
-  var load = {}; (S.tasks || []).forEach(function(t){ if(t.person) load[t.person] = (load[t.person] || 0) + (+t.minutes || 0); });
-  var head = '<div class="fo-mtcal"><div class="fo-mtch"><span>Ведёт</span>' + FO_MT_DOW.map(function(d, i){
-    var x = new Date(mon); x.setDate(mon.getDate() + i); var iso = foMtIso(x);
-    return '<span class="' + (iso === today ? 'today' : '') + '">' + d + ' ' + foMtDm(iso) + '</span>'; }).join("") + '</div>';
-  var rows = Object.keys(hosts).map(function(h){
-    var list = hosts[h];
-    return '<div class="fo-mtcr"><div class="fo-mtcw"><b>' + esc(h === "—" ? "ведущий не выбран" : foMtName(h)) + '</b>' +
-      (h !== "—" ? '<i>' + (Math.round((load[h] || 0) / 6) / 10) + ' ч задач на неделе</i>' : '') + '</div>' +
-      FO_MT_DOW.map(function(_, d){
-        var items = list.filter(function(x){ return (x.pl.days || []).indexOf(d) >= 0; })
-          .sort(function(a, b){ return String(a.pl.time || "").localeCompare(String(b.pl.time || "")); });
-        var clash = {};
-        items.forEach(function(a, i){ items.forEach(function(b, j){
-          if(i >= j) return; var s1 = foMtHour(a.pl.time), s2 = foMtHour(b.pl.time); if(s1 == null || s2 == null) return;
-          if(s1 < s2 + (+b.pl.minutes || 60) / 60 && s2 < s1 + (+a.pl.minutes || 60) / 60){ clash[a.p.id] = clash[b.p.id] = 1; } }); });
-        return '<div class="fo-mtcd">' + items.map(function(x){
-          return '<button class="fo-mtev' + (clash[x.p.id] ? ' clash' : '') + '" data-mtcab="' + esc(x.p.id) + '" data-mttab="cab"><b>' + esc(x.pl.time || "—") + '</b> ' + esc(x.p.name) +
-            '<i>' + (x.pl.minutes || 60) + ' мин' + (clash[x.p.id] ? ' · пересекается' : '') + '</i></button>'; }).join("") + '</div>';
-      }).join("") + '</div>';
-  }).join("");
-  var ed = cabs.map(function(p){
-    var pl = plan[p.id] || {}, days = pl.days || [];
-    return '<div class="fo-mted" data-mtrow="' + esc(p.id) + '"><b>' + esc(p.name) + '</b>' +
-      '<span class="fo-mtdays">' + FO_MT_DOW.map(function(d, i){ return '<button class="' + (days.indexOf(i) >= 0 ? 'on' : '') + '" data-mtday="' + i + '">' + d + '</button>'; }).join("") + '</span>' +
-      '<input class="fi sm" type="time" data-mtpl="time" value="' + esc(pl.time || "") + '">' +
-      '<select class="sel sm" data-mtpl="minutes">' + [30, 45, 60, 90].map(function(n){ return '<option value="' + n + '"' + ((+pl.minutes || 60) === n ? ' selected' : '') + '>' + n + ' мин</option>'; }).join("") + '</select>' +
-      '<select class="sel sm" data-mtpl="host">' + foMtPeopleOpts(pl.host, "кто ведёт") + '</select>' +
-      '<button class="bt sm pri" data-mtplsave="' + esc(p.id) + '"' + (FO_MT.saving[p.id] ? ' disabled' : '') + '>' + (FO_MT.saving[p.id] ? 'Сохраняю…' : 'Сохранить') + '</button>' +
-      '<span class="fo-mtst">' + esc(pl.state || "") + '</span></div>';
-  }).join("");
-  return '<section class="gl"><div class="gl-t"><h2>Календарь планёрок</h2><span class="m">неделя ' + foMtDm(foMtIso(mon)) + ' — по дням и по проджектам</span></div>' +
-    head + (rows || '<div class="empty">Планёрок в графике пока нет — назначьте ниже.</div>') + '</div></section>' +
-    '<section class="gl"><div class="gl-t"><h2>График по кабинетам</h2><span class="m">дни, время, длительность, кто ведёт — совещание станет задачей ведущего</span></div>' +
-    (foMtFn() ? '' : '<div class="gerr on">В справочнике нет функции «Совещание» — заведите её в «Функциях», и график заработает.</div>') + ed + '</section>';
+/* ── 219: бот планёрок, приоритет по платежу, календарь руководителю и проджекту ──
+   Данные — на сервере (/refs/meet): график по дням (у каждого дня свой ведущий), статус
+   согласования с клиентом, рассылка волнами. Здесь только показ и правка. */
+var FO_MT_ST = {
+  off:      {t: "не в графике", s: "—"},
+  draft:    {t: "не согласована с клиентом", s: "не согласована"},
+  queued:   {t: "в очереди рассылки бота", s: "в очереди"},
+  proposed: {t: "предложена клиенту на согласование", s: "предложена"},
+  agreed:   {t: "назначена — клиент подтвердил", s: "назначена"},
+  held:     {t: "проведена", s: "проведена"}
+};
+var FO_MT_LV = {1: {t: "высокий", mins: [60, 70, 80]}, 2: {t: "средний", mins: [40, 45, 50]}, 3: {t: "низкий", mins: [35, 40]}};
+
+function foMtRow(pid){
+  var d = FO_MT.srv; if(!d) return null;
+  for(var i = 0; i < (d.rows || []).length; i++) if(String(d.rows[i].client_id) === String(pid)) return d.rows[i];
+  return null;
 }
+function foMtEff(r){ return r ? ((r.status === "proposed" && r.offer) ? r.offer : (r.slots || {})) : {}; }
+function foMtPlan(pid){
+  var r = foMtRow(pid);
+  if(!r){ var lg = S.meetPlan && S.meetPlan[pid]; return lg && (lg.days || []).length ? lg : null; }
+  if(r.status === "off") return null;
+  var sl = foMtEff(r), days = Object.keys(sl).map(Number).sort();
+  if(!days.length) return null;
+  var f = sl[String(days[0])];
+  return {days: days, time: f.time, minutes: f.minutes, host: f.host, slots: sl, status: r.status};
+}
+function foMtPlanAll(){ var o = {}; ((FO_MT.srv || {}).rows || []).forEach(function(r){ var p = foMtPlan(r.client_id); if(p) o[r.client_id] = p; }); return o; }
+function foMtEnd(t, m){
+  var h = foMtHour(t); if(h == null) return "";
+  var e = Math.round(h * 60 + (+m || 60));
+  return ("0" + Math.floor(e / 60)).slice(-2) + ":" + ("0" + (e % 60)).slice(-2);
+}
+function foMtHm(m){ m = Math.round(+m || 0); return ((m >= 60 ? Math.floor(m / 60) + " ч " : "") + (m % 60 ? (m % 60) + " мин" : "")).trim() || "0 мин"; }
+function foMtPl(n){ var a = n % 10, b = n % 100; return a === 1 && b !== 11 ? "планёрка" : (a >= 2 && a <= 4 && (b < 10 || b >= 20) ? "планёрки" : "планёрок"); }
+function foMtAt(iso, plusMin){
+  var d = new Date(iso); if(isNaN(d)) return ""; if(plusMin) d = new Date(d.getTime() + plusMin * 60000);
+  return ("0" + d.getDate()).slice(-2) + "." + ("0" + (d.getMonth() + 1)).slice(-2) + " " + ("0" + d.getHours()).slice(-2) + ":" + ("0" + d.getMinutes()).slice(-2);
+}
+function foMtSlLine(sl){
+  return Object.keys(sl || {}).sort().map(function(k){ var s = sl[k];
+    return FO_MT_DOW[+k] + " " + s.time + "–" + foMtEnd(s.time, s.minutes) + " · " + esc(foMtName(s.host) || "—"); }).join("; ");
+}
+function foMtSlotText(pid){
+  var p = foMtPlan(pid); if(!p) return "";
+  return (p.slots ? foMtSlLine(p.slots) : p.days.map(function(d){ return FO_MT_DOW[d]; }).join(", ") + " · " + esc(p.time || "")) +
+    (p.status ? ' · <span class="fo-mtstat st-' + p.status + '">' + FO_MT_ST[p.status].s + '</span>' : '');
+}
+
+/* ── загрузка с сервера ── */
+function foMtLoad(force){
+  try{ if(!foLive()) return Promise.resolve(null); }catch(e){ return Promise.resolve(null); }
+  if(FO_MT.srvP) return FO_MT.srvP;
+  if(!force && FO_MT.srv && Date.now() - FO_MT.srvAt < 15000) return Promise.resolve(FO_MT.srv);
+  FO_MT.srvP = api("/refs/meet").then(function(d){
+    FO_MT.srvP = null; FO_MT.srvAt = Date.now(); FO_MT.err = "";
+    if(JSON.stringify(d) !== JSON.stringify(FO_MT.srv)){ FO_MT.srv = d; FO_MT.chg = true; FO_MT.timesAt = 0; }
+    return d;
+  }).catch(function(e){ FO_MT.srvP = null; FO_MT.srvAt = Date.now(); FO_MT.err = (e && e.message) || "сервер не ответил"; return null; });
+  return FO_MT.srvP;
+}
+function foMtTimes(){
+  try{ if(!foLive()) return; }catch(e){ return; }
+  if(FO_MT.timesBusy || (FO_MT.times && Date.now() - FO_MT.timesAt < 60000)) return;
+  FO_MT.timesBusy = true;
+  api("/refs/meet/times").then(function(d){
+    var nv = (d && d.times) || {}, ch = JSON.stringify(nv) !== JSON.stringify(FO_MT.times);
+    FO_MT.times = nv; FO_MT.timesAt = Date.now(); FO_MT.timesBusy = false;
+    if(ch){ try{ render(); }catch(e){} }
+  }).catch(function(){ FO_MT.timesBusy = false; FO_MT.timesAt = Date.now(); if(!FO_MT.times) FO_MT.times = {}; });
+}
+function foMtRenderSoft(){
+  var a = document.activeElement;
+  if(a && a.closest && a.closest("#sect") && /INPUT|SELECT|TEXTAREA/.test(a.tagName)) return;
+  try{ if(view === "meet") foMtRender(); }catch(e){}
+}
+
+/* ── события календаря на период ── */
+function foMtRange(){
+  var per = FO_MT.per, off = FO_MT.off || 0, mon = foMtMon();
+  if(per === "month"){
+    var t = new Date(), f = new Date(t.getFullYear(), t.getMonth() + off, 1, 12), l = new Date(t.getFullYear(), t.getMonth() + off + 1, 0, 12);
+    var a = new Date(f); a.setDate(a.getDate() - ((a.getDay() + 6) % 7));
+    var b = new Date(l); b.setDate(b.getDate() + (4 - (b.getDay() + 6) % 7));
+    var nm = f.toLocaleDateString("ru-RU", {month: "long", year: "numeric"});
+    return {from: a, to: b, f: f, label: nm.charAt(0).toUpperCase() + nm.slice(1)};
+  }
+  var s = new Date(mon); s.setHours(12, 0, 0, 0);
+  s.setDate(s.getDate() + (per === "2w" ? 7 : 0) + off * (per === "2w" ? 14 : 7));
+  var e = new Date(s); e.setDate(e.getDate() + (per === "2w" ? 11 : 4));
+  return {from: s, to: e, label: foMtDm(foMtIso(s)) + " — " + foMtDm(foMtIso(e))};
+}
+function foMtDays(rg){
+  var out = [], x = new Date(rg.from), end = new Date(rg.to); x.setHours(12, 0, 0, 0); end.setHours(12, 0, 0, 0);
+  for(; x <= end; x.setDate(x.getDate() + 1)){ var dw = (x.getDay() + 6) % 7; if(dw <= 4) out.push({iso: foMtIso(x), dw: dw, day: x.getDate(), mon: x.getMonth()}); }
+  return out;
+}
+function foMtEvents(rg){
+  var d = FO_MT.srv || {}, held = d.held || {}, today = foMtIso(new Date()), out = [], days = foMtDays(rg);
+  (d.rows || []).forEach(function(r){
+    if(r.status === "off") return;
+    var sl = foMtEff(r), hist = {}, mm = (S.meet || {})[r.client_id];
+    ((mm && mm.history) || []).forEach(function(h){ hist[h.date] = 1; });
+    days.forEach(function(dd){
+      var s = sl[String(dd.dw)]; if(!s || !s.time) return;
+      if(r.since && dd.iso < r.since) return;
+      var st = ((held[r.client_id] || []).indexOf(dd.iso) >= 0 || hist[dd.iso]) ? "held" : r.status;
+      out.push({pid: r.client_id, name: r.name, iso: dd.iso, dow: dd.dw, time: s.time, t: Math.round(foMtHour(s.time) * 60),
+                min: +s.minutes || 60, host: s.host || "", st: st, level: r.level, fixed: r.fixed, pinned: r.pinned,
+                attn: r.attn, past: dd.iso < today});
+    });
+  });
+  var by = {}, brk = +((d.settings || {}).brk) || 0;
+  out.forEach(function(e){ (by[e.host + "|" + e.iso] = by[e.host + "|" + e.iso] || []).push(e); });
+  Object.keys(by).forEach(function(k){
+    var l = by[k].sort(function(a, b){ return a.t - b.t; });
+    for(var i = 1; i < l.length; i++){
+      var gap = l[i].t - (l[i - 1].t + l[i - 1].min); l[i].gap = gap;
+      if(gap < 0) l[i].clash = l[i - 1].clash = true; else if(gap < brk) l[i].tight = true;
+    }
+  });
+  return out.sort(function(a, b){ return a.iso < b.iso ? -1 : a.iso > b.iso ? 1 : (a.t - b.t || String(a.name).localeCompare(String(b.name), "ru")); });
+}
+function foMtCard(e){
+  var badge = e.st === "agreed" && e.pinned ? " 📌" : (e.st === "held" ? " ✓" : "");
+  return '<button class="fo-mtev st-' + e.st + (e.clash ? ' clash' : '') + (e.past ? ' past' : '') + '" data-mtcab="' + esc(e.pid) + '" data-mttab="cab" title="' +
+    esc(FO_MT_ST[e.st].t + (e.attn ? " · " + e.attn : "")) + '"><b>' + e.time + '–' + foMtEnd(e.time, e.min) + '</b> ' + esc(e.name) + (e.fixed ? ' 🔒' : '') +
+    '<i>П' + e.level + ' · ' + FO_MT_ST[e.st].s + badge + (e.clash ? ' · пересекается' : e.tight ? ' · короткий перерыв' : '') + (e.attn ? ' · ⚠ нужен проджект' : '') + '</i></button>';
+}
+function foMtHostsOf(ev){
+  var o = {}; ev.forEach(function(e){ o[e.host] = 1; });
+  return Object.keys(o).sort(function(a, b){ return String(foMtName(a) || "я").localeCompare(String(foMtName(b) || "я"), "ru"); });
+}
+
+/* руководителю: день за днём, проджекты параллельно, строки — по порядку времени */
+function foMtLeadHTML(ev, rg){
+  var hl = foMtHostsOf(ev), today = foMtIso(new Date());
+  if(!hl.length) return '<div class="empty">В этом периоде планёрок нет — задайте график ниже.</div>';
+  var cols = 'grid-template-columns:64px repeat(' + hl.length + ', minmax(170px, 1fr))';
+  return '<div class="fo-mtscroll">' + foMtDays(rg).map(function(dd){
+    var de = ev.filter(function(e){ return e.iso === dd.iso; });
+    var head = '<div class="fo-mtdh' + (dd.iso === today ? ' today' : '') + '"><b>' + FO_MT_DOW[dd.dw] + ' ' + foMtDm(dd.iso) + '</b><span>' +
+      (de.length ? de.length + ' ' + foMtPl(de.length) + ' · ' + de[0].time + '–' + foMtEnd(de[de.length - 1].time, de[de.length - 1].min) : 'планёрок нет') + '</span></div>';
+    if(!de.length) return '<div class="fo-mtday empty1">' + head + '</div>';
+    var times = []; de.forEach(function(e){ if(times.indexOf(e.time) < 0) times.push(e.time); }); times.sort();
+    var hrow = '<div class="fo-mtgr fo-mtgh" style="' + cols + '"><span>Время</span>' + hl.map(function(h){
+      var mine = de.filter(function(e){ return e.host === h; }), mins = mine.reduce(function(a, e){ return a + e.min; }, 0);
+      return '<span><b>' + esc(foMtName(h) || "ведущий не выбран") + '</b><i>' + (mine.length ? mine.length + ' ' + foMtPl(mine.length) + ' · ' + foMtHm(mins) : 'нет планёрок') + '</i></span>'; }).join("") + '</div>';
+    var rows = times.map(function(tm){
+      return '<div class="fo-mtgr" style="' + cols + '"><span class="fo-mtt">' + tm + '</span>' + hl.map(function(h){
+        return '<div class="fo-mtcd">' + de.filter(function(e){ return e.host === h && e.time === tm; }).map(foMtCard).join("") + '</div>'; }).join("") + '</div>'; }).join("");
+    return '<div class="fo-mtday">' + head + hrow + rows + '</div>';
+  }).join("") + '</div>';
+}
+/* месяц: сетка пн–пт, в дне — по порядку времени */
+function foMtMonthHTML(ev, rg){
+  var today = foMtIso(new Date());
+  return '<div class="fo-mtmon"><div class="fo-mtmh">' + FO_MT_DOW.map(function(d){ return '<span>' + d + '</span>'; }).join("") + '</div><div class="fo-mtmg">' +
+    foMtDays(rg).map(function(dd){
+      var de = ev.filter(function(e){ return e.iso === dd.iso; });
+      return '<div class="fo-mtmc' + (dd.mon === rg.f.getMonth() ? '' : ' out') + (dd.iso === today ? ' today' : '') + '"><b>' + dd.day + '</b>' +
+        de.map(function(e){ return '<button class="fo-mtmi st-' + e.st + (e.clash ? ' clash' : '') + '" data-mtcab="' + esc(e.pid) + '" data-mttab="cab" title="' +
+          esc(e.name + ' · ' + e.time + '–' + foMtEnd(e.time, e.min) + ' · ' + (foMtName(e.host) || '') + ' · ' + FO_MT_ST[e.st].t) + '">' + e.time + ' ' +
+          esc(String(e.name).replace(/^ИП\s+/, "")) + '<i>' + esc(foMtName(e.host) || "") + '</i></button>'; }).join("") + '</div>';
+    }).join("") + '</div></div>';
+}
+/* проджекту: его клиенты по порядку времени, перерывы между планёрками */
+function foMtHostHTML(ev, rg){
+  var all = {}; ((FO_MT.srv || {}).rows || []).forEach(function(r){ var sl = foMtEff(r); Object.keys(sl).forEach(function(k){ if(sl[k].host) all[sl[k].host] = 1; }); });
+  var hosts = Object.keys(all).sort(function(a, b){ return String(foMtName(a)).localeCompare(String(foMtName(b)), "ru"); });
+  var h = FO_MT.host, me = (typeof meId !== "undefined" && meId) ? String(meId) : "";
+  if(!h || hosts.indexOf(h) < 0){ h = hosts.indexOf(me) >= 0 ? me : (hosts[0] || ""); FO_MT.host = h; }
+  var today = foMtIso(new Date()), by = {};
+  ev.filter(function(e){ return e.host === h; }).forEach(function(e){ (by[e.iso] = by[e.iso] || []).push(e); });
+  var body = Object.keys(by).sort().map(function(iso){
+    var l = by[iso], mins = l.reduce(function(a, e){ return a + e.min; }, 0);
+    return '<div class="fo-mthl"><div class="fo-mtdh' + (iso === today ? ' today' : '') + '"><b>' + FO_MT_DOW[l[0].dow] + ' ' + foMtDm(iso) + '</b><span>' +
+      l.length + ' ' + foMtPl(l.length) + ' · ' + foMtHm(mins) + ' · ' + l[0].time + '–' + foMtEnd(l[l.length - 1].time, l[l.length - 1].min) + '</span></div>' +
+      l.map(function(e, i){
+        return '<div class="fo-mthr st-' + e.st + (e.clash ? ' clash' : '') + '"><b>' + e.time + '–' + foMtEnd(e.time, e.min) + '</b>' +
+          '<button class="fo-lnk" data-mtcab="' + esc(e.pid) + '" data-mttab="cab">' + esc(e.name) + '</button>' + (e.fixed ? ' 🔒' : '') +
+          '<span class="fo-mtpl p' + e.level + '">П' + e.level + '</span><span class="fo-mtstat st-' + e.st + '">' + FO_MT_ST[e.st].s + (e.st === "agreed" && e.pinned ? ' 📌' : '') + '</span>' +
+          (i ? '<i>перерыв ' + Math.max(0, e.gap) + ' мин</i>' : '') + (e.clash ? '<i class="bad">пересекается с предыдущей</i>' : '') +
+          (e.attn ? '<i class="bad">⚠ ' + esc(e.attn) + '</i>' : '') + '</div>'; }).join("") + '</div>';
+  }).join("");
+  return '<div class="fo-mthsel"><span class="mdl">Проджект</span><select class="sel sm" data-mthost>' + hosts.map(function(x){
+      return '<option value="' + esc(x) + '"' + (x === h ? ' selected' : '') + '>' + esc(foMtName(x) || "—") + (x === me ? ' (я)' : '') + '</option>'; }).join("") + '</select></div>' +
+    (body || '<div class="empty">У этого проджекта в периоде планёрок нет.</div>');
+}
+
+/* бот планёрок: рассылка волнами и настройки */
+function foMtBotHTML(){
+  var d = FO_MT.srv;
+  if(!d) return '<section class="gl"><div class="empty">' + (FO_MT.err ? 'Бот планёрок: ' + esc(FO_MT.err) : 'Загружаю график с сервера…') + '</div></section>';
+  var rows = d.rows || [], cnt = {}, st = d.settings || {}, cp = d.camp;
+  rows.forEach(function(r){ cnt[r.status] = (cnt[r.status] || 0) + 1; });
+  var wl = ["фиксированным — «всё в силе?»", "высокий приоритет", "средний приоритет", "низкий приоритет"];
+  var ct = !cp ? 'Рассылка ещё не запускалась.' :
+    cp.status === "active" ? ('Идёт рассылка' + (cp.test ? ' (проверка, без Telegram)' : '') + ': волна ' + (cp.wave >= 0 && cp.wave <= 3 ? cp.wave + ' — ' + wl[cp.wave] : '—') +
+      (cp.wave_at ? ' · ушла ' + foMtAt(cp.wave_at) + ' · следующая — когда все ответят или в ' + foMtAt(cp.wave_at, cp.gap_min) : '')) :
+    ((cp.status === "done" ? 'Все волны отправлены' : 'Рассылка остановлена') + (cp.wave_at ? ' · ' + foMtAt(cp.wave_at) : '') + (cp.test ? ' (проверка)' : ''));
+  var attn = rows.filter(function(r){ return r.attn; }).map(function(r){
+    return '<div class="fo-mtattn">⚠ <button class="fo-lnk" data-mtcab="' + esc(r.client_id) + '" data-mttab="cab">' + esc(r.name) + '</button>: ' + esc(r.attn) + '</div>'; }).join("");
+  var sel = function(k, list, cur, fmt){ return '<select class="sel sm" data-mtset="' + k + '">' + list.map(function(n){ return '<option value="' + n + '"' + (String(n) === String(cur) ? ' selected' : '') + '>' + fmt(n) + '</option>'; }).join("") + '</select>'; };
+  var prev = "";
+  if(FO_MT.prev){
+    var P = FO_MT.prev, by = {};
+    (P.waves || []).forEach(function(x){ (by[x.wave] = by[x.wave] || []).push(x); });
+    var nochat = (P.waves || []).filter(function(x){ return !x.chat; }).length;
+    prev = '<div class="fo-mtprev"><b>Что уйдёт клиентам</b>' + Object.keys(by).sort().map(function(w){
+      return '<div class="fo-mtpw"><b>Волна ' + w + ' — ' + wl[+w] + '</b>' + by[w].map(function(x){
+        return '<div class="fo-mtpi"><span class="fo-mtpl p' + x.level + '">П' + x.level + '</span> ' + esc(x.client) + (x.fixed ? ' 🔒' : '') + ' — ' + foMtSlLine(x.offer) +
+          (x.chat ? '' : ' <i class="bad">нет чата с ботом — не уйдёт</i>') + '</div>'; }).join("") + '</div>'; }).join("") +
+      ((P.skip || []).length ? '<div class="fo-mtpi">Не трогаем: ' + P.skip.map(function(x){ return esc(x.client) + ' (' + esc(x.why) + ')'; }).join(", ") + '</div>' : '') +
+      ((P.waves || [])[0] ? '<details><summary>Текст сообщения клиенту</summary><pre>' + esc(P.waves[0].text) + '</pre></details>' : '') +
+      '<div class="hint2">Первая волна уходит сразу, следующая — когда все ответили или через ' + foMtHm(+st.gap || 180) + '. «Да» — бот фиксирует и закрепляет время в чате. ' +
+      'Своё время клиента бот берёт, только если оно встаёт в блок ведущего с перерывом ' + (+st.brk || 0) + ' мин, иначе предлагает ближайшие окна; после двух кругов передаёт проджекту. ' +
+      'За час до начала — напоминание клиенту и проджекту.' + (nochat ? ' Клиентам без чата с ботом сообщение не уйдёт.' : '') + '</div>' +
+      '<div class="fo-mtbb"><button class="bt sm pri" data-mtcamp="go"' + (FO_MT.busy ? ' disabled' : '') + '>' + (FO_MT.busy === "go" ? 'Отправляю…' : 'Отправить клиентам') + '</button>' +
+      '<button class="bt sm gh2" data-mtcamp="test"' + (FO_MT.busy ? ' disabled' : '') + '>Проверка без Telegram</button>' +
+      '<button class="bt sm gh2" data-mtcamp="cancel">Отмена</button></div></div>';
+  }
+  return '<section class="gl fo-mtbot"><div class="gl-t"><h2>Бот планёрок</h2><span class="m">предлагает время по приоритету клиента, фиксирует ответ, закрепляет в чате, уведомляет проджекта, напоминает за час</span></div>' +
+    '<div class="fo-mtbs">' + ["proposed", "agreed", "draft", "queued"].map(function(k){ return '<span class="fo-mtstat st-' + k + '">' + FO_MT_ST[k].s + ' · ' + (cnt[k] || 0) + '</span>'; }).join("") +
+      '<span class="fo-mtbok">' + (d.bot ? (d.own_bot ? 'пишет отдельный бот планёрок' : 'пишет бот сервиса') : 'нет токена бота на сервере') + '</span></div>' +
+    '<div class="fo-mtbc">' + esc(ct) + '</div>' + attn +
+    '<div class="fo-mtbset">Перерыв между планёрками ' + sel("brk", [5, 10, 15, 20, 30], st.brk, function(n){ return n + ' мин'; }) +
+      ' · окно ' + '<input class="fi sm" type="time" data-mtset="from" value="' + esc(st.from || "10:00") + '">–<input class="fi sm" type="time" data-mtset="to" value="' + esc(st.to || "19:00") + '">' +
+      ' · следующая волна через ' + sel("gap", [60, 120, 180, 360, 1440], st.gap, function(n){ return foMtHm(n); }) + '</div>' +
+    '<div class="fo-mtbb"><button class="bt sm pri" data-mtcamp="dry"' + (FO_MT.busy ? ' disabled' : '') + '>' + (FO_MT.busy === "dry" ? 'Считаю…' : 'Предложить время клиентам') + '</button>' +
+      (cp && cp.status === "active" ? '<button class="bt sm gh2" data-mtcamp="stop">Остановить рассылку</button>' : '') + '</div>' + prev + '</section>';
+}
+
+/* график по кабинетам: по приоритету, у каждого дня свой ведущий */
+function foMtEdHTML(){
+  var d = FO_MT.srv; if(!d) return "";
+  var money = false; try{ money = typeof seesMoney === "function" && seesMoney(); }catch(e){}
+  return (d.rows || []).map(function(r){
+    var dr = FO_MT.draft[r.client_id], sl = dr ? dr.slots : (r.slots || {}), fixed = dr ? dr.fixed : r.fixed;
+    var days = Object.keys(sl).map(Number).sort(), lv = FO_MT_LV[r.level] || FO_MT_LV[3];
+    var sub = days.map(function(dd){
+      var s = sl[String(dd)] || {}, opts = (fixed ? [30, 35, 40, 45, 50, 60, 70, 80, 90] : lv.mins).slice(), cur = +s.minutes || lv.mins[0];
+      if(opts.indexOf(cur) < 0) opts.push(cur); opts.sort(function(a, b){ return a - b; });
+      return '<div class="fo-mtsl"><b>' + FO_MT_DOW[dd] + '</b><input class="fi sm" type="time" data-mts="' + dd + ':time" value="' + esc(s.time || "") + '">' +
+        '<select class="sel sm" data-mts="' + dd + ':minutes">' + opts.map(function(n){ return '<option value="' + n + '"' + (cur === n ? ' selected' : '') + '>' + n + ' мин</option>'; }).join("") + '</select>' +
+        '<select class="sel sm" data-mts="' + dd + ':host">' + foMtPeopleOpts(s.host, "кто ведёт") + '</select>' +
+        (s.time ? '<i>до ' + foMtEnd(s.time, cur) + '</i>' : '') + '</div>'; }).join("");
+    var last = (r.log || []).slice().reverse().filter(function(x){ return /ответ клиента/.test(x.what || ""); })[0];
+    var st = FO_MT_ST[r.status] || FO_MT_ST.off, sv = FO_MT.saving[r.client_id];
+    return '<div class="fo-mted2' + (dr ? ' dirty' : '') + '" data-mtrow="' + esc(r.client_id) + '"><div class="fo-mtrh">' +
+      '<span class="fo-mtpl p' + r.level + '" title="Приоритет: ' + lv.t + ' — по сумме платежа">П' + r.level + '</span><b>' + esc(r.name) + '</b>' +
+      '<i class="fo-mtam">№' + r.rank + (money && r.amount ? ' · ' + money0(r.amount) : '') + '</i>' +
+      (r.status !== "off" ? '<span class="fo-mtstat st-' + r.status + '">' + st.s + (r.status === "agreed" && r.pinned ? ' 📌' : '') + '</span>' : '') +
+      '<label class="fo-mtfix" title="Время назначил клиент — бот его не двигает, только уточняет, всё ли в силе"><input type="checkbox" data-mtfix' + (fixed ? ' checked' : '') + '> 🔒 время клиента</label>' +
+      '<span class="fo-mtdays">' + FO_MT_DOW.map(function(x, i){ return '<button class="' + (sl[String(i)] ? 'on' : '') + '" data-mtday="' + i + '">' + x + '</button>'; }).join("") + '</span>' +
+      '<button class="bt sm pri" data-mtsave="' + esc(r.client_id) + '"' + (sv ? ' disabled' : '') + '>' + (sv ? 'Сохраняю…' : 'Сохранить') + '</button>' +
+      (r.status !== "off" && !dr ? '<button class="bt sm gh2" data-mtsend="' + esc(r.client_id) + '"' + (r.chat ? '' : ' disabled title="У клиента нет чата с ботом"') + '>Предложить сейчас</button>' : '') +
+      (r.status !== "off" && r.status !== "agreed" && !dr ? '<button class="bt sm gh2" data-mtmark="' + esc(r.client_id) + '">Согласовано вручную</button>' : '') +
+      (r.chat ? '' : '<span class="fo-mtst">нет чата с ботом</span>') + '</div>' +
+      (sub ? '<div class="fo-mtsls">' + sub + '</div>' : '') +
+      (r.attn ? '<div class="fo-mtattn">⚠ ' + esc(r.attn) + '</div>' : '') +
+      (r.status === "proposed" && r.offer ? '<div class="fo-mtlast">Бот предложил ' + (r.sent_at ? foMtAt(r.sent_at) : '') + ': ' + foMtSlLine(r.offer) + '</div>' : '') +
+      (last ? '<div class="fo-mtlast">Клиент ' + esc(last.at || "") + ': «' + esc(last.text || "") + '» → ' + esc(last["понял"] || "") + '</div>' : '') +
+    '</div>';
+  }).join("");
+}
+
+function foMtCalHTML(){
+  foMtLoad().then(function(){ if(FO_MT.chg){ FO_MT.chg = false; foMtRenderSoft(); } });
+  var rg = foMtRange(), ev = foMtEvents(rg);
+  var seg = function(attr, list, cur){ return '<div class="fo-mtseg">' + list.map(function(x){ return '<button class="' + (cur === x[0] ? 'on' : '') + '" ' + attr + '="' + x[0] + '">' + x[1] + '</button>'; }).join("") + '</div>'; };
+  var bar = '<div class="fo-mtbar2">' + seg("data-mtmode", [["lead", "Руководителю"], ["host", "Проджекту"]], FO_MT.mode) +
+    seg("data-mtper", [["week", "Неделя"], ["2w", "Следующие 2 недели"], ["month", "Месяц"]], FO_MT.per) +
+    '<span class="fo-mtnav"><button data-mtnav="-1" title="Назад">‹</button><button data-mtnav="0">Сейчас</button><button data-mtnav="1" title="Вперёд">›</button></span>' +
+    '<b class="fo-mtrg">' + esc(rg.label) + '</b></div>';
+  var legend = '<div class="fo-mtlg">' + ["proposed", "agreed", "held", "draft", "queued"].map(function(k){ return '<span class="fo-mtstat st-' + k + '">' + FO_MT_ST[k].s + '</span>'; }).join("") +
+    '<span>🔒 время клиента · 📌 закреплено в чате · П1–П3 — приоритет по платежу</span></div>';
+  var body = FO_MT.mode === "host" ? foMtHostHTML(ev, rg) : (FO_MT.per === "month" ? foMtMonthHTML(ev, rg) : foMtLeadHTML(ev, rg));
+  return foMtBotHTML() +
+    '<section class="gl"><div class="gl-t"><h2>Календарь планёрок</h2><span class="m">' +
+      (FO_MT.mode === "host" ? 'проджекту: его клиенты по порядку времени' : 'руководителю: проджекты параллельно, по порядку времени') + '</span></div>' + bar + legend + body + '</section>' +
+    '<section class="gl"><div class="gl-t"><h2>График по кабинетам</h2><span class="m">по приоритету — от большей суммы платежа к меньшей · у каждого дня свой ведущий</span></div>' +
+      '<div class="fo-mtlv">П1 — высокий приоритет: 60–80 мин · П2 — средний: 40–50 мин · П3 — низкий: 35–40 мин. Бот ставит планёрки ведущего одним блоком с перерывом.</div>' +
+      ((FO_MT.srv && !FO_MT.srv.fn) ? '<div class="gerr on">В справочнике нет функции «Совещание» — заведите её в «Функциях», и планёрки станут задачами.</div>' : '') +
+      (foMtEdHTML() || '<div class="empty">' + (FO_MT.err ? esc(FO_MT.err) : 'Загружаю…') + '</div>') + '</section>';
+}
+
+/* ── действия ── */
+function foMtDraft(pid){
+  if(!FO_MT.draft[pid]){ var r = foMtRow(pid) || {}; FO_MT.draft[pid] = {slots: JSON.parse(JSON.stringify(r.slots || {})), fixed: !!r.fixed}; }
+  return FO_MT.draft[pid];
+}
+function foMtPut(row){
+  var d = FO_MT.srv; if(!d || !row) return;
+  for(var i = 0; i < d.rows.length; i++) if(String(d.rows[i].client_id) === String(row.client_id)){ d.rows[i] = row; return; }
+  d.rows.push(row);
+}
+function foMtSaveRow(pid, mark){
+  var r = foMtRow(pid) || {}, row = document.querySelector('#sect [data-mtrow="' + pid + '"]');
+  var dr = FO_MT.draft[pid] || {slots: JSON.parse(JSON.stringify(r.slots || {})), fixed: !!r.fixed};
+  if(row) Array.prototype.forEach.call(row.querySelectorAll("[data-mts]"), function(el){
+    var ix = foMtIx(el.getAttribute("data-mts")), s = dr.slots[ix[0]]; if(s) s[ix[1]] = ix[1] === "minutes" ? +el.value : el.value; });
+  var bad = Object.keys(dr.slots).filter(function(k){ var s = dr.slots[k]; return !s.time || !s.host; });
+  if(bad.length){ try{ toast(FO_MT_DOW[+bad[0]] + ": укажите время и кто ведёт"); }catch(e){} return; }
+  FO_MT.saving[pid] = true; foMtRender();
+  api("/refs/meet/" + encodeURIComponent(pid) + "/save", {method: "POST", body: {slots: dr.slots, fixed: !!dr.fixed, mark: mark || null}}).then(function(res){
+    delete FO_MT.saving[pid]; delete FO_MT.draft[pid];
+    foMtPut(res.row); FO_MT.timesAt = 0;
+    try{ toast("Планёрка «" + (res.row.name || "") + "»: " + (FO_MT_ST[res.row.status] || {}).t + (res["задачи"] ? " · " + res["задачи"] : "")); }catch(e){}
+    foMtRender();
+    try{ if(typeof loadLive === "function") loadLive(); }catch(e){}
+  }).catch(function(e){ delete FO_MT.saving[pid]; try{ toast("Не сохранилось: " + (e && e.message || "")); }catch(x){} foMtRender(); });
+}
+function foMtSend(pid){
+  api("/refs/meet/" + encodeURIComponent(pid) + "/send", {method: "POST", body: {test: false}}).then(function(res){
+    try{ toast(res.state === "proposed" ? "Бот предложил время клиенту" : "Не отправилось: " + (res.why || "")); }catch(e){}
+    foMtLoad(true).then(function(){ foMtRender(); try{ loadLive(); }catch(e){} });
+  }).catch(function(e){ try{ toast("Не отправилось: " + (e && e.message || "")); }catch(x){} foMtRender(); });
+}
+function foMtCamp(kind, btn){
+  if(kind === "cancel"){ FO_MT.prev = null; foMtRender(); return; }
+  if(kind === "stop"){
+    api("/refs/meet/campaign/stop", {method: "POST", body: {}}).then(function(){ try{ toast("Рассылка остановлена"); }catch(e){} foMtLoad(true).then(foMtRender); });
+    return;
+  }
+  if(kind === "dry"){
+    FO_MT.busy = "dry"; foMtRender();
+    api("/refs/meet/campaign", {method: "POST", body: {dry: true}}).then(function(res){ FO_MT.busy = ""; FO_MT.prev = res; foMtRender(); })
+      .catch(function(e){ FO_MT.busy = ""; try{ toast(e && e.message || "сервер не ответил"); }catch(x){} foMtRender(); });
+    return;
+  }
+  if(kind === "go" && !btn.getAttribute("data-sure")){ btn.setAttribute("data-sure", "1"); btn.textContent = "Точно написать клиентам? Нажмите ещё раз"; return; }
+  FO_MT.busy = kind; foMtRender();
+  api("/refs/meet/campaign", {method: "POST", body: {dry: false, test: kind === "test", gap_min: +((FO_MT.srv || {}).settings || {}).gap || 180}}).then(function(res){
+    FO_MT.busy = ""; FO_MT.prev = null;
+    try{ toast((kind === "test" ? "Проверка запущена" : "Рассылка запущена") + (res["волна"] != null ? ": волна " + res["волна"] : "")); }catch(e){}
+    foMtLoad(true).then(function(){ foMtRender(); try{ loadLive(); }catch(e){} });
+  }).catch(function(e){ FO_MT.busy = ""; try{ toast("Не запустилось: " + (e && e.message || "")); }catch(x){} foMtRender(); });
+}
+function foMtSetting(k, v){
+  var body = {};
+  if(k === "brk" || k === "gap") body[k] = +v; else if(k === "from") body.start = v; else if(k === "to") body.end = v;
+  api("/refs/meet/settings", {method: "POST", body: body}).then(function(res){
+    if(FO_MT.srv) FO_MT.srv.settings = res.settings;
+    try{ toast("Настройка бота планёрок сохранена"); }catch(e){} foMtRender();
+  }).catch(function(e){ try{ toast("Не сохранилось: " + (e && e.message || "")); }catch(x){} });
+}
+setInterval(function(){
+  try{ if(view !== "meet" || FO_MT.tab !== "cal" || document.hidden) return; }catch(e){ return; }
+  foMtLoad(true).then(function(){ if(FO_MT.chg){ FO_MT.chg = false; foMtRenderSoft(); } });
+}, 20000);
 function foMtRender(){
   var host = document.getElementById("sect"); if(!host) return;
   if(!foMtCan()){ host.innerHTML = '<div class="gl"><div class="empty">Планёрки видят проджект и выше.</div></div>'; return; }
+  if(!FO_MT.srv) foMtLoad().then(function(d){ if(d){ FO_MT.chg = false; foMtRenderSoft(); } });
   var y = window.scrollY;
   host.innerHTML = foMtHead() + (FO_MT.tab === "cal" ? foMtCalHTML() : foMtCabHTML());
   try{ if(typeof enhanceSelects === "function") enhanceSelects(host); }catch(e){}
   window.scrollTo(0, y);
 }
 
-/* ── график кабинета → функция «Совещание» в кабинете (задачи ведущему рождает сервер) ── */
-function foMtPlanSave(pid, row){
-  var fn = foMtFn();
-  var days = Array.prototype.map.call(row.querySelectorAll("[data-mtday].on"), function(b){ return +b.getAttribute("data-mtday"); });
-  var time = (row.querySelector('[data-mtpl="time"]') || {}).value || "";
-  var minutes = +((row.querySelector('[data-mtpl="minutes"]') || {}).value || 60);
-  var hostId = (row.querySelector('[data-mtpl="host"]') || {}).value || "";
-  if(days.length && !hostId){ try{ toast("Выберите, кто ведёт планёрку"); }catch(e){} return; }
-  if(days.length && !time){ try{ toast("Укажите время планёрки"); }catch(e){} return; }
-  var plan = foMtPlanAll();
-  plan[pid] = {days: days, time: time, minutes: minutes, host: hostId, state: "сохраняю…"};
-  foMtSave();
-  if(!fn || !foLive()){ plan[pid].state = fn ? "сохранено" : "нет функции «Совещание»"; foMtRender(); return; }
-  FO_MT.saving[pid] = true; foMtRender();
-  var cabP = (typeof foCabFnLoad === "function") ? foCabFnLoad(pid) : Promise.resolve(null);
-  Promise.resolve(cabP).then(function(d){
-    var cab = d && d.cab ? (d.cab.id || d.cab) : null;
-    if(!cab) throw new Error("у клиента нет кабинета");
-    return api("/refs/cabinets/" + encodeURIComponent(cab) + "/functions/add", {method: "POST", body: {
-      fn_id: fn.id, employee_id: hostId || null, minutes: minutes,
-      cycle_kind: days.length ? "weekly" : "none", cycle_n: 1, cycle_weekdays: days}});
-  }).then(function(){
-    plan[pid].state = days.length ? "в графике · задача у " + foMtName(hostId) : "снято с графика";
-    foMtSave();
-    return (typeof loadLive === "function") ? loadLive() : null;
-  }).then(function(){
-    delete FO_MT.saving[pid];
-    try{ toast("Планёрка «" + ((project(pid) || {}).name || "") + "»: " + plan[pid].state); }catch(e){}
-    foMtRender();
-  }).catch(function(err){
-    delete FO_MT.saving[pid];
-    plan[pid].state = "не сохранилось: " + (err && err.message || "сервер не ответил"); foMtSave(); foMtRender();
-  });
-}
-
 /* ── в ганте: совещание — в своё время, остальные задачи дня обтекают его ── */
 function foMtPlace(){
   FO_MT_IDS = {};
   var fn = foMtFn(); if(!fn) return;
-  var plan = foMtPlanAll(), groups = {};
+  foMtTimes();
+  var tm = FO_MT.times || {}, legacy = (S.meetPlan && typeof S.meetPlan === "object") ? S.meetPlan : {}, groups = {};
   (S.tasks || []).forEach(function(t){
     if(t._fo_s0 == null) t._fo_s0 = t.start;
     var k = (t.person || "") + "|" + t.dow;
@@ -27906,10 +28268,16 @@ function foMtPlace(){
     var list = groups[k], meets = [];
     list.forEach(function(t){
       if(String(t.fn) !== String(fn.id)) return;
-      FO_MT_IDS[t.id] = 1;
-      var pl = plan[t.project], h = pl ? foMtHour(pl.time) : null;
-      if(h != null){ t.start = h; if(pl.minutes) t.minutes = +pl.minutes; }
-      if(!/^Совещание/i.test(t.title || "")) t.title = "Совещание · " + ((project(t.project) || {}).name || t.title);
+      if(t._fo_t0 == null) t._fo_t0 = t.title;
+      var e = tm[t.project], s = e && e.slots ? e.slots[String(t.dow)] : null, st = e ? e.status : "";
+      var lg = legacy[t.project];
+      if(!s && !e && lg && (lg.days || []).indexOf(+t.dow) >= 0) s = {time: lg.time, minutes: lg.minutes};
+      var h = s ? foMtHour(s.time) : null;
+      if(h != null){ t.start = h; if(s.minutes) t.minutes = +s.minutes; }
+      FO_MT_IDS[t.id] = st || "on";
+      var nm = (project(t.project) || {}).name || String(t._fo_t0 || "").replace(/^(Совещание|Планёрка)\s*·\s*/i, "");
+      t.title = "Планёрка · " + nm + (s && s.time ? " · " + s.time + "–" + foMtEnd(s.time, t.minutes) : "") +
+        (st && st !== "agreed" && FO_MT_ST[st] ? " · " + FO_MT_ST[st].s : "");
       meets.push(t);
     });
     if(!meets.length) return;
@@ -27924,14 +28292,17 @@ function foMtPlace(){
 }
 function foMtPaint(root){
   (root || document).querySelectorAll(".gb[data-open]").forEach(function(b){
-    b.classList.toggle("fo-gmeet", !!FO_MT_IDS[b.getAttribute("data-open")]); });
+    var st = FO_MT_IDS[b.getAttribute("data-open")];
+    b.classList.toggle("fo-gmeet", !!st);
+    b.classList.toggle("fo-gmeet-q", !!st && st !== "agreed" && st !== "on");
+  });
   (root || document).querySelectorAll(".lgd").forEach(function(l){
     if(l.getAttribute("data-fomt")) return;
     l.setAttribute("data-fomt", "1");
     Array.prototype.forEach.call(l.querySelectorAll("span"), function(s){
       if(/планёрки и дедлайны/.test(s.textContent)){
         s.innerHTML = s.innerHTML.replace("планёрки и дедлайны", "дедлайны");
-        if(foMtCan()){ var m = document.createElement("span"); m.innerHTML = '<i class="fo-lgmeet"></i>совещания'; s.parentNode.insertBefore(m, s.nextSibling); }
+        if(foMtCan()){ var m = document.createElement("span"); m.innerHTML = '<i class="fo-lgmeet"></i>планёрки'; s.parentNode.insertBefore(m, s.nextSibling); }
       }
     });
   });
@@ -27964,8 +28335,31 @@ window.addEventListener("click", function(e){
   if((b = t.closest("[data-mttab]")) && !b.hasAttribute("data-mtcab")){ FO_MT.tab = b.getAttribute("data-mttab"); foMtRender(); return; }
   if((b = t.closest("[data-mtcab]"))){ FO_MT.pid = b.getAttribute("data-mtcab"); if(b.hasAttribute("data-mttab")) FO_MT.tab = "cab"; foMtRender(); return; }
   var pid = FO_MT.pid, m = pid ? foMtOf(pid) : null;
-  if((b = t.closest("[data-mtday]"))){ b.classList.toggle("on"); return; }
-  if((b = t.closest("[data-mtplsave]"))){ foMtPlanSave(b.getAttribute("data-mtplsave"), b.closest("[data-mtrow]")); return; }
+  if((b = t.closest("[data-mtper]"))){ FO_MT.per = b.getAttribute("data-mtper"); FO_MT.off = 0; foMtRender(); return; }
+  if((b = t.closest("[data-mtnav]"))){ var nv = +b.getAttribute("data-mtnav"); FO_MT.off = nv ? (FO_MT.off || 0) + nv : 0; foMtRender(); return; }
+  if((b = t.closest("[data-mtmode]"))){ FO_MT.mode = b.getAttribute("data-mtmode"); foMtRender(); return; }
+  if((b = t.closest("[data-mtcamp]"))){ foMtCamp(b.getAttribute("data-mtcamp"), b); return; }
+  if((b = t.closest("[data-mtday]"))){
+    var drow = b.closest("[data-mtrow]"); if(!drow) return;
+    var rp = drow.getAttribute("data-mtrow"), dr = foMtDraft(rp), dk = b.getAttribute("data-mtday");
+    Array.prototype.forEach.call(drow.querySelectorAll("[data-mts]"), function(el){
+      var ix = foMtIx(el.getAttribute("data-mts")), s0 = dr.slots[ix[0]]; if(s0) s0[ix[1]] = ix[1] === "minutes" ? +el.value : el.value; });
+    if(dr.slots[dk]) delete dr.slots[dk];
+    else {
+      var ks = Object.keys(dr.slots).sort(), src = ks.length ? dr.slots[ks[ks.length - 1]] : null, lv = FO_MT_LV[(foMtRow(rp) || {}).level] || FO_MT_LV[3];
+      dr.slots[dk] = src ? {time: src.time, minutes: src.minutes, host: src.host} : {time: "", minutes: lv.mins[0], host: ""};
+    }
+    foMtRender(); return;
+  }
+  if((b = t.closest("[data-mtsave]"))){ foMtSaveRow(b.getAttribute("data-mtsave")); return; }
+  if((b = t.closest("[data-mtsend]"))){
+    if(!b.getAttribute("data-sure")){ b.setAttribute("data-sure", "1"); b.textContent = "Написать клиенту? Нажмите ещё раз"; return; }
+    foMtSend(b.getAttribute("data-mtsend")); return;
+  }
+  if((b = t.closest("[data-mtmark]"))){
+    if(!b.getAttribute("data-sure")){ b.setAttribute("data-sure", "1"); b.textContent = "Время согласовано с клиентом? Ещё раз"; return; }
+    foMtSaveRow(b.getAttribute("data-mtmark"), "agreed"); return;
+  }
   if(!m) return;
   if(t.closest("[data-mttadd]")){ m.topics.push({id: foMtId("tp"), title: "", who: [], docs: [], probs: []}); foMtSave(); foMtRender(); return; }
   if(t.closest("[data-mtfns]")){
@@ -28013,7 +28407,18 @@ window.addEventListener("click", function(e){
 
 window.addEventListener("change", function(e){
   if(!foMtInView(e)) return;
-  var t = e.target, pid = FO_MT.pid, m = pid ? foMtOf(pid) : null;
+  var t = e.target, pid = FO_MT.pid, m = pid ? foMtOf(pid) : null, a0;
+  if(t.getAttribute && (a0 = t.getAttribute("data-mts"))){
+    var srow = t.closest("[data-mtrow]"); if(!srow) return;
+    var six = foMtIx(a0), sdr = foMtDraft(srow.getAttribute("data-mtrow")), ss = sdr.slots[six[0]];
+    if(ss){ ss[six[1]] = six[1] === "minutes" ? +t.value : t.value; srow.classList.add("dirty"); }
+    return;
+  }
+  if(t.hasAttribute && t.hasAttribute("data-mtfix")){
+    var frow = t.closest("[data-mtrow]"); if(frow){ foMtDraft(frow.getAttribute("data-mtrow")).fixed = !!t.checked; foMtRender(); } return;
+  }
+  if(t.getAttribute && (a0 = t.getAttribute("data-mtset"))){ foMtSetting(a0, t.value); return; }
+  if(t.hasAttribute && t.hasAttribute("data-mthost")){ FO_MT.host = t.value; foMtRender(); return; }
   if(!m || !t.getAttribute) return;
   var a, ix;
   if((a = t.getAttribute("data-mtt"))){ ix = foMtIx(a); var tp = m.topics[+ix[0]]; if(tp){ tp[ix[1]] = t.value; foMtSave(); } return; }
