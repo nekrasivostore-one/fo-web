@@ -4273,6 +4273,10 @@ td small{ color:var(--ink-3); font-size:10.5px }
 .gb.fo-gmeet.fo-gmeet-q{ background:repeating-linear-gradient(135deg, #7c5cff 0 7px, #9f8bff 7px 14px) !important }
 @media (max-width: 720px){ .fo-mtsls, .fo-mtlast, .fo-mted2 .fo-mtattn{ margin-left:0 } .fo-mtmc{ min-height:70px } }
 .fo-mthint2{ font-size:12px; color:var(--ink-3); margin:0 0 8px }
+.fo-mtst.ok{ color:#12A150 }
+.fo-mtrules{ margin:6px 0 4px } .fo-mtrules > .fo-lnk{ background:none; border:none; padding:0; font:inherit; font-size:13px; font-weight:600; color:#5a3fd6; cursor:pointer }
+.fo-mtrl{ margin:6px 0 0 14px; display:flex; flex-direction:column; gap:4px; font-size:13px }
+.fo-mtrin{ max-width:620px; margin-top:4px }
 </style>
 </head>
 <body>
@@ -28105,27 +28109,46 @@ function foMtBotHTML(){
     prev = '<div class="fo-mtprev"><b>Что уйдёт клиентам</b>' + Object.keys(by).sort().map(function(w){
       return '<div class="fo-mtpw"><b>Волна ' + w + ' — ' + wl[+w] + '</b>' + by[w].map(function(x){
         return '<div class="fo-mtpi"><span class="fo-mtpl p' + x.level + '">П' + x.level + '</span> ' + esc(x.client) + (x.fixed ? ' 🔒' : '') + ' — ' + foMtSlLine(x.offer) +
-          (x.chat ? '' : ' <i class="bad">нет чата с ботом — не уйдёт</i>') + '</div>'; }).join("") + '</div>'; }).join("") +
+          (x.chat ? '' : ' <i class="bad">бота планёрок нет в чате — не уйдёт</i>') + '</div>'; }).join("") + '</div>'; }).join("") +
       ((P.skip || []).length ? '<div class="fo-mtpi">Не трогаем: ' + P.skip.map(function(x){ return esc(x.client) + ' (' + esc(x.why) + ')'; }).join(", ") + '</div>' : '') +
       ((P.waves || [])[0] ? '<details><summary>Текст сообщения клиенту</summary><pre>' + esc(P.waves[0].text) + '</pre></details>' : '') +
       '<div class="hint2">Первая волна уходит сразу, следующая — когда все ответили или через ' + foMtHm(+st.gap || 180) + '. «Да» — бот фиксирует и закрепляет время в чате. ' +
       'Своё время клиента бот берёт, только если оно встаёт в блок ведущего с перерывом ' + (+st.brk || 0) + ' мин, иначе предлагает ближайшие окна; после двух кругов передаёт проджекту. ' +
-      'За час до начала — напоминание клиенту и проджекту.' + (nochat ? ' Клиентам без чата с ботом сообщение не уйдёт.' : '') + '</div>' +
+      'За час до начала — напоминание клиенту и проджекту.' + (nochat ? ' Где бота планёрок нет в чате, сообщение не уйдёт.' : '') + '</div>' +
       '<div class="fo-mtbb"><button class="bt sm pri" data-mtcamp="go"' + (FO_MT.busy ? ' disabled' : '') + '>' + (FO_MT.busy === "go" ? 'Отправляю…' : 'Отправить клиентам') + '</button>' +
       '<button class="bt sm gh2" data-mtcamp="test"' + (FO_MT.busy ? ' disabled' : '') + '>Проверка без Telegram</button>' +
       '<button class="bt sm gh2" data-mtcamp="cancel">Отмена</button></div></div>';
   }
   return '<section class="gl fo-mtbot"><div class="gl-t"><h2>Бот планёрок</h2><span class="m">предлагает время по приоритету клиента, фиксирует ответ, закрепляет в чате, уведомляет проджекта, напоминает за час</span></div>' +
     '<div class="fo-mtbs">' + ["proposed", "agreed", "draft", "queued"].map(function(k){ return '<span class="fo-mtstat st-' + k + '">' + FO_MT_ST[k].s + ' · ' + (cnt[k] || 0) + '</span>'; }).join("") +
-      '<span class="fo-mtbok">' + (d.bot ? (d.own_bot ? 'пишет бот планёрок' : 'пока пишет бот сервиса') + (d.bot_name ? ' @' + esc(d.bot_name) : '') : 'нет токена бота на сервере') + '</span></div>' +
+      '<span class="fo-mtbok">' + (d.bot ? 'пишет бот планёрок' + (d.bot_name ? ' @' + esc(d.bot_name) : '') + ' · бот задач про планёрки не пишет' : 'бот планёрок не подключён') + '</span></div>' +
     (d.bot_name ? '<div class="fo-mthint2">Проджектам: откройте @' + esc(d.bot_name) + ' в Telegram и нажмите «Start» — туда придут подтверждения клиентов, просьбы решить вопрос и напоминания за час. ' +
       'В чатах клиентов бот должен быть администратором с правом закреплять сообщения.</div>' : '') +
-    '<div class="fo-mtbc">' + esc(ct) + '</div>' + attn +
+    '<div class="fo-mtbc">' + esc(ct) + '</div>' + attn + foMtRulesHTML() +
     '<div class="fo-mtbset">Перерыв между планёрками ' + sel("brk", [5, 10, 15, 20, 30], st.brk, function(n){ return n + ' мин'; }) +
       ' · окно ' + '<input class="fi sm" type="time" data-mtset="from" value="' + esc(st.from || "10:00") + '">–<input class="fi sm" type="time" data-mtset="to" value="' + esc(st.to || "19:00") + '">' +
       ' · следующая волна через ' + sel("gap", [60, 120, 180, 360, 1440], st.gap, function(n){ return foMtHm(n); }) + '</div>' +
     '<div class="fo-mtbb"><button class="bt sm pri" data-mtcamp="dry"' + (FO_MT.busy ? ' disabled' : '') + '>' + (FO_MT.busy === "dry" ? 'Считаю…' : 'Предложить время клиентам') + '</button>' +
       (cp && cp.status === "active" ? '<button class="bt sm gh2" data-mtcamp="stop">Остановить рассылку</button>' : '') + '</div>' + prev + '</section>';
+}
+
+/* агент планёрок — свой ИИ-агент со своими правилами (агент задач думает иначе) */
+function foMtRulesHTML(){
+  if(FO_MT.rules == null && !FO_MT.rulesBusy){
+    FO_MT.rulesBusy = true;
+    api("/refs/meet/rules").then(function(d){ FO_MT.rules = (d && d.rules) || []; FO_MT.rulesBusy = false; foMtRenderSoft(); })
+      .catch(function(){ FO_MT.rules = []; FO_MT.rulesBusy = false; });
+  }
+  var rl = FO_MT.rules || [], own = foMtLvl() <= 2;
+  return '<div class="fo-mtrules"><button class="fo-lnk" data-mtrtog>' + (FO_MT.rulesOpen ? '▾' : '▸') + ' Агент планёрок (ИИ Яндекс) — свои правила · ' + rl.length + '</button>' +
+    (FO_MT.rulesOpen ? '<div class="fo-mtrl"><div class="hint2">Агент планёрок и агент задач думают по-разному: у каждого свой алгоритм и свои правила. ' +
+      'Агент планёрок понимает ответ клиента: согласен, предлагает своё время, не может или пишет не про планёрку.</div>' +
+      rl.map(function(r, i){ return '<div class="fo-mtr">' + (i + 1) + '. ' + esc(r) + (own ? ' <button class="plx" data-mtrdel="' + i + '" title="Убрать">×</button>' : '') + '</div>'; }).join("") +
+      (own ? '<input class="fi sm fo-mtrin" data-mtradd placeholder="Новое правило и Enter, например: «Сидякину не предлагать понедельник»">' : '') + '</div>' : '') + '</div>';
+}
+function foMtRule(body){
+  api("/refs/meet/rules", {method: "POST", body: body}).then(function(d){ FO_MT.rules = (d && d.rules) || []; foMtRender(); })
+    .catch(function(e){ try{ toast("Не сохранилось: " + (e && e.message || "")); }catch(x){} });
 }
 
 /* график по кабинетам: по приоритету, у каждого дня свой ведущий */
@@ -28151,9 +28174,10 @@ function foMtEdHTML(){
       '<label class="fo-mtfix" title="Время назначил клиент — бот его не двигает, только уточняет, всё ли в силе"><input type="checkbox" data-mtfix' + (fixed ? ' checked' : '') + '> 🔒 время клиента</label>' +
       '<span class="fo-mtdays">' + FO_MT_DOW.map(function(x, i){ return '<button class="' + (sl[String(i)] ? 'on' : '') + '" data-mtday="' + i + '">' + x + '</button>'; }).join("") + '</span>' +
       '<button class="bt sm pri" data-mtsave="' + esc(r.client_id) + '"' + (sv ? ' disabled' : '') + '>' + (sv ? 'Сохраняю…' : 'Сохранить') + '</button>' +
-      (r.status !== "off" && !dr ? '<button class="bt sm gh2" data-mtsend="' + esc(r.client_id) + '"' + (r.chat ? '' : ' disabled title="У клиента нет чата с ботом"') + '>Предложить сейчас</button>' : '') +
+      (r.status !== "off" && !dr ? '<button class="bt sm gh2" data-mtsend="' + esc(r.client_id) + '"' + (r.bot_in ? '' : ' disabled title="Бота планёрок нет в чате клиента"') + '>Предложить сейчас</button>' : '') +
       (r.status !== "off" && r.status !== "agreed" && !dr ? '<button class="bt sm gh2" data-mtmark="' + esc(r.client_id) + '">Согласовано вручную</button>' : '') +
-      (r.chat ? '' : '<span class="fo-mtst">нет чата с ботом</span>') + '</div>' +
+      '<span class="fo-mtst' + (r.bot_in && r.bot_pin ? ' ok' : '') + '">' + (!r.chat ? 'чат клиента не привязан' : r.bot_in === false ? 'бота планёрок нет в чате — добавьте администратором' :
+        r.bot_in && !r.bot_pin ? 'боту не дано право закреплять' : r.bot_in ? 'бот планёрок в чате ✓' : '') + '</span></div>' +
       (sub ? '<div class="fo-mtsls">' + sub + '</div>' : '') +
       (r.attn ? '<div class="fo-mtattn">⚠ ' + esc(r.attn) + '</div>' : '') +
       (r.status === "proposed" && r.offer ? '<div class="fo-mtlast">Бот предложил ' + (r.sent_at ? foMtAt(r.sent_at) : '') + ': ' + foMtSlLine(r.offer) + '</div>' : '') +
@@ -28342,6 +28366,8 @@ window.addEventListener("click", function(e){
   if((b = t.closest("[data-mtnav]"))){ var nv = +b.getAttribute("data-mtnav"); FO_MT.off = nv ? (FO_MT.off || 0) + nv : 0; foMtRender(); return; }
   if((b = t.closest("[data-mtmode]"))){ FO_MT.mode = b.getAttribute("data-mtmode"); foMtRender(); return; }
   if((b = t.closest("[data-mtcamp]"))){ foMtCamp(b.getAttribute("data-mtcamp"), b); return; }
+  if(t.closest("[data-mtrtog]")){ FO_MT.rulesOpen = !FO_MT.rulesOpen; foMtRender(); return; }
+  if((b = t.closest("[data-mtrdel]"))){ foMtRule({remove: +b.getAttribute("data-mtrdel")}); return; }
   if((b = t.closest("[data-mtday]"))){
     var drow = b.closest("[data-mtrow]"); if(!drow) return;
     var rp = drow.getAttribute("data-mtrow"), dr = foMtDraft(rp), dk = b.getAttribute("data-mtday");
@@ -28447,6 +28473,13 @@ window.addEventListener("keydown", function(e){
 }, true);
 
 window.foMtState = function(){ return {кабинет: FO_MT.pid, график: Object.keys(foMtPlanAll()).length, совещаний_в_ганте: Object.keys(FO_MT_IDS).length, функция: (foMtFn() || {}).name || null}; };
+
+window.addEventListener("keydown", function(e){
+  if(e.key !== "Enter" || !foMtInView(e) || !e.target.hasAttribute || !e.target.hasAttribute("data-mtradd")) return;
+  e.preventDefault();
+  var v = String(e.target.value || "").trim(); if(v.length < 3) return;
+  foMtRule({add: v});
+}, true);
 
 })();
 </script>
