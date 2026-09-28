@@ -2791,6 +2791,39 @@ def _fo_ai_who(team, s):
     return None
 
 
+async def _fo_ai_pick_fn(title, text, fl, incab):
+    """Второй короткий запрос: к какой функции агентства относится задача. Ответ — код из списка или null."""
+    if not fl:
+        return None
+    lst = "\n".join("%s%s — %s" % ("★ " if str(f["id"]) in incab else "", f["code"], f["name"]) for f in fl[:150])
+    sys_t = ("Ты раскладываешь задачи digital-агентства (кабинеты продавцов Wildberries и OZON) по функциям. "
+             "Ответь только кодом одной функции из списка или словом null. Сначала ищи среди отмеченных ★ — "
+             "они уже есть в кабинете клиента. Сравнивай по смыслу: цена, скидка, повысить или снизить цену → управление ценой; "
+             "ставка, реклама, РК → функции рекламы; фото, обложка, инфографика, A/B, аб тест → фотоворонка и A/B тесты; "
+             "поставка, остатки, склад → поставки; акция → акции.")
+    usr = "Задача: «%s»\nСообщение: «%s»\nФункции:\n%s" % (str(title)[:300], str(text)[:600], lst)
+    try:
+        txt, _u = await _fo_aio.to_thread(_fo_ygpt_sync, [{"role": "system", "text": sys_t}, {"role": "user", "text": usr}], 40)
+    except Exception:
+        return None
+    t = str(txt or "")
+    for f in sorted(fl, key=lambda f: -len(str(f["code"]))):
+        if str(f["code"]) and str(f["code"]).lower() in t.lower():
+            return f
+    return None
+
+
+def _fo_ai_evidence(team, eid, texts):
+    """Есть ли в переписке след этого человека: его @ник или имя в любом падеже."""
+    t = next((x for x in team if x["id"] == str(eid)), None)
+    if not t:
+        return False
+    low = " ".join(str(x or "") for x in texts).lower().replace("ё", "е")
+    if t["tg"] and ("@" + t["tg"]) in low:
+        return True
+    return bool(t["stem"]) and re.search(r"(?<![a-zа-я])" + re.escape(t["stem"]), low) is not None
+
+
 async def _fo_ai_settings(c, org_id):
     d = await c.fetchval("SELECT data FROM fo_card WHERE kind='org' AND ref_id=$1", "ai:" + str(org_id))
     if isinstance(d, str):
@@ -2945,14 +2978,19 @@ async def _fo_ai_process(msg_pk, dry=False, use_prev=True):
         except Exception:
             pass
         return {"state": "clarify", "к_задаче": int(dup["id"]), "как_понял": dup_how, "ai": js}
+    code = str(js.get("function_code") or "").strip()
+    fn = next((f for f in fns if str(f["code"]).lower() == code.lower()), None) if code else None
+    if not fn:
+        fn = await _fo_ai_pick_fn(title, m["text"] or "", fl, incab)
+        if fn:
+            js["function_code"] = fn["code"]
+            js["fn_by"] = "второй запрос"
     async with pool().acquire() as c:
-        code = str(js.get("function_code") or "").strip()
-        fn = next((f for f in fns if str(f["code"]).lower() == code.lower()), None) if code else None
         fn_id = fn["id"] if fn else None
         named, talked, mentioned = set(), set(), set()
         ex = _fo_ai_who(team, js.get("executor"))
-        if ex:
-            named.add(ex)
+        texts = [p_["text"] for p_ in prev] + [m["text"]]
+        authors_ok = set()
         for p_ in list(prev) + [m]:
             who = _fo_ai_who(team, p_["author_tg"]) or _fo_ai_who(team, (str(p_["author"] or "").split() or [""])[0])
             if who:
@@ -2961,6 +2999,10 @@ async def _fo_ai_process(msg_pk, dry=False, use_prev=True):
                 w2 = _fo_ai_who(team, mm)
                 if w2:
                     mentioned.add(w2)
+        if ex and (ex in talked or _fo_ai_evidence(team, ex, texts)):
+            named.add(ex)
+        elif js.get("executor"):
+            js["executor_rejected"] = js.get("executor")      # ИИ назвал того, кого в переписке нет
         cands = await _fo_ai_people(c, m["org_id"], cab_id, fn_id, named, talked, mentioned)
         if fn and str(fn["id"]) not in incab:
             js["fn_outside"] = True
