@@ -3937,7 +3937,40 @@ def _fo_mt_rx(text):
     words = re.findall(r"[a-zа-я]+|\+|👍|✅", t)
     yes = bool(words) and all(w in _FO_MT_YESW or w in ("+", "👍", "✅") for w in words) and \
         any(w in _FO_MT_YESK or w in ("+", "👍", "✅") for w in words) and not days and not tv
-    return {"days": days, "time": tv, "yes": yes}
+    neg = bool(re.search(r"\bне\s+(могу|можем|сможем|получится|удобно|подходит|выйдет)|неудобно|не\s+в\s+этот", t))
+    return {"days": days, "time": tv, "yes": yes and not neg, "neg": neg}
+
+
+def _fo_mt_norm(slots, rx):
+    """Слоты из ответа ИИ бывают словарями, строками или числами — приводим к [{"day": 0–4|None, "time": "HH:MM"|None}]."""
+    out = []
+    for x in (slots if isinstance(slots, list) else ([slots] if slots else [])):
+        if isinstance(x, dict):
+            d, t = x.get("day"), x.get("time")
+        else:
+            r2 = _fo_mt_rx(str(x))
+            d, t = (r2["days"][0] if r2["days"] else None), r2["time"]
+        if isinstance(d, str):
+            r3 = _fo_mt_rx(d)
+            d = r3["days"][0] if r3["days"] else (int(d) if d.strip().isdigit() else None)
+        try:
+            d = int(d) if d is not None else None
+        except Exception:
+            d = None
+        if d is not None and not (0 <= d <= 4):
+            d = None
+        tm = _fo_mt_m(t) if t is not None else None
+        if tm is None and t is not None:
+            try:
+                h = int(float(t))
+                tm = h * 60 if 8 <= h <= 20 else None
+            except Exception:
+                tm = None
+        if d is not None or tm is not None:
+            out.append({"day": d, "time": _fo_mt_hm(tm) if tm is not None else None})
+    if not out and (rx["days"] or rx["time"]):
+        out = [{"day": d, "time": rx["time"]} for d in (rx["days"] or [None])]
+    return out
 
 
 async def _fo_mt_parse(text, offer):
@@ -3954,16 +3987,17 @@ async def _fo_mt_parse(text, offer):
             js = _fo_ai_json(txt) or {}
             if js.get("answer") in ("yes", "other", "no", "unclear", "not_about"):
                 js["by"] = "ИИ"
-                if js["answer"] == "other" and not js.get("slots") and (rx["days"] or rx["time"]):
-                    js["slots"] = [{"day": d, "time": rx["time"]} for d in (rx["days"] or [None])]
-                if js["answer"] in ("no", "unclear") and (rx["days"] or rx["time"]):
+                js["slots"] = _fo_mt_norm(js.get("slots"), rx) if js["answer"] == "other" else []
+                if js["answer"] == "unclear" and rx["time"] and not rx["neg"]:
                     js["answer"] = "other"
-                    js["slots"] = [{"day": d, "time": rx["time"]} for d in (rx["days"] or [None])]
+                    js["slots"] = _fo_mt_norm([], rx)
                 return js
         except Exception:
             pass
+    if rx["neg"] and not rx["time"]:
+        return {"answer": "no", "slots": [], "by": "правило"}
     if rx["days"] or rx["time"]:
-        return {"answer": "other", "slots": [{"day": d, "time": rx["time"]} for d in (rx["days"] or [None])], "by": "правило"}
+        return {"answer": "other", "slots": _fo_mt_norm([], rx), "by": "правило"}
     return {"answer": "unclear", "slots": [], "by": "правило"}
 
 
@@ -4028,6 +4062,22 @@ async def _fo_mt_offer_send(c, org_id, client_id, kind, offer, reply_to=None, te
 
 
 async def _fo_meet_answer(org_id, client_id, text, msg_id=None, pk=None, test=False):
+    try:
+        return await _fo_meet_answer_do(org_id, client_id, text, msg_id, pk, test)
+    except Exception as e:
+        import traceback as _tb
+        why = (type(e).__name__ + ": " + str(e))[:200]
+        try:
+            async with pool().acquire() as c:
+                await c.execute("UPDATE fo_meet SET attn=$3, log=log||$4::jsonb WHERE org_id=$1::uuid AND client_id=$2::uuid",
+                                str(org_id), str(client_id), "бот не разобрал ответ — нужен проджект",
+                                _fo_mt_item("ошибка разбора ответа", why=why, where=_tb.format_exc()[-400:]))
+        except Exception:
+            pass
+        return {"state": "error", "why": why}
+
+
+async def _fo_meet_answer_do(org_id, client_id, text, msg_id=None, pk=None, test=False):
     """Разбор ответа клиента: «да» — фиксируем и закрепляем; своё время — берём, только если оно встаёт в блок
     ведущего с перерывом, иначе предлагаем ближайшие окна блока; после двух кругов — решает проджект."""
     async with pool().acquire() as c:
@@ -4051,7 +4101,8 @@ async def _fo_meet_answer(org_id, client_id, text, msg_id=None, pk=None, test=Fa
                         "WHERE org_id=$1::uuid AND client_id=$2::uuid", str(org_id), str(client_id), str(text or "")[:500],
                         _fo_mt_item("ответ клиента", text=str(text or "")[:300],
                                     понял={"yes": "согласен", "other": "предлагает своё время", "no": "не может",
-                                           "unclear": "непонятно"}.get(kind, kind), by=js.get("by")))
+                                           "unclear": "непонятно"}.get(kind, kind), by=js.get("by"),
+                                    слоты=js.get("slots") or None))
         if kind == "yes":
             return await _fo_mt_agree(c, org_id, client_id, offer, reply_to=msg_id, test=test)
         st = await _fo_mt_settings(c, org_id)
@@ -4059,13 +4110,9 @@ async def _fo_meet_answer(org_id, client_id, text, msg_id=None, pk=None, test=Fa
         rounds = int(r["rounds"] or 0)
         if kind == "other":
             want = {}
-            for x in js.get("slots") or []:
-                t = _fo_mt_m(x.get("time")) if x.get("time") else None
-                try:
-                    ds = [int(x.get("day"))] if x.get("day") not in (None, "", "null") else []
-                except Exception:
-                    ds = []
-                ds = [d for d in ds if 0 <= d <= 4] or list(offer.keys())
+            for x in _fo_mt_norm(js.get("slots"), _fo_mt_rx(text)):
+                t = _fo_mt_m(x["time"]) if x["time"] else None
+                ds = [x["day"]] if x["day"] is not None else list(offer.keys())
                 for d in ds:
                     want[d] = t
             if want:
@@ -4342,6 +4389,7 @@ async def fo_meet_get(p: Principal = Depends(max_level(4))):
 async def fo_meet_times(p: Principal = Depends(current)):
     """Время планёрок для ганта: РМ и выше — все, остальным — где ведут сами."""
     async with pool().acquire() as c:
+        await _fo_mt_migrate(c, p.org_id)
         me = None if _fo_st_lvl(p) <= 4 else str(await _fo_my_emp(c, p) or "")
         out = {}
         for r in await c.fetch("SELECT client_id, status, slots, offer FROM fo_meet WHERE org_id=$1::uuid AND status<>'off'",
