@@ -3242,7 +3242,7 @@ async def fo_tg_hook(request: _FoReq):
     msg = upd.get("message")
     if msg:
         if (msg.get("chat") or {}).get("type") == "private":
-            _fo_aio.get_running_loop().create_task(_fo_mt_private(msg))
+            _fo_aio.get_running_loop().create_task(_fo_mt_private(msg, request.headers.get("x-fo-bot", "")))
         else:
             _fo_aio.get_running_loop().create_task(_fo_ai_on_msg(msg))
     return {"ok": True}
@@ -3689,6 +3689,21 @@ def _fo_mt_tok():
     return _fo_env("TG_MEET_BOT_TOKEN") or _fo_env("TG_BOT_TOKEN")
 
 
+_FO_MT_ME = {"t": 0.0, "tok": "", "v": ""}
+
+
+async def _fo_mt_botname():
+    """@имя бота, который пишет клиентам (кэш на час) — проджектам нажать у него Start."""
+    tok = _fo_mt_tok()
+    if not tok:
+        return ""
+    if _FO_MT_ME["tok"] == tok and _fo_time.time() - _FO_MT_ME["t"] < 3600:
+        return _FO_MT_ME["v"]
+    res = await _fo_aio.to_thread(_fo_tg_api_sync, "getMe", {})
+    _FO_MT_ME.update({"t": _fo_time.time(), "tok": tok, "v": ((res.get("result") or {}).get("username") or "") if res.get("ok") else ""})
+    return _FO_MT_ME["v"]
+
+
 def _fo_tg_api_sync(method, params, tok=None):
     tok = tok or _fo_mt_tok()
     if not tok:
@@ -3776,14 +3791,19 @@ def _fo_mt_text(kind, cab, sl, names):
 
 # ── проджекту — в личку от основного бота (сотрудник один раз нажимает /start) ──
 async def _fo_mt_dm(c, emp_id, text, test=False):
+    """Проджекту в личку: от бота планёрок, если проджект нажал у него Start, иначе от бота сервиса."""
     if not emp_id:
         return "нет ведущего"
     if test:
         return "проверка: проджекту не писали"
     d = _fo_mt_load(await c.fetchval("SELECT data FROM fo_card WHERE kind='employee' AND ref_id=$1", str(emp_id)), {}) or {}
-    if not d.get("tg_id"):
-        return "проджект ещё не подключил бота (/start в личке с ботом)"
-    res = await _fo_aio.to_thread(_fo_tg_api_sync, "sendMessage", {"chat_id": str(d["tg_id"]), "text": text}, _fo_env("TG_BOT_TOKEN"))
+    bots = d.get("tg_bots") or (["main"] if d.get("tg_id") else [])
+    if not d.get("tg_id") or not bots:
+        return "проджект ещё не нажал Start у бота планёрок"
+    tok = _fo_env("TG_MEET_BOT_TOKEN") if ("meet" in bots and _fo_env("TG_MEET_BOT_TOKEN")) else (_fo_env("TG_BOT_TOKEN") if "main" in bots else "")
+    if not tok:
+        return "проджект ещё не нажал Start у бота планёрок"
+    res = await _fo_aio.to_thread(_fo_tg_api_sync, "sendMessage", {"chat_id": str(d["tg_id"]), "text": text}, tok)
     return "проджект уведомлён" if res.get("ok") else "проджекту не дошло: " + str(res.get("description") or "")[:120]
 
 
@@ -3794,7 +3814,7 @@ async def _fo_mt_notify(c, sl, text, test=False):
     return "; ".join(sorted(set(out)))
 
 
-async def _fo_mt_private(msg):
+async def _fo_mt_private(msg, bot=""):
     """Личка с основным ботом: сотрудник пишет /start — привязываем его по нику из карточки сотрудника;
     сюда приходят уведомления о планёрках и напоминание за час до начала."""
     try:
@@ -3812,15 +3832,18 @@ async def _fo_mt_private(msg):
                     hit = r
                     break
             if hit:
+                old = _fo_mt_load(hit["data"], {}) or {}
+                bots = sorted(set((old.get("tg_bots") or (["main"] if old.get("tg_id") else [])) + ["meet" if bot == "meet" else "main"]))
                 await c.execute("UPDATE fo_card SET data = data || $2::jsonb, updated_at = now() WHERE kind='employee' AND ref_id=$1",
-                                hit["ref_id"], _fo_json.dumps({"tg_id": int(uid)}))
+                                hit["ref_id"], _fo_json.dumps({"tg_id": int(uid), "tg_bots": bots}))
                 name = await c.fetchval("SELECT name FROM employee WHERE id=$1::uuid", str(hit["ref_id"])) or ""
                 ans = ("Готово, %s! Сюда будут приходить уведомления о планёрках: кто из клиентов подтвердил время, "
                        "кто просит другое, где нужно ваше решение, и напоминание за час до начала." % name).replace(", !", "!")
             else:
                 ans = ("Не нашли вас в команде агентства. Попросите руководителя вписать ваш ник @%s в карточку "
                        "сотрудника в сервисе и нажмите /start ещё раз." % (frm.get("username") or "…"))
-        await _fo_aio.to_thread(_fo_tg_api_sync, "sendMessage", {"chat_id": str(uid), "text": ans}, _fo_env("TG_BOT_TOKEN"))
+        await _fo_aio.to_thread(_fo_tg_api_sync, "sendMessage", {"chat_id": str(uid), "text": ans},
+                                (_fo_env("TG_MEET_BOT_TOKEN") if bot == "meet" else "") or _fo_env("TG_BOT_TOKEN"))
     except Exception as e:
         try:
             print("fo_mt_private:", e)
@@ -4381,8 +4404,12 @@ async def fo_meet_get(p: Principal = Depends(max_level(4))):
         cp = {"id": camp["id"], "status": camp["status"], "wave": camp["wave"], "gap_min": camp["gap_min"],
               "test": bool(camp["test"]), "started_at": camp["started_at"].isoformat(),
               "wave_at": camp["wave_at"].isoformat() if camp["wave_at"] else None}
+    try:
+        bname = await _fo_mt_botname()
+    except Exception:
+        bname = ""
     return {"rows": out, "camp": cp, "held": held, "fn": bool(fid), "bot": bool(_fo_mt_tok()),
-            "own_bot": bool(_fo_env("TG_MEET_BOT_TOKEN")),
+            "own_bot": bool(_fo_env("TG_MEET_BOT_TOKEN")), "bot_name": bname,
             "settings": {"brk": st["brk"], "gap": st["gap"], "from": _fo_mt_hm(st["from"]), "to": _fo_mt_hm(st["to"])},
             "levels": {str(k): {"min": v[0], "max": v[1], "def": v[2]} for k, v in _FO_MT_LVL.items()}}
 
@@ -4933,13 +4960,14 @@ if _FO_BLOB and not _FO_BLOB.startswith("__"):
             _k, _v = _ln.split("=", 1); _k = _k.strip(); _v = _v.strip()
             if _k == "YC_API_KEY" and re.match(r"^AQVN[A-Za-z0-9_\-]{20,}$", _v): _got[_k] = _v
             if _k == "YC_FOLDER_ID" and re.match(r"^b1g[a-z0-9]{10,}$", _v): _got[_k] = _v
-        if len(_got) == 2:
+            if _k == "TG_MEET_BOT_TOKEN" and re.match(r"^[0-9]{6,12}:[A-Za-z0-9_\-]{30,}$", _v): _got[_k] = _v
+        if _got:
             _envp = "/opt/fo/.env"
             _lines = [l for l in open(_envp, encoding="utf-8").read().splitlines() if l.split("=", 1)[0].strip() not in _got]
             _lines += ["%s=%s" % (k, v) for k, v in _got.items()]
             open(_envp, "w", encoding="utf-8").write("\n".join(_lines) + "\n"); os.chmod(_envp, 0o600)
             sh("systemctl restart fo"); sh("sleep 3")
-            p("ключ Яндекса из «Ключи ФО.txt» записан на сервер: YC_API_KEY (знаков %d), YC_FOLDER_ID; заглушка убрана; health:" % len(_got["YC_API_KEY"]),
+            p("из «Ключи ФО.txt» записано на сервер:", ", ".join("%s (знаков %d)" % (k, len(v)) for k, v in _got.items()), "· health:",
               sh("curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8000/health").strip())
         else:
             p("зашифрованный ключ не расшифровался (токен бота на Маке и на сервере разный?)")
@@ -5102,6 +5130,32 @@ WantedBy=multi-user.target
                 p("наш приём не встал — вернул штатный webhook:", _wj.loads(_r.read().decode()).get("ok"))
 except Exception as _e:
     p("приём сообщений бота: ошибка", (str(_e).replace(_tk2, "***") if _tk2 else str(_e))[:200])
+
+p("")
+p("== БОТ ПЛАНЁРОК ==")
+_tk3 = ""
+try:
+    for _ln in open("/opt/fo/.env", encoding="utf-8"):
+        if _ln.startswith("TG_MEET_BOT_TOKEN="): _tk3 = _ln.split("=", 1)[1].strip().strip('"').strip("'")
+    if _tk3:
+        _P3 = (_POLL.replace('E.get("TG_BOT_TOKEN", "")', 'E.get("TG_MEET_BOT_TOKEN", "")')
+                    .replace('"X-Telegram-Bot-Api-Secret-Token": SEC}', '"X-Telegram-Bot-Api-Secret-Token": SEC, "X-FO-Bot": "meet"}')
+                    .replace("fo-tgpoll: старт", "fo-tgpoll-meet: старт"))
+        _U3 = _UNIT.replace("/opt/fo/tgpoll.py", "/opt/fo/tgpoll_meet.py").replace("Description=FO: бот", "Description=FO: бот планёрок")
+        open("/opt/fo/tgpoll_meet.py", "w", encoding="utf-8").write(_P3)
+        open("/etc/systemd/system/fo-tgpoll-meet.service", "w", encoding="utf-8").write(_U3)
+        sh("systemctl daemon-reload; systemctl enable fo-tgpoll-meet >/dev/null 2>&1; systemctl restart fo-tgpoll-meet; sleep 4")
+        p("служба fo-tgpoll-meet:", sh("systemctl is-active fo-tgpoll-meet").strip())
+        import json as _mj, urllib.request as _mu
+        with _mu.urlopen("https://api.telegram.org/bot%s/getMe" % _tk3, timeout=15) as _r:
+            _me = (_mj.loads(_r.read().decode()) or {}).get("result") or {}
+        p("бот планёрок: @%s" % _me.get("username"))
+        p(sh("journalctl -u fo-tgpoll-meet -n 6 --no-pager -o cat").replace(_tk3, "***")[-800:])
+    else:
+        sh("systemctl stop fo-tgpoll-meet >/dev/null 2>&1")
+        p("отдельного токена бота планёрок на сервере нет — клиентам пишет бот сервиса")
+except Exception as _e:
+    p("бот планёрок: ошибка", (str(_e).replace(_tk3, "***") if _tk3 else str(_e))[:200])
 
 p("")
 p("== ЧАТЫ КЛИЕНТОВ ==")
