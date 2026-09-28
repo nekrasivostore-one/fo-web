@@ -4277,6 +4277,27 @@ td small{ color:var(--ink-3); font-size:10.5px }
 .fo-mtrules{ margin:6px 0 4px } .fo-mtrules > .fo-lnk{ background:none; border:none; padding:0; font:inherit; font-size:13px; font-weight:600; color:#5a3fd6; cursor:pointer }
 .fo-mtrl{ margin:6px 0 0 14px; display:flex; flex-direction:column; gap:4px; font-size:13px }
 .fo-mtrin{ max-width:620px; margin-top:4px }
+
+/* ===== 220: календарь как раньше (кто ведёт × дни), неделя и переносы ===== */
+.fo-mtstat.st-past{ background:transparent; color:var(--ink-3); opacity:.75 }
+.fo-mtstat.st-plan{ background:transparent; color:#5a3fd6; border:1px dashed rgba(124,92,255,.5) }
+.fo-mtev.st-past{ background:var(--panel-2); color:var(--ink-3); box-shadow:none }
+.fo-mtev.st-plan{ background:transparent; color:var(--ink); border:1.5px dashed rgba(124,92,255,.55) }
+.fo-mtev.pend{ outline:2px dashed #f5a524; outline-offset:1px }
+.fo-mtcd.today{ background:rgba(124,92,255,.05); border-radius:10px }
+.fo-mtch span.out{ opacity:.45 }
+.fo-mtwk2{ font-size:12px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; color:var(--ink-3); margin:14px 0 2px }
+.fo-mthf, .fo-mtbar2 .gsl{ width:auto !important; min-width:170px }
+.fo-mted{ flex-wrap:wrap }
+.fo-mted > b{ min-width:150px }
+.fo-mted .fo-mtsls{ flex:1 1 100%; margin:4px 0 0 34px }
+.fo-mted .fo-mtattn{ flex:1 1 100%; margin:0 0 0 34px }
+.fo-mted.dirty{ background:rgba(245,165,36,.06); border-radius:8px }
+.fo-mtsm{ background:none; border:none; padding:0; font:inherit; font-size:12.5px; color:#5a3fd6; cursor:pointer }
+.fo-mttalks{ margin-top:10px } .fo-mttalks .mdl{ display:block; font-size:11px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-3); margin-bottom:4px }
+.fo-mttalk{ display:flex; flex-wrap:wrap; gap:4px 12px; font-size:12.5px; padding:4px 0; border-bottom:1px solid var(--stroke-2) }
+.fo-mttalk span{ color:var(--ink-2) }
+.fo-mtbset label.fo-mtfix{ font-size:13px }
 </style>
 </head>
 <body>
@@ -27905,7 +27926,9 @@ var FO_MT_ST = {
   queued:   {t: "в очереди рассылки бота", s: "в очереди"},
   proposed: {t: "предложена клиенту на согласование", s: "предложена"},
   agreed:   {t: "назначена — клиент подтвердил", s: "назначена"},
-  held:     {t: "проведена", s: "проведена"}
+  held:     {t: "проведена", s: "проведена"},
+  past:     {t: "прошла, не отмечена", s: "прошла"},
+  plan:     {t: "по графику — бот согласует в понедельник", s: "по графику"}
 };
 var FO_MT_LV = {1: {t: "высокий", mins: [60, 70, 80]}, 2: {t: "средний", mins: [40, 45, 50]}, 3: {t: "низкий", mins: [35, 40]}};
 
@@ -27994,20 +28017,39 @@ function foMtDays(rg){
   for(; x <= end; x.setDate(x.getDate() + 1)){ var dw = (x.getDay() + 6) % 7; if(dw <= 4) out.push({iso: foMtIso(x), dw: dw, day: x.getDate(), mon: x.getMonth()}); }
   return out;
 }
+function foMtWeekOf(iso){
+  var p = String(iso).split("-"), d = new Date(+p[0], +p[1] - 1, +p[2], 12);
+  d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+  return foMtIso(d);
+}
 function foMtEvents(rg){
-  var d = FO_MT.srv || {}, held = d.held || {}, today = foMtIso(new Date()), out = [], days = foMtDays(rg);
+  var d = FO_MT.srv || {}, held = d.held || {}, today = d.today || foMtIso(new Date()), cur = d.mon || foMtIso(foMtMon());
+  var out = [], days = foMtDays(rg), inr = {}, skip = {};
+  days.forEach(function(dd){ inr[dd.iso] = dd; });
+  (d.skips || []).forEach(function(x){ skip[x.client_id + "|" + x.day] = 1; });
   (d.rows || []).forEach(function(r){
     if(r.status === "off") return;
     var sl = foMtEff(r), hist = {}, mm = (S.meet || {})[r.client_id];
     ((mm && mm.history) || []).forEach(function(h){ hist[h.date] = 1; });
+    var add = function(iso, s, kind, extra){
+      var dd = inr[iso]; if(!dd || !s || !s.time) return;
+      var wk = foMtWeekOf(iso);
+      var st = ((held[r.client_id] || []).indexOf(iso) >= 0 || hist[iso]) ? "held" :
+        (kind === "moved" || kind === "extra") ? "agreed" :
+        kind === "pend" ? "proposed" :
+        (r.week_of && wk === r.week_of && r.status !== "off") ? r.status :
+        iso < today ? "past" : wk > cur ? "plan" : (r.status === "queued" ? "queued" : "draft");
+      out.push(Object.assign({pid: r.client_id, name: r.name, iso: iso, dow: dd.dw, time: s.time, t: Math.round(foMtHour(s.time) * 60),
+        min: +s.minutes || 60, host: s.host || "", st: st, level: r.level, fixed: r.fixed, pinned: r.pinned, attn: r.attn,
+        past: iso < today, kind: kind}, extra || {}));
+    };
     days.forEach(function(dd){
-      var s = sl[String(dd.dw)]; if(!s || !s.time) return;
       if(r.since && dd.iso < r.since) return;
-      var st = ((held[r.client_id] || []).indexOf(dd.iso) >= 0 || hist[dd.iso]) ? "held" : r.status;
-      out.push({pid: r.client_id, name: r.name, iso: dd.iso, dow: dd.dw, time: s.time, t: Math.round(foMtHour(s.time) * 60),
-                min: +s.minutes || 60, host: s.host || "", st: st, level: r.level, fixed: r.fixed, pinned: r.pinned,
-                attn: r.attn, past: dd.iso < today});
+      if(skip[r.client_id + "|" + dd.iso]) return;
+      add(dd.iso, sl[String(dd.dw)], "regular");
     });
+    (d.occ || []).forEach(function(o){ if(o.client_id === r.client_id) add(o.day, o, o.kind, {src: o.src_day}); });
+    if(r.pend && r.pend.to) add(r.pend.to.day, r.pend.to, "pend", {tag: r.pend.type === "move" ? "перенос — ждём «да»" : "дополнительная — ждём «да»"});
   });
   var by = {}, brk = +((d.settings || {}).brk) || 0;
   out.forEach(function(e){ (by[e.host + "|" + e.iso] = by[e.host + "|" + e.iso] || []).push(e); });
@@ -28015,121 +28057,102 @@ function foMtEvents(rg){
     var l = by[k].sort(function(a, b){ return a.t - b.t; });
     for(var i = 1; i < l.length; i++){
       var gap = l[i].t - (l[i - 1].t + l[i - 1].min); l[i].gap = gap;
-      if(gap < 0) l[i].clash = l[i - 1].clash = true; else if(gap < brk) l[i].tight = true;
+      if(gap < 0 && l[i].kind !== "pend" && l[i - 1].kind !== "pend") l[i].clash = l[i - 1].clash = true;
+      else if(gap < brk) l[i].tight = true;
     }
   });
   return out.sort(function(a, b){ return a.iso < b.iso ? -1 : a.iso > b.iso ? 1 : (a.t - b.t || String(a.name).localeCompare(String(b.name), "ru")); });
 }
 function foMtCard(e){
   var badge = e.st === "agreed" && e.pinned ? " 📌" : (e.st === "held" ? " ✓" : "");
-  return '<button class="fo-mtev st-' + e.st + (e.clash ? ' clash' : '') + (e.past ? ' past' : '') + '" data-mtcab="' + esc(e.pid) + '" data-mttab="cab" title="' +
-    esc(FO_MT_ST[e.st].t + (e.attn ? " · " + e.attn : "")) + '"><b>' + e.time + '–' + foMtEnd(e.time, e.min) + '</b> ' + esc(e.name) + (e.fixed ? ' 🔒' : '') +
-    '<i>П' + e.level + ' · ' + FO_MT_ST[e.st].s + badge + (e.clash ? ' · пересекается' : e.tight ? ' · короткий перерыв' : '') + (e.attn ? ' · ⚠ нужен проджект' : '') + '</i></button>';
-}
-function foMtHostsOf(ev){
-  var o = {}; ev.forEach(function(e){ o[e.host] = 1; });
-  return Object.keys(o).sort(function(a, b){ return String(foMtName(a) || "я").localeCompare(String(foMtName(b) || "я"), "ru"); });
+  var tag = e.tag || (e.kind === "moved" ? "перенос" : e.kind === "extra" ? "дополнительная" : "");
+  return '<button class="fo-mtev st-' + e.st + (e.clash ? ' clash' : '') + (e.past ? ' past' : '') + (e.kind === "pend" ? ' pend' : '') +
+    '" data-mtcab="' + esc(e.pid) + '" data-mttab="cab" title="' + esc(FO_MT_ST[e.st].t + (tag ? " · " + tag : "") + (e.attn ? " · " + e.attn : "")) + '">' +
+    '<b>' + e.time + '</b> ' + esc(e.name) + (e.fixed ? ' 🔒' : '') +
+    '<i>' + e.min + ' мин · ' + FO_MT_ST[e.st].s + badge + (tag ? ' · ' + tag : '') + (e.clash ? ' · пересекается' : '') + (e.attn ? ' · ⚠' : '') + '</i></button>';
 }
 
-/* руководителю: день за днём, проджекты параллельно, строки — по порядку времени */
-function foMtLeadHTML(ev, rg){
-  var hl = foMtHostsOf(ev), today = foMtIso(new Date());
-  if(!hl.length) return '<div class="empty">В этом периоде планёрок нет — задайте график ниже.</div>';
-  var cols = 'grid-template-columns:64px repeat(' + hl.length + ', minmax(170px, 1fr))';
-  return '<div class="fo-mtscroll">' + foMtDays(rg).map(function(dd){
-    var de = ev.filter(function(e){ return e.iso === dd.iso; });
-    var head = '<div class="fo-mtdh' + (dd.iso === today ? ' today' : '') + '"><b>' + FO_MT_DOW[dd.dw] + ' ' + foMtDm(dd.iso) + '</b><span>' +
-      (de.length ? de.length + ' ' + foMtPl(de.length) + ' · ' + de[0].time + '–' + foMtEnd(de[de.length - 1].time, de[de.length - 1].min) : 'планёрок нет') + '</span></div>';
-    if(!de.length) return '<div class="fo-mtday empty1">' + head + '</div>';
-    var times = []; de.forEach(function(e){ if(times.indexOf(e.time) < 0) times.push(e.time); }); times.sort();
-    var hrow = '<div class="fo-mtgr fo-mtgh" style="' + cols + '"><span>Время</span>' + hl.map(function(h){
-      var mine = de.filter(function(e){ return e.host === h; }), mins = mine.reduce(function(a, e){ return a + e.min; }, 0);
-      return '<span><b>' + esc(foMtName(h) || "ведущий не выбран") + '</b><i>' + (mine.length ? mine.length + ' ' + foMtPl(mine.length) + ' · ' + foMtHm(mins) : 'нет планёрок') + '</i></span>'; }).join("") + '</div>';
-    var rows = times.map(function(tm){
-      return '<div class="fo-mtgr" style="' + cols + '"><span class="fo-mtt">' + tm + '</span>' + hl.map(function(h){
-        return '<div class="fo-mtcd">' + de.filter(function(e){ return e.host === h && e.time === tm; }).map(foMtCard).join("") + '</div>'; }).join("") + '</div>'; }).join("");
-    return '<div class="fo-mtday">' + head + hrow + rows + '</div>';
-  }).join("") + '</div>';
-}
-/* месяц: сетка пн–пт, в дне — по порядку времени */
-function foMtMonthHTML(ev, rg){
-  var today = foMtIso(new Date());
-  return '<div class="fo-mtmon"><div class="fo-mtmh">' + FO_MT_DOW.map(function(d){ return '<span>' + d + '</span>'; }).join("") + '</div><div class="fo-mtmg">' +
-    foMtDays(rg).map(function(dd){
-      var de = ev.filter(function(e){ return e.iso === dd.iso; });
-      return '<div class="fo-mtmc' + (dd.mon === rg.f.getMonth() ? '' : ' out') + (dd.iso === today ? ' today' : '') + '"><b>' + dd.day + '</b>' +
-        de.map(function(e){ return '<button class="fo-mtmi st-' + e.st + (e.clash ? ' clash' : '') + '" data-mtcab="' + esc(e.pid) + '" data-mttab="cab" title="' +
-          esc(e.name + ' · ' + e.time + '–' + foMtEnd(e.time, e.min) + ' · ' + (foMtName(e.host) || '') + ' · ' + FO_MT_ST[e.st].t) + '">' + e.time + ' ' +
-          esc(String(e.name).replace(/^ИП\s+/, "")) + '<i>' + esc(foMtName(e.host) || "") + '</i></button>'; }).join("") + '</div>';
-    }).join("") + '</div></div>';
-}
-/* проджекту: его клиенты по порядку времени, перерывы между планёрками */
-function foMtHostHTML(ev, rg){
-  var all = {}; ((FO_MT.srv || {}).rows || []).forEach(function(r){ var sl = foMtEff(r); Object.keys(sl).forEach(function(k){ if(sl[k].host) all[sl[k].host] = 1; }); });
-  var hosts = Object.keys(all).sort(function(a, b){ return String(foMtName(a)).localeCompare(String(foMtName(b)), "ru"); });
-  var h = FO_MT.host, me = (typeof meId !== "undefined" && meId) ? String(meId) : "";
-  if(!h || hosts.indexOf(h) < 0){ h = hosts.indexOf(me) >= 0 ? me : (hosts[0] || ""); FO_MT.host = h; }
-  var today = foMtIso(new Date()), by = {};
-  ev.filter(function(e){ return e.host === h; }).forEach(function(e){ (by[e.iso] = by[e.iso] || []).push(e); });
-  var body = Object.keys(by).sort().map(function(iso){
-    var l = by[iso], mins = l.reduce(function(a, e){ return a + e.min; }, 0);
-    return '<div class="fo-mthl"><div class="fo-mtdh' + (iso === today ? ' today' : '') + '"><b>' + FO_MT_DOW[l[0].dow] + ' ' + foMtDm(iso) + '</b><span>' +
-      l.length + ' ' + foMtPl(l.length) + ' · ' + foMtHm(mins) + ' · ' + l[0].time + '–' + foMtEnd(l[l.length - 1].time, l[l.length - 1].min) + '</span></div>' +
-      l.map(function(e, i){
-        return '<div class="fo-mthr st-' + e.st + (e.clash ? ' clash' : '') + '"><b>' + e.time + '–' + foMtEnd(e.time, e.min) + '</b>' +
-          '<button class="fo-lnk" data-mtcab="' + esc(e.pid) + '" data-mttab="cab">' + esc(e.name) + '</button>' + (e.fixed ? ' 🔒' : '') +
-          '<span class="fo-mtpl p' + e.level + '">П' + e.level + '</span><span class="fo-mtstat st-' + e.st + '">' + FO_MT_ST[e.st].s + (e.st === "agreed" && e.pinned ? ' 📌' : '') + '</span>' +
-          (i ? '<i>перерыв ' + Math.max(0, e.gap) + ' мин</i>' : '') + (e.clash ? '<i class="bad">пересекается с предыдущей</i>' : '') +
-          (e.attn ? '<i class="bad">⚠ ' + esc(e.attn) + '</i>' : '') + '</div>'; }).join("") + '</div>';
+/* календарь как раньше: строки — кто ведёт, столбцы — дни недели, в дне — по порядку времени */
+function foMtWeekGrid(ev, mon, rg, cur){
+  var today = foMtIso(new Date()), days = [];
+  for(var i = 0; i < 5; i++){ var x = new Date(mon); x.setDate(x.getDate() + i); days.push({iso: foMtIso(x), dw: i, mon: x.getMonth()}); }
+  var wev = ev.filter(function(e){ return days.some(function(dd){ return dd.iso === e.iso; }); });
+  if(FO_MT.host) wev = wev.filter(function(e){ return e.host === FO_MT.host; });
+  var hosts = {}; wev.forEach(function(e){ hosts[e.host] = 1; });
+  var hl = Object.keys(hosts).sort(function(a, b){ return String(foMtName(a) || "я").localeCompare(String(foMtName(b) || "я"), "ru"); });
+  var load = {};
+  if(cur) (S.tasks || []).forEach(function(t){ if(t.person && !FO_MT_IDS[t.id]) load[t.person] = (load[t.person] || 0) + (+t.minutes || 0); });
+  var head = '<div class="fo-mtch"><span>Ведёт</span>' + days.map(function(dd){
+    return '<span class="' + (dd.iso === today ? 'today' : '') + (rg.f && dd.mon !== rg.f.getMonth() ? ' out' : '') + '">' + FO_MT_DOW[dd.dw] + ' ' + foMtDm(dd.iso) + '</span>'; }).join("") + '</div>';
+  var rows = hl.map(function(h){
+    var mine = wev.filter(function(e){ return e.host === h; }), mins = mine.reduce(function(a, e){ return a + e.min; }, 0);
+    return '<div class="fo-mtcr"><div class="fo-mtcw"><b>' + esc(foMtName(h) || "ведущий не выбран") + '</b><i>' + mine.length + ' ' + foMtPl(mine.length) + ' · ' + foMtHm(mins) +
+      (cur && h ? ' · ' + (Math.round((load[h] || 0) / 6) / 10) + ' ч задач' : '') + '</i></div>' +
+      days.map(function(dd){
+        return '<div class="fo-mtcd' + (dd.iso === today ? ' today' : '') + '">' + mine.filter(function(e){ return e.iso === dd.iso; })
+          .sort(function(a, b){ return a.t - b.t; }).map(foMtCard).join("") + '</div>'; }).join("") + '</div>';
   }).join("");
-  return '<div class="fo-mthsel"><span class="mdl">Проджект</span><select class="sel sm" data-mthost>' + hosts.map(function(x){
-      return '<option value="' + esc(x) + '"' + (x === h ? ' selected' : '') + '>' + esc(foMtName(x) || "—") + (x === me ? ' (я)' : '') + '</option>'; }).join("") + '</select></div>' +
-    (body || '<div class="empty">У этого проджекта в периоде планёрок нет.</div>');
+  return '<div class="fo-mtcal">' + head + (rows || '<div class="empty">Планёрок нет.</div>') + '</div>';
+}
+function foMtWeeks(rg){
+  var out = [], x = new Date(rg.from); x.setHours(12, 0, 0, 0); x.setDate(x.getDate() - ((x.getDay() + 6) % 7));
+  var end = new Date(rg.to); end.setHours(12, 0, 0, 0);
+  for(; x <= end; x.setDate(x.getDate() + 7)) out.push(new Date(x));
+  return out;
 }
 
-/* бот планёрок: рассылка волнами и настройки */
+/* бот планёрок — внизу: рассылка, настройки, правила агента, что пишут клиенты */
 function foMtBotHTML(){
   var d = FO_MT.srv;
-  if(!d) return '<section class="gl"><div class="empty">' + (FO_MT.err ? 'Бот планёрок: ' + esc(FO_MT.err) : 'Загружаю график с сервера…') + '</div></section>';
-  var rows = d.rows || [], cnt = {}, st = d.settings || {}, cp = d.camp;
+  if(!d) return '<section class="gl"><div class="empty">' + (FO_MT.err ? 'Бот планёрок: ' + esc(FO_MT.err) : 'Загружаю…') + '</div></section>';
+  var rows = d.rows || [], st = d.settings || {}, cp = d.camp, cnt = {};
   rows.forEach(function(r){ cnt[r.status] = (cnt[r.status] || 0) + 1; });
   var wl = ["фиксированным — «всё в силе?»", "высокий приоритет", "средний приоритет", "низкий приоритет"];
   var ct = !cp ? 'Рассылка ещё не запускалась.' :
     cp.status === "active" ? ('Идёт рассылка' + (cp.test ? ' (проверка, без Telegram)' : '') + ': волна ' + (cp.wave >= 0 && cp.wave <= 3 ? cp.wave + ' — ' + wl[cp.wave] : '—') +
       (cp.wave_at ? ' · ушла ' + foMtAt(cp.wave_at) + ' · следующая — когда все ответят или в ' + foMtAt(cp.wave_at, cp.gap_min) : '')) :
-    ((cp.status === "done" ? 'Все волны отправлены' : 'Рассылка остановлена') + (cp.wave_at ? ' · ' + foMtAt(cp.wave_at) : '') + (cp.test ? ' (проверка)' : ''));
+    ((cp.status === "done" ? 'Последняя рассылка: все волны отправлены' : 'Рассылка остановлена') + (cp.wave_at ? ' · ' + foMtAt(cp.wave_at) : '') + (cp.test ? ' (проверка)' : ''));
+  var sel = function(k, list, cur, fmt){ return '<select class="sel sm" data-mtset="' + k + '">' + list.map(function(n){ return '<option value="' + n + '"' + (String(n) === String(cur) ? ' selected' : '') + '>' + fmt(n) + '</option>'; }).join("") + '</select>'; };
   var attn = rows.filter(function(r){ return r.attn; }).map(function(r){
     return '<div class="fo-mtattn">⚠ <button class="fo-lnk" data-mtcab="' + esc(r.client_id) + '" data-mttab="cab">' + esc(r.name) + '</button>: ' + esc(r.attn) + '</div>'; }).join("");
-  var sel = function(k, list, cur, fmt){ return '<select class="sel sm" data-mtset="' + k + '">' + list.map(function(n){ return '<option value="' + n + '"' + (String(n) === String(cur) ? ' selected' : '') + '>' + fmt(n) + '</option>'; }).join("") + '</select>'; };
+  var talk = rows.map(function(r){
+    var l = (r.log || []).slice().reverse().filter(function(x){ return /ответ клиента|сообщение клиента/.test(x.what || ""); })[0];
+    var p = r.pend;
+    if(!l && !p && r.status !== "proposed") return "";
+    return '<div class="fo-mttalk"><b>' + esc(r.name) + '</b> ' +
+      (r.status === "proposed" && r.offer ? '<span>бот предложил: ' + foMtSlLine(r.offer) + '</span>' : '') +
+      (p ? '<span>ждём «да»: ' + esc({move: "перенос", cancel: "отмена", extra: "дополнительная"}[p.type] || "") +
+        (p.to ? ' ' + foMtDm(p.to.day) + ' ' + esc(p.to.time) : p.from ? ' ' + foMtDm(p.from.day) + ' ' + esc(p.from.time) : '') + '</span>' : '') +
+      (l ? '<span>клиент ' + esc(l.at || "") + ': «' + esc(l.text || "") + '» → ' + esc(l["понял"] || "") + '</span>' : '') + '</div>';
+  }).join("");
   var prev = "";
   if(FO_MT.prev){
     var P = FO_MT.prev, by = {};
     (P.waves || []).forEach(function(x){ (by[x.wave] = by[x.wave] || []).push(x); });
-    var nochat = (P.waves || []).filter(function(x){ return !x.chat; }).length;
     prev = '<div class="fo-mtprev"><b>Что уйдёт клиентам</b>' + Object.keys(by).sort().map(function(w){
       return '<div class="fo-mtpw"><b>Волна ' + w + ' — ' + wl[+w] + '</b>' + by[w].map(function(x){
         return '<div class="fo-mtpi"><span class="fo-mtpl p' + x.level + '">П' + x.level + '</span> ' + esc(x.client) + (x.fixed ? ' 🔒' : '') + ' — ' + foMtSlLine(x.offer) +
           (x.chat ? '' : ' <i class="bad">бота планёрок нет в чате — не уйдёт</i>') + '</div>'; }).join("") + '</div>'; }).join("") +
-      ((P.skip || []).length ? '<div class="fo-mtpi">Не трогаем: ' + P.skip.map(function(x){ return esc(x.client) + ' (' + esc(x.why) + ')'; }).join(", ") + '</div>' : '') +
-      ((P.waves || [])[0] ? '<details><summary>Текст сообщения клиенту</summary><pre>' + esc(P.waves[0].text) + '</pre></details>' : '') +
-      '<div class="hint2">Первая волна уходит сразу, следующая — когда все ответили или через ' + foMtHm(+st.gap || 180) + '. «Да» — бот фиксирует и закрепляет время в чате. ' +
-      'Своё время клиента бот берёт, только если оно встаёт в блок ведущего с перерывом ' + (+st.brk || 0) + ' мин, иначе предлагает ближайшие окна; после двух кругов передаёт проджекту. ' +
-      'За час до начала — напоминание клиенту и проджекту.' + (nochat ? ' Где бота планёрок нет в чате, сообщение не уйдёт.' : '') + '</div>' +
+      ((P.skip || []).length ? '<div class="fo-mtpi">Не пишем: ' + P.skip.map(function(x){ return esc(x.client) + ' (' + esc(x.why) + ')'; }).join(", ") + '</div>' : '') +
+      ((P.waves || [])[0] ? '<details><summary>Текст карточки клиенту</summary><pre>' + esc(P.waves[0].text) + '</pre></details>' : '') +
       '<div class="fo-mtbb"><button class="bt sm pri" data-mtcamp="go"' + (FO_MT.busy ? ' disabled' : '') + '>' + (FO_MT.busy === "go" ? 'Отправляю…' : 'Отправить клиентам') + '</button>' +
       '<button class="bt sm gh2" data-mtcamp="test"' + (FO_MT.busy ? ' disabled' : '') + '>Проверка без Telegram</button>' +
       '<button class="bt sm gh2" data-mtcamp="cancel">Отмена</button></div></div>';
   }
-  return '<section class="gl fo-mtbot"><div class="gl-t"><h2>Бот планёрок</h2><span class="m">предлагает время по приоритету клиента, фиксирует ответ, закрепляет в чате, уведомляет проджекта, напоминает за час</span></div>' +
-    '<div class="fo-mtbs">' + ["proposed", "agreed", "draft", "queued"].map(function(k){ return '<span class="fo-mtstat st-' + k + '">' + FO_MT_ST[k].s + ' · ' + (cnt[k] || 0) + '</span>'; }).join("") +
-      '<span class="fo-mtbok">' + (d.bot ? 'пишет бот планёрок' + (d.bot_name ? ' @' + esc(d.bot_name) : '') + ' · бот задач про планёрки не пишет' : 'бот планёрок не подключён') + '</span></div>' +
-    (d.bot_name ? '<div class="fo-mthint2">Проджектам: откройте @' + esc(d.bot_name) + ' в Telegram и нажмите «Start» — туда придут подтверждения клиентов, просьбы решить вопрос и напоминания за час. ' +
-      'В чатах клиентов бот должен быть администратором с правом закреплять сообщения.</div>' : '') +
-    '<div class="fo-mtbc">' + esc(ct) + '</div>' + attn + foMtRulesHTML() +
-    '<div class="fo-mtbset">Перерыв между планёрками ' + sel("brk", [5, 10, 15, 20, 30], st.brk, function(n){ return n + ' мин'; }) +
-      ' · окно ' + '<input class="fi sm" type="time" data-mtset="from" value="' + esc(st.from || "10:00") + '">–<input class="fi sm" type="time" data-mtset="to" value="' + esc(st.to || "19:00") + '">' +
+  return '<section class="gl fo-mtbot"><div class="gl-t"><h2>Бот планёрок</h2><span class="m">' + (d.bot ? 'пишет @' + esc(d.bot_name || '') : 'бот планёрок не подключён') + ' · бот задач про планёрки не пишет</span></div>' +
+    '<div class="fo-mtbs">' + ["proposed", "agreed", "draft", "queued"].map(function(k){ return '<span class="fo-mtstat st-' + k + '">' + FO_MT_ST[k].s + ' · ' + (cnt[k] || 0) + '</span>'; }).join("") + '</div>' +
+    '<div class="fo-mtbc">' + esc(ct) + '</div>' +
+    '<div class="fo-mtbset"><label class="fo-mtfix"><input type="checkbox" data-mtset="auto"' + (st.auto !== false ? ' checked' : '') + '> по понедельникам в</label>' +
+      '<input class="fi sm" type="time" data-mtset="auto_at" value="' + esc(st.auto_at || "10:00") + '"> бот сам согласует неделю' +
+      ' · перерыв ' + sel("brk", [5, 10, 15, 20, 30], st.brk, function(n){ return n + ' мин'; }) +
+      ' · окно <input class="fi sm" type="time" data-mtset="from" value="' + esc(st.from || "10:00") + '">–<input class="fi sm" type="time" data-mtset="to" value="' + esc(st.to || "19:00") + '">' +
       ' · следующая волна через ' + sel("gap", [60, 120, 180, 360, 1440], st.gap, function(n){ return foMtHm(n); }) + '</div>' +
-    '<div class="fo-mtbb"><button class="bt sm pri" data-mtcamp="dry"' + (FO_MT.busy ? ' disabled' : '') + '>' + (FO_MT.busy === "dry" ? 'Считаю…' : 'Предложить время клиентам') + '</button>' +
-      (cp && cp.status === "active" ? '<button class="bt sm gh2" data-mtcamp="stop">Остановить рассылку</button>' : '') + '</div>' + prev + '</section>';
+    '<div class="fo-mtbb"><button class="bt sm pri" data-mtcamp="dry"' + (FO_MT.busy ? ' disabled' : '') + '>' + (FO_MT.busy === "dry" ? 'Считаю…' : 'Предложить время клиентам сейчас') + '</button>' +
+      (cp && cp.status === "active" ? '<button class="bt sm gh2" data-mtcamp="stop">Остановить рассылку</button>' : '') + '</div>' + prev + attn +
+    (talk ? '<div class="fo-mttalks"><div class="mdl">Переписка с клиентами</div>' + talk + '</div>' : '') +
+    foMtRulesHTML() +
+    (d.bot_name ? '<div class="fo-mthint2">Проджектам: откройте @' + esc(d.bot_name) + ' и нажмите «Start» — туда придут подтверждения клиентов, переносы и напоминания за час. ' +
+      'Бот должен быть в чате клиента (участником); закрепляет сообщения, только если он администратор — это не обязательно.</div>' : '') + '</section>';
 }
 
 /* агент планёрок — свой ИИ-агент со своими правилами (агент задач думает иначе) */
@@ -28142,7 +28165,7 @@ function foMtRulesHTML(){
   var rl = FO_MT.rules || [], own = foMtLvl() <= 2;
   return '<div class="fo-mtrules"><button class="fo-lnk" data-mtrtog>' + (FO_MT.rulesOpen ? '▾' : '▸') + ' Агент планёрок (ИИ Яндекс) — свои правила · ' + rl.length + '</button>' +
     (FO_MT.rulesOpen ? '<div class="fo-mtrl"><div class="hint2">Агент планёрок и агент задач думают по-разному: у каждого свой алгоритм и свои правила. ' +
-      'Агент планёрок понимает ответ клиента: согласен, предлагает своё время, не может или пишет не про планёрку.</div>' +
+      'Агент планёрок понимает, что клиент согласен, хочет перенести, отменить или нужна дополнительная планёрка; остальное отдаёт агенту задач.</div>' +
       rl.map(function(r, i){ return '<div class="fo-mtr">' + (i + 1) + '. ' + esc(r) + (own ? ' <button class="plx" data-mtrdel="' + i + '" title="Убрать">×</button>' : '') + '</div>'; }).join("") +
       (own ? '<input class="fi sm fo-mtrin" data-mtradd placeholder="Новое правило и Enter, например: «Сидякину не предлагать понедельник»">' : '') + '</div>' : '') + '</div>';
 }
@@ -28151,62 +28174,84 @@ function foMtRule(body){
     .catch(function(e){ try{ toast("Не сохранилось: " + (e && e.message || "")); }catch(x){} });
 }
 
-/* график по кабинетам: по приоритету, у каждого дня свой ведущий */
+/* график по кабинетам — как раньше: одна строка на кабинет; «по дням» — если у дней разное время или ведущий */
+function foMtSame(sl){
+  var k = Object.keys(sl); if(k.length < 2) return true;
+  var a = sl[k[0]];
+  return k.every(function(x){ var s = sl[x]; return s.time === a.time && +s.minutes === +a.minutes && s.host === a.host; });
+}
 function foMtEdHTML(){
   var d = FO_MT.srv; if(!d) return "";
   var money = false; try{ money = typeof seesMoney === "function" && seesMoney(); }catch(e){}
+  FO_MT.diff = FO_MT.diff || {};
   return (d.rows || []).map(function(r){
     var dr = FO_MT.draft[r.client_id], sl = dr ? dr.slots : (r.slots || {}), fixed = dr ? dr.fixed : r.fixed;
     var days = Object.keys(sl).map(Number).sort(), lv = FO_MT_LV[r.level] || FO_MT_LV[3];
-    var sub = days.map(function(dd){
-      var s = sl[String(dd)] || {}, opts = (fixed ? [30, 35, 40, 45, 50, 60, 70, 80, 90] : lv.mins).slice(), cur = +s.minutes || lv.mins[0];
-      if(opts.indexOf(cur) < 0) opts.push(cur); opts.sort(function(a, b){ return a - b; });
+    var per = FO_MT.diff[r.client_id] || !foMtSame(sl), f = sl[String(days[0])] || {};
+    var mopts = function(cur){ var o = (fixed ? [30, 35, 40, 45, 50, 60, 70, 80, 90] : lv.mins).slice(); cur = +cur || lv.mins[0]; if(o.indexOf(cur) < 0) o.push(cur);
+      return o.sort(function(a, b){ return a - b; }).map(function(n){ return '<option value="' + n + '"' + (cur === n ? ' selected' : '') + '>' + n + ' мин</option>'; }).join(""); };
+    var common = per ? '' :
+      '<input class="fi sm" type="time" data-mtc="time" value="' + esc(f.time || "") + '">' +
+      '<select class="sel sm" data-mtc="minutes">' + mopts(f.minutes) + '</select>' +
+      '<select class="sel sm" data-mtc="host">' + foMtPeopleOpts(f.host, "кто ведёт") + '</select>';
+    var sub = per ? '<div class="fo-mtsls">' + days.map(function(dd){ var s = sl[String(dd)] || {};
       return '<div class="fo-mtsl"><b>' + FO_MT_DOW[dd] + '</b><input class="fi sm" type="time" data-mts="' + dd + ':time" value="' + esc(s.time || "") + '">' +
-        '<select class="sel sm" data-mts="' + dd + ':minutes">' + opts.map(function(n){ return '<option value="' + n + '"' + (cur === n ? ' selected' : '') + '>' + n + ' мин</option>'; }).join("") + '</select>' +
-        '<select class="sel sm" data-mts="' + dd + ':host">' + foMtPeopleOpts(s.host, "кто ведёт") + '</select>' +
-        (s.time ? '<i>до ' + foMtEnd(s.time, cur) + '</i>' : '') + '</div>'; }).join("");
-    var last = (r.log || []).slice().reverse().filter(function(x){ return /ответ клиента/.test(x.what || ""); })[0];
-    var st = FO_MT_ST[r.status] || FO_MT_ST.off, sv = FO_MT.saving[r.client_id];
-    return '<div class="fo-mted2' + (dr ? ' dirty' : '') + '" data-mtrow="' + esc(r.client_id) + '"><div class="fo-mtrh">' +
-      '<span class="fo-mtpl p' + r.level + '" title="Приоритет: ' + lv.t + ' — по сумме платежа">П' + r.level + '</span><b>' + esc(r.name) + '</b>' +
-      '<i class="fo-mtam">№' + r.rank + (money && r.amount ? ' · ' + money0(r.amount) : '') + '</i>' +
-      (r.status !== "off" ? '<span class="fo-mtstat st-' + r.status + '">' + st.s + (r.status === "agreed" && r.pinned ? ' 📌' : '') + '</span>' : '') +
-      '<label class="fo-mtfix" title="Время назначил клиент — бот его не двигает, только уточняет, всё ли в силе"><input type="checkbox" data-mtfix' + (fixed ? ' checked' : '') + '> 🔒 время клиента</label>' +
+        '<select class="sel sm" data-mts="' + dd + ':minutes">' + mopts(s.minutes) + '</select>' +
+        '<select class="sel sm" data-mts="' + dd + ':host">' + foMtPeopleOpts(s.host, "кто ведёт") + '</select></div>'; }).join("") + '</div>' : '';
+    var stt = r.status === "off" ? '' : r.status === "agreed" ? (r.week_of && r.week_of === (d.mon || "") ? 'назначена на эту неделю' : 'назначена') :
+      r.status === "proposed" ? 'предложена клиенту' : r.status === "queued" ? 'в очереди бота' : 'не согласована';
+    var chat = !r.chat ? 'чат клиента не привязан' : r.bot_in === false ? 'бота нет в чате' : '';
+    var sv = FO_MT.saving[r.client_id];
+    return '<div class="fo-mted' + (dr ? ' dirty' : '') + '" data-mtrow="' + esc(r.client_id) + '">' +
+      '<span class="fo-mtpl p' + r.level + '" title="Приоритет: ' + lv.t + ' — по сумме платежа' + (money && r.amount ? ', ' + money0(r.amount) : '') + '">П' + r.level + '</span>' +
+      '<b>' + esc(r.name) + '</b>' +
       '<span class="fo-mtdays">' + FO_MT_DOW.map(function(x, i){ return '<button class="' + (sl[String(i)] ? 'on' : '') + '" data-mtday="' + i + '">' + x + '</button>'; }).join("") + '</span>' +
+      common +
+      '<label class="fo-mtfix" title="Время назначил клиент — бот его не двигает, только уточняет, всё ли в силе"><input type="checkbox" data-mtfix' + (fixed ? ' checked' : '') + '> 🔒</label>' +
       '<button class="bt sm pri" data-mtsave="' + esc(r.client_id) + '"' + (sv ? ' disabled' : '') + '>' + (sv ? 'Сохраняю…' : 'Сохранить') + '</button>' +
-      (r.status !== "off" && !dr ? '<button class="bt sm gh2" data-mtsend="' + esc(r.client_id) + '"' + (r.bot_in ? '' : ' disabled title="Бота планёрок нет в чате клиента"') + '>Предложить сейчас</button>' : '') +
-      (r.status !== "off" && r.status !== "agreed" && !dr ? '<button class="bt sm gh2" data-mtmark="' + esc(r.client_id) + '">Согласовано вручную</button>' : '') +
-      '<span class="fo-mtst' + (r.bot_in && r.bot_pin ? ' ok' : '') + '">' + (!r.chat ? 'чат клиента не привязан' : r.bot_in === false ? 'бота планёрок нет в чате — добавьте администратором' :
-        r.bot_in && !r.bot_pin ? 'боту не дано право закреплять' : r.bot_in ? 'бот планёрок в чате ✓' : '') + '</span></div>' +
-      (sub ? '<div class="fo-mtsls">' + sub + '</div>' : '') +
-      (r.attn ? '<div class="fo-mtattn">⚠ ' + esc(r.attn) + '</div>' : '') +
-      (r.status === "proposed" && r.offer ? '<div class="fo-mtlast">Бот предложил ' + (r.sent_at ? foMtAt(r.sent_at) : '') + ': ' + foMtSlLine(r.offer) + '</div>' : '') +
-      (last ? '<div class="fo-mtlast">Клиент ' + esc(last.at || "") + ': «' + esc(last.text || "") + '» → ' + esc(last["понял"] || "") + '</div>' : '') +
-    '</div>';
+      '<span class="fo-mtst">' + [stt, chat].filter(Boolean).join(' · ') + '</span>' +
+      (days.length > 1 && !(!foMtSame(sl)) ? '<button class="fo-lnk fo-mtsm" data-mtdiff="' + esc(r.client_id) + '">' + (per ? 'одинаково' : 'по дням') + '</button>' : '') +
+      (r.status !== "off" && !dr && r.bot_in ? '<button class="fo-lnk fo-mtsm" data-mtsend="' + esc(r.client_id) + '">предложить сейчас</button>' : '') +
+      (r.status !== "off" && r.status !== "agreed" && !dr ? '<button class="fo-lnk fo-mtsm" data-mtmark="' + esc(r.client_id) + '">согласовано вручную</button>' : '') +
+      sub + (r.attn ? '<div class="fo-mtattn">⚠ ' + esc(r.attn) + '</div>' : '') + '</div>';
   }).join("");
 }
 
 function foMtCalHTML(){
   foMtLoad().then(function(){ if(FO_MT.chg){ FO_MT.chg = false; foMtRenderSoft(); } });
-  var rg = foMtRange(), ev = foMtEvents(rg);
-  var seg = function(attr, list, cur){ return '<div class="fo-mtseg">' + list.map(function(x){ return '<button class="' + (cur === x[0] ? 'on' : '') + '" ' + attr + '="' + x[0] + '">' + x[1] + '</button>'; }).join("") + '</div>'; };
-  var bar = '<div class="fo-mtbar2">' + seg("data-mtmode", [["lead", "Руководителю"], ["host", "Проджекту"]], FO_MT.mode) +
-    seg("data-mtper", [["week", "Неделя"], ["2w", "Следующие 2 недели"], ["month", "Месяц"]], FO_MT.per) +
+  var rg = foMtRange(), ev = foMtEvents(rg), cur = foMtIso(foMtMon());
+  var seg = function(attr, list, v){ return '<div class="fo-mtseg">' + list.map(function(x){ return '<button class="' + (v === x[0] ? 'on' : '') + '" ' + attr + '="' + x[0] + '">' + x[1] + '</button>'; }).join("") + '</div>'; };
+  var hs = {}; ((FO_MT.srv || {}).rows || []).forEach(function(r){ var sl = foMtEff(r); Object.keys(sl).forEach(function(k){ if(sl[k].host) hs[sl[k].host] = 1; }); });
+  ev.forEach(function(e){ if(e.host) hs[e.host] = 1; });
+  var hosts = Object.keys(hs).sort(function(a, b){ return String(foMtName(a)).localeCompare(String(foMtName(b)), "ru"); });
+  var me = (typeof meId !== "undefined" && meId) ? String(meId) : "";
+  var bar = '<div class="fo-mtbar2">' + seg("data-mtper", [["week", "Неделя"], ["2w", "Следующие 2 недели"], ["month", "Месяц"]], FO_MT.per) +
     '<span class="fo-mtnav"><button data-mtnav="-1" title="Назад">‹</button><button data-mtnav="0">Сейчас</button><button data-mtnav="1" title="Вперёд">›</button></span>' +
-    '<b class="fo-mtrg">' + esc(rg.label) + '</b></div>';
-  var legend = '<div class="fo-mtlg">' + ["proposed", "agreed", "held", "draft", "queued"].map(function(k){ return '<span class="fo-mtstat st-' + k + '">' + FO_MT_ST[k].s + '</span>'; }).join("") +
-    '<span>🔒 время клиента · 📌 закреплено в чате · П1–П3 — приоритет по платежу</span></div>';
-  var body = FO_MT.mode === "host" ? foMtHostHTML(ev, rg) : (FO_MT.per === "month" ? foMtMonthHTML(ev, rg) : foMtLeadHTML(ev, rg));
-  return foMtBotHTML() +
-    '<section class="gl"><div class="gl-t"><h2>Календарь планёрок</h2><span class="m">' +
-      (FO_MT.mode === "host" ? 'проджекту: его клиенты по порядку времени' : 'руководителю: проджекты параллельно, по порядку времени') + '</span></div>' + bar + legend + body + '</section>' +
-    '<section class="gl"><div class="gl-t"><h2>График по кабинетам</h2><span class="m">по приоритету — от большей суммы платежа к меньшей · у каждого дня свой ведущий</span></div>' +
-      '<div class="fo-mtlv">П1 — высокий приоритет: 60–80 мин · П2 — средний: 40–50 мин · П3 — низкий: 35–40 мин. Бот ставит планёрки ведущего одним блоком с перерывом.</div>' +
+    '<b class="fo-mtrg">' + esc(rg.label) + '</b>' +
+    '<select class="sel sm fo-mthf" data-mthost><option value="">Все проджекты</option>' + hosts.map(function(h){
+      return '<option value="' + esc(h) + '"' + (h === FO_MT.host ? ' selected' : '') + '>' + esc(foMtName(h) || "—") + (h === me ? ' (я)' : '') + '</option>'; }).join("") + '</select></div>';
+  var legend = '<div class="fo-mtlg">' + ["proposed", "agreed", "held", "draft", "plan"].map(function(k){ return '<span class="fo-mtstat st-' + k + '">' + FO_MT_ST[k].s + '</span>'; }).join("") +
+    '<span>🔒 время клиента · П1–П3 — приоритет по платежу</span></div>';
+  var weeks = foMtWeeks(rg);
+  var body = weeks.map(function(w){
+    var iso = foMtIso(w), e5 = new Date(w); e5.setDate(e5.getDate() + 4);
+    return (weeks.length > 1 ? '<div class="fo-mtwk2">Неделя ' + foMtDm(iso) + ' — ' + foMtDm(foMtIso(e5)) + (iso === cur ? ' · текущая' : '') + '</div>' : '') +
+      foMtWeekGrid(ev, w, rg, iso === cur);
+  }).join("");
+  return '<section class="gl"><div class="gl-t"><h2>Календарь планёрок</h2><span class="m">по дням и по проджектам · в дне — по порядку времени</span></div>' + bar + legend + body + '</section>' +
+    '<section class="gl"><div class="gl-t"><h2>График по кабинетам</h2><span class="m">по приоритету — от большей суммы платежа к меньшей · П1 60–80 мин · П2 40–50 · П3 35–40</span></div>' +
       ((FO_MT.srv && !FO_MT.srv.fn) ? '<div class="gerr on">В справочнике нет функции «Совещание» — заведите её в «Функциях», и планёрки станут задачами.</div>' : '') +
-      (foMtEdHTML() || '<div class="empty">' + (FO_MT.err ? esc(FO_MT.err) : 'Загружаю…') + '</div>') + '</section>';
+      (foMtEdHTML() || '<div class="empty">' + (FO_MT.err ? esc(FO_MT.err) : 'Загружаю…') + '</div>') + '</section>' +
+    foMtBotHTML();
 }
 
 /* ── действия ── */
+function foMtReadRow(row, dr){
+  Array.prototype.forEach.call(row.querySelectorAll("[data-mts]"), function(el){
+    var ix = foMtIx(el.getAttribute("data-mts")), s = dr.slots[ix[0]]; if(s) s[ix[1]] = ix[1] === "minutes" ? +el.value : el.value; });
+  Array.prototype.forEach.call(row.querySelectorAll("[data-mtc]"), function(el){
+    var k = el.getAttribute("data-mtc"); Object.keys(dr.slots).forEach(function(d){ dr.slots[d][k] = k === "minutes" ? +el.value : el.value; }); });
+}
 function foMtDraft(pid){
   if(!FO_MT.draft[pid]){ var r = foMtRow(pid) || {}; FO_MT.draft[pid] = {slots: JSON.parse(JSON.stringify(r.slots || {})), fixed: !!r.fixed}; }
   return FO_MT.draft[pid];
@@ -28219,8 +28264,7 @@ function foMtPut(row){
 function foMtSaveRow(pid, mark){
   var r = foMtRow(pid) || {}, row = document.querySelector('#sect [data-mtrow="' + pid + '"]');
   var dr = FO_MT.draft[pid] || {slots: JSON.parse(JSON.stringify(r.slots || {})), fixed: !!r.fixed};
-  if(row) Array.prototype.forEach.call(row.querySelectorAll("[data-mts]"), function(el){
-    var ix = foMtIx(el.getAttribute("data-mts")), s = dr.slots[ix[0]]; if(s) s[ix[1]] = ix[1] === "minutes" ? +el.value : el.value; });
+  if(row) foMtReadRow(row, dr);
   var bad = Object.keys(dr.slots).filter(function(k){ var s = dr.slots[k]; return !s.time || !s.host; });
   if(bad.length){ try{ toast(FO_MT_DOW[+bad[0]] + ": укажите время и кто ведёт"); }catch(e){} return; }
   FO_MT.saving[pid] = true; foMtRender();
@@ -28261,6 +28305,7 @@ function foMtCamp(kind, btn){
 function foMtSetting(k, v){
   var body = {};
   if(k === "brk" || k === "gap") body[k] = +v; else if(k === "from") body.start = v; else if(k === "to") body.end = v;
+  else if(k === "auto") body.auto = !!v; else if(k === "auto_at") body.auto_at = v;
   api("/refs/meet/settings", {method: "POST", body: body}).then(function(res){
     if(FO_MT.srv) FO_MT.srv.settings = res.settings;
     try{ toast("Настройка бота планёрок сохранена"); }catch(e){} foMtRender();
@@ -28285,28 +28330,36 @@ function foMtPlace(){
   FO_MT_IDS = {};
   var fn = foMtFn(); if(!fn) return;
   foMtTimes();
-  var tm = FO_MT.times || {}, legacy = (S.meetPlan && typeof S.meetPlan === "object") ? S.meetPlan : {}, groups = {};
+  var tm = FO_MT.times || {}, legacy = (S.meetPlan && typeof S.meetPlan === "object") ? S.meetPlan : {}, groups = {}, mt = {};
+  var mon = foMtMon();
   (S.tasks || []).forEach(function(t){
     if(t._fo_s0 == null) t._fo_s0 = t.start;
     var k = (t.person || "") + "|" + t.dow;
     (groups[k] = groups[k] || []).push(t);
+    if(String(t.fn) === String(fn.id)){ var x = new Date(mon); x.setDate(x.getDate() + (+t.dow || 0)); var iso = foMtIso(x);
+      (mt[t.project + "|" + iso] = mt[t.project + "|" + iso] || []).push(t); t._fo_iso = iso; }
   });
-  Object.keys(groups).forEach(function(k){
-    var list = groups[k], meets = [];
-    list.forEach(function(t){
-      if(String(t.fn) !== String(fn.id)) return;
+  Object.keys(mt).forEach(function(k){
+    var l = mt[k].sort(function(a, b){ return String(a.id).localeCompare(String(b.id)); });
+    var pid = k.split("|")[0], iso = k.split("|")[1], e = tm[pid];
+    var ents = e && e.dates && e.dates[iso] ? e.dates[iso].slice().sort(function(a, b){ return String(a.time).localeCompare(String(b.time)); }) : [];
+    l.forEach(function(t, i){
       if(t._fo_t0 == null) t._fo_t0 = t.title;
-      var e = tm[t.project], s = e && e.slots ? e.slots[String(t.dow)] : null, st = e ? e.status : "";
-      var lg = legacy[t.project];
+      var s = ents[i] || (e && e.slots ? e.slots[String(t.dow)] : null), st = e ? (e.week_of && e.week_of === foMtIso(mon) ? e.status : (e.status === "agreed" ? "draft" : e.status)) : "";
+      if(s && s.kind && s.kind !== "regular") st = "agreed";
+      var lg = legacy[pid];
       if(!s && !e && lg && (lg.days || []).indexOf(+t.dow) >= 0) s = {time: lg.time, minutes: lg.minutes};
       var h = s ? foMtHour(s.time) : null;
       if(h != null){ t.start = h; if(s.minutes) t.minutes = +s.minutes; }
       FO_MT_IDS[t.id] = st || "on";
-      var nm = (project(t.project) || {}).name || String(t._fo_t0 || "").replace(/^(Совещание|Планёрка)\s*·\s*/i, "");
+      var nm = (project(pid) || {}).name || String(t._fo_t0 || "").replace(/^(Совещание|Планёрка)\s*·\s*/i, "");
       t.title = "Планёрка · " + nm + (s && s.time ? " · " + s.time + "–" + foMtEnd(s.time, t.minutes) : "") +
+        (s && s.kind === "moved" ? " · перенос" : s && s.kind === "extra" ? " · дополнительная" : "") +
         (st && st !== "agreed" && FO_MT_ST[st] ? " · " + FO_MT_ST[st].s : "");
-      meets.push(t);
     });
+  });
+  Object.keys(groups).forEach(function(k){
+    var list = groups[k], meets = list.filter(function(t){ return FO_MT_IDS[t.id]; });
     if(!meets.length) return;
     var busy = meets.map(function(t){ return [t.start, t.start + (+t.minutes || 60) / 60]; }).sort(function(a, b){ return a[0] - b[0]; });
     var cur = 10;
@@ -28366,13 +28419,14 @@ window.addEventListener("click", function(e){
   if((b = t.closest("[data-mtnav]"))){ var nv = +b.getAttribute("data-mtnav"); FO_MT.off = nv ? (FO_MT.off || 0) + nv : 0; foMtRender(); return; }
   if((b = t.closest("[data-mtmode]"))){ FO_MT.mode = b.getAttribute("data-mtmode"); foMtRender(); return; }
   if((b = t.closest("[data-mtcamp]"))){ foMtCamp(b.getAttribute("data-mtcamp"), b); return; }
+  if((b = t.closest("[data-mtdiff]"))){ var dp = b.getAttribute("data-mtdiff"); FO_MT.diff = FO_MT.diff || {}; FO_MT.diff[dp] = !FO_MT.diff[dp];
+    var drw = b.closest("[data-mtrow]"); if(drw) foMtReadRow(drw, foMtDraft(dp)); foMtRender(); return; }
   if(t.closest("[data-mtrtog]")){ FO_MT.rulesOpen = !FO_MT.rulesOpen; foMtRender(); return; }
   if((b = t.closest("[data-mtrdel]"))){ foMtRule({remove: +b.getAttribute("data-mtrdel")}); return; }
   if((b = t.closest("[data-mtday]"))){
     var drow = b.closest("[data-mtrow]"); if(!drow) return;
     var rp = drow.getAttribute("data-mtrow"), dr = foMtDraft(rp), dk = b.getAttribute("data-mtday");
-    Array.prototype.forEach.call(drow.querySelectorAll("[data-mts]"), function(el){
-      var ix = foMtIx(el.getAttribute("data-mts")), s0 = dr.slots[ix[0]]; if(s0) s0[ix[1]] = ix[1] === "minutes" ? +el.value : el.value; });
+    foMtReadRow(drow, dr);
     if(dr.slots[dk]) delete dr.slots[dk];
     else {
       var ks = Object.keys(dr.slots).sort(), src = ks.length ? dr.slots[ks[ks.length - 1]] : null, lv = FO_MT_LV[(foMtRow(rp) || {}).level] || FO_MT_LV[3];
@@ -28446,7 +28500,11 @@ window.addEventListener("change", function(e){
   if(t.hasAttribute && t.hasAttribute("data-mtfix")){
     var frow = t.closest("[data-mtrow]"); if(frow){ foMtDraft(frow.getAttribute("data-mtrow")).fixed = !!t.checked; foMtRender(); } return;
   }
-  if(t.getAttribute && (a0 = t.getAttribute("data-mtset"))){ foMtSetting(a0, t.value); return; }
+  if(t.getAttribute && (a0 = t.getAttribute("data-mtc"))){
+    var crow = t.closest("[data-mtrow]"); if(!crow) return;
+    foMtReadRow(crow, foMtDraft(crow.getAttribute("data-mtrow"))); crow.classList.add("dirty"); return;
+  }
+  if(t.getAttribute && (a0 = t.getAttribute("data-mtset"))){ foMtSetting(a0, a0 === "auto" ? !!t.checked : t.value); return; }
   if(t.hasAttribute && t.hasAttribute("data-mthost")){ FO_MT.host = t.value; foMtRender(); return; }
   if(!m || !t.getAttribute) return;
   var a, ix;
