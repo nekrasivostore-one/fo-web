@@ -3686,7 +3686,8 @@ async def _fo_mt_apply(c, org_id, client_id, sl):
 
 # ── Telegram: бот планёрок (свой токен TG_MEET_BOT_TOKEN, иначе основной бот) ──
 def _fo_mt_tok():
-    return _fo_env("TG_MEET_BOT_TOKEN") or _fo_env("TG_BOT_TOKEN")
+    """Про планёрки пишет только бот планёрок (@planerka_flater_team_bot). Бот сервиса — только задачи (Виталий 28.09)."""
+    return _fo_env("TG_MEET_BOT_TOKEN")
 
 
 _FO_MT_ME = {"t": 0.0, "tok": "", "v": ""}
@@ -3700,8 +3701,31 @@ async def _fo_mt_botname():
     if _FO_MT_ME["tok"] == tok and _fo_time.time() - _FO_MT_ME["t"] < 3600:
         return _FO_MT_ME["v"]
     res = await _fo_aio.to_thread(_fo_tg_api_sync, "getMe", {})
-    _FO_MT_ME.update({"t": _fo_time.time(), "tok": tok, "v": ((res.get("result") or {}).get("username") or "") if res.get("ok") else ""})
+    me = (res.get("result") or {}) if res.get("ok") else {}
+    _FO_MT_ME.update({"t": _fo_time.time(), "tok": tok, "v": me.get("username") or "", "id": me.get("id")})
     return _FO_MT_ME["v"]
+
+
+_FO_MT_CM = {}
+
+
+async def _fo_mt_chatstate(chat_id):
+    """Есть ли бот планёрок в чате клиента и может ли закреплять (кэш 10 минут)."""
+    if not _fo_mt_tok() or not chat_id:
+        return {"in": False, "pin": False, "why": "нет бота планёрок"}
+    await _fo_mt_botname()
+    bid = _FO_MT_ME.get("id")
+    hit = _FO_MT_CM.get(str(chat_id))
+    if hit and _fo_time.time() - hit["t"] < 600:
+        return hit["v"]
+    res = await _fo_aio.to_thread(_fo_tg_api_sync, "getChatMember", {"chat_id": str(chat_id), "user_id": str(bid)})
+    r = res.get("result") or {}
+    st = r.get("status") or ""
+    v = {"in": st in ("administrator", "member", "creator", "restricted"),
+         "pin": st == "creator" or (st == "administrator" and bool(r.get("can_pin_messages", True))),
+         "why": "" if res.get("ok") else str(res.get("description") or "")[:120]}
+    _FO_MT_CM[str(chat_id)] = {"t": _fo_time.time(), "v": v}
+    return v
 
 
 def _fo_tg_api_sync(method, params, tok=None):
@@ -3797,11 +3821,9 @@ async def _fo_mt_dm(c, emp_id, text, test=False):
     if test:
         return "проверка: проджекту не писали"
     d = _fo_mt_load(await c.fetchval("SELECT data FROM fo_card WHERE kind='employee' AND ref_id=$1", str(emp_id)), {}) or {}
-    bots = d.get("tg_bots") or (["main"] if d.get("tg_id") else [])
-    if not d.get("tg_id") or not bots:
-        return "проджект ещё не нажал Start у бота планёрок"
-    tok = _fo_env("TG_MEET_BOT_TOKEN") if ("meet" in bots and _fo_env("TG_MEET_BOT_TOKEN")) else (_fo_env("TG_BOT_TOKEN") if "main" in bots else "")
-    if not tok:
+    bots = d.get("tg_bots") or []
+    tok = _fo_env("TG_MEET_BOT_TOKEN")
+    if not d.get("tg_id") or "meet" not in bots or not tok:
         return "проджект ещё не нажал Start у бота планёрок"
     res = await _fo_aio.to_thread(_fo_tg_api_sync, "sendMessage", {"chat_id": str(d["tg_id"]), "text": text}, tok)
     return "проджект уведомлён" if res.get("ok") else "проджекту не дошло: " + str(res.get("description") or "")[:120]
@@ -3831,14 +3853,20 @@ async def _fo_mt_private(msg, bot=""):
                 if (un and tg == un) or str(d.get("tg_id") or "") == str(uid):
                     hit = r
                     break
+            meet = bot == "meet"
             if hit:
                 old = _fo_mt_load(hit["data"], {}) or {}
                 bots = sorted(set((old.get("tg_bots") or (["main"] if old.get("tg_id") else [])) + ["meet" if bot == "meet" else "main"]))
                 await c.execute("UPDATE fo_card SET data = data || $2::jsonb, updated_at = now() WHERE kind='employee' AND ref_id=$1",
                                 hit["ref_id"], _fo_json.dumps({"tg_id": int(uid), "tg_bots": bots}))
                 name = await c.fetchval("SELECT name FROM employee WHERE id=$1::uuid", str(hit["ref_id"])) or ""
-                ans = ("Готово, %s! Сюда будут приходить уведомления о планёрках: кто из клиентов подтвердил время, "
-                       "кто просит другое, где нужно ваше решение, и напоминание за час до начала." % name).replace(", !", "!")
+                if meet:
+                    ans = ("Готово, %s! Сюда будут приходить уведомления о планёрках: кто из клиентов подтвердил время, "
+                           "кто просит другое, где нужно ваше решение, и напоминание за час до начала." % name).replace(", !", "!")
+                else:
+                    mb = await _fo_mt_botname()
+                    ans = ("Готово, %s! Это бот задач сервиса Flater: он ставит задачи из чатов с клиентами. "
+                           "Уведомления о планёрках присылает другой бот%s — нажмите Start и у него." % (name, (" — @" + mb) if mb else "")).replace(", !", "!")
             else:
                 ans = ("Не нашли вас в команде агентства. Попросите руководителя вписать ваш ник @%s в карточку "
                        "сотрудника в сервисе и нажмите /start ещё раз." % (frm.get("username") or "…"))
@@ -3996,16 +4024,31 @@ def _fo_mt_norm(slots, rx):
     return out
 
 
-async def _fo_mt_parse(text, offer):
+async def _fo_mt_rules(c, org_id):
+    d = _fo_mt_load(await c.fetchval("SELECT data FROM fo_card WHERE kind='org' AND ref_id=$1", "meet:" + str(org_id)), {}) or {}
+    return [str(x).strip() for x in (d.get("rules") or []) if str(x).strip()]
+
+
+async def _fo_mt_parse(text, offer, org_id=None):
+    """Агент планёрок — свой ИИ-агент со своим алгоритмом и своими правилами (не агент задач)."""
     rx = _fo_mt_rx(text)
     if rx["yes"]:
         return {"answer": "yes", "slots": [], "by": "правило"}
     if _fo_ai_ready():
+        sys_t = _FO_MT_SYS
+        if org_id:
+            try:
+                async with pool().acquire() as c:
+                    rl = await _fo_mt_rules(c, org_id)
+                if rl:
+                    sys_t += "\n\nПравила агента планёрок этого агентства (важнее общих):\n" + "\n".join("- " + r for r in rl[:40])
+            except Exception:
+                pass
         now = _fo_dt.datetime.now(_FO_MSK)
         usr = "Сейчас: %s.\nАгентство предложило:\n%s\nОтвет клиента: «%s»" % (
             now.strftime("%Y-%m-%d %H:%M"), _fo_mt_lines(offer, {}), str(text or "")[:800])
         try:
-            txt, _u = await _fo_aio.to_thread(_fo_ygpt_sync, [{"role": "system", "text": _FO_MT_SYS},
+            txt, _u = await _fo_aio.to_thread(_fo_ygpt_sync, [{"role": "system", "text": sys_t},
                                                               {"role": "user", "text": usr}], 200)
             js = _fo_ai_json(txt) or {}
             if js.get("answer") in ("yes", "other", "no", "unclear", "not_about"):
@@ -4108,7 +4151,7 @@ async def _fo_meet_answer_do(org_id, client_id, text, msg_id=None, pk=None, test
         if not r or r["status"] != "proposed":
             return {"state": "не ждём ответа"}
         offer = _fo_mt_slots(r["offer"]) or _fo_mt_slots(r["slots"])
-    js = await _fo_mt_parse(text, offer)
+    js = await _fo_mt_parse(text, offer, org_id)
     kind = js.get("answer")
     if kind == "not_about":
         if pk and _fo_ai_ready() and not test:
@@ -4386,9 +4429,11 @@ async def fo_meet_get(p: Principal = Depends(max_level(4))):
         await _fo_mt_migrate(c, p.org_id)
         lv = await _fo_mt_levels(c, p.org_id)
         rows = {str(r["client_id"]): r for r in await c.fetch("SELECT * FROM fo_meet WHERE org_id=$1::uuid", str(p.org_id))}
-        chats = {str(r["client_id"]) for r in await c.fetch(
-            "SELECT DISTINCT cc.client_id FROM client_chat cc JOIN chat ch ON ch.id=cc.chat_pk "
-            "WHERE cc.kind='client' AND ch.chat_id ~ '^-?[0-9]+$' AND ch.org_id=$1", p.org_id)}
+        chats = {}
+        for r in await c.fetch("SELECT DISTINCT ON (cc.client_id) cc.client_id, ch.chat_id FROM client_chat cc "
+                               "JOIN chat ch ON ch.id=cc.chat_pk WHERE cc.kind='client' AND ch.chat_id ~ '^-?[0-9]+$' "
+                               "AND ch.org_id=$1 ORDER BY cc.client_id, ch.id", p.org_id):
+            chats[str(r["client_id"])] = r["chat_id"]
         st = await _fo_mt_settings(c, p.org_id)
         camp = await c.fetchrow("SELECT * FROM fo_meet_camp WHERE org_id=$1::uuid ORDER BY id DESC LIMIT 1", str(p.org_id))
         fid = await _fo_mt_fn(c, p.org_id)
@@ -4398,7 +4443,15 @@ async def fo_meet_get(p: Principal = Depends(max_level(4))):
                                    "AND plan_date >= $3", p.org_id, fid, _fo_msk_today() - _fo_dt.timedelta(days=75)):
                 if r["client_id"]:
                     held.setdefault(str(r["client_id"]), []).append(r["plan_date"].isoformat())
-    out = [_fo_mt_out(cid, rows.get(cid), lv, cid in chats) for cid in sorted(lv, key=lambda k: lv[k]["rank"])]
+    out = []
+    for cid in sorted(lv, key=lambda k: lv[k]["rank"]):
+        o = _fo_mt_out(cid, rows.get(cid), lv, cid in chats)
+        try:
+            cs = await _fo_mt_chatstate(chats.get(cid)) if cid in chats else {"in": False, "pin": False, "why": ""}
+        except Exception:
+            cs = {"in": None, "pin": None, "why": ""}
+        o["bot_in"], o["bot_pin"] = cs["in"], cs["pin"]
+        out.append(o)
     cp = None
     if camp:
         cp = {"id": camp["id"], "status": camp["status"], "wave": camp["wave"], "gap_min": camp["gap_min"],
@@ -4556,9 +4609,15 @@ async def fo_meet_campaign(body: FoMtCampIn, p: Principal = Depends(max_level(4)
             cand.append((cid, r))
         if not cand:
             raise HTTPException(400, "некому предлагать: задайте график (дни и ведущего) или включите «и назначенным»")
-        chats = {str(r["client_id"]) for r in await c.fetch(
-            "SELECT DISTINCT cc.client_id FROM client_chat cc JOIN chat ch ON ch.id=cc.chat_pk "
-            "WHERE cc.kind='client' AND ch.chat_id ~ '^-?[0-9]+$' AND ch.org_id=$1", p.org_id)}
+        chats = {}
+        for r in await c.fetch("SELECT DISTINCT ON (cc.client_id) cc.client_id, ch.chat_id FROM client_chat cc "
+                               "JOIN chat ch ON ch.id=cc.chat_pk WHERE cc.kind='client' AND ch.chat_id ~ '^-?[0-9]+$' "
+                               "AND ch.org_id=$1 ORDER BY cc.client_id, ch.id", p.org_id):
+            try:
+                if (await _fo_mt_chatstate(r["chat_id"]))["in"]:
+                    chats[str(r["client_id"])] = r["chat_id"]
+            except Exception:
+                pass
         wv = lambda cid, r: 0 if r["fixed"] else lv.get(cid, {"level": 3})["level"]
         cand.sort(key=lambda x: (wv(*x), lv.get(x[0], {}).get("rank", 999)))
         busy = await _fo_mt_busy(c, p.org_id, skip=[x[0] for x in cand])
@@ -4630,6 +4689,33 @@ async def fo_meet_settings(body: FoMtSetIn, p: Principal = Depends(max_level(4))
             "meet:" + str(p.org_id), p.org_id, _fo_json.dumps(d))
         st = await _fo_mt_settings(c, p.org_id)
     return {"ok": True, "settings": {"brk": st["brk"], "gap": st["gap"], "from": _fo_mt_hm(st["from"]), "to": _fo_mt_hm(st["to"])}}
+
+
+class FoMtRuleIn(_FoBM):
+    add: str | None = None
+    remove: int | None = None
+
+
+@router.get("/meet/rules")
+async def fo_meet_rules_get(p: Principal = Depends(max_level(4))):
+    async with pool().acquire() as c:
+        return {"rules": await _fo_mt_rules(c, p.org_id)}
+
+
+@router.post("/meet/rules")
+async def fo_meet_rules_set(body: FoMtRuleIn, p: Principal = Depends(max_level(2))):
+    """Учим агента планёрок словами собственника — отдельно от агента задач."""
+    async with pool().acquire() as c:
+        rules = await _fo_mt_rules(c, p.org_id)
+        if body.add and body.add.strip() and body.add.strip()[:500] not in rules:
+            rules.append(body.add.strip()[:500])
+        if body.remove is not None and 0 <= int(body.remove) < len(rules):
+            rules.pop(int(body.remove))
+        await c.execute(
+            "INSERT INTO fo_card (kind, ref_id, org_id, data) VALUES ('org', $1, $2, $3::jsonb) "
+            "ON CONFLICT (kind, ref_id) DO UPDATE SET data = fo_card.data || EXCLUDED.data, updated_at = now()",
+            "meet:" + str(p.org_id), p.org_id, _fo_json.dumps({"rules": rules}, ensure_ascii=False))
+    return {"ok": True, "rules": rules}
 '''
 
 ADD_MAIN = r'''
@@ -4946,7 +5032,7 @@ except Exception as _e:
 p("")
 p("== ЯЩИК ДЛЯ КЛЮЧЕЙ ==")
 # ключ из «Ключи ФО.txt»: приехал зашифрованным (ключ шифра — токен бота, он есть и на Маке, и здесь)
-_FO_BLOB = "U2FsdGVkX1/DWcWCOllGOpsr+LAQVe/gpW0vY1VIoMNVIFZMqTfSaDe32KgH1hBUPzpgKavU2HTh4WkRdX16FifgSXfl9IiZKQZlkWO/NVhtDeJ99uhJOLNdh/66hm7b"
+_FO_BLOB = "__FO_BLOB__"
 if _FO_BLOB and not _FO_BLOB.startswith("__"):
     try:
         _bt = ""
