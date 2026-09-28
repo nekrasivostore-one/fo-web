@@ -4122,6 +4122,69 @@ td small{ color:var(--ink-3); font-size:10.5px }
 .fo-aisel input{ width:17px; height:17px; margin:0; cursor:pointer; accent-color:#6d4bd8 }
 .fo-aicard.fo-aicard-on{ box-shadow:inset 0 0 0 2px #6d4bd8; background:rgba(109,75,216,.1) }
 .fo-aicard.fo-aicard-need{ box-shadow:inset 0 0 0 2px #c2394f }
+
+/* ===== add104: Планёрка — план по кабинету и календарь (218) ===== */
+.fo-mth{ display:flex; flex-wrap:wrap; align-items:center; gap:10px 18px }
+.fo-mtseg{ display:inline-flex; padding:4px; border-radius:14px; background:var(--panel-2); box-shadow:inset 0 0 0 1px var(--stroke-2) }
+.fo-mtseg button{ border:none; background:none; font:inherit; font-weight:600; padding:8px 16px; border-radius:10px; cursor:pointer; color:var(--ink-2) }
+.fo-mtseg button.on{ background:var(--panel); color:var(--ink); box-shadow:0 1px 3px rgba(0,0,0,.08) }
+.fo-mthint{ font-size:12px; color:var(--ink-3) }
+.fo-mtchips{ display:flex; flex-wrap:wrap; gap:6px; margin:12px 0 }
+.fo-mtchip{ border:none; font:inherit; font-size:13px; padding:6px 12px; border-radius:999px; cursor:pointer; background:var(--panel-2); color:var(--ink-2); box-shadow:inset 0 0 0 1px var(--stroke-2) }
+.fo-mtchip.on{ background:#7c5cff; color:#fff; box-shadow:none }
+.fo-mtchip i{ font-style:normal; font-size:11px; opacity:.7 }
+.fo-mtbar{ display:flex; flex-wrap:wrap; align-items:flex-end; gap:12px 22px }
+.fo-mtbar .mdl{ display:block; font-size:11px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-3); margin-bottom:6px }
+.fo-mtslot{ font-weight:600 }
+.fo-mtsheet{ flex:1 1 260px } .fo-mtsheet input{ width:100% }
+.fo-mtdone{ width:auto; margin-left:auto }
+.fo-mttp{ padding:10px 0; border-bottom:1px solid var(--stroke-2) }
+.fo-mttr{ display:flex; flex-wrap:wrap; align-items:center; gap:8px }
+.fo-mtn{ width:24px; font-weight:700; color:#7c5cff }
+.fo-mttt{ flex:1 1 220px; font-weight:600 }
+.fo-mtwho{ min-width:130px }
+.fo-mtopen{ border:none; background:rgba(124,92,255,.08); color:#5a3fd6; font:inherit; font-size:12px; padding:6px 10px; border-radius:9px; cursor:pointer }
+.fo-mtopen.on{ background:#7c5cff; color:#fff }
+.fo-mtdocs{ display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin:6px 0 0 32px }
+.fo-mtdoc{ display:inline-flex; align-items:center; gap:4px; padding:3px 8px; border-radius:8px; background:var(--panel-2); font-size:12px }
+.fo-mtdocin{ min-width:260px; font-size:12px }
+.fo-mtprobs{ margin:8px 0 4px 32px; padding:10px; border-radius:12px; background:rgba(124,92,255,.05) }
+.fo-mtph, .fo-mtpr{ display:grid; grid-template-columns:1.2fr 1.4fr 44px 1fr 140px 130px 150px; gap:6px; align-items:center }
+.fo-mtph{ font-size:11px; font-weight:600; color:var(--ink-3); text-transform:uppercase; letter-spacing:.04em; margin-bottom:4px }
+.fo-mtpr{ margin-bottom:6px } .fo-mtpr.done input{ text-decoration:line-through; opacity:.6 }
+.fo-mttk{ font-size:12px; color:#12A150; font-weight:600 }
+.fo-mtft{ display:grid; grid-template-columns:1.4fr 1.4fr 1fr 160px 28px; gap:6px; margin-bottom:6px }
+.fo-mtsay{ display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:10px }
+.fo-mtsay .mdl{ display:block; font-size:11px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; margin-bottom:4px }
+.fo-mtsay .mdl.ok{ color:#12A150 } .fo-mtsay .mdl.no{ color:var(--crit) }
+.fo-mtsay textarea{ width:100%; box-sizing:border-box }
+.fo-mtwk{ display:flex; gap:24px; font-size:13px } .fo-mtwk b{ font-size:20px }
+.fo-mtwl{ display:flex; flex-direction:column; gap:3px; margin-top:8px; font-size:12.5px; color:var(--ink-2) }
+.fo-mthi{ border-bottom:1px solid var(--stroke-2) }
+.fo-mthb{ width:100%; text-align:left; border:none; background:none; font:inherit; padding:9px 0; cursor:pointer }
+.fo-mthd{ padding:0 0 12px 12px; font-size:13px; display:flex; flex-direction:column; gap:6px }
+.fo-mthp{ margin-left:14px; color:var(--ink-2) } .fo-mthp.ok{ color:#12A150 }
+.fo-mthc{ white-space:pre-wrap; font-size:12px; background:var(--panel-2); padding:8px; border-radius:8px }
+.fo-mtcal{ margin-top:6px }
+.fo-mtch, .fo-mtcr{ display:grid; grid-template-columns:170px repeat(5, 1fr); gap:6px }
+.fo-mtch span{ font-size:11px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:var(--ink-3); padding:4px 6px }
+.fo-mtch span.today{ color:#7c5cff }
+.fo-mtcr{ padding:6px 0; border-top:1px solid var(--stroke-2) }
+.fo-mtcw b{ display:block } .fo-mtcw i{ font-style:normal; font-size:11.5px; color:var(--ink-3) }
+.fo-mtcd{ display:flex; flex-direction:column; gap:4px; min-height:28px }
+.fo-mtev{ text-align:left; border:none; font:inherit; font-size:12px; padding:6px 8px; border-radius:9px; cursor:pointer; background:#7c5cff; color:#fff }
+.fo-mtev i{ display:block; font-style:normal; font-size:11px; opacity:.85 }
+.fo-mtev.clash{ background:#c2394f }
+.fo-mted{ display:flex; flex-wrap:wrap; align-items:center; gap:8px 12px; padding:8px 0; border-bottom:1px solid var(--stroke-2) }
+.fo-mted > b{ min-width:180px }
+.fo-mtdays{ display:inline-flex; gap:4px }
+.fo-mtdays button{ border:none; font:inherit; font-size:12px; width:34px; padding:6px 0; border-radius:8px; cursor:pointer; background:var(--panel-2); box-shadow:inset 0 0 0 1px var(--stroke-2) }
+.fo-mtdays button.on{ background:#7c5cff; color:#fff; box-shadow:none }
+.fo-mted .bt{ width:auto }
+.fo-mtst{ font-size:12px; color:var(--ink-3) }
+.gb.fo-gmeet{ background:#7c5cff !important; color:#fff !important; border:none !important }
+.gb.fo-gmeet .gbi{ color:rgba(255,255,255,.85) }
+.fo-lgmeet{ background:#7c5cff !important }
 </style>
 </head>
 <body>
@@ -27307,7 +27370,10 @@ var FO_ST = {ok:false, busy:false, keys:{}, org:{}, me:{}, svc:{}, snap:{}, fail
 /* ключ состояния S → серверный ключ и как сливать */
 var FO_ST_MAP = {
   roleCfg:"obj", access:"list", speed:"list", regDocs:"list", regUniq:"map",
-  leads:"list", gradeRec:"map", placed:"list", drafts:"list", runs:"obj"
+  leads:"list", gradeRec:"map", placed:"list", drafts:"list", runs:"obj",
+  /* 28.09: планёрка и график, настройки АОД, грейды, шаблоны, журнал кабинетов */
+  meet:"map", meetPlan:"map", catDays:"obj", aodAuto:"obj", aodTime:"obj", grades:"obj",
+  settings:"obj", tpl:"map", log:"list"
 };
 var FO_ST_FAKE_ACCESS = /@flater\.pro$|^\+7 999 000-0/;
 
@@ -27390,8 +27456,8 @@ function foStLoad(){
         S[k] = loc;
       } else if(srv !== null){
         S[k] = foStClone(srv);
-      } else if(!foStCan(k) || k === "access"){
-        S[k] = FO_ST_MAP[k] === "list" ? [] : {};           /* своего в браузере больше не держим */
+      } else if((!foStCan(k) && FO_ST_MAP[k] !== "obj") || k === "access"){
+        S[k] = FO_ST_MAP[k] === "list" ? [] : {};           /* своего в браузере больше не держим; настройки-объекты остаются по умолчанию */
       }
       FO_ST.snap[k] = foStJson(S[k]);
     });
@@ -27536,6 +27602,438 @@ window.foStState = function(){
   o.обещано = Object.keys(FO_ST.promised || {}).length;
   return o;
 };
+
+/* ===== add104: Планёрка — план совещания по кабинету и календарь планёрок (218, Виталий 28.09)
+   «Кнопка «Планёрка»: два ключевых подраздела. 1 — фильтр по кабинетам: план совещания
+   с историей, как у ИП Аббясовой: каждую неделю проходит планёрка и копится история
+   задач с плана совещания; шпаргалка с ответственными — что проджекту говорить, а что
+   нет; темы к совещанию с прикреплёнными документами; проблемы и решения.
+   2 — календарь планёрок: по дням видно, какой кабинет, в какое время, какой проджект
+   ведёт. Планёрка — полноценная задача на 30 или 60 минут (у каждого кабинета по-своему),
+   синхронизирована с гантом и задачниками, чтобы нагрузка считалась честно.
+   Видят совещания только РМ и выше.»
+   Устройство:
+   · данные — на сервере (fo_state: meet — план по кабинету, meetPlan — график), слой add103;
+   · график кабинета (дни, время, длительность, кто ведёт) → функция «Совещание» в кабинете
+     (POST /refs/cabinets/{кабинет}/functions/add, цикл «еженедельно» по выбранным дням) —
+     сервер сам рождает задачи ведущему, они в ганте, в задачах дня и в загрузке;
+   · в ганте совещание встаёт ровно в своё время, остальные задачи дня обтекают его;
+     цвет — фиолетовый, в легенде отдельной строкой «совещания»;
+   · решение с планёрки одной кнопкой становится задачей ответственного (разовая, «с планёрки»),
+     галочка «Факт» встаёт сама, когда задачу выполнили;
+   · «Планёрка проведена» — снимок в историю с датой, закрытые проблемы уходят в историю,
+     открытые переносятся на следующую неделю.                                             */
+
+var FO_MT = {tab: "cab", pid: null, open: {}, hist: {}, saving: {}};
+var FO_MT_IDS = {};
+var FO_MT_DOW = ["пн", "вт", "ср", "чт", "пт"];
+
+function foMtLvl(){ try{ return +(A && A.level != null ? A.level : 9); }catch(e){ return 9; } }
+function foMtCan(){ try{ return !foLive() || foMtLvl() <= 4; }catch(e){ return true; } }
+function foMtFn(){
+  var fs = S.fns || [];
+  return fs.filter(function(f){ return /^\s*совещание\s*$/i.test(String(f.name || "")); })[0] ||
+         fs.filter(function(f){ return /совещан|план[её]рк/i.test(String(f.name || "")) && !/подготов|контент|согласов/i.test(String(f.name || "")); })[0] || null;
+}
+function foMtStore(){ if(!S.meet || typeof S.meet !== "object" || Array.isArray(S.meet)) S.meet = {}; return S.meet; }
+function foMtOf(pid){
+  var m = foMtStore();
+  if(!m[pid]) m[pid] = {};
+  var x = m[pid];
+  ["topics", "feats", "history", "tasks"].forEach(function(k){ if(!Array.isArray(x[k])) x[k] = []; });
+  ["say", "nosay", "cheat", "date", "sheet"].forEach(function(k){ if(typeof x[k] !== "string") x[k] = x[k] ? String(x[k]) : ""; });
+  return x;
+}
+function foMtPlanAll(){ if(!S.meetPlan || typeof S.meetPlan !== "object" || Array.isArray(S.meetPlan)) S.meetPlan = {}; return S.meetPlan; }
+function foMtPlan(pid){ var p = foMtPlanAll()[pid]; return p && typeof p === "object" ? p : null; }
+function foMtSave(){ try{ saveState(); }catch(e){} }
+function foMtId(p){ try{ return nextId(p || "mt"); }catch(e){ return (p || "mt") + Date.now().toString(36) + Math.random().toString(36).slice(2, 5); } }
+function foMtName(id){ try{ var p = person(id); return p ? p.name : ""; }catch(e){ return ""; } }
+function foMtCabs(){ return (S.projects || []).slice().sort(function(a, b){ return String(a.name).localeCompare(String(b.name), "ru"); }); }
+function foMtMon(){ var d = new Date(); var w = d.getDay() || 7; d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - (w - 1)); return d; }
+function foMtIso(d){ return d.getFullYear() + "-" + ("0" + (d.getMonth() + 1)).slice(-2) + "-" + ("0" + d.getDate()).slice(-2); }
+function foMtDm(iso){ if(!iso) return ""; var p = String(iso).split("-"); return p.length === 3 ? p[2] + "." + p[1] : iso; }
+function foMtHour(t){ var p = String(t || "").split(":"); var h = +p[0], m = +(p[1] || 0); return isNaN(h) ? null : h + (isNaN(m) ? 0 : m) / 60; }
+function foMtPeopleOpts(sel, empty){
+  return '<option value="">' + esc(empty || "—") + '</option>' + (S.people || []).map(function(p){
+    return '<option value="' + esc(p.id) + '"' + (String(sel || "") === String(p.id) ? ' selected' : '') + '>' + esc(p.name) + '</option>'; }).join("");
+}
+function foMtNextDate(pid){
+  var pl = foMtPlan(pid); if(!pl || !(pl.days || []).length) return "";
+  var d = new Date(); d.setHours(0, 0, 0, 0);
+  for(var i = 0; i < 14; i++){
+    var x = new Date(d); x.setDate(d.getDate() + i);
+    var w = (x.getDay() + 6) % 7;
+    if(pl.days.indexOf(w) >= 0) return foMtIso(x);
+  }
+  return "";
+}
+
+/* ── задачи: решение с планёрки → разовая задача ответственного ── */
+function foMtTaskDone(id){
+  try{ var r = (SRV_ONCE || []).filter(function(x){ return String(x.id) === String(id); })[0]; return r ? !!r.done : null; }catch(e){ return null; }
+}
+function foMtToTask(pid, tp, pr){
+  if(!pr.who){ try{ toast("Выберите ответственного за решение"); }catch(e){} return; }
+  if(!String(pr.sol || pr.prob || "").trim()){ try{ toast("Впишите решение"); }catch(e){} return; }
+  var day = pr.due || foMtIso(new Date());
+  var d = new Date(day + "T12:00:00"), dow = (d.getDay() + 6) % 7; if(dow > 4) dow = 4;
+  var cab = project(pid) || {};
+  var body = {title: ("Планёрка · " + (pr.sol || pr.prob)).slice(0, 280), client_id: pid, employee_id: pr.who,
+    day: day, dow: dow, minutes: +pr.min || 30, kind: "once",
+    note: "[Планёрка] " + (cab.name || "") + " · тема «" + (tp.title || "") + "»\nПроблема: " + (pr.prob || "—") +
+          "\nРешение: " + (pr.sol || "—") + (pr.link ? "\nСсылка: " + pr.link : "")};
+  var go = (typeof onceNew === "function") ? onceNew(body) : api("/refs/tasks/once", {method: "POST", body: body});
+  go.then(function(r){
+    pr.task = r && r.id != null ? String(r.id) : "sent"; foMtSave();
+    try{ toast("Задача поставлена: " + foMtName(pr.who) + " · " + foMtDm(day)); }catch(e){}
+    foMtRender();
+  }).catch(function(err){ try{ toast("Задача не поставилась: " + (err && err.message || "")); }catch(e){} });
+}
+
+/* ── шпаргалка: что говорить и что нет, собирается из плана ── */
+function foMtCheat(pid){
+  var pr = project(pid) || {}, m = foMtOf(pid), pl = foMtPlan(pid);
+  var L = ["Планёрка · " + (pr.name || "") + (pl && pl.time ? " · " + pl.time : "") + (pl && pl.host ? " · ведёт " + foMtName(pl.host) : ""), ""];
+  L.push("Темы и кто выступает:");
+  m.topics.forEach(function(t, i){
+    var who = (t.who || []).filter(Boolean).map(foMtName).filter(Boolean).join(", ");
+    L.push("  " + (i + 1) + ". " + (t.title || "—") + (who ? " — " + who : ""));
+    (t.probs || []).filter(function(x){ return !x.fact; }).forEach(function(x){
+      L.push("       · проблема: " + (x.prob || "—") + (x.sol ? " → решение: " + x.sol : "") + (x.who ? " (" + foMtName(x.who) + ")" : ""));
+    });
+  });
+  if(!m.topics.length) L.push("  (тем пока нет)");
+  var wk = (S.tasks || []).filter(function(t){ return t.project === pid; });
+  var dn = wk.filter(function(t){ return t.done; }).length;
+  L.push("", "Неделя: выполнено " + dn + " из " + wk.length + " задач.");
+  var last = m.history[0];
+  if(last) L.push("Прошлая планёрка " + foMtDm(last.date) + ": решено " + (last.closed || 0) + " из " + (last.total || 0) + ".");
+  return L.join("\n");
+}
+
+/* ── рисуем раздел ── */
+function foMtHead(){
+  return '<div class="gl fo-mth"><div class="fo-mtseg">' +
+    '<button class="' + (FO_MT.tab === "cab" ? "on" : "") + '" data-mttab="cab">По кабинету</button>' +
+    '<button class="' + (FO_MT.tab === "cal" ? "on" : "") + '" data-mttab="cal">Календарь планёрок</button></div>' +
+    '<span class="fo-mthint">Планёрки видят проджект и выше · совещание — задача ведущего, считается в нагрузке</span></div>';
+}
+function foMtCabHTML(){
+  var cabs = foMtCabs();
+  if(!cabs.length) return '<div class="gl"><div class="empty">Сначала заведите кабинет</div></div>';
+  if(!FO_MT.pid || !cabs.some(function(p){ return p.id === FO_MT.pid; })) FO_MT.pid = cabs[0].id;
+  var pid = FO_MT.pid, pr = project(pid) || {}, m = foMtOf(pid), pl = foMtPlan(pid);
+  if(!m.cheat) m.cheat = foMtCheat(pid);
+  var chips = '<div class="fo-mtchips">' + cabs.map(function(p){
+    var has = foMtPlan(p.id) && (foMtPlan(p.id).days || []).length;
+    return '<button class="fo-mtchip' + (p.id === pid ? ' on' : '') + '" data-mtcab="' + esc(p.id) + '">' + esc(p.name) + (has ? '' : ' <i>без графика</i>') + '</button>'; }).join("") + '</div>';
+  var nx = foMtNextDate(pid);
+  var slot = pl && (pl.days || []).length
+    ? (pl.days.map(function(d){ return FO_MT_DOW[d]; }).join(", ") + (pl.time ? " · " + pl.time : "") + " · " + (pl.minutes || 60) + " мин" + (pl.host ? " · ведёт " + esc(foMtName(pl.host)) : ""))
+    : 'не в графике — <button class="fo-lnk" data-mttab="cal">назначить в календаре</button>';
+  var topics = m.topics.map(function(t, i){
+    var probs = t.probs || [], open = probs.filter(function(x){ return !x.fact; }).length;
+    var who = (t.who || []);
+    var docs = (t.docs || []).map(function(d, k){
+      return '<span class="fo-mtdoc"><a href="' + esc(d.url) + '" target="_blank" rel="noopener">' + esc(d.name || "документ") + ' ↗</a>' +
+        '<button class="plx" data-mtdocdel="' + i + ':' + k + '" title="Убрать">×</button></span>'; }).join("");
+    var body = "";
+    if(FO_MT.open[t.id]){
+      body = '<div class="fo-mtprobs"><div class="fo-mtph"><span>Проблема</span><span>Решение</span><span>Факт</span><span>Ссылка</span><span>Ответственный</span><span>Срок</span><span></span></div>' +
+        probs.map(function(x, k){
+          var tdone = x.task && x.task !== "sent" ? foMtTaskDone(x.task) : null;
+          if(tdone === true && !x.fact){ x.fact = true; x.factBy = "задача выполнена"; foMtSave(); }
+          return '<div class="fo-mtpr' + (x.fact ? ' done' : '') + '">' +
+            '<input class="fi sm" data-mtp="' + i + ':' + k + ':prob" value="' + esc(x.prob || "") + '" placeholder="Что не так">' +
+            '<input class="fi sm" data-mtp="' + i + ':' + k + ':sol" value="' + esc(x.sol || "") + '" placeholder="Что делаем">' +
+            '<label class="fo-chk"><input type="checkbox" data-mtpf="' + i + ':' + k + '"' + (x.fact ? ' checked' : '') + '></label>' +
+            '<input class="fi sm" data-mtp="' + i + ':' + k + ':link" value="' + esc(x.link || "") + '" placeholder="https://…">' +
+            '<select class="sel sm" data-mtp="' + i + ':' + k + ':who">' + foMtPeopleOpts(x.who, "кто") + '</select>' +
+            '<input class="fi sm" type="date" data-mtp="' + i + ':' + k + ':due" value="' + esc(x.due || "") + '">' +
+            (x.task ? '<span class="fo-mttk">' + (tdone ? 'задача выполнена ✓' : 'задача у ' + esc(foMtName(x.who) || "ответственного")) + '</span>'
+                    : '<button class="bt sm gh2" data-mtptask="' + i + ':' + k + '">В задачу</button>') +
+          '</div>'; }).join("") +
+        '<button class="fo-lnk" data-mtpadd="' + i + '">+ проблема и решение</button></div>';
+    }
+    return '<div class="fo-mttp">' +
+      '<div class="fo-mttr"><span class="fo-mtn">' + (i + 1) + '</span>' +
+        '<input class="fi sm fo-mttt" data-mtt="' + i + ':title" value="' + esc(t.title || "") + '" placeholder="Тема">' +
+        [0, 1, 2].map(function(k){ return '<select class="sel sm fo-mtwho" data-mtw="' + i + ':' + k + '">' + foMtPeopleOpts(who[k], k ? "+ ещё" : "выступает") + '</select>'; }).join("") +
+        '<button class="fo-mtopen' + (FO_MT.open[t.id] ? ' on' : '') + '" data-mtopen="' + esc(t.id) + '">проблемы и решения · ' + probs.length + (open ? ' (открыто ' + open + ')' : '') + '</button>' +
+        '<button class="plx" data-mttdel="' + i + '" title="Убрать тему">×</button></div>' +
+      '<div class="fo-mtdocs">' + docs + '<input class="fi sm fo-mtdocin" data-mtdocadd="' + i + '" placeholder="+ документ: вставьте ссылку и Enter"></div>' +
+      body + '</div>';
+  }).join("");
+  var feats = m.feats.map(function(f, i){
+    return '<div class="fo-mtft"><input class="fi sm" data-mtf="' + i + ':text" value="' + esc(f.text || "") + '" placeholder="Особенность">' +
+      '<input class="fi sm" data-mtf="' + i + ':task" value="' + esc(f.task || "") + '" placeholder="Задача">' +
+      '<input class="fi sm" data-mtf="' + i + ':link" value="' + esc(f.link || "") + '" placeholder="Ссылка">' +
+      '<select class="sel sm" data-mtf="' + i + ':who">' + foMtPeopleOpts(f.who, "ответственный") + '</select>' +
+      '<button class="plx" data-mtfdel="' + i + '">×</button></div>'; }).join("");
+  var wk = (S.tasks || []).filter(function(t){ return t.project === pid && !FO_MT_IDS[t.id]; });
+  var dn = wk.filter(function(t){ return t.done; });
+  var nd = wk.filter(function(t){ return !t.done; });
+  var week = '<div class="fo-mtwk"><div><b>' + dn.length + '</b> выполнено</div><div><b>' + nd.length + '</b> не выполнено</div></div>' +
+    (nd.length ? '<div class="fo-mtwl">' + nd.slice(0, 14).map(function(t){ return '<span>' + FO_MT_DOW[t.dow || 0] + ' · ' + esc(t.title) + ' · ' + esc(foMtName(t.person)) + '</span>'; }).join("") + '</div>' : '');
+  var hist = m.history.map(function(h, i){
+    var o = FO_MT.hist[h.id];
+    return '<div class="fo-mthi"><button class="fo-mthb" data-mthist="' + esc(h.id) + '"><b>' + esc(foMtDm(h.date)) + '</b> · ' + (h.host ? esc(foMtName(h.host)) + ' · ' : '') +
+      (h.topics || []).length + ' тем · решено ' + (h.closed || 0) + ' из ' + (h.total || 0) + ' ' + (o ? '▾' : '▸') + '</button>' +
+      (o ? '<div class="fo-mthd">' + (h.topics || []).map(function(t, k){
+        return '<div><b>' + (k + 1) + '. ' + esc(t.title || "") + '</b>' + ((t.who || []).filter(Boolean).length ? ' — ' + esc(t.who.filter(Boolean).map(foMtName).join(", ")) : '') +
+          (t.probs || []).map(function(x){ return '<div class="fo-mthp' + (x.fact ? ' ok' : '') + '">' + (x.fact ? '✓ ' : '○ ') + esc(x.prob || "") + (x.sol ? ' → ' + esc(x.sol) : '') + (x.who ? ' · ' + esc(foMtName(x.who)) : '') + '</div>'; }).join("") + '</div>';
+      }).join("") + (h.cheat ? '<pre class="fo-mthc">' + esc(h.cheat) + '</pre>' : '') + '</div>' : '') + '</div>';
+  }).join("");
+  return chips +
+    '<div class="gl fo-mtbar"><div><span class="mdl">График</span><div class="fo-mtslot">' + slot + '</div></div>' +
+      '<div><span class="mdl">Следующая планёрка</span><input class="fi sm" type="date" data-mtdate value="' + esc(m.date || nx || "") + '"></div>' +
+      '<div class="fo-mtsheet"><span class="mdl">Google Таблица кабинета</span><input class="fi sm" data-mtsheet value="' + esc(m.sheet || pr.sheet || "") + '" placeholder="https://docs.google.com/..."></div>' +
+      '<button class="bt pri fo-mtdone" data-mtdone>Планёрка проведена</button></div>' +
+    '<section class="gl"><div class="gl-t"><h2>Темы к совещанию</h2><span class="m">функционал по кабинету · выступающие · документы</span>' +
+      '<button class="bt sm gh2" data-mtfns>Взять функции кабинета</button><button class="bt sm gh2" data-mttadd>+ тема</button></div>' +
+      (topics || '<div class="empty">Тем пока нет. «Взять функции кабинета» — темы встанут по функциям с ответственными.</div>') + '</section>' +
+    '<section class="gl"><div class="gl-t"><h2>Особенности кабинета</h2><button class="bt sm gh2" data-mtfadd>+ особенность</button></div>' +
+      (feats || '<div class="empty">Что важно помнить про этот кабинет: договорённости, ограничения, привычки клиента.</div>') + '</section>' +
+    '<section class="gl fo-mtcheat"><div class="gl-t"><h2>Шпаргалка ведущему</h2><button class="bt sm gh2" data-mtgen>Собрать заново</button><button class="bt sm gh2" data-mtcopy>Скопировать</button></div>' +
+      '<div class="fo-mtsay"><label><span class="mdl ok">Говорить</span><textarea class="fi" rows="6" data-mttxt="say" placeholder="Что обязательно сказать клиенту">' + esc(m.say) + '</textarea></label>' +
+      '<label><span class="mdl no">Не говорить</span><textarea class="fi" rows="6" data-mttxt="nosay" placeholder="Что не обсуждаем с клиентом">' + esc(m.nosay) + '</textarea></label></div>' +
+      '<textarea class="fi cheat" rows="14" data-mttxt="cheat">' + esc(m.cheat) + '</textarea>' +
+      '<div class="hint2">Собирается из тем, выступающих и открытых проблем; правки сохраняются на сервере.</div></section>' +
+    '<section class="gl"><div class="gl-t"><h2>Неделя по кабинету</h2><span class="m">что происходило за неделю</span></div>' + week + '</section>' +
+    '<section class="gl"><div class="gl-t"><h2>История планёрок</h2><span class="m">' + m.history.length + '</span></div>' +
+      (hist || '<div class="empty">История появится после первой «Планёрка проведена».</div>') + '</section>';
+}
+function foMtCalHTML(){
+  var mon = foMtMon(), today = foMtIso(new Date()), plan = foMtPlanAll(), cabs = foMtCabs();
+  var hosts = {};
+  cabs.forEach(function(p){ var pl = plan[p.id]; if(pl && (pl.days || []).length) (hosts[pl.host || "—"] = hosts[pl.host || "—"] || []).push({p: p, pl: pl}); });
+  var load = {}; (S.tasks || []).forEach(function(t){ if(t.person) load[t.person] = (load[t.person] || 0) + (+t.minutes || 0); });
+  var head = '<div class="fo-mtcal"><div class="fo-mtch"><span>Ведёт</span>' + FO_MT_DOW.map(function(d, i){
+    var x = new Date(mon); x.setDate(mon.getDate() + i); var iso = foMtIso(x);
+    return '<span class="' + (iso === today ? 'today' : '') + '">' + d + ' ' + foMtDm(iso) + '</span>'; }).join("") + '</div>';
+  var rows = Object.keys(hosts).map(function(h){
+    var list = hosts[h];
+    return '<div class="fo-mtcr"><div class="fo-mtcw"><b>' + esc(h === "—" ? "ведущий не выбран" : foMtName(h)) + '</b>' +
+      (h !== "—" ? '<i>' + (Math.round((load[h] || 0) / 6) / 10) + ' ч задач на неделе</i>' : '') + '</div>' +
+      FO_MT_DOW.map(function(_, d){
+        var items = list.filter(function(x){ return (x.pl.days || []).indexOf(d) >= 0; })
+          .sort(function(a, b){ return String(a.pl.time || "").localeCompare(String(b.pl.time || "")); });
+        var clash = {};
+        items.forEach(function(a, i){ items.forEach(function(b, j){
+          if(i >= j) return; var s1 = foMtHour(a.pl.time), s2 = foMtHour(b.pl.time); if(s1 == null || s2 == null) return;
+          if(s1 < s2 + (+b.pl.minutes || 60) / 60 && s2 < s1 + (+a.pl.minutes || 60) / 60){ clash[a.p.id] = clash[b.p.id] = 1; } }); });
+        return '<div class="fo-mtcd">' + items.map(function(x){
+          return '<button class="fo-mtev' + (clash[x.p.id] ? ' clash' : '') + '" data-mtcab="' + esc(x.p.id) + '" data-mttab="cab"><b>' + esc(x.pl.time || "—") + '</b> ' + esc(x.p.name) +
+            '<i>' + (x.pl.minutes || 60) + ' мин' + (clash[x.p.id] ? ' · пересекается' : '') + '</i></button>'; }).join("") + '</div>';
+      }).join("") + '</div>';
+  }).join("");
+  var ed = cabs.map(function(p){
+    var pl = plan[p.id] || {}, days = pl.days || [];
+    return '<div class="fo-mted" data-mtrow="' + esc(p.id) + '"><b>' + esc(p.name) + '</b>' +
+      '<span class="fo-mtdays">' + FO_MT_DOW.map(function(d, i){ return '<button class="' + (days.indexOf(i) >= 0 ? 'on' : '') + '" data-mtday="' + i + '">' + d + '</button>'; }).join("") + '</span>' +
+      '<input class="fi sm" type="time" data-mtpl="time" value="' + esc(pl.time || "") + '">' +
+      '<select class="sel sm" data-mtpl="minutes">' + [30, 45, 60, 90].map(function(n){ return '<option value="' + n + '"' + ((+pl.minutes || 60) === n ? ' selected' : '') + '>' + n + ' мин</option>'; }).join("") + '</select>' +
+      '<select class="sel sm" data-mtpl="host">' + foMtPeopleOpts(pl.host, "кто ведёт") + '</select>' +
+      '<button class="bt sm pri" data-mtplsave="' + esc(p.id) + '"' + (FO_MT.saving[p.id] ? ' disabled' : '') + '>' + (FO_MT.saving[p.id] ? 'Сохраняю…' : 'Сохранить') + '</button>' +
+      '<span class="fo-mtst">' + esc(pl.state || "") + '</span></div>';
+  }).join("");
+  return '<section class="gl"><div class="gl-t"><h2>Календарь планёрок</h2><span class="m">неделя ' + foMtDm(foMtIso(mon)) + ' — по дням и по проджектам</span></div>' +
+    head + (rows || '<div class="empty">Планёрок в графике пока нет — назначьте ниже.</div>') + '</div></section>' +
+    '<section class="gl"><div class="gl-t"><h2>График по кабинетам</h2><span class="m">дни, время, длительность, кто ведёт — совещание станет задачей ведущего</span></div>' +
+    (foMtFn() ? '' : '<div class="gerr on">В справочнике нет функции «Совещание» — заведите её в «Функциях», и график заработает.</div>') + ed + '</section>';
+}
+function foMtRender(){
+  var host = document.getElementById("sect"); if(!host) return;
+  if(!foMtCan()){ host.innerHTML = '<div class="gl"><div class="empty">Планёрки видят проджект и выше.</div></div>'; return; }
+  var y = window.scrollY;
+  host.innerHTML = foMtHead() + (FO_MT.tab === "cal" ? foMtCalHTML() : foMtCabHTML());
+  try{ if(typeof enhanceSelects === "function") enhanceSelects(host); }catch(e){}
+  window.scrollTo(0, y);
+}
+
+/* ── график кабинета → функция «Совещание» в кабинете (задачи ведущему рождает сервер) ── */
+function foMtPlanSave(pid, row){
+  var fn = foMtFn();
+  var days = Array.prototype.map.call(row.querySelectorAll("[data-mtday].on"), function(b){ return +b.getAttribute("data-mtday"); });
+  var time = (row.querySelector('[data-mtpl="time"]') || {}).value || "";
+  var minutes = +((row.querySelector('[data-mtpl="minutes"]') || {}).value || 60);
+  var hostId = (row.querySelector('[data-mtpl="host"]') || {}).value || "";
+  if(days.length && !hostId){ try{ toast("Выберите, кто ведёт планёрку"); }catch(e){} return; }
+  if(days.length && !time){ try{ toast("Укажите время планёрки"); }catch(e){} return; }
+  var plan = foMtPlanAll();
+  plan[pid] = {days: days, time: time, minutes: minutes, host: hostId, state: "сохраняю…"};
+  foMtSave();
+  if(!fn || !foLive()){ plan[pid].state = fn ? "сохранено" : "нет функции «Совещание»"; foMtRender(); return; }
+  FO_MT.saving[pid] = true; foMtRender();
+  var cabP = (typeof foCabFnLoad === "function") ? foCabFnLoad(pid) : Promise.resolve(null);
+  Promise.resolve(cabP).then(function(d){
+    var cab = d && d.cab ? (d.cab.id || d.cab) : null;
+    if(!cab) throw new Error("у клиента нет кабинета");
+    return api("/refs/cabinets/" + encodeURIComponent(cab) + "/functions/add", {method: "POST", body: {
+      fn_id: fn.id, employee_id: hostId || null, minutes: minutes,
+      cycle_kind: days.length ? "weekly" : "none", cycle_n: 1, cycle_weekdays: days}});
+  }).then(function(){
+    plan[pid].state = days.length ? "в графике · задача у " + foMtName(hostId) : "снято с графика";
+    foMtSave();
+    return (typeof loadLive === "function") ? loadLive() : null;
+  }).then(function(){
+    delete FO_MT.saving[pid];
+    try{ toast("Планёрка «" + ((project(pid) || {}).name || "") + "»: " + plan[pid].state); }catch(e){}
+    foMtRender();
+  }).catch(function(err){
+    delete FO_MT.saving[pid];
+    plan[pid].state = "не сохранилось: " + (err && err.message || "сервер не ответил"); foMtSave(); foMtRender();
+  });
+}
+
+/* ── в ганте: совещание — в своё время, остальные задачи дня обтекают его ── */
+function foMtPlace(){
+  FO_MT_IDS = {};
+  var fn = foMtFn(); if(!fn) return;
+  var plan = foMtPlanAll(), groups = {};
+  (S.tasks || []).forEach(function(t){
+    if(t._fo_s0 == null) t._fo_s0 = t.start;
+    var k = (t.person || "") + "|" + t.dow;
+    (groups[k] = groups[k] || []).push(t);
+  });
+  Object.keys(groups).forEach(function(k){
+    var list = groups[k], meets = [];
+    list.forEach(function(t){
+      if(String(t.fn) !== String(fn.id)) return;
+      FO_MT_IDS[t.id] = 1;
+      var pl = plan[t.project], h = pl ? foMtHour(pl.time) : null;
+      if(h != null){ t.start = h; if(pl.minutes) t.minutes = +pl.minutes; }
+      if(!/^Совещание/i.test(t.title || "")) t.title = "Совещание · " + ((project(t.project) || {}).name || t.title);
+      meets.push(t);
+    });
+    if(!meets.length) return;
+    var busy = meets.map(function(t){ return [t.start, t.start + (+t.minutes || 60) / 60]; }).sort(function(a, b){ return a[0] - b[0]; });
+    var cur = 10;
+    list.filter(function(t){ return !FO_MT_IDS[t.id]; }).sort(function(a, b){ return (a._fo_s0 || 0) - (b._fo_s0 || 0); }).forEach(function(t){
+      var len = (+t.minutes || 30) / 60, moved = true;
+      while(moved){ moved = false; busy.forEach(function(b){ if(cur < b[1] && cur + len > b[0]){ cur = b[1]; moved = true; } }); }
+      t.start = Math.min(19.4, cur); cur += len;
+    });
+  });
+}
+function foMtPaint(root){
+  (root || document).querySelectorAll(".gb[data-open]").forEach(function(b){
+    b.classList.toggle("fo-gmeet", !!FO_MT_IDS[b.getAttribute("data-open")]); });
+  (root || document).querySelectorAll(".lgd").forEach(function(l){
+    if(l.getAttribute("data-fomt")) return;
+    l.setAttribute("data-fomt", "1");
+    Array.prototype.forEach.call(l.querySelectorAll("span"), function(s){
+      if(/планёрки и дедлайны/.test(s.textContent)){
+        s.innerHTML = s.innerHTML.replace("планёрки и дедлайны", "дедлайны");
+        if(foMtCan()){ var m = document.createElement("span"); m.innerHTML = '<i class="fo-lgmeet"></i>совещания'; s.parentNode.insertBefore(m, s.nextSibling); }
+      }
+    });
+  });
+}
+
+(function(){
+  /* раздел «Планёрка» — новым видом */
+  renderMeet = foMtRender;
+  try{ if(typeof SEC_RENDER === "object" && SEC_RENDER) SEC_RENDER.meet = foMtRender; }catch(e){}
+  /* гант и задачи дня: совещание в своё время */
+  if(typeof render === "function"){
+    var _r = render;
+    render = function(){ try{ foMtPlace(); }catch(e){} var v = _r.apply(this, arguments); try{ foMtPaint(); }catch(e){} return v; };
+  }
+  try{
+    var raf = 0;
+    new MutationObserver(function(){
+      if(raf) return;
+      raf = requestAnimationFrame(function(){ raf = 0; try{ foMtPaint(); }catch(e){} });
+    }).observe(document.body, {childList: true, subtree: true});
+  }catch(e){}
+})();
+
+function foMtInView(e){ try{ return view === "meet" && e.target.closest && e.target.closest("#sect"); }catch(x){ return false; } }
+function foMtIx(s){ return String(s || "").split(":"); }
+
+window.addEventListener("click", function(e){
+  if(!foMtInView(e)) return;
+  var t = e.target, b;
+  if((b = t.closest("[data-mttab]")) && !b.hasAttribute("data-mtcab")){ FO_MT.tab = b.getAttribute("data-mttab"); foMtRender(); return; }
+  if((b = t.closest("[data-mtcab]"))){ FO_MT.pid = b.getAttribute("data-mtcab"); if(b.hasAttribute("data-mttab")) FO_MT.tab = "cab"; foMtRender(); return; }
+  var pid = FO_MT.pid, m = pid ? foMtOf(pid) : null;
+  if((b = t.closest("[data-mtday]"))){ b.classList.toggle("on"); return; }
+  if((b = t.closest("[data-mtplsave]"))){ foMtPlanSave(b.getAttribute("data-mtplsave"), b.closest("[data-mtrow]")); return; }
+  if(!m) return;
+  if(t.closest("[data-mttadd]")){ m.topics.push({id: foMtId("tp"), title: "", who: [], docs: [], probs: []}); foMtSave(); foMtRender(); return; }
+  if(t.closest("[data-mtfns]")){
+    var rows = (typeof foRowsOf === "function" ? foRowsOf(pid) : null) || [];
+    var have = {}; m.topics.forEach(function(x){ have[String(x.title || "").toLowerCase()] = 1; });
+    var n = 0;
+    var mf = foMtFn();
+    rows.forEach(function(r){
+      if(mf && String(r.fn_id) === String(mf.id)) return;
+      var nm = r.name || r.fn_name || ""; if(!nm || have[nm.toLowerCase()]) return;
+      m.topics.push({id: foMtId("tp"), title: nm, fn: r.fn_id || r.id || "", who: r.employee_id ? [String(r.employee_id)] : [], docs: [], probs: []}); n++;
+    });
+    if(!rows.length && typeof foCabFnLoad === "function"){
+      Promise.resolve(foCabFnLoad(pid)).then(function(){ try{ toast("Функции кабинета подгрузил — нажмите ещё раз"); }catch(x){} });
+    } else { try{ toast(n ? "Добавлено тем: " + n : "Все функции кабинета уже в темах"); }catch(x){} }
+    foMtSave(); foMtRender(); return;
+  }
+  if((b = t.closest("[data-mttdel]"))){ var i = +b.getAttribute("data-mttdel"); if(!b.getAttribute("data-sure")){ b.setAttribute("data-sure", "1"); b.textContent = "точно?"; return; } m.topics.splice(i, 1); foMtSave(); foMtRender(); return; }
+  if((b = t.closest("[data-mtopen]"))){ var id = b.getAttribute("data-mtopen"); FO_MT.open[id] = !FO_MT.open[id]; foMtRender(); return; }
+  if((b = t.closest("[data-mtpadd]"))){ var tp = m.topics[+b.getAttribute("data-mtpadd")]; if(tp){ tp.probs = tp.probs || []; tp.probs.push({id: foMtId("pr"), prob: "", sol: "", fact: false, link: "", who: "", due: ""}); foMtSave(); foMtRender(); } return; }
+  if((b = t.closest("[data-mtptask]"))){ var ix = foMtIx(b.getAttribute("data-mtptask")); var tp2 = m.topics[+ix[0]]; var pr = tp2 && tp2.probs[+ix[1]]; if(pr) foMtToTask(pid, tp2, pr); return; }
+  if((b = t.closest("[data-mtdocdel]"))){ var ix2 = foMtIx(b.getAttribute("data-mtdocdel")); var tp3 = m.topics[+ix2[0]]; if(tp3){ tp3.docs.splice(+ix2[1], 1); foMtSave(); foMtRender(); } return; }
+  if(t.closest("[data-mtfadd]")){ m.feats.push({id: foMtId("ft"), text: "", task: "", link: "", who: ""}); foMtSave(); foMtRender(); return; }
+  if((b = t.closest("[data-mtfdel]"))){ m.feats.splice(+b.getAttribute("data-mtfdel"), 1); foMtSave(); foMtRender(); return; }
+  if(t.closest("[data-mtgen]")){ m.cheat = foMtCheat(pid); foMtSave(); foMtRender(); return; }
+  if(t.closest("[data-mtcopy]")){ try{ navigator.clipboard.writeText([m.cheat, m.say ? "\nГоворить:\n" + m.say : "", m.nosay ? "\nНе говорить:\n" + m.nosay : ""].join("\n")); toast("Шпаргалка скопирована"); }catch(x){} return; }
+  if((b = t.closest("[data-mthist]"))){ var hid = b.getAttribute("data-mthist"); FO_MT.hist[hid] = !FO_MT.hist[hid]; foMtRender(); return; }
+  if((b = t.closest("[data-mtdone]"))){
+    if(!b.getAttribute("data-sure")){ b.setAttribute("data-sure", "1"); b.textContent = "Сохранить в историю? Нажмите ещё раз"; setTimeout(function(){ try{ b.removeAttribute("data-sure"); b.textContent = "Планёрка проведена"; }catch(x){} }, 5000); return; }
+    var total = 0, closed = 0;
+    var snap = m.topics.map(function(x){ var ps = (x.probs || []).filter(function(p){ return p.prob || p.sol; });
+      total += ps.length; closed += ps.filter(function(p){ return p.fact; }).length;
+      return {title: x.title, who: (x.who || []).slice(), docs: (x.docs || []).slice(), probs: JSON.parse(JSON.stringify(ps))}; });
+    var pl = foMtPlan(pid);
+    m.history.unshift({id: foMtId("mh"), date: m.date || foMtIso(new Date()), host: pl ? pl.host : "", topics: snap, total: total, closed: closed, cheat: m.cheat});
+    if(m.history.length > 60) m.history.length = 60;
+    m.topics.forEach(function(x){ x.probs = (x.probs || []).filter(function(p){ return !p.fact && (p.prob || p.sol); }); });
+    var d = new Date(); d.setDate(d.getDate() + 7); m.date = foMtNextDate(pid) && foMtNextDate(pid) > foMtIso(new Date()) ? foMtNextDate(pid) : foMtIso(d);
+    m.cheat = foMtCheat(pid);
+    foMtSave(); foMtRender();
+    try{ toast("Планёрка сохранена в историю: решено " + closed + " из " + total + ". Открытые проблемы — на следующую неделю"); }catch(x){}
+    return;
+  }
+}, true);
+
+window.addEventListener("change", function(e){
+  if(!foMtInView(e)) return;
+  var t = e.target, pid = FO_MT.pid, m = pid ? foMtOf(pid) : null;
+  if(!m || !t.getAttribute) return;
+  var a, ix;
+  if((a = t.getAttribute("data-mtt"))){ ix = foMtIx(a); var tp = m.topics[+ix[0]]; if(tp){ tp[ix[1]] = t.value; foMtSave(); } return; }
+  if((a = t.getAttribute("data-mtw"))){ ix = foMtIx(a); var tp2 = m.topics[+ix[0]]; if(tp2){ tp2.who = tp2.who || []; tp2.who[+ix[1]] = t.value; foMtSave(); } return; }
+  if((a = t.getAttribute("data-mtp"))){ ix = foMtIx(a); var tp3 = m.topics[+ix[0]]; var pr = tp3 && tp3.probs[+ix[1]]; if(pr){ pr[ix[2]] = t.value; foMtSave(); } return; }
+  if((a = t.getAttribute("data-mtpf"))){ ix = foMtIx(a); var tp4 = m.topics[+ix[0]]; var pr2 = tp4 && tp4.probs[+ix[1]]; if(pr2){ pr2.fact = !!t.checked; foMtSave(); foMtRender(); } return; }
+  if((a = t.getAttribute("data-mtf"))){ ix = foMtIx(a); var f = m.feats[+ix[0]]; if(f){ f[ix[1]] = t.value; foMtSave(); } return; }
+  if((a = t.getAttribute("data-mttxt"))){ m[a] = t.value; foMtSave(); return; }
+  if(t.hasAttribute("data-mtdate")){ m.date = t.value; foMtSave(); return; }
+  if(t.hasAttribute("data-mtsheet")){ m.sheet = t.value.trim(); foMtSave(); return; }
+}, true);
+
+window.addEventListener("keydown", function(e){
+  if(e.key !== "Enter" || !foMtInView(e)) return;
+  var t = e.target, a = t.getAttribute && t.getAttribute("data-mtdocadd");
+  if(a == null) return;
+  e.preventDefault();
+  var url = String(t.value || "").trim(); if(!/^https?:\/\//i.test(url)){ try{ toast("Вставьте ссылку, которая начинается с https://"); }catch(x){} return; }
+  var m = foMtOf(FO_MT.pid), tp = m.topics[+a]; if(!tp) return;
+  var nm = /docs\.google\.com\/spreadsheets/.test(url) ? "Таблица" : /docs\.google\.com\/document/.test(url) ? "Документ" : /powerbi/.test(url) ? "PBI" : /disk\.yandex/.test(url) ? "Я.Диск" : "Ссылка";
+  tp.docs = tp.docs || []; tp.docs.push({name: nm + " " + (tp.docs.length + 1), url: url});
+  foMtSave(); foMtRender();
+}, true);
+
+window.foMtState = function(){ return {кабинет: FO_MT.pid, график: Object.keys(foMtPlanAll()).length, совещаний_в_ганте: Object.keys(FO_MT_IDS).length, функция: (foMtFn() || {}).name || null}; };
 
 })();
 </script>
