@@ -2539,7 +2539,13 @@ _FO_AI_SYS = (
     "а в title коротко напиши, что уточнилось.\n"
     "Если это задача — сформулируй её для менеджера агентства коротко и по делу, в повелительном наклонении "
     "(например: «Снизить цену на артикул 153667602 до 1990 ₽»).\n"
-    "function_code — код функции только из списка функций кабинета, если подходит; иначе null.\n"
+    "function_code — к какой функции (блоку работ) относится задача: код из списка «Функции агентства». "
+    "Сначала ищи среди отмеченных ★ — они уже есть в этом кабинете; если подходящей там нет — бери из всего списка. "
+    "Сравнивай по смыслу, а не буквально: «аб тест», «A/B», «сплит фото» → функция про A/B тест; "
+    "«фото», «обложка», «инфографика» → функции фотоворонки. Если ни одна не подходит — null.\n"
+    "executor — кто из команды агентства должен сделать задачу по переписке: тот, кого прямо назвали исполнителем "
+    "(«@Ihar_emelyanenka, сделайте», «Игорь, посмотри»), или сотрудник, который сам ответил «сделаю», «беру», «займусь». "
+    "Пиши имя или @ник из списка «Команда агентства». Не угадывай: если исполнитель из переписки не ясен — null.\n"
     "urgent=true — только если клиент прямо пишет «срочно», «сегодня», «сейчас», называет ближайший час, "
     "или без этого встают продажи; иначе false.\n"
     "deadline — дата и время по Москве в формате YYYY-MM-DD HH:MM, если срок назван или очевиден; иначе null.\n"
@@ -2547,7 +2553,7 @@ _FO_AI_SYS = (
     "goal — одно предложение: какая конечная цель, какой результат для бизнеса клиента.\n"
     "minutes — сколько минут это займёт у менеджера, число от 5 до 240.\n"
     "Ответь только JSON, без пояснений и без markdown:\n"
-    "{\"is_task\": true, \"same_as\": null, \"title\": \"...\", \"function_code\": null, \"urgent\": false, \"deadline\": null, "
+    "{\"is_task\": true, \"same_as\": null, \"title\": \"...\", \"function_code\": null, \"executor\": null, \"urgent\": false, \"deadline\": null, "
     "\"why\": \"...\", \"goal\": \"...\", \"minutes\": 30}"
 )
 
@@ -2650,28 +2656,53 @@ def _fo_msg_link(tg_chat_id, msg_id):
     return None
 
 
-async def _fo_ai_people(c, org_id, cab_id, fn_id):
-    """Кандидаты в ответственные: люди этого кабинета (ведут его функции и артикулы),
-    плюс кто умеет функцию; минус нагрузка сегодня. Собственник и директор — не исполнители."""
+async def _fo_ai_people(c, org_id, cab_id, fn_id, named=None, talked=None, mentioned=None):
+    """Кандидаты в ответственные. Порядок Виталия (28.09): 1) кого назвали исполнителем в переписке
+    (или кто сам ответил «сделаю»); 2) кто ведёт эту функцию в кабинете; 3) кто переписывался по задаче.
+    Дальше — кто умеет функцию, ведёт кабинет, его артикулы; минус нагрузка сегодня.
+    Собственник и директор — не исполнители."""
     ppl = {}
+    named = {str(x) for x in (named or []) if x}
+    talked = {str(x) for x in (talked or []) if x}
+    mentioned = {str(x) for x in (mentioned or []) if x}
 
-    def add(eid, name, score, why):
-        if not eid:
-            return
+    def get(eid, name):
         k = str(eid)
-        d = ppl.setdefault(k, {"employee_id": k, "name": name or "", "score": 0.0, "why": []})
+        return ppl.setdefault(k, {"employee_id": k, "name": name or "", "score": 0.0, "why": [], "f": set()})
+
+    def flag(d, f, score, why):
+        if f in d["f"]:
+            return
+        d["f"].add(f)
         d["score"] += score
-        if why and why not in d["why"]:
+        if why:
             d["why"].append(why)
 
+    emps = {}
+    try:
+        for r in await c.fetch("SELECT id, name FROM employee WHERE org_id=$1 AND is_active", org_id):
+            emps[str(r["id"])] = r["name"]
+    except Exception:
+        pass
+    for k in named:
+        if k in emps:
+            flag(get(k, emps[k]), "named", 40, "назван(а) исполнителем в переписке")
+    for k in mentioned - named:
+        if k in emps:
+            flag(get(k, emps[k]), "ment", 6, "упомянут(а) в переписке")
+    for k in talked - named:
+        if k in emps:
+            flag(get(k, emps[k]), "talk", 8, "писал(а) в переписке по задаче")
     if cab_id:
         try:
             for r in await c.fetch(
                     "SELECT g.employee_id, g.fn_id, e.name FROM fo_cabinet_fn_cfg g JOIN employee e ON e.id=g.employee_id "
                     "WHERE g.cabinet_id=$1::uuid AND g.employee_id IS NOT NULL", str(cab_id)):
-                same = fn_id and str(r["fn_id"]) == str(fn_id)
-                add(r["employee_id"], r["name"], 10 if same else 2,
-                    "ведёт эту функцию в кабинете" if same else "ведёт функции этого кабинета")
+                d = get(r["employee_id"], r["name"])
+                if fn_id and str(r["fn_id"]) == str(fn_id):
+                    flag(d, "fnown", 20, "ведёт эту функцию в кабинете")
+                else:
+                    flag(d, "cab", 2, "ведёт функции этого кабинета")
         except Exception:
             pass
         try:
@@ -2679,7 +2710,7 @@ async def _fo_ai_people(c, org_id, cab_id, fn_id):
                     "SELECT ao.employee_id, e.name, count(DISTINCT ao.article_id) AS n FROM article_owner ao "
                     "JOIN article a ON a.id=ao.article_id JOIN employee e ON e.id=ao.employee_id "
                     "WHERE a.cabinet_id=$1::uuid AND a.is_active GROUP BY 1,2", str(cab_id)):
-                add(r["employee_id"], r["name"], 1, "ведёт артикулы кабинета: %d" % r["n"])
+                flag(get(r["employee_id"], r["name"]), "art", 1, "ведёт артикулы кабинета: %d" % r["n"])
         except Exception:
             pass
     if fn_id:
@@ -2688,7 +2719,7 @@ async def _fo_ai_people(c, org_id, cab_id, fn_id):
                     "SELECT ef.employee_id, e.name FROM employee_fn ef JOIN employee e ON e.id=ef.employee_id "
                     "WHERE ef.fn_id=$1::uuid AND e.org_id=$2", str(fn_id), org_id):
                 if str(r["employee_id"]) in ppl or not ppl:
-                    add(r["employee_id"], r["name"], 3, "умеет эту функцию")
+                    flag(get(r["employee_id"], r["name"]), "knows", 3, "умеет эту функцию")
         except Exception:
             pass
     if not ppl:
@@ -2712,7 +2743,52 @@ async def _fo_ai_people(c, org_id, cab_id, fn_id):
                 d["why"].append("сегодня задач: %d" % int(r["n"]))
     except Exception:
         pass
+    for d in ppl.values():
+        d.pop("f", None)
     return sorted(ppl.values(), key=lambda x: -x["score"])
+
+
+async def _fo_ai_team(c, org_id):
+    """Команда для ИИ: имя, @ник Telegram из карточки сотрудника, основа имени для падежей (Игорь → «игор»)."""
+    team = []
+    try:
+        rows = await c.fetch(
+            "SELECT e.id, e.name FROM employee e LEFT JOIN app_user u ON u.id=e.user_id "
+            "WHERE e.org_id=$1 AND e.is_active AND coalesce(u.role_code,'') NOT IN ('owner','admin')", org_id)
+        tg = {}
+        for r in await c.fetch("SELECT ref_id, data FROM fo_card WHERE org_id=$1 AND kind='employee'", org_id):
+            d = r["data"]
+            if isinstance(d, str):
+                try:
+                    d = _fo_json.loads(d)
+                except Exception:
+                    d = {}
+            t = str((d or {}).get("tg") or "").strip().lstrip("@").lower()
+            if t:
+                tg[str(r["ref_id"])] = t
+        for r in rows:
+            nm = str(r["name"] or "").strip()
+            first = (nm.split() or [""])[0].lower().replace("ё", "е")
+            stem = first[:max(3, len(first) - 1)] if first else ""
+            team.append({"id": str(r["id"]), "name": nm, "tg": tg.get(str(r["id"]), ""), "stem": stem})
+    except Exception:
+        pass
+    return team
+
+
+def _fo_ai_who(team, s):
+    """Кто это из команды: @ник, имя в любом падеже («Игорю», «Лизе»)."""
+    s = str(s or "").strip().lstrip("@").lower().replace("ё", "е")
+    if not s:
+        return None
+    for t in team:
+        if t["tg"] and s == t["tg"]:
+            return t["id"]
+    w = (re.findall(r"[a-zа-я]+", s) or [""])[0]
+    for t in team:
+        if t["stem"] and len(w) >= 3 and w.startswith(t["stem"]):
+            return t["id"]
+    return None
 
 
 async def _fo_ai_settings(c, org_id):
@@ -2752,7 +2828,7 @@ def _fo_ai_deadline(s):
 
 async def _fo_ai_process(msg_pk, dry=False, use_prev=True):
     """Разобрать одно сообщение: Яндекс → предложение задачи на согласование.
-    ИИ видит 15 прошлых сообщений чата и задачи клиента за 2 дня: повтор или уточнение
+    ИИ видит 20 прошлых сообщений чата и задачи клиента за 2 дня: повтор или уточнение
     уже поставленной задачи не создаёт новую, а добавляется к ней («уточнение», реакция ✍)."""
     async with pool().acquire() as c:
         m = await c.fetchrow("SELECT * FROM fo_chat_msg WHERE id=$1", msg_pk)
@@ -2761,11 +2837,16 @@ async def _fo_ai_process(msg_pk, dry=False, use_prev=True):
         cab = await c.fetchrow("SELECT cb.id, cl.name FROM cabinet cb JOIN client cl ON cl.id=cb.client_id "
                                "WHERE cb.client_id=$1::uuid ORDER BY cb.name LIMIT 1", str(m["client_id"]))
         cab_id = cab["id"] if cab else None
-        fns = []
+        fns = await c.fetch("SELECT f.id, f.code, f.name FROM fn f WHERE f.org_id=$1 ORDER BY f.code", m["org_id"])
+        incab = {}
         if cab_id:
-            fns = await c.fetch("SELECT f.id, f.code, f.name FROM cabinet_fn cf JOIN fn f ON f.id=cf.fn_id "
-                                "WHERE cf.cabinet_id=$1::uuid ORDER BY f.code", str(cab_id))
-        prev = await c.fetch("SELECT author, text FROM fo_chat_msg WHERE tg_chat_id=$1 AND id<$2 AND text<>'' "
+            for r in await c.fetch("SELECT cf.fn_id FROM cabinet_fn cf WHERE cf.cabinet_id=$1::uuid", str(cab_id)):
+                incab[str(r["fn_id"])] = ""
+            for r in await c.fetch("SELECT g.fn_id, e.name FROM fo_cabinet_fn_cfg g LEFT JOIN employee e ON e.id=g.employee_id "
+                                   "WHERE g.cabinet_id=$1::uuid", str(cab_id)):
+                incab[str(r["fn_id"])] = r["name"] or ""
+        team = await _fo_ai_team(c, m["org_id"])
+        prev = await c.fetch("SELECT author, author_tg, text FROM fo_chat_msg WHERE tg_chat_id=$1 AND id<$2 AND text<>'' "
                              "ORDER BY id DESC LIMIT %d" % _FO_AI_CTX_N, m["tg_chat_id"], m["id"]) if use_prev else []
         have = []
         if m["client_id"]:
@@ -2776,17 +2857,23 @@ async def _fo_ai_process(msg_pk, dry=False, use_prev=True):
                 m["org_id"], str(m["client_id"]), _FO_AI_DUP_DAYS, msg_pk)
     now = _fo_dt.datetime.now(_FO_MSK)
     days = ["понедельник", "вторник", "среда", "четверг", "пятница", "суббота", "воскресенье"]
-    ctx = ("Сейчас: %s (Москва), %s.\nКабинет: %s.\nФункции кабинета:\n%s\n" % (
+    fl = sorted(fns, key=lambda f: (str(f["id"]) not in incab, str(f["code"])))
+    ctx = ("Сейчас: %s (Москва), %s.\nКабинет: %s.\nФункции агентства (★ — есть в этом кабинете, в скобках — кто её ведёт):\n%s\n" % (
         now.strftime("%Y-%m-%d %H:%M"), days[now.weekday()], (cab["name"] if cab else "—"),
-        "\n".join("%s — %s" % (f["code"], f["name"]) for f in fns[:80]) or "(не назначены)"))
+        "\n".join("%s%s — %s%s" % ("★ " if str(f["id"]) in incab else "", f["code"], f["name"],
+                                    (" (%s)" % incab[str(f["id"])]) if incab.get(str(f["id"])) else "") for f in fl[:150]) or "(нет)"))
+    if team:
+        ctx += "Команда агентства: " + ", ".join(t["name"] + (" (@%s)" % t["tg"] if t["tg"] else "") for t in team) + "\n"
     if have:
         ctx += "Уже поставленные задачи по этому клиенту (за %d дня):\n" % _FO_AI_DUP_DAYS + "\n".join(
             "#%s [%s] %s — клиент писал: «%s»" % (h["id"], "ждёт согласования" if h["status"] == "pending" else "принята",
                                                h["title"], (h["quote"] or "").replace("\n", " ")[:120]) for h in have) + "\n"
     if prev:
         ctx += "Предыдущие сообщения чата (старые сверху):\n" + "\n".join(
-            "— %s: %s" % (p_["author"] or "?", (p_["text"] or "")[:300]) for p_ in reversed(prev)) + "\n"
-    ctx += "Новое сообщение (от %s): «%s»" % (m["author"] or "клиент", (m["text"] or "")[:1500])
+            "— %s%s: %s" % (p_["author"] or "?", (" (@%s)" % p_["author_tg"]) if p_["author_tg"] else "",
+                            (p_["text"] or "")[:300]) for p_ in reversed(prev)) + "\n"
+    ctx += "Новое сообщение (от %s%s): «%s»" % (m["author"] or "клиент", (" (@%s)" % m["author_tg"]) if m["author_tg"] else "",
+                                                (m["text"] or "")[:1500])
     sys_txt = _FO_AI_SYS
     try:
         async with pool().acquire() as c:
@@ -2862,7 +2949,21 @@ async def _fo_ai_process(msg_pk, dry=False, use_prev=True):
         code = str(js.get("function_code") or "").strip()
         fn = next((f for f in fns if str(f["code"]).lower() == code.lower()), None) if code else None
         fn_id = fn["id"] if fn else None
-        cands = await _fo_ai_people(c, m["org_id"], cab_id, fn_id)
+        named, talked, mentioned = set(), set(), set()
+        ex = _fo_ai_who(team, js.get("executor"))
+        if ex:
+            named.add(ex)
+        for p_ in list(prev) + [m]:
+            who = _fo_ai_who(team, p_["author_tg"]) or _fo_ai_who(team, (str(p_["author"] or "").split() or [""])[0])
+            if who:
+                talked.add(who)
+            for mm in re.findall(r"@([A-Za-z0-9_]{3,})", str(p_["text"] or "")):
+                w2 = _fo_ai_who(team, mm)
+                if w2:
+                    mentioned.add(w2)
+        cands = await _fo_ai_people(c, m["org_id"], cab_id, fn_id, named, talked, mentioned)
+        if fn and str(fn["id"]) not in incab:
+            js["fn_outside"] = True
         emp = cands[0]["employee_id"] if cands else None
         if dry:
             await c.execute("UPDATE fo_chat_msg SET ai_state='task', ai_tokens=$2 WHERE id=$1", msg_pk, tokens)
