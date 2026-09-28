@@ -5016,7 +5016,9 @@ async def _fo_mt_weekitems(c, org_id, client_id, sl, r):
     skips = {x["day"] for x in await c.fetch("SELECT day FROM fo_task_skip WHERE org_id=$1::uuid AND client_id=$2::uuid "
                                             "AND day >= $3", str(org_id), str(client_id), mon)}
     since = r["since"] if r else None
-    items = _fo_mt_dated(sl, mon, skips, since, today) if today.weekday() <= 4 else []
+    now = _fo_mt_now()
+    items = [x for x in (_fo_mt_dated(sl, mon, skips, since, today) if today.weekday() <= 4 else [])
+             if x["day"] > today or (_fo_mt_m(x["time"]) or 0) > now.hour * 60 + now.minute]
     if not items:
         mon = mon + _fo_dt.timedelta(days=7)
         items = _fo_mt_dated(sl, mon, skips, since)
@@ -5032,7 +5034,8 @@ async def _fo_mt_req_parse(text, items, now, held, org_id):
             "extra" if re.search(r"дополнительн|ещ[её]\s+одн|втор(ую|ой|ая)\s+(план|созв|встреч)|ещ[её]\s+(план|созв|встреч)", t) else
             "move" if re.search(r"перенес|перенос|сдвин|другое\s+время|давайте\s+(в|на)\s|можно\s+(в|на)\s", t) else
             "unclear" if re.search(r"план[её]рк|созвон|встреч", t) else "not_about",
-            "from_date": None, "date": None, "time": rx["time"], "day": rx["days"][0] if rx["days"] else None, "by": "правило"}
+            "from_date": None, "date": None, "time": rx["time"], "by": "правило"}
+    base["from_day"], base["day"] = _fo_mt_daywords(text)
     if not _fo_ai_ready():
         return base
     lst = "\n".join("- %s (%s) %s–%s%s" % (x["day"].isoformat(), _FO_MT_DOWN[x["day"].weekday()][:2], x["time"],
@@ -5057,8 +5060,29 @@ async def _fo_mt_req_parse(text, items, now, held, org_id):
         return base
     js["by"] = "ИИ"
     js["time"] = _fo_mt_hm(_fo_mt_m(js.get("time"))) if _fo_mt_m(js.get("time")) is not None else base["time"]
-    js["day"] = base["day"]
+    js["day"], js["from_day"] = base["day"], base["from_day"]
     return js
+
+
+_FO_MT_TO_RX = [(0, r"(?:на|в|во)\s+понедельник"), (1, r"(?:на|в|во)\s+вторник"), (2, r"(?:на|в|во)\s+сред[уы]"),
+                (3, r"(?:на|в|во)\s+четверг"), (4, r"(?:на|в|во)\s+пятниц")]
+_FO_MT_FROM_RX = [(0, r"понедельничн|с\s+понедельника|понедельник\w*\s+(?:перенес|отмен|сдвин)"),
+                  (1, r"вторничн|с\s+вторника|вторник\w*\s+(?:перенес|отмен|сдвин)"),
+                  (2, r"средов|с\s+среды|сред[аы]\s+(?:перенес|отмен|сдвин)"),
+                  (3, r"четвергов|с\s+четверга|четверг\w*\s+(?:перенес|отмен|сдвин)"),
+                  (4, r"пятничн|с\s+пятницы|пятниц\w*\s+(?:перенес|отмен|сдвин)")]
+
+
+def _fo_mt_daywords(text):
+    """Куда и откуда: «четверговую перенесём на пятницу» → откуда 3, куда 4."""
+    t = str(text or "").lower().replace("ё", "е")
+    to = next((d for d, rx in _FO_MT_TO_RX if re.search(rx, t)), None)
+    fr = next((d for d, rx in _FO_MT_FROM_RX if re.search(rx, t)), None)
+    if to is None and fr is None:
+        ds = _fo_mt_rx(text)["days"]
+        if len(ds) == 1:
+            to = ds[0]
+    return fr, to
 
 
 def _fo_mt_workday(day):
@@ -5101,8 +5125,10 @@ async def _fo_mt_request(c, org_id, client_id, r, text, msg_id, pk, test):
     names = await _fo_mt_names(c, org_id)
     cab = await c.fetchval("SELECT name FROM client WHERE id=$1::uuid", str(client_id)) or ""
     want_day = _fo_mt_date(js.get("date"))
-    if not want_day and js.get("day") is not None:
-        want_day = mon + _fo_dt.timedelta(days=int(js["day"]))
+    if want_day and not (today <= want_day <= today + _fo_dt.timedelta(days=14)):
+        want_day = None
+    if js.get("day") is not None and (not want_day or want_day.weekday() != int(js["day"])):
+        want_day = mon + _fo_dt.timedelta(days=int(js["day"]))      # день недели из слов клиента надёжнее даты от ИИ
         if want_day < today:
             want_day += _fo_dt.timedelta(days=7)
     if want_day:
@@ -5110,6 +5136,9 @@ async def _fo_mt_request(c, org_id, client_id, r, text, msg_id, pk, test):
     tgt = None
     if it in ("move", "cancel"):
         fd = _fo_mt_date(js.get("from_date"))
+        if js.get("from_day") is not None and (not fd or fd.weekday() != int(js["from_day"])):
+            fd = next((x["day"] for x in items if x["day"].weekday() == int(js["from_day"]) and not past(x)),
+                      next((x["day"] for x in items if x["day"].weekday() == int(js["from_day"])), None))
         cand = [x for x in items if fd and x["day"] == fd]
         if cand and all(past(x) for x in cand):
             sent, err = await _fo_mt_send(c, org_id, client_id, "Эта планёрка уже прошла ✓ Если нужна ещё одна встреча на этой "
@@ -5292,6 +5321,28 @@ async def _fo_mt_auto(c):
                 await _fo_mt_camp_start(c, o["org_id"], None, True, st["gap"], False, None, auto=True)
         finally:
             await c.execute("SELECT pg_advisory_unlock(hashtext($1))", "fo-meet:" + str(o["org_id"]))
+
+
+@router.post("/meet/{client_id}/week/reset")
+async def fo_meet_week_reset(client_id: str, p: Principal = Depends(max_level(4))):
+    """Вернуть неделю к графику: снять переносы, отмены и дополнительные с сегодняшнего дня, задачи — как по графику."""
+    today = _fo_mt_now().date()
+    async with pool().acquire() as c:
+        if not await c.fetchval("SELECT 1 FROM client WHERE id=$1::uuid AND org_id=$2", client_id, p.org_id):
+            raise HTTPException(404, "клиент не найден")
+        n1 = 0
+        for o in await c.fetch("UPDATE fo_meet_occ SET status='cancelled' WHERE org_id=$1::uuid AND client_id=$2::uuid "
+                               "AND status='agreed' AND day >= $3 RETURNING task_id", str(p.org_id), client_id, today):
+            n1 += 1
+            if o["task_id"]:
+                await c.execute("DELETE FROM task WHERE id=$1 AND status='planned'", o["task_id"])
+        n2 = _fo_n(await c.execute("DELETE FROM fo_task_skip WHERE org_id=$1::uuid AND client_id=$2::uuid AND day >= $3",
+                                   str(p.org_id), client_id, today))
+        await c.execute("UPDATE fo_meet SET pend=NULL, log=log||$3::jsonb WHERE org_id=$1::uuid AND client_id=$2::uuid",
+                        str(p.org_id), client_id, _fo_mt_item("неделя возвращена к графику", переносов=n1, отмен=n2))
+        r = await _fo_mt_row(c, p.org_id, client_id)
+        applied = await _fo_mt_apply(c, p.org_id, client_id, _fo_mt_eff(r)) if r else ""
+    return {"ok": True, "снято_переносов": n1, "возвращено_дней": n2, "задачи": applied}
 '''
 
 ADD_MAIN = r'''
