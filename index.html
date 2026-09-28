@@ -27974,13 +27974,19 @@ function foMtLoad(force){
   try{ if(!foLive()) return Promise.resolve(null); }catch(e){ return Promise.resolve(null); }
   if(FO_MT.srvP) return FO_MT.srvP;
   if(!force && FO_MT.srv && Date.now() - FO_MT.srvAt < 15000) return Promise.resolve(FO_MT.srv);
+  if(!force && FO_MT.err && Date.now() - FO_MT.srvAt < 8000) return Promise.resolve(FO_MT.srv);   /* сервер не ответил — не долбим */
   FO_MT.srvP = api("/refs/meet").then(function(d){
     FO_MT.srvP = null; FO_MT.srvAt = Date.now(); FO_MT.err = "";
     if(JSON.stringify(d) !== JSON.stringify(FO_MT.srv)){ FO_MT.srv = d; FO_MT.chg = true; FO_MT.timesAt = 0; }
+    FO_MT.err = "";
     return d;
   }).catch(function(e){
-    FO_MT.srvP = null; FO_MT.srvAt = Date.now(); FO_MT.err = (e && e.message) || "сервер не ответил"; FO_MT.chg = true;
-    setTimeout(function(){ if(!FO_MT.srv) foMtLoad(true).then(function(){ if(FO_MT.chg){ FO_MT.chg = false; foMtRenderSoft(); } }); }, 5000);
+    var msg = (e && e.message) || "сервер не ответил";
+    FO_MT.srvP = null; FO_MT.srvAt = Date.now();
+    if(FO_MT.err !== msg){ FO_MT.err = msg; if(!FO_MT.srv) FO_MT.chg = true; }
+    if(!FO_MT.retry) FO_MT.retry = setTimeout(function(){
+      FO_MT.retry = 0; if(FO_MT.srv) return;
+      foMtLoad(true).then(function(){ if(FO_MT.chg){ FO_MT.chg = false; foMtRenderSoft(); } }); }, 8000);
     return null;
   });
   return FO_MT.srvP;
