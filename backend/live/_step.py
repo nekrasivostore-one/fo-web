@@ -2105,8 +2105,18 @@ _FO_ST_KEYS = {
     "drafts":   ("me",  "list", 9, 9, 200),
     "runs":     ("me",  "obj",  9, 9, 0),
     "tariff":   ("svc", "obj",  0, 9, 0),
+    # 28.09: нашлось при проверке сборки — жило в браузере или во вкладке
+    "meet":     ("org", "map",  4, 4, 0),      # планёрка по кабинету: темы, проблемы и решения, особенности, шпаргалка, история
+    "meetPlan": ("org", "map",  4, 4, 0),      # график планёрок: дни, время, длительность, кто ведёт
+    "catDays":  ("org", "obj",  4, 9, 0),
+    "aodAuto":  ("org", "obj",  4, 9, 0),
+    "aodTime":  ("org", "obj",  4, 9, 0),
+    "grades":   ("org", "obj",  2, 3, 0),
+    "settings": ("org", "obj",  1, 9, 0),
+    "tpl":      ("org", "map",  4, 9, 0),
+    "log":      ("org", "list", 9, 4, 1000),
 }
-_FO_ST_FRONT = {"access", "leads", "placed", "drafts"}   # новые записи — в начало списка
+_FO_ST_FRONT = {"access", "leads", "placed", "drafts", "log"}   # новые записи — в начало списка
 
 
 def _fo_st_lvl(p):
