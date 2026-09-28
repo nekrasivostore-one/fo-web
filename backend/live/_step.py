@@ -4609,6 +4609,7 @@ async def fo_meet_save(client_id: str, body: FoMtSaveIn, p: Principal = Depends(
                  since=coalesce(fo_meet.since, EXCLUDED.since), status=EXCLUDED.status,
                  offer=CASE WHEN EXCLUDED.status='proposed' THEN fo_meet.offer ELSE NULL END,
                  attn=CASE WHEN EXCLUDED.status IN ('agreed','off') THEN NULL ELSE fo_meet.attn END,
+                 pinned=CASE WHEN EXCLUDED.status='agreed' THEN fo_meet.pinned ELSE false END,
                  rounds=CASE WHEN EXCLUDED.status='proposed' THEN fo_meet.rounds ELSE 0 END,
                  agreed_at=CASE WHEN EXCLUDED.status='agreed' AND fo_meet.status<>'agreed' THEN now() ELSE fo_meet.agreed_at END,
                  log=fo_meet.log || EXCLUDED.log, updated_at=now(), updated_by=EXCLUDED.updated_by""",
@@ -5334,7 +5335,8 @@ async def _fo_mt_auto(c):
     start = _fo_dt.datetime.combine(now.date(), _fo_dt.time(0, 0), tzinfo=_FO_MSK)
     for o in await c.fetch("SELECT DISTINCT org_id FROM fo_meet WHERE status<>'off'"):
         st = await _fo_mt_settings(c, o["org_id"])
-        if not st.get("auto") or now.hour * 60 + now.minute < st.get("auto_at", 600):
+        at = st.get("auto_at", 600)
+        if not st.get("auto") or not (at <= now.hour * 60 + now.minute < at + 240):      # только утром понедельника, не вдогонку вечером
             continue
         if await c.fetchval("SELECT 1 FROM fo_meet_camp WHERE org_id=$1 AND started_at >= $2 AND NOT test LIMIT 1", o["org_id"], start):
             continue
