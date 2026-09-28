@@ -4946,7 +4946,7 @@ except Exception as _e:
 p("")
 p("== ЯЩИК ДЛЯ КЛЮЧЕЙ ==")
 # ключ из «Ключи ФО.txt»: приехал зашифрованным (ключ шифра — токен бота, он есть и на Маке, и здесь)
-_FO_BLOB = "__FO_BLOB__"
+_FO_BLOB = "U2FsdGVkX1/DWcWCOllGOpsr+LAQVe/gpW0vY1VIoMNVIFZMqTfSaDe32KgH1hBUPzpgKavU2HTh4WkRdX16FifgSXfl9IiZKQZlkWO/NVhtDeJ99uhJOLNdh/66hm7b"
 if _FO_BLOB and not _FO_BLOB.startswith("__"):
     try:
         _bt = ""
