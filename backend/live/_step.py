@@ -4149,9 +4149,11 @@ async def _fo_meet_answer_do(org_id, client_id, text, msg_id=None, pk=None, test
                     return await _fo_mt_handoff(c, org_id, client_id, msg_id, test, "у ведущего нет окна: «%s»" % str(text)[:120])
                 for d, pl in alt.items():
                     new[d]["time"] = _fo_mt_hm(pl[0])
-                txt = ("Спасибо! На это время поставить не получится: планёрки у %s идут одним блоком с перерывами, "
-                       "так мы держим тайминг. Можем предложить: %s.\nПодойдёт первый вариант? Ответьте «да» или выберите другой."
-                       % (", ".join(sorted({names.get(new[d]["host"], "проджекта") for d in alt})), "; ".join(opts)))
+                many = sum(len(x) for x in alt.values()) > 1
+                txt = ("Спасибо! На это время поставить не получится: в этот день планёрки у нас идут одним блоком "
+                       "с перерывами — так мы держим тайминг. Можем предложить: %s.\n%s"
+                       % ("; ".join(opts), "Подойдёт первый вариант? Ответьте «да» или выберите другой." if many
+                          else "Подойдёт? Ответьте «да» или напишите, какое время вам удобно."))
                 await c.execute("UPDATE fo_meet SET rounds=coalesce(rounds,0)+1 WHERE org_id=$1::uuid AND client_id=$2::uuid",
                                 str(org_id), str(client_id))
                 res = await _fo_mt_offer_send(c, org_id, client_id, "offer", new, reply_to=msg_id, test=test, text=txt)
