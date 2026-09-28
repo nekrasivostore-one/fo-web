@@ -2251,6 +2251,137 @@ async def _fo_promise_apply(c, u):
                     str(u["org_id"]), _fo_json.dumps(d, ensure_ascii=False))
     return ok
 
+
+# ══ ПРОВЕРКА РОЛЕЙ (28.09): что каждый человек агентства видит на самом деле ══
+# Виталий: «Проверь, чтобы при каждом новом кабинете у каждого менеджера
+# отображались задачи; чтобы менеджеры под своим доступом видели все свои задачи.
+# Проверь каждую роль». Сервер сам ходит к себе от имени каждого человека
+# (его доступ, только чтение, пометка тени — запись отклонится) и сводит:
+# связана ли карточка сотрудника с аккаунтом, сколько своих задач на неделе он
+# получает, сколько чужих, разовые, согласования, частное в карточках. Плюс по
+# каждому кабинету: у каждой назначенной функции есть ли задачи у ответственного.
+import urllib.error as _fo_ue
+
+
+def _fo_diag_get(tok, path):
+    rq = _fo_ur.Request("http://127.0.0.1:8000" + path,
+                        headers={"Authorization": "Bearer " + str(tok), "x-fo-shadow": "diag"})
+    try:
+        with _fo_ur.urlopen(rq, timeout=20) as r:
+            tx = r.read().decode() or "null"
+            try:
+                return r.status, _fo_json.loads(tx)
+            except Exception:
+                return r.status, None
+    except _fo_ue.HTTPError as e:
+        return e.code, None
+    except Exception as e:
+        return 0, str(e)[:120]
+
+
+_FO_DIAG_PRIVATE = re.compile(r"phone|tel|owner|sobst|собств|sum|price|amount|money|pay|salary|oklad|оклад|sheet|table|tg|telegram|inn|email|mail", re.I)
+
+
+@router.get("/diag/roles")
+async def fo_diag_roles(p: Principal = Depends(max_level(2))):
+    org = str(p.org_id)
+    today = _fo_msk_today()
+    mon = today - _fo_dt.timedelta(days=today.weekday())
+    week = [mon + _fo_dt.timedelta(days=i) for i in range(5)]
+    async with pool().acquire() as c:
+        users = await c.fetch(
+            "SELECT u.id, u.email, u.org_id, u.role_code, u.display_name, r.level FROM app_user u "
+            "JOIN role r ON r.code=u.role_code WHERE u.org_id=$1::uuid AND u.is_active ORDER BY r.level, u.email", org)
+        emps = await c.fetch("SELECT id, name, user_id, is_active FROM employee WHERE org_id=$1::uuid", org)
+        cabs = await c.fetch("SELECT cb.id, cb.name, cl.name AS client FROM cabinet cb JOIN client cl ON cl.id=cb.client_id "
+                             "WHERE cl.org_id=$1::uuid ORDER BY cl.name, cb.name", org)
+        cab_ids = [str(x["id"]) for x in cabs]
+        cfg = await c.fetch(
+            "SELECT g.cabinet_id, g.fn_id, g.employee_id, g.cycle_kind, f.code, f.name, e.name AS emp "
+            "FROM fo_cabinet_fn_cfg g JOIN fn f ON f.id=g.fn_id LEFT JOIN employee e ON e.id=g.employee_id "
+            "WHERE g.cabinet_id = ANY($1::uuid[])", cab_ids) if cab_ids else []
+        tk = await c.fetch(
+            "SELECT cabinet_id, fn_id, assignee_id, count(*) AS n, min(plan_date) AS first FROM task "
+            "WHERE cabinet_id = ANY($1::uuid[]) AND plan_date BETWEEN $2 AND $3 AND status <> 'removed' GROUP BY 1,2,3",
+            cab_ids, today, today + _fo_dt.timedelta(days=14)) if cab_ids else []
+    emp_by_user = {str(e["user_id"]): e for e in emps if e["user_id"]}
+    emp_name = {str(e["id"]): e["name"] for e in emps}
+    # 1) кабинеты: у каждой функции с ответственным — задачи у него на 2 недели
+    tmap = {}
+    for r in tk:
+        tmap.setdefault((str(r["cabinet_id"]), str(r["fn_id"])), {})[str(r["assignee_id"])] = (int(r["n"]), str(r["first"]))
+    cab_out = []
+    for cb in cabs:
+        rows, gaps = [], 0
+        for g in [x for x in cfg if str(x["cabinet_id"]) == str(cb["id"])]:
+            got = tmap.get((str(cb["id"]), str(g["fn_id"])), {})
+            mine = got.get(str(g["employee_id"])) if g["employee_id"] else None
+            others = {emp_name.get(k, k): v[0] for k, v in got.items() if k != str(g["employee_id"])}
+            state = "ok" if mine else ("нет ответственного" if not g["employee_id"] else "нет задач на 2 недели")
+            if state != "ok":
+                gaps += 1
+            rows.append({"функция": "%s %s" % (g["code"], g["name"]), "ответственный": g["emp"] or "—",
+                         "цикл": g["cycle_kind"] or "базовый", "задач_у_него": mine[0] if mine else 0,
+                         "первая": mine[1] if mine else None, "у_других": others, "итог": state})
+        cab_out.append({"кабинет": "%s · %s" % (cb["client"], cb["name"]), "функций": len(rows), "проблем": gaps, "функции": rows})
+    # 2) люди: что сервер отдаёт каждому под его доступом
+    ppl = []
+    for u in users:
+        e = emp_by_user.get(str(u["id"]))
+        row = {"имя": u["display_name"] or u["email"], "почта": u["email"], "роль": u["role_code"], "уровень": int(u["level"]),
+               "карточка_сотрудника": (e["name"] if e else None), "ошибки": []}
+        if not e and int(u["level"]) >= 3:
+            row["ошибки"].append("аккаунт не связан с карточкой сотрудника — «мои задачи» будут пустыми")
+        try:
+            tok = _fo_make_access_for(u)
+            if isinstance(tok, (tuple, list)):
+                tok = tok[0]
+            if isinstance(tok, dict):
+                tok = tok.get("access") or tok.get("token") or tok.get("access_token")
+        except Exception as ex:
+            row["ошибки"].append("доступ не собрался: %s" % str(ex)[:100])
+            ppl.append(row)
+            continue
+        my = str(e["id"]) if e else "-"
+        mine = oth = 0
+        for d in week:
+            st, js = await _fo_aio.to_thread(_fo_diag_get, tok, "/tasks/day?day=" + d.isoformat())
+            if st != 200:
+                row["ошибки"].append("задачи дня %s: код %s" % (d.isoformat(), st))
+                continue
+            for t in (js or []):
+                if str(t.get("assignee_id")) == my:
+                    mine += 1
+                else:
+                    oth += 1
+        row["задач_недели_своих"] = mine
+        row["задач_недели_чужих_видно"] = oth
+        st, js = await _fo_aio.to_thread(_fo_diag_get, tok, "/refs/tasks/once")
+        row["разовых_своих"] = len([x for x in (js or []) if str(x.get("employee_id")) == my]) if st == 200 else "код %s" % st
+        st, js = await _fo_aio.to_thread(_fo_diag_get, tok, "/refs/employees")
+        row["видит_сотрудников"] = len(js or []) if st == 200 else "код %s" % st
+        if st == 200 and e and not any(str(x.get("id")) == my for x in (js or [])):
+            row["ошибки"].append("своей карточки нет в списке сотрудников")
+        st, js = await _fo_aio.to_thread(_fo_diag_get, tok, "/refs/clients")
+        row["видит_клиентов"] = len(js or []) if st == 200 else "код %s" % st
+        st, js = await _fo_aio.to_thread(_fo_diag_get, tok, "/refs/tasks/reviews")
+        row["согласований"] = len(js or []) if st == 200 and isinstance(js, list) else "код %s" % st
+        st, js = await _fo_aio.to_thread(_fo_diag_get, tok, "/refs/cards")
+        if st == 200:
+            priv = {}
+            for cd in (js or []):
+                if cd.get("kind") in ("cab", "client", "employee"):
+                    ks = [k for k, v in (cd.get("data") or {}).items() if v not in (None, "", [], {}) and _FO_DIAG_PRIVATE.search(k)]
+                    if cd.get("kind") == "employee" and str(cd.get("ref_id")) == my:
+                        ks = []
+                    if ks:
+                        priv.setdefault(cd.get("kind"), set()).update(ks)
+            row["частное_в_карточках"] = {k: sorted(v)[:12] for k, v in priv.items()}
+        else:
+            row["частное_в_карточках"] = "код %s" % st
+        ppl.append(row)
+    return {"неделя": [d.isoformat() for d in week], "люди": ppl, "кабинеты": cab_out}
+
 # ══ ИИ ИЗ ЧАТОВ (С11, этап 1) ════════════════════════════════════
 # Клиент пишет в чат кабинета → Telegram шлёт сообщение сюда (свой
 # webhook, с тем же секретом, что штатный) → сообщение хранится →
@@ -2349,7 +2480,7 @@ _FO_AI_SYS = (
     "\"why\": \"...\", \"goal\": \"...\", \"minutes\": 30}"
 )
 
-_FO_AI_CTX_N = 15      # сколько прошлых сообщений чата видит ИИ (Виталий 25.09: «последние 10–15»)
+_FO_AI_CTX_N = 20      # сколько прошлых сообщений чата видит ИИ (Виталий 28.09: «собирай контекст последних 20 сообщений»)
 _FO_AI_DUP_DAYS = 2    # за сколько дней искать уже поставленную такую же задачу
 
 
