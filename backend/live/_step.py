@@ -4335,7 +4335,7 @@ def _fo_mt_adjacent(busy, host, d, t, mins, st):
 
 
 async def _fo_mt_handoff(c, org_id, client_id, msg_id, test, why):
-    txt = ("⭐️🔴 Планёрка пока не согласована.\n"
+    txt = ("🔴 Не согласовано.\n"
            "Спасибо! Передали ваш вопрос проджекту — он свяжется с вами и согласует удобное время.")
     sent, err = await _fo_mt_send(c, org_id, client_id, txt, reply_to=msg_id, test=test)
     r = await _fo_mt_row(c, org_id, client_id)
@@ -5082,12 +5082,11 @@ def _fo_mt_parts(kind, cab, items, names, note=""):
 
 
 def _fo_mt_caption(kind, cab, items, names, note=""):
-    # кружок — статус (Виталий 29.09): 🟡 на согласовании, 🟢 согласована, 🔴 не согласована / отменена
-    head = {"week": "⭐️🟡 <b>Планёрки на неделю</b>", "confirm": "⭐️🟡 <b>Планёрки на неделю</b>",
-            "offer": "⭐️🟡 <b>Планёрка</b>", "move": "⭐️🟡 <b>Перенос планёрки</b>",
-            "extra": "⭐️🟡 <b>Дополнительная планёрка</b>", "agreed": "⭐️🟢 <b>Планёрка назначена</b>",
-            "remind": "⭐️🟢 <b>Планёрка через час</b>", "cancel": "⭐️🟡 <b>Отмена планёрки</b>",
-            "next": "⭐️🟢 <b>Следующая планёрка</b>"}[kind]
+    # статус — кружок и подпись словами (Виталий 29.09: «цвет кружка — статус, известный только тебе; подпиши»)
+    title = {"week": "Планёрки на неделю", "confirm": "Планёрки на неделю", "offer": "Планёрка", "move": "Перенос планёрки",
+             "extra": "Дополнительная планёрка", "agreed": "Планёрка назначена", "remind": "Планёрка через час",
+             "cancel": "Отмена планёрки", "next": "Следующая планёрка"}[kind]
+    head = "⭐️ <b>%s</b>\n%s" % (title, "🟢 Согласовано" if kind in ("agreed", "remind", "next") else "🟡 На согласовании")
     tail = {"week": "Удобно? Ответьте на это сообщение «да» — или напишите, что поменять.\n"
                     "В течение недели планёрку можно перенести или попросить дополнительную — просто напишите здесь.",
             "confirm": "Всё в силе по нашему постоянному времени? Ответьте «да» — или напишите, что поменять.",
@@ -5346,10 +5345,17 @@ async def _fo_mt_request(c, org_id, client_id, r, text, msg_id, pk, test):
         it = "extra"
     elif _FO_MT_MOVE_RX.search(t_low) and it == "extra" and not _FO_MT_EXTRA_RX.search(t_low):
         it = "move"
-    if js.get("day") is not None and (not want_day or want_day.weekday() != int(js["day"])):
-        want_day = mon + _fo_dt.timedelta(days=int(js["day"]))      # день недели из слов клиента надёжнее даты от ИИ
-        if want_day < today:
-            want_day += _fo_dt.timedelta(days=7)
+    if js.get("day") is not None:
+        # день недели из слов клиента надёжнее даты от ИИ; «в пятницу» — ближайшая пятница, если не сказано «следующую»
+        near = mon + _fo_dt.timedelta(days=int(js["day"]))
+        if near < today:
+            near += _fo_dt.timedelta(days=7)
+        nextw = bool(re.search(r"следующ\w*\s+недел|через\s+неделю", t_low))
+        if nextw and near < mon + _fo_dt.timedelta(days=7):
+            near += _fo_dt.timedelta(days=7)
+        if not want_day or want_day.weekday() != int(js["day"]) or nextw or \
+                (want_day > near and not re.search(r"следующ", t_low)):
+            want_day = near
     if want_day:
         want_day = _fo_mt_workday(want_day)
     tgt = None
@@ -5749,45 +5755,113 @@ async def _fo_mt_prop_other(c, org_id, client_id, r, offer, js, text, msg_id, te
                                msg_id, test, st, names, cab)
 
 
-async def _fo_mt_digest(c):
-    """Каждый будний день в 18:00 — сотруднику список его планёрок на два следующих рабочих дня (Виталий 29.09:
-    «уведомить, когда сформируешь планёрки на завтра или на 2 дня вперёд»)."""
+_FO_MT_DWS = ["пн", "вт", "ср", "чт", "пт", "сб", "вс"]
+
+
+def _fo_mt_stat(r, x, mon):
+    """Статус планёрки словами — для списков сотрудникам и собственнику."""
+    if x["kind"] != "regular" or (r["status"] == "agreed" and r["week_of"] == mon):
+        return "🟢 согласовано"
+    if r["status"] == "proposed" and r["week_of"] == mon:
+        return "🟡 на согласовании"
+    return "🔴 не согласовано"
+
+
+async def _fo_mt_digest(c, dry_org=None):
+    """По итогам дня (будни, 18:00) — график планёрок с завтра до конца рабочей недели (не меньше двух рабочих дней,
+    в пятницу — вся следующая неделя): собственнику — весь, ведущим — только их планёрки (Виталий 29.09)."""
     now = _fo_mt_now()
     m = now.hour * 60 + now.minute
-    if now.weekday() > 4 or not (18 * 60 <= m < 19 * 60):
+    if dry_org is None and (now.weekday() > 4 or not (18 * 60 <= m < 19 * 60)):
         return 0
     today = now.date()
-    d1 = _fo_mt_workday(today + _fo_dt.timedelta(days=1))
-    d2 = _fo_mt_workday(d1 + _fo_dt.timedelta(days=1))
-    per = {}
+    if today.weekday() > 4:
+        today -= _fo_dt.timedelta(days=today.weekday() - 4)
+    dry = {}
+    if today.weekday() == 4:
+        days = [today + _fo_dt.timedelta(days=3 + i) for i in range(5)]
+    else:
+        days = [today + _fo_dt.timedelta(days=i) for i in range(1, 5 - today.weekday())]
+        if len(days) < 2:
+            days.append(_fo_mt_workday(days[-1] + _fo_dt.timedelta(days=1)))
+    per_host, per_org, names = {}, {}, {}
     for r in await c.fetch("SELECT * FROM fo_meet WHERE status<>'off'"):
+        if dry_org is not None and str(r["org_id"]) != str(dry_org):
+            continue
         cab = None
-        for mon in sorted({_fo_mt_mon(d1), _fo_mt_mon(d2)}):
+        for mon in sorted({_fo_mt_mon(d) for d in days}):
             for x in await _fo_mt_week(c, r["org_id"], r["client_id"], mon, r):
-                if x["day"] not in (d1, d2) or not x["host"]:
+                if x["day"] not in days or not x["host"]:
                     continue
                 if cab is None:
                     cab = await c.fetchval("SELECT name FROM client WHERE id=$1", r["client_id"]) or ""
-                ok = x["kind"] != "regular" or (r["status"] == "agreed" and r["week_of"] == mon)
-                per.setdefault((r["org_id"], x["host"]), []).append(
-                    (x["day"], _fo_mt_m(x["time"]) or 0, x["time"], int(x["minutes"]), cab, ok))
+                rec = (x["day"], _fo_mt_m(x["time"]) or 0, x["time"], int(x["minutes"]), cab, _fo_mt_stat(r, x, mon), x["host"])
+                per_host.setdefault((r["org_id"], x["host"]), []).append(rec)
+                per_org.setdefault(r["org_id"], []).append(rec)
+    span = "%s %02d.%02d — %s %02d.%02d" % (_FO_MT_DWS[days[0].weekday()], days[0].day, days[0].month,
+                                          _FO_MT_DWS[days[-1].weekday()], days[-1].day, days[-1].month)
     k = "digest " + today.isoformat()
-    n = 0
-    for (org, host), lst in per.items():
-        if await c.fetchval("SELECT 1 FROM fo_meet_rem WHERE org_id=$1 AND client_id=$2::uuid AND k=$3", org, host, k):
-            continue
-        lines = ["🗓 Ваши планёрки на %s и %s:" % (_fo_mt_dw(d1, "acc"), _fo_mt_dw(d2, "acc"))]
-        for day in (d1, d2):
-            its = sorted(y for y in lst if y[0] == day)
-            lines += ["", "%s, %02d.%02d" % (_FO_MT_DOWN[day.weekday()].capitalize(), day.day, day.month)]
-            lines += ["%s %s–%s · %s" % ("🟢" if ok else "🟡", tm, _fo_mt_hm(mm + mins), cab) for _d, mm, tm, mins, cab, ok in its] or ["— нет"]
-        lines += ["", "🟢 согласована с клиентом · 🟡 ещё нет"]
-        res = await _fo_mt_dm(c, host, "\n".join(lines))
-        if res == "проджект уведомлён":
+
+    def line(y):
+        return "%s–%s · %s · %s" % (y[2], _fo_mt_hm(y[1] + y[3]), y[4], y[5])
+
+    def dayhead(day):
+        return "%s, %02d.%02d" % (_FO_MT_DOWN[day.weekday()].capitalize(), day.day, day.month)
+
+    async def send(org, emp, text):
+        if dry_org is not None:
+            dry[str(emp)] = text
+            return False
+        if await c.fetchval("SELECT 1 FROM fo_meet_rem WHERE org_id=$1 AND client_id=$2::uuid AND k=$3", org, emp, k):
+            return False
+        ok = True
+        for part in [text[i:i + 3800] for i in range(0, len(text), 3800)]:
+            ok = (await _fo_mt_dm(c, emp, part)) == "проджект уведомлён" and ok
+        if ok:
             await c.execute("INSERT INTO fo_meet_rem (org_id, client_id, k) VALUES ($1, $2::uuid, $3) ON CONFLICT DO NOTHING",
-                            org, host, k)
-            n += 1
-    return n
+                            org, emp, k)
+        return ok
+
+    n = 0
+    for (org, host), lst in per_host.items():
+        lines = ["🗓 Ваши планёрки: " + span]
+        for day in days:
+            its = sorted(y for y in lst if y[0] == day)
+            if its:
+                lines += ["", dayhead(day)] + [line(y) for y in its]
+        n += bool(await send(org, host, "\n".join(lines)))
+    for org, lst in per_org.items():
+        if org not in names:
+            names[org] = await _fo_mt_names(c, org)
+        owners = await c.fetch("SELECT e.id FROM employee e JOIN app_user u ON u.id=e.user_id "
+                               "WHERE e.org_id=$1 AND u.role_code='owner'", org)
+        if not owners:
+            continue
+        lines = ["🗓 График планёрок: " + span]
+        for day in days:
+            its = [y for y in lst if y[0] == day]
+            if not its:
+                continue
+            lines += ["", dayhead(day)]
+            for h in sorted({y[6] for y in its}, key=lambda h: names[org].get(h, "")):
+                lines.append("👤 " + names[org].get(h, "ведущий"))
+                lines += [line(y) for y in sorted(y for y in its if y[6] == h)]
+        for o in owners:
+            n += bool(await send(org, str(o["id"]), "\n".join(lines)))
+    return dry if dry_org is not None else n
+
+
+@router.get("/meet/digest")
+async def fo_meet_digest(p: Principal = Depends(max_level(2))):
+    """Посмотреть, что бот пришлёт вечером: собственнику — весь график, ведущим — их планёрки (ничего не отправляет)."""
+    async with pool().acquire() as c:
+        dry = await _fo_mt_digest(c, dry_org=p.org_id)
+        names = await _fo_mt_names(c, p.org_id)
+        owners = {str(r["id"]) for r in await c.fetch("SELECT e.id FROM employee e JOIN app_user u ON u.id=e.user_id "
+                                                      "WHERE e.org_id=$1 AND u.role_code='owner'", p.org_id)}
+    return {"собственнику": {names.get(k, k): v for k, v in dry.items() if k in owners},
+            "ведущим": {names.get(k, k): v for k, v in dry.items() if k not in owners},
+            "нет_карточки_собственника": not owners}
 
 
 async def _fo_ai_on_edit(msg):
@@ -6320,8 +6394,8 @@ off = 0
 print("fo-tgpoll: старт", flush=True)
 while True:
     try:
-        res = call("getUpdates", {"offset": off, "timeout": 25,
-                                  "allowed_updates": json.dumps(["message", "my_chat_member", "edited_message"])}, timeout=45)
+        res = call("getUpdates", {"offset": off, "timeout": 10,
+                                  "allowed_updates": json.dumps(["message", "my_chat_member", "edited_message"])}, timeout=20)
         for u in res.get("result", []):
             off = u["update_id"] + 1
             rq = urllib.request.Request("http://127.0.0.1:8000/refs/tg/hook", data=json.dumps(u).encode(),
@@ -6334,7 +6408,7 @@ while True:
                 print("hook:", hide(e), flush=True)
     except Exception as e:
         print("poll:", hide(e), flush=True)
-        time.sleep(5)
+        time.sleep(1)
 """
     _UNIT = """[Unit]
 Description=FO: бот забирает сообщения из Telegram (опрос) и отдаёт в /refs/tg/hook
