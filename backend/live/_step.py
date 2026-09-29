@@ -444,6 +444,12 @@ CREATE TABLE IF NOT EXISTS fo_meet_rem (
   org_id uuid NOT NULL, client_id uuid NOT NULL, k text NOT NULL, at timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY (org_id, client_id, k));
 GRANT SELECT, INSERT, UPDATE, DELETE ON fo_meet_occ, fo_task_skip, fo_meet_rem TO fo;
+-- 225: одно сообщение клиента — один разбор (копии от двух ботов)
+CREATE TABLE IF NOT EXISTS fo_meet_seen (
+  tg_chat_id text NOT NULL, from_id bigint NOT NULL, at bigint NOT NULL, h text NOT NULL,
+  by text, verdict text, main_pk bigint, created_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (tg_chat_id, from_id, at, h));
+GRANT SELECT, INSERT, UPDATE, DELETE ON fo_meet_seen TO fo;
 -- чаты, внесённые в карточку ссылкой-приглашением: номер Telegram — по названию из регистрации бота
 DO $$
 BEGIN
@@ -3197,7 +3203,7 @@ async def _fo_tg_register(upd):
             org, str(chat["id"]), title)
 
 
-async def _fo_ai_on_msg(msg):
+async def _fo_ai_on_msg(msg, src=""):
     try:
         chat = msg.get("chat") or {}
         tg = str(chat.get("id") or "")
@@ -3207,6 +3213,9 @@ async def _fo_ai_on_msg(msg):
         if frm.get("is_bot"):
             return
         text = str(msg.get("text") or msg.get("caption") or "").strip()
+        if src == "meet":
+            await _fo_mt_on_copy(msg, text)   # копия бота планёрок: только планёрки, историю пишет бот задач (225)
+            return
         async with pool().acquire() as c:
             link = await c.fetchrow(
                 "SELECT ch.id AS chat_pk, ch.org_id, cc.client_id, cc.kind FROM chat ch "
@@ -3227,13 +3236,14 @@ async def _fo_ai_on_msg(msg):
             _neg = None
             if link["kind"] == "client":
                 try:
-                    _neg = await _fo_meet_match(c, link["org_id"], str(link["client_id"]), tg, msg, text)
+                    _neg = await _fo_meet_match(c, link["org_id"], str(link["client_id"]), tg, msg, text,
+                                                ids_ok=_fo_mt_ids_ok(msg, src))
                 except Exception:
                     _neg = None
             if _neg:
                 why = "ответ по времени планёрки — разбирает бот планёрок"
                 _fo_aio.get_running_loop().create_task(
-                    _fo_meet_answer(link["org_id"], _neg, text, int(msg.get("message_id") or 0), pk))
+                    _fo_mt_claim_run(link["org_id"], _neg, msg, text, pk, src or "main"))
             elif link["kind"] != "client":
                 why = "не чат с клиентом"
             elif len(text) < 6 or _FO_AI_SKIP.match(text) or _fo_ai_noise(text):
@@ -3266,7 +3276,7 @@ async def fo_tg_hook(request: _FoReq):
         if (msg.get("chat") or {}).get("type") == "private":
             _fo_aio.get_running_loop().create_task(_fo_mt_private(msg, request.headers.get("x-fo-bot", "")))
         else:
-            _fo_aio.get_running_loop().create_task(_fo_ai_on_msg(msg))
+            _fo_aio.get_running_loop().create_task(_fo_ai_on_msg(msg, request.headers.get("x-fo-bot", "")))
     return {"ok": True}
 
 
@@ -3839,7 +3849,7 @@ async def _fo_mt_send(c, org_id, client_id, text, reply_to=None, test=False):
             "INSERT INTO fo_chat_msg (org_id, client_id, chat_pk, kind, tg_chat_id, msg_id, author, author_tg, text, msg_at, ai_state, ai_note) "
             "VALUES ($1,$2::uuid,$3,'client',$4,$5,'Бот планёрок','',$6,now(),'skip','сообщение бота планёрок') "
             "ON CONFLICT (tg_chat_id, msg_id) DO NOTHING",
-            org_id, str(client_id), chat_pk, tg, mid, text[:4000])
+            org_id, str(client_id), chat_pk, tg, mid if test else -mid, text[:4000])
     except Exception:
         pass
     return {"tg": tg, "msg_id": mid}, ""
@@ -4209,11 +4219,9 @@ async def _fo_meet_answer_do(org_id, client_id, text, msg_id=None, pk=None, test
     js = await _fo_mt_parse(text, offer, org_id)
     kind = js.get("answer")
     if kind == "not_about":
-        if pk and _fo_ai_ready() and not test:
+        if not test:
             try:
-                async with pool().acquire() as c:
-                    await c.execute("UPDATE fo_chat_msg SET ai_state=NULL, ai_note='не про планёрку — в разбор задач' WHERE id=$1", pk)
-                await _fo_ai_process(pk)
+                await _fo_mt_ai_handoff(pk)
             except Exception:
                 pass
         return {"state": "не про планёрку", "понял": js}
@@ -4315,7 +4323,7 @@ async def _fo_mt_handoff(c, org_id, client_id, msg_id, test, why):
     return {"state": "handoff", "why": why, "проджекту": dm}
 
 
-async def _fo_meet_match(c, org_id, client_id, tg, msg, text):
+async def _fo_meet_match(c, org_id, client_id, tg, msg, text, ids_ok=True):
     """Сообщение клиента — ответ боту планёрок? Реплай на сообщение бота — да; без реплая — если ждём ответа
     не дольше трёх суток и в тексте есть «да», время, день недели или «планёрка». Ошибиться не страшно:
     сообщение не про планёрку ИИ вернёт в обычный разбор задач."""
@@ -4326,7 +4334,7 @@ async def _fo_meet_match(c, org_id, client_id, tg, msg, text):
     cid = str(r["client_id"])
     rep = msg.get("reply_to_message") or {}
     frm = rep.get("from") or {}
-    if rep.get("message_id") and r["msg_id"] and int(rep["message_id"]) == int(r["msg_id"]):
+    if ids_ok and rep.get("message_id") and r["msg_id"] and int(rep["message_id"]) == int(r["msg_id"]):
         return cid
     if frm.get("is_bot") and _FO_MT_ME.get("v") and frm.get("username") == _FO_MT_ME.get("v"):
         return cid
@@ -4337,6 +4345,82 @@ async def _fo_meet_match(c, org_id, client_id, tg, msg, text):
     if waiting and fresh and _FO_MT_ANS_RX.search(str(text or "")):
         return cid
     return cid if _FO_MT_REQ_RX.search(str(text or "")) else None
+
+
+# ── одно сообщение клиента — один разбор (225, 29.09) ──
+# В чате два бота. В обычной группе Telegram присылает сообщение каждому боту под своим номером, и сервер
+# разбирал его дважды (игра 29.09: «время комфортно» — в 14:58 и ещё раз в 15:00). Теперь:
+# копия бота задач пишет историю и идёт в разбор задач; планёрку разбирает та копия, что пришла первой
+# (ключ — чат, автор, время, текст); «не про планёрку» уходит в разбор задач один раз — по копии бота задач
+# (её номер нужен для реакций бота задач).
+import hashlib as _fo_hl
+import contextvars as _fo_cv
+
+_FO_MT_KEY = _fo_cv.ContextVar("fo_mt_key", default=None)
+
+
+def _fo_mt_split():
+    """Есть отдельный бот планёрок — сообщения приходят двумя копиями."""
+    m = _fo_env("TG_MEET_BOT_TOKEN")
+    return bool(m) and m != _fo_env("TG_BOT_TOKEN")
+
+
+def _fo_mt_ids_ok(msg, src):
+    """Номер сообщения годится боту планёрок (реплай, сверка): копия от него самого, один бот в чате или супергруппа
+    (там нумерация общая)."""
+    return src == "meet" or not _fo_mt_split() or (msg.get("chat") or {}).get("type") == "supergroup"
+
+
+def _fo_mt_key(msg, text):
+    return (str((msg.get("chat") or {}).get("id") or ""), int((msg.get("from") or {}).get("id") or 0),
+            int(msg.get("date") or 0), _fo_hl.md5(str(text or "").encode("utf-8")).hexdigest()[:16])
+
+
+async def _fo_mt_claim_run(org_id, client_id, msg, text, pk, src):
+    """Разбор планёрки достаётся первой пришедшей копии; вторая только связывает запись истории."""
+    key = _fo_mt_key(msg, text)
+    async with pool().acquire() as c:
+        row = await c.fetchrow(
+            "INSERT INTO fo_meet_seen (tg_chat_id, from_id, at, h, by, main_pk) VALUES ($1,$2,$3,$4,$5,$6) "
+            "ON CONFLICT (tg_chat_id, from_id, at, h) DO UPDATE SET main_pk=coalesce(fo_meet_seen.main_pk, EXCLUDED.main_pk) "
+            "RETURNING by, verdict, (xmax = 0) AS fresh", *key, src or "main", pk)
+        if _fo_hl.md5(str(key).encode()).digest()[0] < 3:
+            await c.execute("DELETE FROM fo_meet_seen WHERE created_at < now() - interval '7 days'")
+    if not row["fresh"]:
+        if pk and row["verdict"] == "not_about":
+            await _fo_mt_ai_handoff(pk)
+        return {"state": "уже разобрано копией другого бота", "by": row["by"]}
+    _FO_MT_KEY.set(key)
+    reply = int(msg.get("message_id") or 0) if _fo_mt_ids_ok(msg, src) else None
+    return await _fo_meet_answer(org_id, client_id, text, reply, pk)
+
+
+async def _fo_mt_ai_handoff(pk=None):
+    """Сообщение не про планёрку — в обычный разбор задач, ровно один раз, по копии бота задач."""
+    key = _FO_MT_KEY.get()
+    async with pool().acquire() as c:
+        if key:
+            got = await c.fetchval("UPDATE fo_meet_seen SET verdict='not_about' WHERE tg_chat_id=$1 AND from_id=$2 AND at=$3 "
+                                   "AND h=$4 RETURNING main_pk", *key)
+            pk = pk or got
+        if not pk or not _fo_ai_ready():
+            return   # копия бота задач придёт позже и сама увидит «не про планёрку»
+        await c.execute("UPDATE fo_chat_msg SET ai_state=NULL, ai_note='не про планёрку — в разбор задач' WHERE id=$1", pk)
+    await _fo_ai_process(pk)
+
+
+async def _fo_mt_on_copy(msg, text):
+    """Копия от бота планёрок: историю не пишем (её пишет бот задач), разбираем только планёрки."""
+    tg = str((msg.get("chat") or {}).get("id") or "")
+    async with pool().acquire() as c:
+        link = await c.fetchrow("SELECT ch.org_id, cc.client_id FROM chat ch JOIN client_chat cc ON cc.chat_pk = ch.id "
+                                "WHERE ch.chat_id=$1 AND cc.kind='client' LIMIT 1", tg)
+        if not link:
+            return None
+        cid = await _fo_meet_match(c, link["org_id"], str(link["client_id"]), tg, msg, text, ids_ok=True)
+    if cid:
+        return await _fo_mt_claim_run(link["org_id"], cid, msg, text, None, "meet")
+    return None
 
 
 # ── волны: фиксированные «всё в силе?» → высокий → средний → низкий приоритет ──
@@ -5051,7 +5135,7 @@ async def _fo_mt_card(c, org_id, client_id, kind, caption, reply_to=None, test=F
             await c.execute(
                 "INSERT INTO fo_chat_msg (org_id, client_id, chat_pk, kind, tg_chat_id, msg_id, author, author_tg, text, msg_at, ai_state, ai_note) "
                 "VALUES ($1,$2::uuid,$3,'client',$4,$5,'Бот планёрок','',$6,now(),'skip','сообщение бота планёрок') "
-                "ON CONFLICT (tg_chat_id, msg_id) DO NOTHING", org_id, str(client_id), ch["chat_pk"], ch["chat_id"], mid, strip(txt)[:4000])
+                "ON CONFLICT (tg_chat_id, msg_id) DO NOTHING", org_id, str(client_id), ch["chat_pk"], ch["chat_id"], -mid, strip(txt)[:4000])
         except Exception:
             pass
     await _store(card, info)
@@ -5176,12 +5260,8 @@ async def _fo_mt_request(c, org_id, client_id, r, text, msg_id, pk, test):
                     str(org_id), str(client_id), str(text or "")[:500],
                     _fo_mt_item("сообщение клиента в течение недели", text=str(text or "")[:300], понял=it, by=js.get("by")))
     if it == "not_about":
-        if pk and _fo_ai_ready() and not test:
-            try:
-                await c.execute("UPDATE fo_chat_msg SET ai_state=NULL, ai_note='не про планёрку — в разбор задач' WHERE id=$1", pk)
-                _fo_aio.get_running_loop().create_task(_fo_ai_process(pk))
-            except Exception:
-                pass
+        if not test:
+            _fo_aio.get_running_loop().create_task(_fo_mt_ai_handoff(pk))
         return {"state": "не про планёрку — агенту задач"}
     if it == "confirm":
         return {"state": "подтвердил, ничего не меняем"}
@@ -5347,9 +5427,8 @@ async def _fo_mt_pend_answer(c, org_id, client_id, r, pend, text, msg_id, pk, te
     if kind == "yes":
         return await _fo_mt_pend_apply(c, org_id, client_id, pend, msg_id, test)
     if kind == "not_about":
-        if pk and _fo_ai_ready() and not test:
-            await c.execute("UPDATE fo_chat_msg SET ai_state=NULL, ai_note='не про планёрку — в разбор задач' WHERE id=$1", pk)
-            _fo_aio.get_running_loop().create_task(_fo_ai_process(pk))
+        if not test:
+            _fo_aio.get_running_loop().create_task(_fo_mt_ai_handoff(pk))
         return {"state": "не про планёрку — агенту задач"}
     if kind == "no" and pend.get("type") != "cancel":
         await c.execute("UPDATE fo_meet SET pend=NULL WHERE org_id=$1::uuid AND client_id=$2::uuid", str(org_id), str(client_id))
