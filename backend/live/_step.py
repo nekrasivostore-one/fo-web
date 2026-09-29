@@ -4045,6 +4045,7 @@ _FO_MT_ANS_RX = re.compile(
 _FO_MT_SYS = (
     "Агентство договаривается с клиентом о времени еженедельной планёрки (созвона по кабинету на маркетплейсе). "
     "Тебе дают, что предложило агентство, и ответ клиента. Определи смысл ответа.\n"
+    "Перед сообщением может быть переписка чата: по ней пойми контекст — клиент отвечает на вопрос бота или сотрудника про время, продолжает разговор. Решаешь по сообщению клиента; сообщения сотрудников агентства — не ответ клиента.\n"
     "Планёрка, совещание, звонок, созвон, кол (call), «проведём зум» (Zoom, Телемост) — это всё одно и то же: планёрка.\n"
     "answer: yes — клиент согласен с предложенным (да, ок, подходит, удобно, договорились, всё в силе); "
     "other — клиент называет свой день и/или время; no — не может, но своего времени не назвал; "
@@ -4127,6 +4128,8 @@ async def _fo_mt_parse(text, offer, org_id=None):
         now = _fo_dt.datetime.now(_FO_MSK)
         usr = "Сейчас: %s.\nАгентство предложило:\n%s\nОтвет клиента: «%s»" % (
             now.strftime("%Y-%m-%d %H:%M"), _fo_mt_lines(offer, {}), str(text or "")[:800])
+        if _FO_MT_CTX.get():
+            usr = "Переписка в чате перед этим (сверху — раньше):\n%s\n\n%s" % (_FO_MT_CTX.get(), usr)
         try:
             txt, _u = await _fo_aio.to_thread(_fo_ygpt_sync, [{"role": "system", "text": sys_t},
                                                               {"role": "user", "text": usr}], 200)
@@ -4226,6 +4229,10 @@ async def _fo_meet_answer_do(org_id, client_id, text, msg_id=None, pk=None, test
     ведущего с перерывом, иначе предлагаем ближайшие окна блока; после двух кругов — решает проджект."""
     soft = _FO_MT_SOFT.get()
     async with pool().acquire() as c:
+        try:
+            _FO_MT_CTX.set(await _fo_mt_history(c, org_id, client_id, text))
+        except Exception:
+            _FO_MT_CTX.set("")
         r = await _fo_mt_row(c, org_id, client_id)
         if not r or r["status"] == "off":
             return {"state": "нет графика"}
@@ -4355,6 +4362,11 @@ async def _fo_meet_match(c, org_id, client_id, tg, msg, text, ids_ok=True):
                          "WHERE org_id=$1::uuid AND client_id=$2::uuid", str(org_id), str(client_id))
     if not r or r["status"] == "off":
         return None
+    try:
+        if await _fo_mt_role(c, org_id, client_id, msg.get("from") or {}) == "staff":
+            return None     # пишет сотрудник агентства — это не ответ клиента (Виталий 29.09); в историю идёт как контекст
+    except Exception:
+        pass
     cid = str(r["client_id"])
     rep = msg.get("reply_to_message") or {}
     frm = rep.get("from") or {}
@@ -4389,6 +4401,60 @@ import contextvars as _fo_cv
 
 _FO_MT_KEY = _fo_cv.ContextVar("fo_mt_key", default=None)
 _FO_MT_SOFT = _fo_cv.ContextVar("fo_mt_soft", default=False)
+_FO_MT_CTX = _fo_cv.ContextVar("fo_mt_ctx", default="")
+_FO_MT_PPL = {}
+
+
+async def _fo_mt_people(c, org_id):
+    """Кто есть кто в чатах: ники сотрудников (карточки сотрудников) и ники клиентов (карточка клиента, поле Telegram).
+    Кэш на 5 минут."""
+    k = str(org_id)
+    hit = _FO_MT_PPL.get(k)
+    if hit and _fo_time.time() - hit["t"] < 300:
+        return hit
+    staff_tg, staff_id, client_tg = set(), set(), {}
+    for r in await c.fetch("SELECT kind, ref_id, data FROM fo_card WHERE kind IN ('employee','client','cab') "
+                           "AND (org_id=$1 OR org_id IS NULL)", org_id):
+        d = _fo_mt_load(r["data"], {}) or {}
+        tgs = {x.lstrip("@").lower() for x in re.split(r"[\s,;]+", str(d.get("tg") or "")) if x.strip("@ ")}
+        if r["kind"] == "employee":
+            staff_tg |= tgs
+            if d.get("tg_id"):
+                staff_id.add(str(d["tg_id"]))
+        elif tgs:
+            client_tg.setdefault(str(r["ref_id"]), set()).update(tgs)
+    hit = {"t": _fo_time.time(), "staff_tg": staff_tg, "staff_id": staff_id, "client_tg": client_tg}
+    _FO_MT_PPL[k] = hit
+    return hit
+
+
+async def _fo_mt_role(c, org_id, client_id, frm):
+    """client — ник из карточки клиента; staff — ник или номер Telegram сотрудника; other — кто-то ещё со стороны клиента."""
+    p = await _fo_mt_people(c, org_id)
+    un, uid = str((frm or {}).get("username") or "").lower(), str((frm or {}).get("id") or "")
+    if un and un in p["client_tg"].get(str(client_id), set()):
+        return "client"
+    if (un and un in p["staff_tg"]) or (uid and uid in p["staff_id"]):
+        return "staff"
+    return "other"
+
+
+async def _fo_mt_history(c, org_id, client_id, text, n=10):
+    """Переписка чата перед сообщением — агенту планёрок для контекста: кто что писал (клиент, сотрудник, бот)."""
+    p = await _fo_mt_people(c, org_id)
+    ctg = p["client_tg"].get(str(client_id), set())
+    rows = list(reversed(await c.fetch(
+        "SELECT author, author_tg, text FROM fo_chat_msg WHERE client_id=$1::uuid AND kind='client' AND text<>'' "
+        "ORDER BY id DESC LIMIT $2", str(client_id), n + 1)))
+    if rows and (rows[-1]["text"] or "").strip() == str(text or "").strip():
+        rows = rows[:-1]
+    out = []
+    for r in rows[-n:]:
+        a, tg = r["author"] or "", str(r["author_tg"] or "").lower()
+        who = ("Бот планёрок" if a == "Бот планёрок" else "Клиент" if (tg and tg in ctg) or a == "Клиент (проверка)"
+               else ("Сотрудник агентства %s" % a) if tg and tg in p["staff_tg"] else ("Участник со стороны клиента %s" % a))
+        out.append("%s: %s" % (who, re.sub(r"\s+", " ", r["text"] or "")[:220]))
+    return "\n".join(out)
 
 
 class _FoMtCid(str):
@@ -4968,6 +5034,7 @@ _FO_MT_REQ_RX = re.compile(
 _FO_MT_SYS2 = (
     "Ты — агент планёрок digital-агентства (кабинеты продавцов Wildberries и OZON). Планёрки с клиентом на неделю "
     "уже согласованы. Клиент пишет в чат. Определи, что он хочет по планёркам.\n"
+    "Перед сообщением может быть переписка чата: по ней пойми контекст — клиент отвечает на вопрос бота или сотрудника про время, продолжает разговор. Решаешь по сообщению клиента; сообщения сотрудников агентства — не ответ клиента.\n"
     "Планёрка, совещание, звонок, созвон, кол (call), «проведём зум» (Zoom, Телемост) — это всё одно и то же: планёрка.\n"
     "intent: move — перенести планёрку на другой день или время; cancel — отменить планёрку; extra — нужна ещё одна, "
     "дополнительная планёрка или созвон; confirm — подтверждает, что всё в силе; not_about — сообщение не про планёрки "
@@ -5252,6 +5319,8 @@ async def _fo_mt_req_parse(text, items, now, held, org_id):
                                           " — прошла" if x["day"] in held or x["day"] < now.date() else "") for x in items) or "(нет)"
     usr = "Сегодня: %s, %s, %s (Москва).\nПланёрки клиента:\n%s\nСообщение клиента: «%s»" % (
         now.date().isoformat(), _FO_MT_DOWN[now.weekday()], now.strftime("%H:%M"), lst, str(text or "")[:800])
+    if _FO_MT_CTX.get():
+        usr = "Переписка в чате перед этим (сверху — раньше):\n%s\n\n%s" % (_FO_MT_CTX.get(), usr)
     sys_t = _FO_MT_SYS2
     try:
         async with pool().acquire() as c:
