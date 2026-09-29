@@ -4933,10 +4933,11 @@ async def _fo_mt_heldset(c, org_id, client_id, a, b):
         "AND plan_date BETWEEN $4 AND $5", org_id, fid, str(client_id), a, b)}
 
 
-def _fo_mt_cap_item(x, names):
+def _fo_mt_cap_item(x, names, host=True):
     t = _fo_mt_m(x["time"])
     end = _fo_mt_hm(t + int(x["minutes"])) if t is not None else ""
-    return "📅 %s\n🕛 %s (до %s) · ведёт %s" % (_fo_mt_dd(x["day"]), x["time"], end, _fo_mt_h(names.get(x["host"], "проджект")))
+    return "📅 %s\n🕛 %s (до %s)%s" % (_fo_mt_dd(x["day"]), x["time"], end,
+                                     (" · ведёт %s" % _fo_mt_h(names.get(x["host"], "проджект"))) if host else "")
 
 
 def _fo_mt_parts(kind, cab, items, names, note=""):
@@ -4960,8 +4961,12 @@ def _fo_mt_caption(kind, cab, items, names, note=""):
             "extra": "Подходит? Ответьте «да» — или напишите другое время.",
             "agreed": "Зафиксировали ✅ {pin}До встречи!", "remind": "До встречи через час!",
             "cancel": "Отменяем? Ответьте «да» — или напишите, что оставить."}[kind]
-    body = "\n\n".join(_fo_mt_cap_item(x, names) for x in items) or "—"
-    return "%s\n<b>%s</b>\n\n%s%s\n\n%s" % (head, _fo_mt_h(cab), body, ("\n\n" + note) if note else "", tail)
+    # кто ведёт — строкой под названием кабинета (Виталий 29.09); если в разные дни ведут разные — у каждого дня
+    hosts = {x["host"] for x in items}
+    one = len(hosts) == 1
+    who = ("\n· ведёт %s" % _fo_mt_h(names.get(next(iter(hosts)), "проджект"))) if one else ""
+    body = "\n\n".join(_fo_mt_cap_item(x, names, host=not one) for x in items) or "—"
+    return "%s\n<b>%s</b>%s\n\n%s%s\n\n%s" % (head, _fo_mt_h(cab), who, body, ("\n\n" + note) if note else "", tail)
 
 
 def _fo_tg_photo_sync(tok, chat_id, img, caption, reply_to=None):
