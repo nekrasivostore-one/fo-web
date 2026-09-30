@@ -2456,6 +2456,7 @@ _FO_ST_KEYS = {
     "settings": ("org", "obj",  1, 9, 0),
     "tpl":      ("org", "map",  4, 9, 0),
     "log":      ("org", "list", 9, 4, 1000),
+    "svc":      ("org", "map",  9, 9, 0),      # 245: часы в сервисе, сотрудник → часы (свои — каждый, только вверх)
 }
 _FO_ST_FRONT = {"access", "leads", "placed", "drafts", "log"}   # новые записи — в начало списка
 
@@ -2529,6 +2530,11 @@ async def fo_state_put(key: str, body: FoStIn, p: Principal = Depends(current)):
     org, scope = _fo_st_where(key, p)
     uid = _fo_uid(p)
     async with pool().acquire() as c:
+        if key == "svc" and lvl > 2:
+            # 245: часы в сервисе — только свои, только числом; целиком и удаление — старшим
+            me = await c.fetchval("SELECT id FROM employee WHERE user_id=$1 AND org_id=$2::uuid LIMIT 1", uid, str(p.org_id))
+            body.data, body.delete = None, None
+            body.set = {k2: v2 for k2, v2 in (body.set or {}).items() if str(k2) == str(me) and isinstance(v2, (int, float))}
         async with c.transaction():
             await c.execute("INSERT INTO fo_state (org_id, scope, key, data) VALUES ($1::uuid, $2, $3, 'null'::jsonb) "
                             "ON CONFLICT (org_id, scope, key) DO NOTHING", org, scope, key)
@@ -2546,6 +2552,11 @@ async def fo_state_put(key: str, body: FoStIn, p: Principal = Depends(current)):
                 for k2 in (body.delete or []):
                     new.pop(str(k2), None)
                 for k2, v2 in (body.set or {}).items():
+                    if key == "svc" and lvl > 2:
+                        try:
+                            v2 = max(float(new.get(str(k2)) or 0), min(float(v2), 24 * 366 * 20))   # часы только растут
+                        except Exception:
+                            continue
                     new[str(k2)] = v2
             else:
                 lst = list(cur) if isinstance(cur, list) else []
