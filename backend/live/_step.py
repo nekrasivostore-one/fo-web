@@ -2681,8 +2681,8 @@ async def fo_diag_roles(p: Principal = Depends(max_level(2))):
 
 
 # ══ КАЖДЫЙ ВИДИТ СВОЁ — НА СЕРВЕРЕ (28.09, Виталий: «частное — только старшим», «чужие задачи не отдавать») ══
-# Задачи: проджект и выше — все; главный менеджер — свои и младших с ассистентами;
-# младший и ассистент — только свои. Экран и раньше прятал чужое, теперь его не
+# Задачи: проджект и выше — все; главный менеджер, младший и ассистент — только свои (238, 30.09;
+# раньше главный менеджер видел и младших). Экран и раньше прятал чужое, теперь его не
 # отдаёт сервер. Частное клиента (сумма, дата платежа, собственник, телефон,
 # Telegram, таблица) — проджект и выше. Оклады и проценты премий/штрафов коллег —
 # собственник и директор; свою карточку каждый видит целиком.
@@ -2697,13 +2697,8 @@ async def _fo_scope_ids(c, p):
     if lvl <= 4:
         return None
     me = await c.fetchval("SELECT id FROM employee WHERE user_id=$1 AND org_id=$2::uuid LIMIT 1", _fo_uid(p), str(p.org_id))
-    ids = {str(me)} if me else set()
-    if lvl == 5:
-        for r in await c.fetch(
-                "SELECT e.id FROM employee e JOIN app_user u ON u.id=e.user_id JOIN role r ON r.code=u.role_code "
-                "WHERE e.org_id=$1::uuid AND r.level >= 6", str(p.org_id)):
-            ids.add(str(r["id"]))
-    return ids
+    # 238 (Виталий 30.09): все роли ниже проджекта — главный менеджер, младший, ассистент — только свои задачи
+    return {str(me)} if me else set()
 
 
 def _fo_row_get(x, k):
