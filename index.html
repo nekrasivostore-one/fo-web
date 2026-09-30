@@ -29748,8 +29748,9 @@ function foGrowthCalc(){
   var tasks = (S.tasks || []).filter(function(t){ return !t.rk; });
   var prs = (S.projects || []);
   var cat = function(t){ try{ var f = t.fn ? fnById(t.fn) : null; var c = f ? String(fnCfg(f).cat || "").toUpperCase() : ""; return (c === "A" || c === "B" || c === "C") ? c : "-"; }catch(e){ return "-"; } };
-  var hoursByCat = {A: 0, B: 0, C: 0, "-": 0}, hoursWeek = 0;
-  tasks.forEach(function(t){ var h = (t.minutes || 0) / 60; hoursWeek += h; hoursByCat[cat(t)] += h; });
+  var hoursByCat = {A: 0, B: 0, C: 0, "-": 0}, hoursWeek = 0, unkBy = {A: 0, B: 0, C: 0};
+  var gradeCat = function(pid){ try{ var m = person(pid); var g = m ? gradeOf(m) : null; var id = g ? g.id : "jun"; return (id === "head" || id === "pm") ? "A" : id === "mid" ? "B" : "C"; }catch(e){ return "C"; } };
+  tasks.forEach(function(t){ var h = (t.minutes || 0) / 60, c = cat(t); hoursWeek += h; hoursByCat[c] += h; if(c === "-") unkBy[gradeCat(t.person)] += h; });
   var rev = prs.reduce(function(a, p){ return a + (+p.amount || 0); }, 0);
   var clients = prs.filter(function(p){ return +p.amount > 0; }).length || prs.length;
   var fot = ppl.reduce(function(a, m){ return a + (+m.pay || 0); }, 0);
@@ -29777,11 +29778,9 @@ function foGrowthCalc(){
   var UTIL = 0.85, gl = {};
   try{ grades().forEach(function(g){ gl[g.id] = g; }); }catch(e){}
   var avgPay = function(id){ var g = gl[id]; return g ? Math.round((g.min + g.max) / 2) : 0; };
-  var unk = hoursByCat["-"];
-  var known = hoursByCat.A + hoursByCat.B + hoursByCat.C;
-  var mixA = known ? hoursByCat.A / known : 0.2, mixB = known ? hoursByCat.B / known : 0.4, mixC = known ? hoursByCat.C / known : 0.4;
+  /* задачи без категории — по грейду того, кто их сейчас делает: главный/проджект → A, менеджер → B, младший/ассистент → C */
   function scen(k){
-    var hA = (hoursByCat.A + unk * mixA) * k, hB = (hoursByCat.B + unk * mixB) * k, hC = (hoursByCat.C + unk * mixC) * k;
+    var hA = (hoursByCat.A + unkBy.A) * k, hB = (hoursByCat.B + unkBy.B) * k, hC = (hoursByCat.C + unkBy.C) * k;
     var need = {head: Math.ceil(hA / (WEEK_H * UTIL)), mid: Math.ceil(hB / (WEEK_H * UTIL)), jun: Math.ceil(hC / (WEEK_H * UTIL)), assist: 0, pm: 0};
     var doers = need.head + need.mid + need.jun;
     need.pm = Math.max(1, Math.ceil(doers / 5));
@@ -29816,7 +29815,7 @@ function foGrowthHTML(){
     d.cabs.slice(0, 5).map(function(x){ return '<tr><td><b>'+esc(x.p.name)+'</b></td><td>'+Math.round(x.hWeek * 10) / 10+'</td><td class="'+(x.rph >= d.rphAvg ? 'okc' : '')+'">'+(money ? rub(Math.round(x.rph)) : '—')+'</td></tr>'; }).join("")+
     '</tbody></table>' : '<div class="dim">Нет кабинетов с задачами</div>')+'</div>';
   h += '<div><div class="ndsub">Самая выгодная модель функций</div>'+(d.fns.length ? '<table class="payt unlt"><thead><tr><th>Функция</th><th>Кат.</th><th>Часов / нед</th><th>₽ на час</th></tr></thead><tbody>'+
-    d.fns.slice(0, 7).map(function(x){ return '<tr><td><b>'+esc(x.fn.name)+'</b><i>в '+x.ncab+' '+plural(x.ncab, "кабинете", "кабинетах", "кабинетах")+'</i></td><td>'+(x.cat !== "-" ? x.cat : '<span class="dim">—</span>')+'</td><td>'+Math.round(x.h * 10) / 10+'</td><td class="'+(x.rph >= d.rphAvg ? 'okc' : '')+'">'+(money ? rub(Math.round(x.rph)) : '—')+'</td></tr>'; }).join("")+
+    d.fns.slice(0, 7).map(function(x){ return '<tr><td><b>'+esc(x.fn.name)+'</b><i>в '+plural(x.ncab, "кабинете", "кабинетах", "кабинетах")+'</i></td><td>'+(x.cat !== "-" ? x.cat : '<span class="dim">—</span>')+'</td><td>'+Math.round(x.h * 10) / 10+'</td><td class="'+(x.rph >= d.rphAvg ? 'okc' : '')+'">'+(money ? rub(Math.round(x.rph)) : '—')+'</td></tr>'; }).join("")+
     '</tbody></table><div class="payh">Функции, которые стоят в выгодных кабинетах, приносят больше за час — их и продавать новым клиентам в первую очередь.</div>' : '<div class="dim">Нет задач по функциям</div>')+'</div>';
   h += '</div>';
   /* сценарии */
@@ -29836,7 +29835,7 @@ function foGrowthHTML(){
   var s2 = d.scen[1], s3 = d.scen[2];
   var hires = function(s){ return G.filter(function(g){ return s.hire[g]; }).map(function(g){ return '+'+s.hire[g]+' '+GN[g].toLowerCase(); }).join(', ') || 'текущего состава хватает'; };
   h += '<div class="payh">Как считаем: часы по категориям × 2 или × 3; главный менеджер закрывает A, менеджер — B, младший — C '+
-    '(у задач без категории — в текущей пропорции); загрузка 85% от '+WEEK_H+' ч; один проджект на пять исполнителей; оклад новых — середина вилки грейда. '+
+    '(задачи без категории считаем по грейду того, кто их делает сейчас); загрузка 85% от '+WEEK_H+' ч; один проджект на пять исполнителей; оклад новых — середина вилки грейда. '+
     'Роли для реализации: <b>×2</b> — '+hires(s2)+'; <b>×3</b> — '+hires(s3)+'. Проставьте категории функциям в справочнике — оценка станет точнее.</div>';
   h += '</div>';
   return h;
