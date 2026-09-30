@@ -4374,6 +4374,115 @@ _FO_MT_WEEKOFF_RX = re.compile(
     re.I)
 _FO_MT_MOVE_RX = re.compile(r"перенес|перенос|сдвин|вместо|поменя|передвин", re.I)
 _FO_MT_EXTRA_RX = re.compile(r"дополнительн|ещ[её](\s|$|,)|втор(ую|ой|ая)|добав|отдельн", re.I)
+# 244 (Виталий 30.09): пожелание по части дня, просьба предложить слоты, правка «я просила после обеда»
+_FO_MT_PART_RX = [("morning", r"до\s+обед|с\s+утра|\bутром\b|\bутро\b|перв(ой|ую)\s+полов|пораньше|в\s+начале\s+дня"),
+                  ("afternoon", r"после\s+обед|во\s+втор(ой|ую)\s+полов|\bдн[её]м\b|после\s+полудня|попозже"),
+                  ("evening", r"ближе\s+к\s+вечер|\bвечер|под\s+вечер|к\s+концу\s+дня|в\s+конце\s+дня|конц[ае]\s+дня")]
+_FO_MT_PART_WORD = {"morning": "в первой половине дня", "afternoon": "после обеда", "evening": "ближе к вечеру"}
+_FO_MT_ASK_RX = re.compile(r"слот|вариант|какое\s+время|как(ое|ие)\s+(есть|окн)|когда\s+(вам\s+)?(удобно|можете|сможете|получится|свободн)|"
+                           r"предлож|есть\s+(окно|время)|во\s+сколько\s+(можете|удобно|сможете)|что\s+(есть|можете)", re.I)
+_FO_MT_FIX_RX = re.compile(r"не\s+то\s+время|просил[аи]?\s+(же\s+)?(после|до|ближе|утр|вечер|дн[её]м)|назначил|поставил[аи]?\s+(не|на)|"
+                           r"не\s+так|не\s+то,?\s+что|я\s+(же\s+)?(говорил|писал|сказал)", re.I)
+
+
+def _fo_mt_part(text, st, mins):
+    """Пожелание по части дня → окно начала планёрки: до обеда 10:00–12:30, после обеда с 14:00, ближе к вечеру
+    с 16:00, «после 15» — с 15:00, «до 12» — чтобы закончить к 12:00, «с 14 до 16» — в этом окне."""
+    t = str(text or "").lower().replace("ё", "е")
+    lo, hi, name = None, None, None
+    for nm, rx in _FO_MT_PART_RX:
+        if re.search(rx, t):
+            name = nm
+            break
+    if name == "morning":
+        lo, hi = st["from"], 12 * 60
+    elif name == "afternoon":
+        lo, hi = 14 * 60, st["to"] - mins
+    elif name == "evening":
+        lo, hi = 16 * 60, st["to"] - mins
+    m = re.search(r"\bс\s+([01]?\d|2[0-3])(?:[:.]([0-5]\d))?\s+до\s+([01]?\d|2[0-3])(?:[:.]([0-5]\d))?\b", t)
+    if m and 8 <= int(m.group(1)) <= 20 and 8 <= int(m.group(3)) <= 20:
+        lo = int(m.group(1)) * 60 + int(m.group(2) or 0)
+        hi = int(m.group(3)) * 60 + int(m.group(4) or 0) - mins
+        name = "span"
+    else:
+        m = re.search(r"\bпосле\s+([01]?\d|2[0-3])(?:[:.]([0-5]\d))?\b(?!\s*(мин|час))", t)
+        if m and 8 <= int(m.group(1)) <= 20:
+            lo, hi, name = int(m.group(1)) * 60 + int(m.group(2) or 0), st["to"] - mins, "after"
+        m = re.search(r"\bдо\s+([01]?\d|2[0-3])(?:[:.]([0-5]\d))?\b(?!\s*(мин|час))", t)
+        if m and 8 <= int(m.group(1)) <= 20:
+            hi = int(m.group(1)) * 60 + int(m.group(2) or 0) - mins
+            lo = lo if lo is not None else st["from"]
+            name = name or "before"
+    if name is None:
+        return None
+    lo = max(st["from"], lo if lo is not None else st["from"])
+    hi = min(st["to"] - mins, hi if hi is not None else st["to"] - mins)
+    word = _FO_MT_PART_WORD.get(name) or {"after": "после %s" % _fo_mt_hm(lo), "before": "до %s" % _fo_mt_hm(hi + mins),
+                                          "span": "с %s до %s" % (_fo_mt_hm(lo), _fo_mt_hm(hi + mins))}[name]
+    return {"name": name, "lo": lo, "hi": hi, "word": word}
+
+
+def _fo_mt_range_slots(busy, host, d, lo, hi, mins, st, n=3, after=None):
+    """Варианты начала в окне [lo, hi]: сначала вплотную к планёркам ведущего (одним блоком), потом сетка по
+    30 минут — первый, последний и средний, чтобы клиент выбирал из разного времени."""
+    lo, hi = max(lo, st["from"]), min(hi, st["to"] - mins)
+    if after is not None:
+        lo = max(lo, after)
+    if hi < lo:
+        return []
+    have = sorted(busy.get((host, d), []))
+    adj = set()
+    for x, y, _ in have:
+        adj.add(y + st["brk"])
+        adj.add(x - st["brk"] - mins)
+    good = sorted(t for t in adj if lo <= t <= hi and _fo_mt_fits(busy, host, d, t, mins, st))
+    g0 = ((lo + 29) // 30) * 30
+    grid = [t for t in range(g0, hi + 1, 30) if _fo_mt_fits(busy, host, d, t, mins, st) and t not in good]
+    if not grid and not good:
+        grid = [t for t in range(lo, hi + 1, 5) if _fo_mt_fits(busy, host, d, t, mins, st)]
+    out = good[:1]
+    for t in ([grid[0], grid[-1], grid[len(grid) // 2]] if grid else []) + good[1:]:
+        if len(out) >= n:
+            break
+        if t not in out:
+            out.append(t)
+    return sorted(out)
+
+
+def _fo_mt_pick(text, opts):
+    """Выбор из предложенных слотов: время из списка, «первое / второе / третье», «любое», «да» при одном варианте.
+    None — клиент назвал другое время или непонятно."""
+    t = str(text or "").lower().replace("ё", "е")
+    rx = _fo_mt_rx(text)
+    if rx["time"]:
+        return rx["time"] if rx["time"] in opts else None
+    for i, w in enumerate((r"перв|\b1\b|\bодин\b", r"втор|\b2\b|\bдва\b", r"трет|\b3\b|\bтри\b")):
+        if i < len(opts) and re.search(w, t):
+            return opts[i]
+    if re.search(r"любо[ей]|без\s+разниц|на\s+ваш|вс[её]\s+равно|как\s+удобно|как\s+вам", t):
+        return opts[0]
+    if rx["yes"] and len(opts) == 1:
+        return opts[0]
+    return None
+
+
+def _fo_mt_last_change(r, items):
+    """Последняя перенесённая или добавленная планёрка (по журналу «стало: YYYY-MM-DD HH:MM») — для правок вроде
+    «ты назначил на 11:00, я просила после обеда»."""
+    try:
+        log = _fo_mt_load(r["log"], []) if r else []
+    except Exception:
+        log = []
+    for x in reversed(log or []):
+        if isinstance(x, dict) and x.get("стало"):
+            try:
+                d, tm = str(x["стало"]).split(" ")[:2]
+            except Exception:
+                return None
+            day = _fo_mt_date(d)
+            return next((i for i in items if i["day"] == day and i["time"] == tm), None)
+    return None
 _FO_MT_ANS_RX = re.compile(
     r"(^|[\s,.!])(да|ок|окей|ok|ага|подходит|удобно|неудобно|не удобно|договорились|согласн\w*|давайте|норм\w*|хорошо|"
     r"отлично|не могу|не можем|не получится|в силе)([\s,.!)]|$)|\b([01]?\d|2[0-3])[:.][0-5]\d\b|\bв\s*([01]?\d|2[0-3])\b|"
@@ -5379,7 +5488,8 @@ _FO_MT_SYS2 = (
     "(задача, вопрос по товару, цене, рекламе, поставке); unclear — про планёрку, но непонятно, что сделать.\n"
     "from_date — какую планёрку переносят или отменяют: дата YYYY-MM-DD из списка, иначе null.\n"
     "date — на какой день нужна: YYYY-MM-DD («завтра», «в пятницу» переведи в дату; день недели — ближайший будущий), иначе null.\n"
-    "time — время HH:MM по Москве, иначе null.\n"
+    "time — время HH:MM по Москве, иначе null. «До обеда», «после обеда», «ближе к вечеру», «после 15», «какие слоты», "
+    "«когда можете» — это не время, time: null.\n"
     "Ответь только JSON без пояснений: {\"intent\": \"move\", \"from_date\": null, \"date\": null, \"time\": null}")
 
 
@@ -5722,9 +5832,16 @@ async def _fo_mt_request(c, org_id, client_id, r, text, msg_id, pk, test):
         return await _fo_mt_week_off(c, org_id, client_id, r, text, msg_id, test)
     js = await _fo_mt_req_parse(text, items, now, held, org_id)
     it = js.get("intent")
+    t_fix = str(text or "").lower().replace("ё", "е")
+    part0 = _fo_mt_part(text, _FO_MT_DEF, 30)
+    if it != "cancel" and _FO_MT_FIX_RX.search(t_fix) and (part0 or _fo_mt_rx(text)["time"] or re.search(_FO_MT_SYN, t_fix)):
+        it, js["intent"], js["fix"] = "move", "move", True       # 244: «ты назначил на 11:00, я просила после обеда»
+    if part0 and (part0["name"] in ("after", "before", "span") or js.get("fix")):
+        js["time"] = None                                          # «после 15» — окно, а не время; в правке названо старое время
     await c.execute("UPDATE fo_meet SET answered_at=now(), answer=$3, log=log||$4::jsonb WHERE org_id=$1::uuid AND client_id=$2::uuid",
                     str(org_id), str(client_id), str(text or "")[:500],
-                    _fo_mt_item("сообщение клиента в течение недели", text=str(text or "")[:300], понял=it, by=js.get("by")))
+                    _fo_mt_item("сообщение клиента в течение недели", text=str(text or "")[:300], понял=it, by=js.get("by"),
+                                окно=(part0 or {}).get("word")))
     if it == "not_about":
         if not test:
             _fo_aio.get_running_loop().create_task(_fo_mt_ai_handoff(pk))
@@ -5777,6 +5894,10 @@ async def _fo_mt_request(c, org_id, client_id, r, text, msg_id, pk, test):
                                           "неделе — напишите день и время, поставим дополнительную.", reply_to=msg_id, test=test)
             return {"state": "планёрка уже прошла"}
         tgt = next((x for x in cand if not past(x)), None) or next((x for x in items if not past(x)), None)
+        if js.get("fix") and not cand:
+            lc = _fo_mt_last_change(r, items)                      # 244: правка — к последней назначенной
+            if lc and not past(lc):
+                tgt = lc
         if not tgt:
             sent, err = await _fo_mt_send(c, org_id, client_id, "Планёрки этой недели уже прошли ✓ Нужна дополнительная встреча? "
                                           "Напишите день и время.", reply_to=msg_id, test=test)
@@ -5801,6 +5922,10 @@ async def _fo_mt_request(c, org_id, client_id, r, text, msg_id, pk, test):
         skip = None
     if not host:
         return await _fo_mt_handoff(c, org_id, client_id, msg_id, test, "клиент просит: «%s», а ведущего в графике нет" % str(text)[:100])
+    part = _fo_mt_part(text, st, mins)                             # 244: часть дня и просьба слотов
+    ask = bool(_FO_MT_ASK_RX.search(t_low))
+    if js.get("fix") and it == "move" and tgt and not want_day:
+        day = tgt["day"]
     named = _fo_mt_m(js.get("time")) if js.get("time") else None
     # выходные или время вне 10:00–18:00 — вежливо объясняем и предлагаем будни (Виталий 29.09)
     if wkend or (named is not None and (named < st["from"] or named + mins > st["to"])):
@@ -5815,7 +5940,10 @@ async def _fo_mt_request(c, org_id, client_id, r, text, msg_id, pk, test):
             base = next((x for x in up if x["day"] == day), up[0])
             to = {"day": day, "time": _fo_mt_hm(pref) if pref is not None else base["time"],
                   "minutes": int(base["minutes"]), "host": base["host"] or host, "kind": "moved"}
-            return await _fo_mt_choose(c, org_id, client_id, base, to, msg_id, test)
+            return await _fo_mt_choose(c, org_id, client_id, base, to, msg_id, test, part=part, ask=ask)
+    if (part or ask) and named is None:
+        return await _fo_mt_propose(c, org_id, client_id, it, tgt if it == "move" else None, day, part, mins, host,
+                                    msg_id, test, st, names, cab)
     return await _fo_mt_decide(c, org_id, client_id, it, tgt if it == "move" else None, day, pref, mins, host,
                                msg_id, test, st, names, cab)
 
@@ -5918,8 +6046,45 @@ async def _fo_mt_pend_answer(c, org_id, client_id, r, pend, text, msg_id, pk, te
         if typ == "extra":
             lv = (await _fo_mt_levels(c, org_id)).get(str(client_id), {"level": 3})
             to["minutes"] = _FO_MT_LVL[lv["level"]][2]
+        if pend.get("part") or pend.get("ask"):                    # 244: окно дня → предлагаем слоты, не фиксируем
+            part = _fo_mt_part((pend.get("part") or {}).get("word") or "", st, int(to["minutes"])) if pend.get("part") else None
+            if pend.get("part") and not part:
+                part = dict(pend["part"])
+            return await _fo_mt_propose(c, org_id, client_id, typ, fr if typ == "move" else None, to["day"], part,
+                                        int(to["minutes"]), to["host"], msg_id, test, st, names, cab)
         return await _fo_mt_decide(c, org_id, client_id, typ, fr if typ == "move" else None, to["day"], _fo_mt_m(to["time"]),
                                    int(to["minutes"]), to["host"], msg_id, test, st, names, cab)
+    if pend.get("opts"):                                           # 244: клиент выбирает из предложенных слотов
+        pick = _fo_mt_pick(text, list(pend["opts"]))
+        rx0 = _fo_mt_rx(text)
+        if pick:
+            p2 = dict(pend)
+            p2["to"] = dict(pend.get("to") or {}, time=pick)
+            p2.pop("opts", None)
+            await c.execute("UPDATE fo_meet SET answered_at=now(), answer=$3, log=log||$4::jsonb WHERE org_id=$1::uuid AND client_id=$2::uuid",
+                            str(org_id), str(client_id), str(text or "")[:500],
+                            _fo_mt_item("ответ клиента", text=str(text or "")[:300], понял="выбрал " + pick))
+            return await _fo_mt_pend_apply(c, org_id, client_id, p2, msg_id, test)
+        if rx0["yes"] and not rx0["time"] and len(pend["opts"]) > 1:
+            ts = list(pend["opts"])
+            await _fo_mt_send(c, org_id, client_id, "Какое время выбираете: %s?" % (
+                " или ".join([", ".join(ts[:-1]), ts[-1]])), reply_to=msg_id, test=test)
+            return {"state": "уточняем, какой слот"}
+        if rx0["time"] and not rx0["days"] and not rx0["neg"]:        # своё время в тот же день
+            to0 = _fo_mt_unjs(pend.get("to"))
+            fr0 = _fo_mt_unjs(pend.get("from")) if pend.get("from") else None
+            st0 = await _fo_mt_settings(c, org_id)
+            names0 = await _fo_mt_names(c, org_id)
+            cab0 = await c.fetchval("SELECT name FROM client WHERE id=$1::uuid", str(client_id)) or ""
+            await c.execute("UPDATE fo_meet SET answered_at=now(), answer=$3, log=log||$4::jsonb WHERE org_id=$1::uuid AND client_id=$2::uuid",
+                            str(org_id), str(client_id), str(text or "")[:500],
+                            _fo_mt_item("ответ клиента", text=str(text or "")[:300], понял="своё время " + rx0["time"]))
+            t0 = _fo_mt_m(rx0["time"])
+            if t0 < st0["from"] or t0 + int(to0["minutes"]) > st0["to"]:
+                return await _fo_mt_offhours(c, org_id, client_id, fr0, to0["host"], int(to0["minutes"]), to0["day"], t0, False,
+                                             msg_id, test, st0)
+            return await _fo_mt_decide(c, org_id, client_id, pend.get("type") or "extra", fr0, to0["day"], t0,
+                                       int(to0["minutes"]), to0["host"], msg_id, test, st0, names0, cab0)
     to = _fo_mt_unjs(pend.get("to")) if pend.get("to") else _fo_mt_unjs(pend.get("from"))
     offer = {to["day"].weekday(): {"time": to["time"], "minutes": int(to["minutes"]), "host": to["host"]}}
     js = await _fo_mt_parse(text, offer, org_id)
@@ -6089,18 +6254,60 @@ async def _fo_mt_offhours(c, org_id, client_id, tgt, host, mins, day, t, wkend, 
     return {"state": "нерабочее время — предложили будни", "варианты": ["%s %s" % (dd.isoformat(), tm) for dd, tm, _o in opts]}
 
 
-async def _fo_mt_choose(c, org_id, client_id, base, to, msg_id, test):
+async def _fo_mt_choose(c, org_id, client_id, base, to, msg_id, test, part=None, ask=False):
     """Клиент назвал день и время, но не сказал, перенос это или ещё одна планёрка — спрашиваем один раз."""
     same = base["day"] == to["day"]
+    when = ("на время %s" % part["word"]) if part else ("на %s" % to["time"])
+    when2 = part["word"] if part else ("в %s" % to["time"])
     txt = ("Уточните, пожалуйста: %s — или нужна ещё одна, дополнительная? Ответьте «перенести» или «ещё одну»." % (
-        ("перенести планёрку %s с %s на %s" % (_fo_mt_dw(base["day"]), base["time"], to["time"])) if same else
-        ("перенести планёрку с %s (%s) на %s в %s" % (_fo_mt_dw(base["day"], "gen"), base["time"], _fo_mt_dw(to["day"], "acc"), to["time"]))))
+        ("перенести планёрку %s с %s %s" % (_fo_mt_dw(base["day"]), base["time"], when)) if same else
+        ("перенести планёрку с %s (%s) на %s %s" % (_fo_mt_dw(base["day"], "gen"), base["time"], _fo_mt_dw(to["day"], "acc"), when2))))
     sent, err = await _fo_mt_send(c, org_id, client_id, txt, reply_to=msg_id, test=test)
-    pend = {"type": "choose", "from": _fo_mt_js(base), "to": _fo_mt_js(to), "rounds": 0}
+    pend = {"type": "choose", "from": _fo_mt_js(base), "to": _fo_mt_js(to), "rounds": 0, "part": part, "ask": bool(ask)}
     await c.execute("UPDATE fo_meet SET pend=$3::jsonb, msg_id=coalesce($4, msg_id), sent_at=now(), log=log||$5::jsonb, "
                     "updated_at=now() WHERE org_id=$1::uuid AND client_id=$2::uuid", str(org_id), str(client_id),
                     _fo_json.dumps(pend), (sent or {}).get("msg_id"), _fo_mt_item("спросили: перенос или ещё одна", text=txt))
     return {"state": "спросили: перенос или ещё одна", "send": err or "отправлено"}
+
+
+async def _fo_mt_propose(c, org_id, client_id, it, tgt, day, part, mins, host, msg_id, test, st, names, cab):
+    """«После обеда», «до обеда», «ближе к вечеру», «какие слоты?» — предлагаем 2–3 свободных варианта в этом окне
+    и ждём выбора; точного времени клиент не называл, сами не фиксируем (Виталий 30.09: «должна быть коммуникация
+    предложения слотов»). Если в этот день окна нет — ближайший рабочий день с тем же окном."""
+    if not host:
+        return await _fo_mt_handoff(c, org_id, client_id, msg_id, test, "нет ведущего в графике")
+    now = _fo_mt_now()
+    today, mnow = now.date(), now.hour * 60 + now.minute
+    skip = (str(client_id), tgt["day"], tgt["time"]) if (it == "move" and tgt) else None
+    lo = part["lo"] if part else st["from"]
+    hi = part["hi"] if part else st["to"] - mins
+    word = part["word"] if part else ""
+    opts, dd = [], day
+    for k in range(5):
+        dd = day if k == 0 else _fo_mt_workday(dd + _fo_dt.timedelta(days=1))
+        if dd < today:
+            continue
+        busy = await _fo_mt_daybusy(c, org_id, dd, skip)
+        opts = _fo_mt_range_slots(busy, host, dd.weekday(), lo, hi, mins, st, 3, after=(mnow + 30) if dd == today else None)
+        if opts:
+            break
+    if not opts:
+        return await _fo_mt_handoff(c, org_id, client_id, msg_id, test, "нет окна %s у ведущего" % (word or "в этот день"))
+    times = [_fo_mt_hm(t) for t in opts]
+    lst = (" или ".join([", ".join(times[:-1]), times[-1]]) if len(times) > 1 else times[0])
+    head = "%s%s: могу предложить %s — планёрка %d минут." % (_fo_mt_dw(dd).capitalize(), (" " + word) if word else "", lst, mins)
+    if dd != day:
+        head = "%s%s свободных окон у ведущего нет. %s" % (_fo_mt_dw(day).capitalize(), (" " + word) if word else "", head)
+    if it == "move" and tgt:
+        head = "Хорошо, перенесём планёрку %s %s. %s" % (_fo_mt_dw(tgt["day"], "gen"), tgt["time"], head)
+    txt = head + "\nКакое время удобно? Можно назвать и другое — подберём."
+    sent, err = await _fo_mt_send(c, org_id, client_id, txt, reply_to=msg_id, test=test)
+    to = {"day": dd, "time": times[0], "minutes": mins, "host": host, "kind": "moved" if it == "move" else "extra"}
+    pend = {"type": it, "from": _fo_mt_js(tgt) if (it == "move" and tgt) else None, "to": _fo_mt_js(to), "opts": times, "rounds": 0}
+    await c.execute("UPDATE fo_meet SET pend=$3::jsonb, msg_id=coalesce($4, msg_id), sent_at=now(), log=log||$5::jsonb, "
+                    "updated_at=now() WHERE org_id=$1::uuid AND client_id=$2::uuid", str(org_id), str(client_id),
+                    _fo_json.dumps(pend), (sent or {}).get("msg_id"), _fo_mt_item("предложили слоты", text=txt[:300], варианты=times))
+    return {"state": "предложили слоты", "варианты": times, "send": err or "отправлено"}
 
 
 async def _fo_mt_decide(c, org_id, client_id, it, tgt, day, pref, mins, host, msg_id, test, st, names, cab):
@@ -6152,8 +6359,14 @@ async def _fo_mt_prop_other(c, org_id, client_id, r, offer, js, text, msg_id, te
             day += _fo_dt.timedelta(days=7)
     else:
         day = tgt["day"] if tgt else _fo_mt_workday(today + _fo_dt.timedelta(days=1))
+    part = _fo_mt_part(text, st, mins)                             # 244
+    if part and part["name"] in ("after", "before", "span"):
+        t = None
     if wkend or (t is not None and (t < st["from"] or t + mins > st["to"])):
         return await _fo_mt_offhours(c, org_id, client_id, tgt, host, mins, day, t, wkend, msg_id, test, st, proposed=True)
+    if t is None and (part or _FO_MT_ASK_RX.search(str(text or ""))):
+        return await _fo_mt_propose(c, org_id, client_id, "move" if tgt else "extra", tgt, day, part, mins, host,
+                                    msg_id, test, st, names, cab)
     if tgt and day == tgt["day"] and (t is None or t == _fo_mt_m(tgt["time"])):
         return await _fo_mt_agree(c, org_id, client_id, offer, reply_to=msg_id, test=test)
     if t is None:
