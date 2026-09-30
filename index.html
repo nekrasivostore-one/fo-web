@@ -4441,6 +4441,15 @@ html[data-view="fin"] .gl-t::after{ content:""; position:absolute; left:0; right
 .fo-growt td:first-child{ color:var(--ink-2); white-space:nowrap }
 .fo-podnote{ grid-column:1 / -1; text-align:left }
 @media (max-width:820px){ .fo-grow2{ grid-template-columns:1fr } }
+/* add115: блок «LTV: факт и гипотеза» на «Рейтинге» */
+.fo-ltv .seg{ margin-left:auto }
+.fo-ltvp{ display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:10px 14px; align-items:end; margin-bottom:14px }
+.fo-ltvf{ display:flex; flex-direction:column; gap:4px; font-size:11px; color:var(--ink-3) }
+.fo-ltvf span{ text-transform:uppercase; letter-spacing:.08em; font-size:10px }
+.fo-ltvf i{ font-style:normal; font-size:10.5px }
+.fo-ltvf .fi, .fo-ltvf .sel{ width:100% }
+.fo-ltvp .bt{ width:auto; align-self:end }
+.fo-ltvt td i{ font-style:normal; font-size:11px; margin-left:4px }
 </style>
 </head>
 <body>
@@ -29830,6 +29839,182 @@ function foGrowthHTML(){
   };
   if(typeof SEC_RENDER !== "undefined") SEC_RENDER.rate = renderRate;
 })();
+/* ===== add115 (252, Виталий 30.09): блок «LTV: факт и гипотеза» внизу «Рейтинга» =====
+   «Факт агентства: из клиентов, уходов, иксов роста, прибавки кабинетов — какую выручку можно получить при таком
+   и таком сценарии. Две вкладки в одном блоке: факт и гипотеза. В гипотезе — улучшить или ухудшить процент ухода
+   новых и старых, чтобы понять, каких клиентов брать и каких менеджеров какого грейда; доля зарплат от выручки;
+   валовая прибыль; средний чек — проставить самому. Блок про LTV: как улучшить, как ухудшить, что по итогу».
+   Факт — с сервера (карточки клиентов: суммы, ответы «продлевает?», оклады). Гипотеза — параметры хранятся в
+   настройках агентства (settings.ltv, пишет собственник), модель по месяцам как в таблице Виталия:
+   старые уходят по проценту старых, новые — в первый месяц по проценту новых, дальше становятся старыми;
+   на каждые 5 кабинетов нужно +X менеджеров выбранного грейда.                                            */
+var FO_LTV = {tab: "fact"};
+var FO_LTV_DEF = {check: 0, newPerMonth: 5, churnOld: 20, churnNew: 50, perCab: 5, mgrPer: 2, grade: "jun", months: 12};
+
+function foLtvFact(){
+  var prs = (S.projects || []).filter(function(p){ return +p.amount > 0 || p.confirm; });
+  var all = (S.projects || []);
+  var rev = all.reduce(function(a, p){ return a + (+p.amount || 0); }, 0);
+  var n = all.filter(function(p){ return +p.amount > 0; }).length || all.length;
+  var gone = all.filter(function(p){ return p.confirm === "no"; });
+  var goneRev = gone.reduce(function(a, p){ return a + (+p.amount || 0); }, 0);
+  var yes = all.filter(function(p){ return p.confirm === "yes"; }).length;
+  var ppl = (S.people || []).filter(function(m){ return !m.hidden; });
+  var fot = ppl.reduce(function(a, m){ return a + (+m.pay || 0); }, 0);
+  var mgrs = ppl.filter(function(m){ try{ var g = gradeOf(m); return g && g.id !== "pm"; }catch(e){ return true; } }).length;
+  return {n: n, rev: rev, check: n ? rev / n : 0, gone: gone.length, goneRev: goneRev, churn: n ? gone.length / n * 100 : 0,
+          yes: yes, fot: fot, share: rev ? fot / rev * 100 : 0, gross: rev - fot, margin: rev ? (rev - fot) / rev * 100 : 0,
+          mgrs: mgrs, cabsPerMgr: mgrs ? n / mgrs : 0, ppl: ppl.length};
+}
+function foLtvParams(){
+  var f = foLtvFact();
+  var s = {}; try{ s = settings().ltv || {}; }catch(e){}
+  var p = {};
+  Object.keys(FO_LTV_DEF).forEach(function(k){ p[k] = (s[k] != null && s[k] !== "") ? s[k] : FO_LTV_DEF[k]; });
+  if(!(+p.check > 0)) p.check = Math.round(f.check) || 50000;
+  if(s.churnOld == null && f.gone) p.churnOld = Math.round(f.churn);
+  p.months = Math.max(3, Math.min(36, +p.months || 12));
+  return p;
+}
+function foLtvSalary(gradeId){
+  try{ var g = grades().filter(function(x){ return x.id === gradeId; })[0]; return g ? Math.round((g.min + g.max) / 2) : 45000; }catch(e){ return 45000; }
+}
+function foLtvModel(p){
+  var f = foLtvFact();
+  var old = f.n, fresh = 0, rows = [], sal = foLtvSalary(p.grade);
+  var cumRev = 0, cumGross = 0, cumGone = 0;
+  var basePeople = (S.people || []).filter(function(m){ return !m.hidden; }).length;
+  for(var m = 1; m <= p.months; m++){
+    var goneOld = Math.round(old * p.churnOld / 100);
+    var goneNew = Math.round(fresh * p.churnNew / 100);
+    old = old - goneOld + (fresh - goneNew);        /* выжившие новые становятся старыми */
+    fresh = +p.newPerMonth || 0;
+    var clients = old + fresh;
+    var mgrNeed = Math.ceil(clients / (+p.perCab || 5)) * (+p.mgrPer || 1);
+    var hire = Math.max(0, mgrNeed - f.mgrs);
+    var fot = f.fot + hire * sal;
+    var rev = clients * p.check;
+    var gross = rev - fot;
+    cumRev += rev; cumGross += gross; cumGone += goneOld + goneNew;
+    rows.push({m: m, clients: clients, old: old, fresh: fresh, goneOld: goneOld, goneNew: goneNew, mgrNeed: mgrNeed, hire: hire,
+               fot: fot, rev: rev, gross: gross, share: rev ? fot / rev * 100 : 0, margin: rev ? gross / rev * 100 : 0});
+  }
+  var life = (p.churnOld > 0) ? 1 + (1 - p.churnNew / 100) / (p.churnOld / 100) : 0;   /* месяцев жизни клиента */
+  var last = rows[rows.length - 1];
+  return {rows: rows, life: life, ltv: life ? p.check * life : 0, last: last, cumRev: cumRev, cumGross: cumGross, cumGone: cumGone,
+          sal: sal, growth: f.rev ? last.rev / f.rev : 0, f: f};
+}
+function foLtvHTML(){
+  var money = false; try{ money = seesMoney(); }catch(e){}
+  var R = function(x){ return money ? rub(Math.round(x)) : "скрыто"; };
+  var f = foLtvFact(), p = foLtvParams();
+  var h = '<div class="gl fo-ltv"><div class="gl-t"><h2>LTV: факт и гипотеза</h2>'+
+    '<span class="m">факт — из карточек клиентов и окладов; гипотеза — модель по месяцам, параметры меняете сами</span>'+
+    '<div class="seg sm"><button data-ltvt="fact" aria-pressed="'+(FO_LTV.tab === "fact")+'">Факт</button><button data-ltvt="hyp" aria-pressed="'+(FO_LTV.tab === "hyp")+'">Гипотеза</button></div></div>';
+  if(FO_LTV.tab === "fact"){
+    var lifeF = f.churn > 0 ? 1 + 0.5 / (f.churn / 100) : 0;
+    h += '<div class="grsum plain fo-grow4">'+
+      '<div class="pss"><div class="l">Клиентов</div><div class="v">'+f.n+'</div><div class="d">подтвердили продление '+f.yes+', уходят '+f.gone+'</div></div>'+
+      '<div class="pss"><div class="l">Средний чек</div><div class="v">'+R(f.check)+'</div><div class="d">выручка '+R(f.rev)+' в месяц</div></div>'+
+      '<div class="pss"><div class="l">Уход клиентов</div><div class="v'+(f.gone ? ' critv' : ' okv')+'">'+Math.round(f.churn)+'%</div><div class="d">'+(f.gone ? 'минус '+R(f.goneRev)+' в месяц' : 'отказов нет — все ответы «да» или ждём')+'</div></div>'+
+      '<div class="pss"><div class="l">Доля зарплат от выручки</div><div class="v'+(f.share > 60 ? ' critv' : f.share > 45 ? ' warnv' : ' okv')+'">'+Math.round(f.share)+'%</div><div class="d">ФОТ '+R(f.fot)+' · '+f.ppl+' чел</div></div>'+
+      '<div class="pss"><div class="l">Валовая прибыль</div><div class="v'+(f.gross > 0 ? ' okv' : ' critv')+'">'+R(f.gross)+'</div><div class="d">маржа '+Math.round(f.margin)+'% · выручка минус оклады</div></div>'+
+      '<div class="pss"><div class="l">LTV при текущем уходе</div><div class="v">'+(f.churn > 0 ? R(f.check * lifeF) : '∞')+'</div><div class="d">'+(f.churn > 0 ? 'клиент живёт ~'+Math.round(lifeF * 10) / 10+' мес' : 'уходов нет — срок жизни не ограничен; оцените в гипотезе')+'</div></div>'+
+      '<div class="pss"><div class="l">Кабинетов на менеджера</div><div class="v">'+(Math.round(f.cabsPerMgr * 10) / 10)+'</div><div class="d">'+f.mgrs+' исполнителей на '+f.n+' клиентов</div></div>'+
+    '</div>'+
+    '<div class="payh">Факт берётся из «Финансов»: сумма в месяц и ответ «продлевает?» в карточке клиента, оклады — из карточек сотрудников. LTV = средний чек × срок жизни клиента; срок жизни = 1 + (1 − уход новых) ÷ уход старых. Уход новых в факте пока не измеряется — в формуле 50%.</div>';
+  } else {
+    var mod = foLtvModel(p);
+    var inp = function(k, label, unit, step, min, max){
+      return '<label class="fo-ltvf"><span>'+label+'</span><input class="fi sm" type="number" data-ltv="'+k+'" value="'+esc(String(p[k]))+'" step="'+(step || 1)+'" min="'+(min || 0)+'"'+(max ? ' max="'+max+'"' : '')+'><i>'+unit+'</i></label>';
+    };
+    h += '<div class="fo-ltvp">'+
+      inp("check", "Средний чек", "₽ в месяц", 1000, 0)+
+      inp("newPerMonth", "Новых клиентов", "в месяц", 1, 0, 200)+
+      inp("churnOld", "Уход старых", "% в месяц", 1, 0, 100)+
+      inp("churnNew", "Уход новых", "% в первый месяц", 1, 0, 100)+
+      inp("perCab", "На каждые", "кабинетов", 1, 1, 50)+
+      inp("mgrPer", "нужно +", "менеджеров", 1, 0, 20)+
+      '<label class="fo-ltvf"><span>Грейд новых менеджеров</span><select class="sel sm" data-ltv="grade">'+["assist", "jun", "mid", "head"].map(function(g){
+        var gg = null; try{ gg = grades().filter(function(x){ return x.id === g; })[0]; }catch(e){}
+        return '<option value="'+g+'"'+(p.grade === g ? ' selected' : '')+'>'+(gg ? esc(gg.name) : g)+' · '+(money ? rub(foLtvSalary(g)) : '')+'</option>'; }).join("")+'</select><i>оклад — середина вилки</i></label>'+
+      inp("months", "Горизонт", "месяцев", 1, 3, 36)+
+      '<button class="bt gh2 sm" data-ltvreset="1">Сбросить к факту</button>'+
+    '</div>';
+    var L = mod.last;
+    h += '<div class="grsum plain fo-grow4">'+
+      '<div class="pss"><div class="l">LTV клиента</div><div class="v">'+(mod.life ? R(mod.ltv) : '∞')+'</div><div class="d">'+(mod.life ? 'живёт ~'+Math.round(mod.life * 10) / 10+' мес при чеке '+R(p.check) : 'уход старых 0% — срок жизни не ограничен')+'</div></div>'+
+      '<div class="pss"><div class="l">Клиентов через '+p.months+' мес</div><div class="v">'+L.clients+'</div><div class="d">сейчас '+f.n+' · ушло за период '+mod.cumGone+'</div></div>'+
+      '<div class="pss"><div class="l">Выручка в месяц '+p.months+'</div><div class="v">'+R(L.rev)+'</div><div class="d">'+(mod.growth ? '×'+(Math.round(mod.growth * 10) / 10)+' к текущей' : 'сейчас выручки нет')+'</div></div>'+
+      '<div class="pss"><div class="l">Доля зарплат в месяц '+p.months+'</div><div class="v'+(L.share > 60 ? ' critv' : L.share > 45 ? ' warnv' : ' okv')+'">'+Math.round(L.share)+'%</div><div class="d">ФОТ '+R(L.fot)+' · менеджеров '+L.mgrNeed+(L.hire ? ' (+'+L.hire+' нанять)' : '')+'</div></div>'+
+      '<div class="pss"><div class="l">Валовая прибыль за период</div><div class="v'+(mod.cumGross > 0 ? ' okv' : ' critv')+'">'+R(mod.cumGross)+'</div><div class="d">выручка за период '+R(mod.cumRev)+'</div></div>'+
+    '</div>';
+    h += '<div class="paytw"><table class="payt unlt fo-ltvt"><thead><tr><th>Мес</th><th>Клиентов</th><th>Новых</th><th>Ушло</th><th>Менеджеров</th><th>Выручка</th><th>ФОТ</th><th>ЗП, %</th><th>Валовая</th></tr></thead><tbody>'+
+      mod.rows.map(function(r){
+        return '<tr><td>'+r.m+'</td><td><b>'+r.clients+'</b></td><td>'+r.fresh+'</td><td class="'+((r.goneOld + r.goneNew) ? 'critc' : '')+'">'+(r.goneOld + r.goneNew)+'</td>'+
+          '<td>'+r.mgrNeed+(r.hire ? ' <i class="okc">+'+r.hire+'</i>' : '')+'</td><td>'+R(r.rev)+'</td><td>'+R(r.fot)+'</td><td class="'+(r.share > 60 ? 'critc' : '')+'">'+Math.round(r.share)+'%</td><td class="'+(r.gross > 0 ? 'okc' : 'critc')+'">'+R(r.gross)+'</td></tr>'; }).join("")+
+    '</tbody></table></div>';
+    /* как улучшить и как ухудшить */
+    var alt = function(ch){ var q = {}; Object.keys(p).forEach(function(k){ q[k] = p[k]; }); Object.keys(ch).forEach(function(k){ q[k] = ch[k]; }); return foLtvModel(q); };
+    var better = [
+      {t: "уход старых −5 п.п.", m: alt({churnOld: Math.max(0, p.churnOld - 5)})},
+      {t: "уход новых −10 п.п.", m: alt({churnNew: Math.max(0, p.churnNew - 10)})},
+      {t: "чек +10%", m: alt({check: Math.round(p.check * 1.1)})},
+      {t: "+2 новых в месяц", m: alt({newPerMonth: (+p.newPerMonth || 0) + 2})}
+    ];
+    var worse = [
+      {t: "уход старых +5 п.п.", m: alt({churnOld: Math.min(100, p.churnOld + 5)})},
+      {t: "уход новых +10 п.п.", m: alt({churnNew: Math.min(100, p.churnNew + 10)})},
+      {t: "чек −10%", m: alt({check: Math.round(p.check * 0.9)})},
+      {t: "менеджеры грейдом выше", m: alt({grade: p.grade === "assist" ? "jun" : p.grade === "jun" ? "mid" : "head"})}
+    ];
+    var d = function(x){ return (x >= 0 ? "+" : "−") + (money ? rub(Math.abs(Math.round(x))) : Math.abs(Math.round(x))); };
+    var row = function(x){ return '<tr><td>'+x.t+'</td><td>'+(x.m.life ? R(x.m.ltv) : '∞')+' <i class="'+(x.m.ltv - mod.ltv >= 0 ? 'okc' : 'critc')+'">'+d(x.m.ltv - mod.ltv)+'</i></td><td>'+x.m.last.clients+'</td><td>'+R(x.m.cumGross)+' <i class="'+(x.m.cumGross - mod.cumGross >= 0 ? 'okc' : 'critc')+'">'+d(x.m.cumGross - mod.cumGross)+'</i></td></tr>'; };
+    h += '<div class="fo-grow2"><div><div class="ndsub">Как улучшить</div><table class="payt unlt"><thead><tr><th>Что меняем</th><th>LTV</th><th>Клиентов</th><th>Валовая за период</th></tr></thead><tbody>'+better.map(row).join("")+'</tbody></table></div>'+
+      '<div><div class="ndsub">Как ухудшить</div><table class="payt unlt"><thead><tr><th>Что меняем</th><th>LTV</th><th>Клиентов</th><th>Валовая за период</th></tr></thead><tbody>'+worse.map(row).join("")+'</tbody></table></div></div>';
+    var best = better.slice().sort(function(a, b){ return b.m.cumGross - a.m.cumGross; })[0];
+    h += '<div class="payh"><b>По итогу:</b> при этих параметрах через '+p.months+' мес — '+L.clients+' клиентов, выручка '+R(L.rev)+' в месяц, доля зарплат '+Math.round(L.share)+'%, валовая прибыль за период '+R(mod.cumGross)+'. '+
+      'Сильнее всего на валовую прибыль влияет «'+best.t+'»: '+d(best.m.cumGross - mod.cumGross)+' за период. '+
+      'Каких клиентов брать: с чеком выше среднего и тех, кто переживает первый месяц (уход новых ниже); каких менеджеров: пока доля зарплат ниже 45% — можно брать грейдом выше, выше 60% — только младших или разгружать текущих. Параметры сохраняются на сервере.</div>';
+  }
+  h += '</div>';
+  return h;
+}
+(function(){
+  if(typeof renderRate !== "function") return;
+  var _r = renderRate;
+  renderRate = function(){
+    _r.apply(this, arguments);
+    try{
+      if(!(role === "owner" || role === "dir")) return;
+      var host = document.getElementById("sect"); if(!host || host.querySelector(".fo-ltv")) return;
+      host.insertAdjacentHTML("beforeend", foLtvHTML());
+    }catch(e){}
+  };
+  if(typeof SEC_RENDER !== "undefined") SEC_RENDER.rate = renderRate;
+})();
+function foLtvRepaint(){
+  var el = document.querySelector(".fo-ltv"); if(!el) return;
+  var w = document.createElement("div"); w.innerHTML = foLtvHTML();
+  el.replaceWith(w.firstChild);
+}
+document.addEventListener("click", function(e){
+  var t = e.target.closest && e.target.closest("[data-ltvt]");
+  if(t){ FO_LTV.tab = t.getAttribute("data-ltvt"); foLtvRepaint(); return; }
+  var r = e.target.closest && e.target.closest("[data-ltvreset]");
+  if(r){ try{ settings().ltv = {}; saveState(); }catch(x){} foLtvRepaint(); return; }
+});
+document.addEventListener("change", function(e){
+  var t = e.target;
+  if(!t.matches || !t.matches("[data-ltv]")) return;
+  var k = t.getAttribute("data-ltv"), v = t.value;
+  try{
+    var s = settings(); s.ltv = s.ltv || {};
+    s.ltv[k] = (k === "grade") ? String(v) : (v === "" ? null : +v);
+    saveState();
+  }catch(x){}
+  foLtvRepaint();
+});
 
 })();
 </script>
