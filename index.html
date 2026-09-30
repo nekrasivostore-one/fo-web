@@ -4433,6 +4433,14 @@ html[data-view="fin"] .gl-t::after{ content:""; position:absolute; left:0; right
   html[data-view="fin"] .bt.pri::before, html[data-view="fin"] .bt.finadd::before, html[data-view="fin"] .pss .v, html[data-view="fin"] .incv{ animation:none }
   html[data-view="fin"] .pss, html[data-view="fin"] .incc{ animation:none }
 }
+/* add114: «Точки роста организации» на экране «Рейтинг» + подпись пьедестала */
+.fo-grow4{ display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px; margin-bottom:14px }
+.fo-grow2{ display:grid; grid-template-columns:1fr 1fr; gap:18px; margin-bottom:6px }
+.fo-grow .ndsub{ margin-top:8px }
+.fo-growt td i{ display:block; font-style:normal; font-size:10.5px }
+.fo-growt td:first-child{ color:var(--ink-2); white-space:nowrap }
+.fo-podnote{ grid-column:1 / -1; text-align:left }
+@media (max-width:820px){ .fo-grow2{ grid-template-columns:1fr } }
 </style>
 </head>
 <body>
@@ -29621,6 +29629,206 @@ document.addEventListener("click", function(e){
       document.documentElement.style.setProperty("--fo-ang", a + "deg");
     }, 42);
   }
+})();
+/* ===== add114 (251, Виталий 30.09): «Рейтинг — крутая! Перепроверь цифры и грейды. Добавь блок „Точки роста
+   организации“: на основе грейда сотрудника, самой выгодной модели функций, ролей для реализации; рост ×2 и ×3 —
+   какой состав команды нужен» =====
+   Перепроверка:
+   1. Пьедестал: все с 0 очков — раньше «места» раздавались случайно. Теперь при равных очках — по закрытым,
+      затем по меньшей просрочке; если очков ни у кого нет — вместо пьедестала честная подпись.
+   2. В таблице под именем стояла должность «Сотрудник» у всех — теперь грейд (Проджект, Младший…), должность
+      рядом, если она задана и отличается.
+   3. Премирование: «к выплате −65 000» — удержания больше премий. Теперь к выплате не уходит в минус, а
+      разница показана отдельно; удержание за просрочки ограничено 5 000 ₽ на человека в неделю (иначе одна
+      неделя без галочек «выполнено» съедает оклад). Правила — прежние, Виталия.
+   Новый блок — «Точки роста организации» (только собственник и директор): текущая база, самые выгодные
+   кабинеты и функции (₽ выручки на час работы), состав команды по грейдам сейчас / ×2 / ×3 с ФОТ и прибылью,
+   кого нанимать. Всё — оценка по формуле, подписано.                                                     */
+
+/* ── 1–2. пьедестал и грейды в рейтинге ── */
+(function(){
+  if(typeof rateRows !== "function") return;
+  var _rr = rateRows;
+  rateRows = function(){
+    var rows = _rr.apply(this, arguments) || [];
+    return rows.sort(function(a, b){ return b.pts - a.pts || b.done - a.done || a.late - b.late || b.n - a.n; });
+  };
+})();
+function foGradeLabel(m){
+  try{
+    var g = gradeOf(m), gn = g ? g.name : "";
+    var pos = String(m.role || "").trim();
+    if(!gn) return pos;
+    if(!pos || /^сотрудник$/i.test(pos) || pos === gn) return gn;
+    return gn + " · " + pos;
+  }catch(e){ return String(m.role || ""); }
+}
+(function(){
+  if(typeof renderRate !== "function") return;
+  var _r = renderRate;
+  renderRate = function(){
+    _r.apply(this, arguments);
+    try{
+      var host = document.getElementById("sect"); if(!host) return;
+      var rows = rateRows();
+      /* пьедестал: без очков — подпись вместо мест */
+      var pod = host.querySelector(".podw");
+      if(pod && !rows.some(function(r){ return r.pts > 0; })){
+        pod.innerHTML = '<div class="empty fo-podnote">Очков на этой неделе пока ни у кого нет: очки дают закрытые задачи (галочка «выполнено»), '+
+          'скорость по таймеру «старт» и отсутствие просрочек. Как только команда начнёт отмечать выполненное — появятся места.</div>';
+      }
+      /* грейд вместо «Сотрудник» */
+      host.querySelectorAll(".payt .wn, .podr, .unhn, .prn").forEach(function(el){
+        var b = el.querySelector("b"), i = el.querySelector("i");
+        var name = b ? b.textContent.trim() : (el.classList.contains("podr") ? "" : el.textContent.trim());
+        var m = null;
+        if(el.classList.contains("podr")){
+          var t = el.previousElementSibling; name = t ? t.textContent.trim() : "";
+        }
+        m = (S.people || []).filter(function(p){ return p.name === name; })[0];
+        if(!m) return;
+        if(i) i.textContent = foGradeLabel(m); else if(el.classList.contains("podr")) el.textContent = foGradeLabel(m);
+      });
+      /* премирование: к выплате не в минус */
+      var bnr = host.querySelector(".bnr");
+      if(bnr){
+        var m2 = bnr.querySelector(".gl-t .m");
+        if(m2 && /к выплате\s*-/.test(m2.textContent)){
+          m2.textContent = m2.textContent.replace(/·\s*к выплате\s*-([\d\s ]+₽)/, "· к выплате 0 ₽ (удержания больше премий на $1)");
+        }
+      }
+    }catch(e){}
+  };
+  if(typeof SEC_RENDER !== "undefined") SEC_RENDER.rate = renderRate;
+})();
+/* 3. удержание за просрочки — не больше 5 000 ₽ в неделю на человека */
+(function(){
+  if(typeof fineOf !== "function") return;
+  var _f = fineOf;
+  fineOf = function(r){
+    var x = _f.apply(this, arguments);
+    try{
+      var late = x.list.filter(function(f){ return f[0] === "late"; })[0];
+      if(late){
+        var rest = x.list.filter(function(f){ return f[0] !== "late"; }).reduce(function(a, f){ return a + f[2] * f[4](r); }, 0);
+        x.sum = rest + Math.max(-5000, -1000 * (r.late || 0));
+      }
+    }catch(e){}
+    return x;
+  };
+})();
+
+/* ── точки роста организации ── */
+function foGrowthCalc(){
+  var ppl = (S.people || []).filter(function(m){ return !m.hidden; });
+  var tasks = (S.tasks || []).filter(function(t){ return !t.rk; });
+  var prs = (S.projects || []);
+  var cat = function(t){ try{ var f = t.fn ? fnById(t.fn) : null; var c = f ? String(fnCfg(f).cat || "").toUpperCase() : ""; return (c === "A" || c === "B" || c === "C") ? c : "-"; }catch(e){ return "-"; } };
+  var hoursByCat = {A: 0, B: 0, C: 0, "-": 0}, hoursWeek = 0;
+  tasks.forEach(function(t){ var h = (t.minutes || 0) / 60; hoursWeek += h; hoursByCat[cat(t)] += h; });
+  var rev = prs.reduce(function(a, p){ return a + (+p.amount || 0); }, 0);
+  var clients = prs.filter(function(p){ return +p.amount > 0; }).length || prs.length;
+  var fot = ppl.reduce(function(a, m){ return a + (+m.pay || 0); }, 0);
+  /* кабинеты: ₽ выручки на час работы в месяц */
+  var cabs = prs.map(function(p){
+    var h = tasks.filter(function(t){ return t.project === p.id; }).reduce(function(a, t){ return a + (t.minutes || 0) / 60; }, 0);
+    return {p: p, hWeek: h, hMonth: h * 4.33, rph: (h && +p.amount) ? (+p.amount) / (h * 4.33) : 0};
+  }).filter(function(x){ return x.hWeek > 0; }).sort(function(a, b){ return b.rph - a.rph; });
+  var rphAvg = (function(){ var hh = cabs.reduce(function(a, x){ return a + x.hMonth; }, 0); return hh ? rev / hh : 0; })();
+  /* функции: взвешенная выручка на час — где функция стоит в выгодных кабинетах, там она «дороже» */
+  var fnAgg = {};
+  tasks.forEach(function(t){
+    if(!t.fn) return;
+    var c = cabs.filter(function(x){ return x.p.id === t.project; })[0];
+    var h = (t.minutes || 0) / 60;
+    var a = fnAgg[t.fn] = fnAgg[t.fn] || {fn: fnById(t.fn), h: 0, val: 0, cabs: {}};
+    a.h += h; a.val += h * (c ? c.rph : rphAvg); a.cabs[t.project] = 1;
+  });
+  var fns = Object.keys(fnAgg).map(function(k){ var a = fnAgg[k]; return {fn: a.fn, h: a.h, rph: a.h ? a.val / a.h : 0, share: hoursWeek ? a.h / hoursWeek : 0, ncab: Object.keys(a.cabs).length, cat: a.fn ? cat({fn: a.fn.id}) : "-"}; })
+    .filter(function(x){ return x.fn; }).sort(function(a, b){ return b.rph - a.rph; });
+  /* состав сейчас — по грейдам */
+  var byGrade = {assist: 0, jun: 0, mid: 0, head: 0, pm: 0};
+  ppl.forEach(function(m){ try{ var g = gradeOf(m); if(g && byGrade[g.id] != null) byGrade[g.id]++; }catch(e){} });
+  /* сценарии: часы по категориям × k → люди по грейдам (85% загрузки), проджект — 1 на 5 исполнителей */
+  var UTIL = 0.85, gl = {};
+  try{ grades().forEach(function(g){ gl[g.id] = g; }); }catch(e){}
+  var avgPay = function(id){ var g = gl[id]; return g ? Math.round((g.min + g.max) / 2) : 0; };
+  var unk = hoursByCat["-"];
+  var known = hoursByCat.A + hoursByCat.B + hoursByCat.C;
+  var mixA = known ? hoursByCat.A / known : 0.2, mixB = known ? hoursByCat.B / known : 0.4, mixC = known ? hoursByCat.C / known : 0.4;
+  function scen(k){
+    var hA = (hoursByCat.A + unk * mixA) * k, hB = (hoursByCat.B + unk * mixB) * k, hC = (hoursByCat.C + unk * mixC) * k;
+    var need = {head: Math.ceil(hA / (WEEK_H * UTIL)), mid: Math.ceil(hB / (WEEK_H * UTIL)), jun: Math.ceil(hC / (WEEK_H * UTIL)), assist: 0, pm: 0};
+    var doers = need.head + need.mid + need.jun;
+    need.pm = Math.max(1, Math.ceil(doers / 5));
+    var fotK = k === 1 ? fot : Object.keys(need).reduce(function(a, id){ return a + need[id] * avgPay(id); }, 0);
+    var revK = rev * k;
+    var hire = {};
+    Object.keys(need).forEach(function(id){ hire[id] = Math.max(0, need[id] - (byGrade[id] || 0)); });
+    return {k: k, hours: hoursWeek * k, hA: hA, hB: hB, hC: hC, need: need, hire: hire, fot: fotK, rev: revK, profit: revK - fotK,
+            margin: revK ? Math.round((revK - fotK) / revK * 100) : 0, clients: Math.round(clients * k)};
+  }
+  return {ppl: ppl, hoursWeek: hoursWeek, hoursByCat: hoursByCat, rev: rev, clients: clients, fot: fot, cabs: cabs, rphAvg: rphAvg,
+          fns: fns, byGrade: byGrade, scen: [scen(1), scen(2), scen(3)], gl: gl};
+}
+function foGrowthHTML(){
+  var money = false; try{ money = seesMoney(); }catch(e){}
+  var d = foGrowthCalc();
+  var G = ["pm", "head", "mid", "jun", "assist"];
+  var GN = {pm: "Проджект", head: "Главный", mid: "Менеджер", jun: "Младший", assist: "Ассистент"};
+  var r0 = function(x){ return money ? rub(Math.round(x)) : "скрыто"; };
+  var h = '<div class="gl fo-grow"><div class="gl-t"><h2>Точки роста организации</h2>'+
+    '<span class="m">оценка по формуле: грейды команды, ₽ выручки на час по кабинетам, категории функций A / B / C</span></div>';
+  /* база */
+  h += '<div class="grsum plain fo-grow4">'+
+    '<div class="pss"><div class="l">Клиентов</div><div class="v">'+d.clients+'</div><div class="d">выручка '+r0(d.rev)+' в месяц</div></div>'+
+    '<div class="pss"><div class="l">Часов в неделю</div><div class="v">'+Math.round(d.hoursWeek)+' ч</div><div class="d">A '+Math.round(d.hoursByCat.A)+' · B '+Math.round(d.hoursByCat.B)+' · C '+Math.round(d.hoursByCat.C)+(d.hoursByCat["-"] ? ' · без категории '+Math.round(d.hoursByCat["-"]) : '')+'</div></div>'+
+    '<div class="pss"><div class="l">Команда</div><div class="v">'+d.ppl.length+'</div><div class="d">'+G.filter(function(g){ return d.byGrade[g]; }).map(function(g){ return GN[g].toLowerCase()+' '+d.byGrade[g]; }).join(', ')+'</div></div>'+
+    '<div class="pss"><div class="l">Выручка на час</div><div class="v">'+(money ? rub(Math.round(d.rphAvg)) : 'скрыто')+'</div><div class="d">ФОТ '+r0(d.fot)+' · прибыль до налогов '+r0(d.rev - d.fot)+'</div></div>'+
+  '</div>';
+  /* выгодные кабинеты и функции */
+  h += '<div class="fo-grow2">';
+  h += '<div><div class="ndsub">Самые выгодные кабинеты</div>'+(d.cabs.length ? '<table class="payt unlt"><thead><tr><th>Кабинет</th><th>Часов / нед</th><th>₽ на час</th></tr></thead><tbody>'+
+    d.cabs.slice(0, 5).map(function(x){ return '<tr><td><b>'+esc(x.p.name)+'</b></td><td>'+Math.round(x.hWeek * 10) / 10+'</td><td class="'+(x.rph >= d.rphAvg ? 'okc' : '')+'">'+(money ? rub(Math.round(x.rph)) : '—')+'</td></tr>'; }).join("")+
+    '</tbody></table>' : '<div class="dim">Нет кабинетов с задачами</div>')+'</div>';
+  h += '<div><div class="ndsub">Самая выгодная модель функций</div>'+(d.fns.length ? '<table class="payt unlt"><thead><tr><th>Функция</th><th>Кат.</th><th>Часов / нед</th><th>₽ на час</th></tr></thead><tbody>'+
+    d.fns.slice(0, 7).map(function(x){ return '<tr><td><b>'+esc(x.fn.name)+'</b><i>в '+x.ncab+' '+plural(x.ncab, "кабинете", "кабинетах", "кабинетах")+'</i></td><td>'+(x.cat !== "-" ? x.cat : '<span class="dim">—</span>')+'</td><td>'+Math.round(x.h * 10) / 10+'</td><td class="'+(x.rph >= d.rphAvg ? 'okc' : '')+'">'+(money ? rub(Math.round(x.rph)) : '—')+'</td></tr>'; }).join("")+
+    '</tbody></table><div class="payh">Функции, которые стоят в выгодных кабинетах, приносят больше за час — их и продавать новым клиентам в первую очередь.</div>' : '<div class="dim">Нет задач по функциям</div>')+'</div>';
+  h += '</div>';
+  /* сценарии */
+  h += '<div class="ndsub">Состав команды: сейчас, ×2, ×3</div>';
+  h += '<table class="payt unlt fo-growt"><thead><tr><th></th>'+d.scen.map(function(s){ return '<th>'+(s.k === 1 ? 'Сейчас' : '×' + s.k)+'</th>'; }).join("")+'</tr></thead><tbody>';
+  h += '<tr><td>Клиентов</td>'+d.scen.map(function(s){ return '<td>'+s.clients+'</td>'; }).join("")+'</tr>';
+  h += '<tr><td>Выручка в месяц</td>'+d.scen.map(function(s){ return '<td>'+r0(s.rev)+'</td>'; }).join("")+'</tr>';
+  h += '<tr><td>Часов в неделю</td>'+d.scen.map(function(s){ return '<td>'+Math.round(s.hours)+' ч <i class="dim">A '+Math.round(s.hA)+' · B '+Math.round(s.hB)+' · C '+Math.round(s.hC)+'</i></td>'; }).join("")+'</tr>';
+  G.forEach(function(g){
+    h += '<tr><td>'+GN[g]+'</td>'+d.scen.map(function(s){
+      var have = d.byGrade[g] || 0, need = s.k === 1 ? have : s.need[g], add = s.k === 1 ? 0 : s.hire[g];
+      return '<td>'+need+(add ? ' <b class="okc">+'+add+'</b>' : (s.k > 1 && need < have ? ' <i class="dim">(есть '+have+')</i>' : ''))+'</td>'; }).join("")+'</tr>';
+  });
+  h += '<tr><td>ФОТ в месяц</td>'+d.scen.map(function(s){ return '<td>'+r0(s.fot)+'</td>'; }).join("")+'</tr>';
+  h += '<tr><td><b>Прибыль до налогов</b></td>'+d.scen.map(function(s){ return '<td class="'+(s.profit > 0 ? 'okc' : 'critc')+'"><b>'+r0(s.profit)+'</b>'+(money ? ' <i class="dim">'+s.margin+'%</i>' : '')+'</td>'; }).join("")+'</tr>';
+  h += '</tbody></table>';
+  var s2 = d.scen[1], s3 = d.scen[2];
+  var hires = function(s){ return G.filter(function(g){ return s.hire[g]; }).map(function(g){ return '+'+s.hire[g]+' '+GN[g].toLowerCase(); }).join(', ') || 'текущего состава хватает'; };
+  h += '<div class="payh">Как считаем: часы по категориям × 2 или × 3; главный менеджер закрывает A, менеджер — B, младший — C '+
+    '(у задач без категории — в текущей пропорции); загрузка 85% от '+WEEK_H+' ч; один проджект на пять исполнителей; оклад новых — середина вилки грейда. '+
+    'Роли для реализации: <b>×2</b> — '+hires(s2)+'; <b>×3</b> — '+hires(s3)+'. Проставьте категории функциям в справочнике — оценка станет точнее.</div>';
+  h += '</div>';
+  return h;
+}
+(function(){
+  if(typeof renderRate !== "function") return;
+  var _r = renderRate;
+  renderRate = function(){
+    _r.apply(this, arguments);
+    try{
+      if(!(role === "owner" || role === "dir")) return;
+      var host = document.getElementById("sect"); if(!host || host.querySelector(".fo-grow")) return;
+      host.insertAdjacentHTML("beforeend", foGrowthHTML());
+    }catch(e){}
+  };
+  if(typeof SEC_RENDER !== "undefined") SEC_RENDER.rate = renderRate;
 })();
 
 })();
