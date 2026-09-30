@@ -1368,6 +1368,129 @@ async def fo_task_remove(task_id: str, p: Principal = Depends(max_level(4))):
     return {"ok": True}
 
 
+# ── 248 (Виталий 30.09): перераспределение задач и «интеллект менеджера» ──
+class FoReasItem(_FoBM):
+    task_id: str
+    assignee_id: str | None = None
+    plan_date: str | None = None
+
+
+class FoReasIn(_FoBM):
+    items: list[FoReasItem]
+    permanent: bool = False
+    why: str | None = None
+
+
+@router.post("/tasks/reassign")
+async def fo_tasks_reassign(body: FoReasIn, p: Principal = Depends(max_level(4))):
+    """Пачка: задача → новый ответственный и/или день этой или следующей недели. permanent — ещё и ответственный
+    за функцию в кабинете (если у функции ответственные по дням — только этот день недели), будущие задачи
+    функции переезжают. Сделанные не трогаем; планёрки — через бота планёрок. РМ и выше."""
+    import datetime as _dt
+    today = _fo_msk_today()
+    mon = today - _dt.timedelta(days=today.weekday())
+    moved = dated = perm = 0
+    skipped = []
+    why = (body.why or "перераспределение")[:80]
+    async with pool().acquire() as c:
+        emps = {str(r["id"]) for r in await c.fetch("SELECT id FROM employee WHERE org_id=$1 AND is_active", p.org_id)}
+        async with c.transaction():
+            for it in (body.items or [])[:500]:
+                t = await c.fetchrow("SELECT id, status, source, cabinet_id, fn_id, assignee_id, plan_date FROM task "
+                                     "WHERE id=$1::uuid AND org_id=$2", it.task_id, p.org_id)
+                if not t:
+                    skipped.append(it.task_id[:8] + ": не найдена"); continue
+                if t["status"] == "done":
+                    skipped.append(it.task_id[:8] + ": уже сделана"); continue
+                if t["source"] == "meet":
+                    skipped.append(it.task_id[:8] + ": планёрка — меняется через бота планёрок"); continue
+                to = (it.assignee_id or "").strip() or None
+                if to and to not in emps:
+                    skipped.append(it.task_id[:8] + ": сотрудник не из агентства"); continue
+                d = None
+                if it.plan_date:
+                    try:
+                        d = _dt.date.fromisoformat(str(it.plan_date)[:10])
+                    except Exception:
+                        d = None
+                    if d and (d < mon or d > mon + _dt.timedelta(days=13)):
+                        skipped.append(it.task_id[:8] + ": день вне этой и следующей недели"); d = None
+                sets, args = [], [t["id"]]
+                if to and str(t["assignee_id"]) != to:
+                    args.append(to); sets.append("assignee_id=$%d::uuid" % len(args)); moved += 1
+                if d and d != t["plan_date"]:
+                    args.append(d); sets.append("plan_date=$%d" % len(args)); dated += 1
+                if sets:
+                    args.append(why)
+                    await c.execute("UPDATE task SET %s, moved_reason=$%d WHERE id=$1" % (", ".join(sets), len(args)), *args)
+                if body.permanent and to and t["cabinet_id"] and t["fn_id"] and t["source"] == "generator":
+                    cfg = await c.fetchrow("SELECT employee_id, day_cfg FROM fo_cabinet_fn_cfg WHERE cabinet_id=$1 AND fn_id=$2",
+                                           t["cabinet_id"], t["fn_id"])
+                    wd = (d or t["plan_date"]).weekday()
+                    dc = _fo_dc_parse(cfg["day_cfg"]) if cfg else {}
+                    if cfg and dc and wd in dc:
+                        raw = cfg["day_cfg"]
+                        if isinstance(raw, str):
+                            try: raw = _fo_json.loads(raw)
+                            except Exception: raw = {}
+                        raw = dict(raw or {})
+                        raw[str(wd)] = dict(raw.get(str(wd)) or {}, e=to)
+                        await c.execute("UPDATE fo_cabinet_fn_cfg SET day_cfg=$3::jsonb, updated_at=now() WHERE cabinet_id=$1 AND fn_id=$2",
+                                        t["cabinet_id"], t["fn_id"], _fo_json.dumps(raw))
+                        await c.execute("UPDATE task SET assignee_id=$4::uuid, moved_reason=$6 WHERE org_id=$1 AND cabinet_id=$2 AND fn_id=$3 "
+                                        "AND source='generator' AND status='planned' AND plan_date > $5 "
+                                        "AND extract(isodow FROM plan_date) = %d AND assignee_id IS DISTINCT FROM $4::uuid" % (wd + 1),
+                                        p.org_id, t["cabinet_id"], t["fn_id"], to, today, why)
+                    else:
+                        if cfg:
+                            await c.execute("UPDATE fo_cabinet_fn_cfg SET employee_id=$3::uuid, updated_at=now() WHERE cabinet_id=$1 AND fn_id=$2",
+                                            t["cabinet_id"], t["fn_id"], to)
+                        else:
+                            await c.execute("INSERT INTO fo_cabinet_fn_cfg (cabinet_id, fn_id, org_id, employee_id) VALUES ($1, $2, $3, $4::uuid) "
+                                            "ON CONFLICT (cabinet_id, fn_id) DO UPDATE SET employee_id=EXCLUDED.employee_id, updated_at=now()",
+                                            t["cabinet_id"], t["fn_id"], p.org_id, to)
+                        await c.execute("UPDATE task SET assignee_id=$4::uuid, moved_reason=$6 WHERE org_id=$1 AND cabinet_id=$2 AND fn_id=$3 "
+                                        "AND source='generator' AND status='planned' AND plan_date > $5 AND assignee_id IS DISTINCT FROM $4::uuid",
+                                        p.org_id, t["cabinet_id"], t["fn_id"], to, today, why)
+                    await c.execute("INSERT INTO employee_fn (employee_id, fn_id, allowed) VALUES ($1::uuid, $2, true) ON CONFLICT DO NOTHING",
+                                    to, t["fn_id"])
+                    perm += 1
+    return {"ok": True, "переведено": moved, "перенесено_дней": dated, "навсегда": perm, "пропущено": skipped[:30]}
+
+
+@router.get("/team/intel")
+async def fo_team_intel(weeks: int = 8, p: Principal = Depends(max_level(4))):
+    """«Интеллект менеджера» (248): кто какие категории функций (A / B / C по карточке функции) реально закрывает
+    за N недель, сколько просрочил; роль аккаунта — для сверки с грейдом. РМ и выше."""
+    import datetime as _dt
+    today = _fo_msk_today()
+    weeks = max(1, min(26, int(weeks or 8)))
+    since = today - _dt.timedelta(days=7 * weeks)
+    out = {}
+    async with pool().acquire() as c:
+        for r in await c.fetch("SELECT e.id, e.name, u.role_code FROM employee e LEFT JOIN app_user u ON u.id=e.user_id "
+                               "WHERE e.org_id=$1 AND e.is_active", p.org_id):
+            out[str(r["id"])] = {"employee_id": str(r["id"]), "имя": r["name"], "роль": r["role_code"],
+                                 "закрыто": {"A": 0, "B": 0, "C": 0, "-": 0}, "в_плане": {"A": 0, "B": 0, "C": 0, "-": 0}, "просрочено": 0, "всего": 0}
+        rows = await c.fetch(
+            """SELECT t.assignee_id::text AS eid, COALESCE(NULLIF(upper(cd.data->>'cat'), ''), '-') AS cat, t.status,
+                      count(*) FILTER (WHERE t.plan_date < $3 AND t.status='planned') AS late, count(*) AS n
+                 FROM task t LEFT JOIN fo_card cd ON cd.kind='fn' AND cd.ref_id = t.fn_id::text AND cd.org_id::text = t.org_id::text
+                WHERE t.org_id=$1 AND t.plan_date BETWEEN $2 AND $3 AND t.assignee_id IS NOT NULL
+                  AND COALESCE(t.source, '') <> 'meet' AND t.status IN ('done', 'planned')
+                GROUP BY 1, 2, 3""", p.org_id, since, today + _dt.timedelta(days=6))
+        for r in rows:
+            o = out.get(r["eid"])
+            if not o:
+                continue
+            cat = r["cat"] if r["cat"] in ("A", "B", "C") else "-"
+            key = "закрыто" if r["status"] == "done" else "в_плане"
+            o[key][cat] += int(r["n"])
+            o["всего"] += int(r["n"])
+            o["просрочено"] += int(r["late"] or 0)
+    return {"недель": weeks, "с": since.isoformat(), "люди": list(out.values())}
+
+
 @router.post("/tasks/regenerate")
 async def fo_tasks_regen(day: str | None = None, cabinet_id: str | None = None,
                          p: Principal = Depends(max_level(4))):
