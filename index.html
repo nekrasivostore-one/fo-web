@@ -28811,37 +28811,49 @@ document.addEventListener("click", function(e){
 /* размытие: находим суммы в тексте («12 300 ₽», «520 ₽/ч», «руб.») и поля ввода сумм */
 var FO_MNY_RX = /\d[\d\s  ]*(?:[.,]\d+)?\s?(?:₽|руб\.?|р\.)/;
 var FO_MNY_INPUTS = 'input[step="1000"], input[data-edk="pay"], input[data-edk="amount"], input[data-ck="amount"], input[data-fk="amount"], input[data-sk2="pay"], input[data-sk="pay"], #ncAmt, input[data-edk="bonusPct"], input[data-edk="finePct"]';
-var foMnyTimer = null, foMnyBusy = false;
+var foMnyBusy = false;
+function foMnyTextOk(n){
+  if(!n || n.nodeType !== 3 || !n.nodeValue || n.nodeValue.length < 2) return false;
+  var p = n.parentNode;
+  if(!p || !p.tagName) return false;
+  var t = p.tagName;
+  if(t === "SCRIPT" || t === "STYLE" || t === "TEXTAREA" || t === "OPTION") return false;
+  if(p.closest && p.closest(".fo-mny, #foBlurRow")) return false;
+  return FO_MNY_RX.test(n.nodeValue);
+}
+function foMnyWrap(tn){
+  var s = tn.nodeValue, rx = new RegExp(FO_MNY_RX.source, "g"), m, last = 0, frag = document.createDocumentFragment();
+  while((m = rx.exec(s))){
+    if(m.index > last) frag.appendChild(document.createTextNode(s.slice(last, m.index)));
+    var sp = document.createElement("span"); sp.className = "fo-mny"; sp.textContent = m[0];
+    frag.appendChild(sp);
+    last = m.index + m[0].length;
+  }
+  if(last < s.length) frag.appendChild(document.createTextNode(s.slice(last)));
+  tn.parentNode.replaceChild(frag, tn);
+}
+/* размываем внутри узла: текст с суммами и поля ввода сумм. Синхронно — до отрисовки кадра,
+   чтобы сумма не мелькала (Виталий 30.09: «в первые 2 секунды увидел сумму») */
+function foMnyScan(root){
+  if(!root) return;
+  if(root.nodeType === 3){ if(foMnyTextOk(root)) foMnyWrap(root); return; }
+  if(root.nodeType !== 1 && root.nodeType !== 11) return;
+  if(root.nodeType === 1 && root.closest && root.closest(".fo-mny, #foBlurRow")) return;
+  var w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+    acceptNode: function(n){ return foMnyTextOk(n) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT; }
+  });
+  var nodes = [], n;
+  while((n = w.nextNode())) nodes.push(n);
+  nodes.forEach(foMnyWrap);
+  if(root.nodeType === 1){
+    if(root.matches && root.matches(FO_MNY_INPUTS)) root.classList.add("fo-mnyi");
+    if(root.querySelectorAll) root.querySelectorAll(FO_MNY_INPUTS).forEach(function(inp){ inp.classList.add("fo-mnyi"); });
+  }
+}
 function foMnyPass(){
   if(!foHideOn() || foMnyBusy) return;
   foMnyBusy = true;
-  try{
-    var w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
-      acceptNode: function(n){
-        if(!n.nodeValue || n.nodeValue.length < 2) return NodeFilter.FILTER_REJECT;
-        var p = n.parentNode;
-        if(!p || !p.tagName) return NodeFilter.FILTER_REJECT;
-        var t = p.tagName;
-        if(t === "SCRIPT" || t === "STYLE" || t === "TEXTAREA" || t === "OPTION") return NodeFilter.FILTER_REJECT;
-        if(p.closest && p.closest(".fo-mny, #foBlurRow")) return NodeFilter.FILTER_REJECT;
-        return FO_MNY_RX.test(n.nodeValue) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
-      }
-    });
-    var nodes = [], n;
-    while((n = w.nextNode())) nodes.push(n);
-    nodes.forEach(function(tn){
-      var s = tn.nodeValue, rx = new RegExp(FO_MNY_RX.source, "g"), m, last = 0, frag = document.createDocumentFragment();
-      while((m = rx.exec(s))){
-        if(m.index > last) frag.appendChild(document.createTextNode(s.slice(last, m.index)));
-        var sp = document.createElement("span"); sp.className = "fo-mny"; sp.textContent = m[0];
-        frag.appendChild(sp);
-        last = m.index + m[0].length;
-      }
-      if(last < s.length) frag.appendChild(document.createTextNode(s.slice(last)));
-      tn.parentNode.replaceChild(frag, tn);
-    });
-    document.querySelectorAll(FO_MNY_INPUTS).forEach(function(inp){ inp.classList.add("fo-mnyi"); });
-  }catch(e){}
+  try{ foMnyScan(document.body); }catch(e){}
   foMnyBusy = false;
 }
 function foHideApply(){
@@ -28851,17 +28863,24 @@ function foHideApply(){
 }
 (function(){
   foHideApply();
+  /* MutationObserver срабатывает микрозадачей — до того, как браузер нарисует кадр: сканируем только то,
+     что добавилось или поменялось, и сразу, без таймера */
   var mo = new MutationObserver(function(list){
-    if(!foHideOn()) return;
-    var need = false;
-    for(var i = 0; i < list.length; i++){
-      var t = list[i].target;
-      if(t && t.nodeType === 1 && t.closest && t.closest(".fo-mny")) continue;
-      need = true; break;
-    }
-    if(!need) return;
-    clearTimeout(foMnyTimer);
-    foMnyTimer = setTimeout(foMnyPass, 80);
+    if(!foHideOn() || foMnyBusy) return;
+    foMnyBusy = true;
+    try{
+      for(var i = 0; i < list.length; i++){
+        var mu = list[i];
+        if(mu.type === "characterData"){ foMnyScan(mu.target); continue; }
+        if(mu.type !== "childList") continue;
+        for(var j = 0; j < mu.addedNodes.length; j++){
+          var a = mu.addedNodes[j];
+          if(a.nodeType === 1 && a.classList && a.classList.contains("fo-mny")) continue;
+          foMnyScan(a);
+        }
+      }
+    }catch(e){}
+    foMnyBusy = false;
   });
   mo.observe(document.body, {childList: true, subtree: true, characterData: true});
 })();
