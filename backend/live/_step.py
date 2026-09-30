@@ -583,6 +583,48 @@ class FoCardIn(_FoBM):
     data:   dict
 
 
+# ── грейд = уровень доступа (239, Виталий 30.09) ──
+_FO_GRADE_ROLE = {"pm": "project", "head": "manager_senior", "mid": "manager_senior", "jun": "manager_junior", "assist": "assistant"}
+_FO_ROLE_GRADE = {"project": "pm", "manager_senior": "head", "manager_junior": "jun", "assistant": "assist"}
+
+
+async def _fo_grade_role(c, p, emp_ref, grade):
+    """Грейд в карточке сотрудника меняет роль его аккаунта. Только собственник и директор; не выше себя;
+    собственника и админа не трогаем; без аккаунта — только подпись в карточке."""
+    want = _FO_GRADE_ROLE.get(str(grade or ""))
+    if not want:
+        return "грейд без роли"
+    if int(getattr(p, "level", 9) or 9) > 2:
+        return "роль меняет собственник или директор"
+    u = await c.fetchrow("SELECT u.id, u.role_code, r.level FROM employee e JOIN app_user u ON u.id=e.user_id "
+                         "JOIN role r ON r.code=u.role_code WHERE e.id=$1::uuid AND e.org_id=$2::uuid", str(emp_ref), str(p.org_id))
+    if not u:
+        return "у сотрудника нет аккаунта — роль выдаст приглашение"
+    wl = await c.fetchval("SELECT level FROM role WHERE code=$1", want)
+    if int(u["level"]) <= 1 or wl is None:
+        return "собственника и админа так не меняют"
+    if int(wl) <= int(getattr(p, "level", 9) or 9):
+        return "нельзя выдать уровень не ниже своего"
+    if u["role_code"] == want:
+        return "роль уже " + want
+    await c.execute("UPDATE app_user SET role_code=$2 WHERE id=$1", u["id"], want)
+    return "роль: %s → %s" % (u["role_code"], want)
+
+
+async def _fo_cards_grade(c, p, out):
+    """В карточке сотрудника показываем текущую роль аккаунта как грейд."""
+    try:
+        rows = await c.fetch("SELECT e.id, u.role_code FROM employee e JOIN app_user u ON u.id=e.user_id "
+                             "WHERE e.org_id=$1::uuid", str(p.org_id))
+    except Exception:
+        return out
+    m = {str(r["id"]): _FO_ROLE_GRADE.get(r["role_code"]) for r in rows}
+    for cd in out:
+        if cd.get("kind") == "employee" and m.get(str(cd.get("ref_id"))):
+            cd["data"] = dict(cd.get("data") or {}, grade=m[str(cd["ref_id"])])
+    return out
+
+
 @router.get("/cards")
 async def fo_cards(kind: str = "", p: Principal = Depends(current)):
     """Все карточки агентства. Без kind — сразу все, одним запросом."""
@@ -603,6 +645,11 @@ async def fo_cards(kind: str = "", p: Principal = Depends(current)):
         out.append({"kind": r["kind"], "ref_id": r["ref_id"],
                     "data": d or {}, "updated_at": r["updated_at"]})
     out = await _fo_cards_scope(p, out)
+    try:
+        async with pool().acquire() as c:
+            out = await _fo_cards_grade(c, p, out)
+    except Exception:
+        pass
     return out
 
 
@@ -628,11 +675,17 @@ async def fo_card_save(body: FoCardIn, p: Principal = Depends(current)):
         row = await c.fetchrow(
             "SELECT data FROM fo_card WHERE kind=$1 AND ref_id=$2 AND org_id=$3",
             kind, ref, p.org_id)
+        role_note = None
+        if kind == "employee" and "grade" in data:
+            try:
+                role_note = await _fo_grade_role(c, p, ref, data.get("grade"))
+            except Exception as e:
+                role_note = "роль не поменялась: " + str(e)[:100]
     d = row["data"] if row else {}
     if isinstance(d, str):
         try: d = _fo_json.loads(d)
         except Exception: d = {}
-    return {"ok": True, "kind": kind, "ref_id": ref, "data": d or {}}
+    return {"ok": True, "kind": kind, "ref_id": ref, "data": d or {}, "роль": role_note}
 
 
 # ── Разовые задачи ───────────────────────────────────────────────
