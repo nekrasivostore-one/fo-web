@@ -4298,6 +4298,9 @@ td small{ color:var(--ink-3); font-size:10.5px }
 .fo-mttalk{ display:flex; flex-wrap:wrap; gap:4px 12px; font-size:12.5px; padding:4px 0; border-bottom:1px solid var(--stroke-2) }
 .fo-mttalk span{ color:var(--ink-2) }
 .fo-mtbset label.fo-mtfix{ font-size:13px }
+/* add105: кнопка «Тень» в шапке у собственника и директора */
+.fo-shbtn{ width:auto; margin-left:8px; padding:4px 10px; font-size:12px; white-space:nowrap }
+@media (max-width:720px){ .fo-shbtn{ margin-left:4px; padding:4px 8px } }
 </style>
 </head>
 <body>
@@ -28548,6 +28551,54 @@ window.addEventListener("keydown", function(e){
   var v = String(e.target.value || "").trim(); if(v.length < 3) return;
   foMtRule({add: v});
 }, true);
+/* ===== add105: режим тени для собственника и директора (234, Виталий 30.09) ======
+   «Я должен смотреть любую роль, все поставленные задачи и всё, что видит сотрудник,
+   чтобы каждый раз не просить условного Игоря показать экран». Кнопка «Тень» в шапке
+   рядом с ролью — у собственника и директора; список — люди своего агентства ниже по
+   роли (сервер /refs/admin/people отдаёт только их). Дальше — тот же механизм, что у
+   админа (add82): доступ от имени человека, только смотреть, полоса сверху, «Вернуться».  */
+function foShadowCan(){
+  try{
+    if(typeof isAdmin === "function" && isAdmin()) return false;   /* у админа своя кнопка в панели */
+    if(typeof foShadowOn === "function" && foShadowOn()) return false;
+    if(typeof isLive === "function" && !isLive()) return false;
+    return role === "owner" || role === "director" || role === "dir";
+  }catch(e){ return false; }
+}
+function foShadowBtn(){
+  var sw = document.getElementById("roleSw");
+  var b = document.getElementById("foShadowBtn");
+  if(!foShadowCan()){ if(b) b.remove(); return; }
+  if(b || !sw) return;
+  b = document.createElement("button");
+  b.className = "bt sm gh2 fo-shbtn"; b.id = "foShadowBtn"; b.type = "button";
+  b.title = "Посмотреть сервис глазами сотрудника — только смотреть";
+  b.textContent = "Тень";
+  sw.parentNode.insertBefore(b, sw.nextSibling);
+}
+setTimeout(foShadowBtn, 600);
+setInterval(foShadowBtn, 2500);
+document.addEventListener("click", function(e){
+  if(e.target.closest && e.target.closest("#foShadowBtn")){ e.preventDefault(); FO_PEOPLE = null; foShadowPicker(); }
+});
+/* заголовок окна и кнопка возврата — по роли того, кто смотрит */
+(function(){
+  var _pick = foShadowPicker;
+  foShadowPicker = function(){
+    _pick.apply(this, arguments);
+    if(typeof isAdmin === "function" && isAdmin()) return;
+    var h = document.querySelector("#foShadowPick .fo-h");
+    if(h) h.innerHTML = "<b>Посмотреть глазами сотрудника</b><span>только смотреть — изменения сервер не примет</span>";
+  };
+  var _ban = foShadowBanner;
+  foShadowBanner = function(){
+    _ban.apply(this, arguments);
+    var back = null;
+    try{ back = JSON.parse(localStorage.getItem(FO_ADMIN_BACK) || "null"); }catch(e){}
+    var out = document.getElementById("foShadowOut");
+    if(out && back && back.role && back.role !== "admin" && out.textContent !== "Вернуться к себе") out.textContent = "Вернуться к себе";
+  };
+})();
 
 })();
 </script>
