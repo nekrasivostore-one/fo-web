@@ -4343,6 +4343,96 @@ td small{ color:var(--ink-3); font-size:10.5px }
 .unlc b{ font-weight:600 } .unlc i{ font-style:normal; color:var(--ink-3) } .unlc u{ text-decoration:none; font-weight:600 }
 .warnc{ color:#b0761a }
 @media (max-width:720px){ .unlstr{ grid-template-columns:1fr } .unlbar{ flex-basis:80px } }
+/* add113 (250): экран «Финансы» — образец качества. Живая градиентная кайма, глубина, градиентные цифры.
+   Только на html[data-view="fin"], остальные экраны не трогаем. Уважает prefers-reduced-motion. */
+@property --fo-ang { syntax: "<angle>"; inherits: true; initial-value: 0deg; }
+:root{ --fo-g1:#722393; --fo-g2:#B622C9; --fo-g3:#F419BB; --fo-v:#7C5CFF; --fo-t:#00B39A; }
+@keyframes fo-spin { to { --fo-ang: 360deg; } }
+@keyframes fo-shine { 0%{ background-position:0% 50% } 100%{ background-position:200% 50% } }
+@keyframes fo-rise { from{ opacity:0; transform:translateY(8px) } to{ opacity:1; transform:none } }
+
+/* карточки-сводки: стекло, глубина, тонкий блик сверху */
+html[data-view="fin"] .pss,
+html[data-view="fin"] .incc{
+  position:relative; isolation:isolate; overflow:hidden;
+  background:linear-gradient(160deg, rgba(255,255,255,.55), rgba(255,255,255,.22)), var(--panel-2);
+  box-shadow:0 1px 0 rgba(255,255,255,.55) inset, 0 18px 40px -28px rgba(20,16,26,.35);
+  transition:transform .35s var(--ease), box-shadow .35s var(--ease);
+  animation:fo-rise .5s var(--ease) both;
+}
+html[data-view="fin"][data-theme="dark"] .pss, html[data-view="fin"][data-theme="dark"] .incc{
+  background:linear-gradient(160deg, rgba(255,255,255,.08), rgba(255,255,255,.02)), var(--panel-2);
+  box-shadow:0 1px 0 rgba(255,255,255,.08) inset, 0 18px 40px -28px rgba(0,0,0,.8);
+}
+@media (prefers-color-scheme:dark){
+  html[data-view="fin"]:not([data-theme="light"]) .pss, html[data-view="fin"]:not([data-theme="light"]) .incc{
+    background:linear-gradient(160deg, rgba(255,255,255,.08), rgba(255,255,255,.02)), var(--panel-2);
+    box-shadow:0 1px 0 rgba(255,255,255,.08) inset, 0 18px 40px -28px rgba(0,0,0,.8);
+  }
+  html[data-view="fin"]:not([data-theme="light"]) .seg{ background:rgba(255,255,255,.06); box-shadow:none }
+}
+html[data-view="fin"] .finsum .pss:nth-child(2){ animation-delay:.06s } html[data-view="fin"] .finsum .pss:nth-child(3){ animation-delay:.12s } html[data-view="fin"] .finsum .pss:nth-child(4){ animation-delay:.18s }
+html[data-view="fin"] .pss:hover, html[data-view="fin"] .incc:hover{
+  transform:translateY(-2px);
+  box-shadow:0 1px 0 rgba(255,255,255,.6) inset, 0 26px 50px -30px rgba(114,35,147,.45);
+}
+/* живая кайма: градиент по контуру крутится, видна тонкой линией */
+html[data-view="fin"] .pss::before, html[data-view="fin"] .incc::before,
+html[data-view="fin"] .fcd.today2::before, html[data-view="fin"] .bt.pri::before, html[data-view="fin"] .bt.finadd::before{
+  content:""; position:absolute; inset:-1px; border-radius:inherit; padding:1px; z-index:-1; pointer-events:none;
+  background:conic-gradient(from var(--fo-ang, 0deg), var(--fo-g1), var(--fo-g2), var(--fo-g3), var(--fo-v), var(--fo-g1));
+  -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite:xor; mask-composite:exclude;
+  opacity:.28; animation:fo-spin 6s linear infinite;
+}
+html[data-view="fin"] .pss:hover::before, html[data-view="fin"] .incc:hover::before{ opacity:.85 }
+html[data-view="fin"] .fcd.today2{ position:relative; isolation:isolate; overflow:hidden; border-color:transparent; box-shadow:none }
+html[data-view="fin"] .fcd.today2::before{ opacity:.9; padding:1.5px }
+html[data-view="fin"] .bt.pri, html[data-view="fin"] .bt.finadd{ position:relative; isolation:isolate; overflow:hidden }
+html[data-view="fin"] .bt.pri::before, html[data-view="fin"] .bt.finadd::before{ opacity:.7; padding:1.5px }
+
+/* цифры: градиентный текст на главных суммах, лёгкий блеск */
+html[data-view="fin"] .pss .v, html[data-view="fin"] .incv{
+  background:linear-gradient(92deg, var(--ink) 0%, var(--ink) 45%, var(--fo-g2) 70%, var(--ink) 100%);
+  background-size:200% 100%; -webkit-background-clip:text; background-clip:text; color:transparent;
+  animation:fo-shine 7s linear infinite;
+}
+html[data-view="fin"] .pss .v.okv{ background-image:linear-gradient(92deg, var(--fo-t), #3FD99B, var(--fo-t)) }
+html[data-view="fin"] .pss .v.warnv{ background-image:linear-gradient(92deg, #b0761a, #FFB020, #b0761a) }
+html[data-view="fin"] .pss .v.critv{ background-image:linear-gradient(92deg, #c2394f, #FF5E78, #c2394f) }
+html[data-view="fin"] .pss .l, html[data-view="fin"] .incl{ letter-spacing:.14em; font-size:10.5px; color:var(--ink-3) }
+
+/* переключатели периода и «Да / Нет / —»: стекло с бликом, активный — градиентная подложка */
+html[data-view="fin"] .seg{ background:rgba(20,16,26,.05); box-shadow:0 1px 0 rgba(255,255,255,.4) inset; border-radius:12px; padding:3px }
+html[data-view="fin"] .seg button[aria-pressed="true"]{
+  background:linear-gradient(135deg, rgba(114,35,147,.14), rgba(244,25,187,.10)), var(--panel);
+  box-shadow:0 1px 0 rgba(255,255,255,.55) inset, 0 6px 14px -8px rgba(114,35,147,.5);
+}
+html[data-view="fin"] .cfseg button[aria-pressed="true"]:first-child{ color:#1a9d6f }
+html[data-view="fin"] .cfseg button[aria-pressed="true"]:nth-child(2){ color:#c2394f }
+
+/* календарь: платёж как капсула с градиентным ободком, сумма ярче */
+html[data-view="fin"] .fcp{ transition:transform .2s var(--ease), box-shadow .2s var(--ease) }
+html[data-view="fin"] .fcp:hover{ transform:translateX(2px); box-shadow:0 6px 14px -10px rgba(114,35,147,.6) }
+html[data-view="fin"] .fcd{ transition:transform .25s var(--ease), box-shadow .25s var(--ease) }
+html[data-view="fin"] .fcd.has:hover{ transform:translateY(-1px); box-shadow:0 14px 28px -22px rgba(114,35,147,.45) }
+html[data-view="fin"] .fcsum, html[data-view="fin"] .fcs{ font-family:Unbounded,sans-serif; letter-spacing:-.02em }
+
+/* таблица клиентов: мягкая подсветка строки, поля ввода с фокус-градиентом */
+html[data-view="fin"] .payt tr:hover td{ background:linear-gradient(90deg, rgba(114,35,147,.06), transparent 60%) }
+html[data-view="fin"] .payt input.fi:focus{ outline:none; border-color:transparent; box-shadow:0 0 0 1.5px var(--fo-g2), 0 8px 18px -12px rgba(182,34,201,.6) }
+html[data-view="fin"] .edok{ box-shadow:0 0 0 1.5px var(--fo-t) !important }
+
+/* заголовки блоков — тонкая линия-градиент под ними */
+html[data-view="fin"] .gl-t{ position:relative }
+html[data-view="fin"] .gl-t::after{ content:""; position:absolute; left:0; right:0; bottom:-9px; height:1px;
+  background:linear-gradient(90deg, rgba(114,35,147,.35), rgba(244,25,187,.2) 40%, transparent 85%) }
+
+@media (prefers-reduced-motion: reduce){
+  html[data-view="fin"] .pss::before, html[data-view="fin"] .incc::before, html[data-view="fin"] .fcd.today2::before,
+  html[data-view="fin"] .bt.pri::before, html[data-view="fin"] .bt.finadd::before, html[data-view="fin"] .pss .v, html[data-view="fin"] .incv{ animation:none }
+  html[data-view="fin"] .pss, html[data-view="fin"] .incc{ animation:none }
+}
 </style>
 </head>
 <body>
@@ -29500,6 +29590,36 @@ document.addEventListener("click", function(e){
       return v;
     };
     try{ if(typeof SEC_RENDER !== "undefined" && SEC_RENDER.fin) SEC_RENDER.fin = renderFin; }catch(e){}
+  }
+})();
+/* ===== add113 (250, Виталий 30.09): «Чуть больше качества в дизайн на примере вкладки „Деньги“ — из 2K в 8K» =====
+   Стили живут в add113.css и включаются только на экране «Финансы»: html[data-view="fin"].
+   Здесь — метка текущего экрана на <html> (её раньше не было) и «живая» кайма: угол градиента
+   крутится через CSS-переменную, если браузер не умеет @property.                                   */
+(function(){
+  function mark(){ try{ document.documentElement.setAttribute("data-view", (typeof view !== "undefined" && view) ? String(view) : ""); }catch(e){} }
+  if(typeof setView === "function"){
+    var _sv = setView;
+    setView = function(){ var r = _sv.apply(this, arguments); mark(); return r; };
+  }
+  if(typeof render === "function"){
+    var _r = render;
+    render = function(){ var r = _r.apply(this, arguments); mark(); return r; };
+  }
+  mark();
+  /* вращение угла каймы без @property: 60 кадров в секунду не нужно — 24 достаточно, и только когда экран «Финансы» виден */
+  var sup = false;
+  try{ sup = !!(window.CSS && CSS.registerProperty); }catch(e){}
+  if(sup){
+    try{ CSS.registerProperty({name: "--fo-ang", syntax: "<angle>", inherits: true, initialValue: "0deg"}); }catch(e){}
+  } else {
+    var a = 0;
+    setInterval(function(){
+      if(document.hidden || document.documentElement.getAttribute("data-view") !== "fin") return;
+      if(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+      a = (a + 3) % 360;
+      document.documentElement.style.setProperty("--fo-ang", a + "deg");
+    }, 42);
   }
 })();
 
