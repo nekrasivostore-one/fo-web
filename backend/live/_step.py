@@ -665,6 +665,8 @@ async def fo_card_save(body: FoCardIn, p: Principal = Depends(current)):
     if int(getattr(p, "level", 9) or 9) > 4:
         raise HTTPException(403, "Карточки сотрудников, клиентов и функций правят РМ и выше — вам доступен просмотр")
     data = body.data if isinstance(body.data, dict) else {}
+    if kind == "employee" and "money" in data and int(getattr(p, "level", 9) or 9) > 2:
+        raise HTTPException(403, "«Видит деньги» в карточке меняют собственник и директор")
     async with pool().acquire() as c:
         await c.execute(
             "INSERT INTO fo_card (kind, ref_id, org_id, data) VALUES ($1,$2,$3,$4::jsonb) "
@@ -2777,21 +2779,71 @@ async def _fo_scope_rows(p, rows, field):
     return [x for x in (rows or []) if str(_fo_row_get(x, field)) in ids]
 
 
+# ── 242 (Виталий 30.09): что закрыто по деньгам — решают галочки роли, выключатель и карточка проджекта ──
+_FO_LVL_FRONT = {3: "head", 4: "pm", 5: "mgr", 6: "jun", 7: "asst"}
+_FO_PRIV_MONEY = {"amount", "payDate", "price", "sum", "contract", "payDay"}
+_FO_PRIV_SUM = {"amount", "price", "sum", "contract"}
+
+
+async def _fo_money_lims(c, p, me):
+    """Множество: "money" — суммы и даты платежей клиентов (оклады коллег и так закрыты с уровня 3);
+    "pay" — только суммы платежей клиентов. Уровень ≤ 2 — пусто; ≥ 5 — всё (238).
+    Между — галочки роли в «Доступы → Роли» (fo_state.roleCfg), выключатель «Проджект видит стоимость
+    контрактов» (fo_state.settings.pmMoney) и переключатель «Видит деньги» в карточке проджекта (money = no)."""
+    lvl = _fo_st_lvl(p)
+    if lvl <= 2:
+        return set()
+    if lvl >= 5:
+        return {"money", "pay"}
+    out = set()
+    rid = _FO_LVL_FRONT.get(lvl, "")
+    try:
+        rows = await c.fetch("SELECT key, data FROM fo_state WHERE org_id=$1::uuid AND scope='org' AND key IN ('roleCfg', 'settings')",
+                             str(p.org_id))
+        for r in rows:
+            d = _fo_st_load(r["data"]) or {}
+            if not isinstance(d, dict):
+                continue
+            if r["key"] == "roleCfg":
+                lim = ((d.get(rid) or {}).get("lim") or {}) if isinstance(d.get(rid), dict) else {}
+                if lim.get("money"):
+                    out.add("money")
+                if lim.get("pay"):
+                    out.add("pay")
+            elif r["key"] == "settings" and rid == "pm" and d.get("pmMoney") is False:
+                out.add("money")
+        if rid == "pm" and me:
+            cd = _fo_st_load(await c.fetchval("SELECT data FROM fo_card WHERE kind='employee' AND ref_id=$1 AND org_id=$2",
+                                              str(me), p.org_id)) or {}
+            if isinstance(cd, dict) and str(cd.get("money") or "").strip().lower() in ("no", "false", "0", "нет"):
+                out.add("money")
+    except Exception:
+        pass
+    return out
+
+
 async def _fo_cards_scope(p, out):
     lvl = _fo_st_lvl(p)
     if lvl <= 2:
         return out
+    me, lims = None, set()
     try:
         async with pool().acquire() as c:
             me = await c.fetchval("SELECT id FROM employee WHERE user_id=$1 AND org_id=$2::uuid LIMIT 1", _fo_uid(p), str(p.org_id))
+            lims = await _fo_money_lims(c, p, me)
     except Exception:
-        me = None
+        pass
     res = []
     for cd in out:
         k = cd.get("kind")
         d = cd.get("data") or {}
-        if k in ("cab", "client") and lvl >= 5:
-            d = {a: b for a, b in d.items() if a not in _FO_PRIV_CLIENT and not str(a).lower().startswith(("owner", "pay", "phone"))}
+        if k in ("cab", "client"):
+            if lvl >= 5:
+                d = {a: b for a, b in d.items() if a not in _FO_PRIV_CLIENT and not str(a).lower().startswith(("owner", "pay", "phone"))}
+            elif "money" in lims:
+                d = {a: b for a, b in d.items() if a not in _FO_PRIV_MONEY and not str(a).lower().startswith("pay")}
+            elif "pay" in lims:
+                d = {a: b for a, b in d.items() if a not in _FO_PRIV_SUM}
         elif k == "employee" and str(cd.get("ref_id")) != str(me):
             d = {a: b for a, b in d.items() if not _FO_PRIV_PAY.search(str(a))}
         res.append(dict(cd, data=d))
