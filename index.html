@@ -28600,6 +28600,23 @@ document.addEventListener("click", function(e){
   };
 })();
 
+/* ── 238 (Виталий 30.09): роли ниже проджекта — в ганте только своя строка ──
+   Сервер отдаёт им только свои задачи; строки коллег были пустыми — теперь их нет вовсе. */
+(function(){
+  if(typeof B === "undefined" || typeof B.gantt !== "function") return;
+  var _g = B.gantt;
+  B.gantt = function(el){
+    var own = false;
+    try{ own = typeof isMgr === "function" && isMgr() && !selPerson && typeof isLive === "function" && isLive() && !!meId; }catch(e){}
+    if(!own) return _g.call(B, el);
+    var all = S.people;
+    try{
+      S.people = (all || []).filter(function(m){ return m.id === meId; });
+      return _g.call(B, el);
+    } finally { S.people = all; }
+  };
+})();
+
 })();
 </script>
 </body>
