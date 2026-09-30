@@ -4301,6 +4301,18 @@ td small{ color:var(--ink-3); font-size:10.5px }
 /* add105: кнопка «Тень» в шапке у собственника и директора */
 .fo-shbtn{ width:auto; margin-left:8px; padding:4px 10px; font-size:12px; white-space:nowrap }
 @media (max-width:720px){ .fo-shbtn{ margin-left:4px; padding:4px 8px } }
+/* add107: бегунок «Скрыть деньги» в меню аккаунта + размытие сумм; заметка в карточке проджекта */
+.fo-blurrow{ cursor:pointer; align-items:center }
+.fo-blurrow > span{ flex:1 1 auto; min-width:0 }
+.fo-sw{ display:inline-block; width:34px; height:20px; border-radius:10px; background:var(--neu-b,#cfd3dc);
+  position:relative; flex:none; margin-left:8px; transition:background .15s var(--ease,ease) }
+.fo-sw u{ position:absolute; top:2px; left:2px; width:16px; height:16px; border-radius:50%; background:#fff;
+  box-shadow:0 1px 3px rgba(0,0,0,.28); transition:left .15s var(--ease,ease) }
+.fo-sw.on{ background:#7C5CFF }
+.fo-sw.on u{ left:16px }
+.fo-nomoney .fo-mny{ filter:blur(6px); user-select:none; -webkit-user-select:none }
+.fo-nomoney input.fo-mnyi{ filter:blur(5px); user-select:none; -webkit-user-select:none }
+.fo-mnote{ font-size:11px; color:var(--ink-3); margin:-2px 0 8px; line-height:1.4 }
 </style>
 </head>
 <body>
@@ -28689,6 +28701,169 @@ document.addEventListener("click", function(e){
   }
   setTimeout(check, 8000);
   setInterval(check, 60000);
+})();
+/* ===== add107 (242–243, Виталий 30.09): деньги закрываются по-настоящему + бегунок «Скрыть деньги» =====
+   242. Галочки «Доступы → Роли» («Не видит деньги, оклады и платежи», «Не показывать суммы платежей»),
+        выключатель «Проджект видит стоимость контрактов» и переключатель «Видит деньги» в карточке
+        проджекта — раньше только сохранялись. Теперь их применяет сервер (v71: суммы и даты платежей
+        клиентов не приходят) и экран: у такой роли нет экрана «Деньги» и сумм в карточках.
+   243. «Прям вот здесь поставь бегунок „скрыть деньги“» — в меню аккаунта. Включён — все суммы на экране
+        размыты, в том числе поля ввода сумм. Настройка своя у каждого браузера (для показа экрана).   */
+
+/* ── 242.1 кто не видит деньги ── */
+function foLim(key){
+  try{
+    if(role === "owner" || role === "dir" || role === "admin") return false;
+    if(typeof isLive === "function" && !isLive()) return false;
+    var c = roleCfg(role);
+    return !!(c && c.lim && c.lim[key]);
+  }catch(e){ return false; }
+}
+function foMoneyOff(){
+  try{
+    if(role === "owner" || role === "dir" || role === "admin") return false;
+    if(typeof isLive === "function" && !isLive()) return false;
+    if(foLim("money")) return true;
+    if(role === "pm"){
+      var me = (typeof meId !== "undefined" && meId) ? person(meId) : null;
+      if(me && String(me.money || "").trim().toLowerCase() === "no") return true;
+    }
+  }catch(e){}
+  return false;
+}
+(function(){
+  if(typeof seesMoney === "function"){
+    var _sm = seesMoney;
+    seesMoney = function(){ if(foMoneyOff() || foLim("pay")) return false; return _sm.apply(this, arguments); };
+  }
+  /* экран «Деньги» (оклады, к выплате) — не показываем тому, кому деньги закрыты; карточки клиентов остаются */
+  if(typeof applyRoleRail === "function"){
+    var _ar = applyRoleRail;
+    applyRoleRail = function(){
+      var v = _ar.apply(this, arguments);
+      try{
+        if(foMoneyOff()){
+          var mi = document.getElementById("moneyIc");
+          if(mi) mi.style.display = "none";
+          if(typeof view !== "undefined" && view === "fin") setView("work");
+        }
+      }catch(e){}
+      return v;
+    };
+  }
+})();
+
+/* ── 242.2 переключатель «Видит деньги» в карточке проджекта — ставят собственник и директор ── */
+(function(){
+  if(typeof edManForm !== "function") return;
+  var _ef = edManForm;
+  edManForm = function(m){
+    var h = _ef.apply(this, arguments);
+    try{
+      if(!m || m.grade !== "pm") return h;
+      if(!(role === "owner" || role === "dir")) return h;
+      var block = '<div class="edg">Что видит проджект</div>'+
+        edRow([edSel("man", m.id, "money", "Видит деньги", (String(m.money || "").toLowerCase() === "no") ? "no" : "yes",
+          [["yes", "Да — суммы и даты платежей клиентов"], ["no", "Нет — без сумм и дат платежей"]])])+
+        '<div class="fo-mnote">Свой оклад видит всегда. Оклады коллег проджекту закрыты и так. «Нет» — сервер не отдаёт суммы и даты платежей клиентов и прячет экран «Деньги».</div>';
+      var mark = '<div class="edg">Рабочий день</div>';
+      return h.indexOf(mark) >= 0 ? h.replace(mark, block + mark) : h.replace(/<\/div>\s*$/, block + '</div>');
+    }catch(e){ return h; }
+  };
+})();
+
+/* ── 243 бегунок «Скрыть деньги» в меню аккаунта ── */
+var FO_HIDE_KEY = "fo_hide_money_v1";
+function foHideOn(){ try{ return localStorage.getItem(FO_HIDE_KEY) === "1"; }catch(e){ return false; } }
+function foHideSet(on){
+  try{ if(on) localStorage.setItem(FO_HIDE_KEY, "1"); else localStorage.removeItem(FO_HIDE_KEY); }catch(e){}
+  foHideApply();
+}
+function foHideRow(){
+  var on = foHideOn();
+  return '<div class="memi fo-blurrow" id="foBlurRow" title="Размыть все суммы на экране — удобно, когда показываете экран">'+
+    '<svg viewBox="0 0 24 24"><path d="M3 3l18 18"/><path d="M10.6 10.6a2 2 0 0 0 2.8 2.8"/>'+
+    '<path d="M9.9 5.1A9.8 9.8 0 0 1 12 5c4.5 0 8.3 2.9 10 7a11 11 0 0 1-2.5 3.7M6.6 6.6A11 11 0 0 0 2 12c1.7 4.1 5.5 7 10 7 1.5 0 3-.3 4.3-.9"/></svg>'+
+    '<span><b>Скрыть деньги</b><i>'+(on ? 'суммы размыты — выключите, чтобы вносить' : 'размыть все суммы на экране')+'</i></span>'+
+    '<em class="fo-sw'+(on ? ' on' : '')+'"><u></u></em></div>';
+}
+(function(){
+  if(typeof meMenuHTML !== "function") return;
+  var _mm = meMenuHTML;
+  meMenuHTML = function(){
+    var h = _mm.apply(this, arguments);
+    try{
+      var i = h.indexOf('</i></div>');                 /* конец шапки меню: почта, роль · агентство */
+      if(i < 0) return h;
+      i += '</i></div>'.length;
+      return h.slice(0, i) + foHideRow() + h.slice(i);
+    }catch(e){ return h; }
+  };
+})();
+document.addEventListener("click", function(e){
+  var row = e.target.closest && e.target.closest("#foBlurRow");
+  if(!row) return;
+  e.preventDefault(); e.stopPropagation();
+  foHideSet(!foHideOn());
+  try{ row.outerHTML = foHideRow(); }catch(x){}
+}, true);
+
+/* размытие: находим суммы в тексте («12 300 ₽», «520 ₽/ч», «руб.») и поля ввода сумм */
+var FO_MNY_RX = /\d[\d\s  ]*(?:[.,]\d+)?\s?(?:₽|руб\.?|р\.)/;
+var FO_MNY_INPUTS = 'input[step="1000"], input[data-edk="pay"], input[data-edk="amount"], input[data-ck="amount"], input[data-fk="amount"], input[data-sk2="pay"], input[data-sk="pay"], #ncAmt, input[data-edk="bonusPct"], input[data-edk="finePct"]';
+var foMnyTimer = null, foMnyBusy = false;
+function foMnyPass(){
+  if(!foHideOn() || foMnyBusy) return;
+  foMnyBusy = true;
+  try{
+    var w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
+      acceptNode: function(n){
+        if(!n.nodeValue || n.nodeValue.length < 2) return NodeFilter.FILTER_REJECT;
+        var p = n.parentNode;
+        if(!p || !p.tagName) return NodeFilter.FILTER_REJECT;
+        var t = p.tagName;
+        if(t === "SCRIPT" || t === "STYLE" || t === "TEXTAREA" || t === "OPTION") return NodeFilter.FILTER_REJECT;
+        if(p.closest && p.closest(".fo-mny, #foBlurRow")) return NodeFilter.FILTER_REJECT;
+        return FO_MNY_RX.test(n.nodeValue) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+      }
+    });
+    var nodes = [], n;
+    while((n = w.nextNode())) nodes.push(n);
+    nodes.forEach(function(tn){
+      var s = tn.nodeValue, rx = new RegExp(FO_MNY_RX.source, "g"), m, last = 0, frag = document.createDocumentFragment();
+      while((m = rx.exec(s))){
+        if(m.index > last) frag.appendChild(document.createTextNode(s.slice(last, m.index)));
+        var sp = document.createElement("span"); sp.className = "fo-mny"; sp.textContent = m[0];
+        frag.appendChild(sp);
+        last = m.index + m[0].length;
+      }
+      if(last < s.length) frag.appendChild(document.createTextNode(s.slice(last)));
+      tn.parentNode.replaceChild(frag, tn);
+    });
+    document.querySelectorAll(FO_MNY_INPUTS).forEach(function(inp){ inp.classList.add("fo-mnyi"); });
+  }catch(e){}
+  foMnyBusy = false;
+}
+function foHideApply(){
+  var on = foHideOn();
+  document.documentElement.classList.toggle("fo-nomoney", on);
+  if(on) foMnyPass();
+}
+(function(){
+  foHideApply();
+  var mo = new MutationObserver(function(list){
+    if(!foHideOn()) return;
+    var need = false;
+    for(var i = 0; i < list.length; i++){
+      var t = list[i].target;
+      if(t && t.nodeType === 1 && t.closest && t.closest(".fo-mny")) continue;
+      need = true; break;
+    }
+    if(!need) return;
+    clearTimeout(foMnyTimer);
+    foMnyTimer = setTimeout(foMnyPass, 80);
+  });
+  mo.observe(document.body, {childList: true, subtree: true, characterData: true});
 })();
 
 })();
