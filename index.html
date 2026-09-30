@@ -28616,6 +28616,80 @@ document.addEventListener("click", function(e){
     } finally { S.people = all; }
   };
 })();
+/* ===== add106 (240, Виталий 30.09): таймер → отчёт о выполнении; смена роли применяется сразу =====
+   1. Кнопка «старт» в строке задачи считала минуты только в «замер функции» — в отчёт о выполнении
+      (fact_minutes) они не попадали. Теперь время копится в задаче (spentSec) и уходит на сервер
+      вместе с галочкой «выполнено» (диалог add78 берёт t.spentSec).
+   2. Токен входа живёт 2 часа и несёт роль в себе: собственник поменял грейд (= роль) — сотрудник
+      до перезахода работал в старой роли. Раз в минуту сверяем роль с сервером; если сменилась —
+      обновляем токен и перезагружаем страницу с подписью.                                        */
+
+/* ── 1. таймер «старт» → минуты в задачу ── */
+(function(){
+  if(typeof runStop !== "function") return;
+  var _stop = runStop;
+  runStop = function(t){
+    var r = (typeof runOf === "function") ? runOf(t) : null;
+    var sec = r ? Math.max(60, Math.round((Date.now() - r.at) / 1000)) : 0;
+    var v = _stop.apply(this, arguments);
+    if(t && sec > 0){
+      t.spentSec = (t.spentSec || 0) + sec;
+      try{ saveState(); }catch(e){}
+      try{ toast("Записал: " + Math.round(t.spentSec / 60) + " мин — попадёт в отчёт о выполнении и в замер функции."); }catch(e){}
+    }
+    return v;
+  };
+})();
+
+/* в раскрытой задаче — сколько уже потрачено по таймеру */
+(function(){
+  if(typeof foTaskCard !== "function") return;
+  var _card = foTaskCard;
+  foTaskCard = function(t){
+    var h = _card.apply(this, arguments);
+    try{
+      if(t && t.spentSec > 0 && !t.done){
+        h = h.replace(' мин' , ' мин · по таймеру ' + Math.round(t.spentSec / 60) + ' мин');
+      }
+    }catch(e){}
+    return h;
+  };
+})();
+
+/* ── 2. роль сменилась на сервере → обновить токен и перезагрузить ── */
+(function(){
+  var busy = false, KEY = "fo_role_sync_v1";
+  function norm(c, l){ try{ return (typeof srvRole === "function") ? srvRole(c, l) : String(c || ""); }catch(e){ return String(c || ""); } }
+  function check(){
+    if(busy) return;
+    try{
+      if(typeof isLive !== "function" || !isLive()) return;
+      if(typeof foShadowOn === "function" && foShadowOn()) return;
+      if(document.hidden) return;
+    }catch(e){ return; }
+    busy = true;
+    api("/refs/me/account").then(function(acc){
+      if(!acc || !acc.role_code) return;
+      var srv = norm(acc.role_code, acc.level), mine = norm(A.role, A.level);
+      if(srv === mine) return;
+      var tried = ""; try{ tried = sessionStorage.getItem(KEY) || ""; }catch(e){}
+      if(tried === String(acc.role_code)) return;            /* уже пробовали — не крутим перезагрузку по кругу */
+      return api("/auth/refresh", {method:"POST", body:{refresh:A.refresh}}).then(function(r){
+        if(!r || !r.access) return;
+        A.token = r.access;
+        if(r.refresh) A.refresh = r.refresh;
+        if(r.role) A.role = r.role;
+        if(typeof r.level === "number") A.level = r.level;
+        try{ saveAuth(); }catch(e){}
+        try{ sessionStorage.setItem(KEY, String(acc.role_code)); }catch(e){}
+        try{ toast("Ваша роль изменилась: " + (acc.role_title || acc.role_code) + " — обновляю сервис"); }catch(e){}
+        setTimeout(function(){ location.reload(); }, 1500);
+      });
+    }).catch(function(){}).then(function(){ busy = false; });
+  }
+  setTimeout(check, 8000);
+  setInterval(check, 60000);
+})();
 
 })();
 </script>
