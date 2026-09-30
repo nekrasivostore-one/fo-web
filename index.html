@@ -4315,6 +4315,34 @@ td small{ color:var(--ink-3); font-size:10.5px }
 .fo-mnote{ font-size:11px; color:var(--ink-3); margin:-2px 0 8px; line-height:1.4 }
 /* add108: подписи «оценка по формуле» в рейтинге */
 .fo-est{ display:block; width:100%; font-size:11px; color:var(--ink-3); margin-top:2px }
+/* add111: «Разгружаем менеджера» — разрезы, таблицы, подтверждение */
+.unltabs{ margin-left:auto }
+.unltabs button{ white-space:nowrap }
+.unlp{ display:flex; flex-direction:column; gap:6px }
+.unpr{ border:1px solid var(--stroke-2); border-radius:12px; background:var(--panel) }
+.unpr.on{ border-color:#7C5CFF }
+.unpr .unrh{ width:100%; display:flex; align-items:center; gap:12px; padding:10px 14px; background:none; border:0; cursor:pointer; color:var(--ink); text-align:left }
+.unpr .unn{ flex:1 1 auto; min-width:0 }
+.unpr .unn b{ display:block; font-size:13px }
+.unpr .unn i{ display:block; font-style:normal; font-size:11px; color:var(--ink-3) }
+.unlbar{ flex:0 0 160px; height:8px; border-radius:4px; background:var(--neu); overflow:hidden }
+.unlbar i{ display:block; height:100%; border-radius:4px }
+.unlbar i.z1{ background:#22b07d } .unlbar i.z2{ background:#e0a52a } .unlbar i.z3{ background:#c2394f }
+.unpr .unp{ padding:6px 14px 14px }
+.unlt td b{ display:block; font-size:12.5px; font-weight:600 }
+.unlt td i{ display:block; font-style:normal; font-size:11px; color:var(--ink-3) }
+.unlt .sel.sm{ min-width:120px }
+.unlt tr.unlchg td{ background:rgba(124,92,255,.07) }
+.unlcf{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-top:12px; padding-top:12px; border-top:1px solid var(--stroke-2) }
+.unlcf .bt{ width:auto }
+.unlperm{ display:flex; align-items:center; gap:8px; font-size:12px; color:var(--ink-2); flex:1 1 320px; cursor:pointer }
+.unlstr{ display:grid; grid-template-columns:1fr 1fr; gap:10px; margin:6px 0 12px }
+.unlstr .smb{ text-align:left }
+.unlgrid{ display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px }
+.unlc{ display:flex; align-items:center; gap:8px; padding:6px 10px; border:1px solid var(--stroke-2); border-radius:10px; background:var(--panel); font-size:12px }
+.unlc b{ font-weight:600 } .unlc i{ font-style:normal; color:var(--ink-3) } .unlc u{ text-decoration:none; font-weight:600 }
+.warnc{ color:#b0761a }
+@media (max-width:720px){ .unlstr{ grid-template-columns:1fr } .unlbar{ flex-basis:80px } }
 </style>
 </head>
 <body>
@@ -29080,6 +29108,399 @@ function foRateLive(){ try{ return typeof isLive === "function" && isLive(); }ca
     e.preventDefault(); e.stopPropagation();
     try{ setView("newcab"); }catch(x){ try{ toast("Откройте «Мои клиенты» → «Новый кабинет»"); }catch(y){} }
   }, true);
+})();
+/* ===== add111 (248, Виталий 30.09): «Разгружаем менеджера» — гибко =====
+   Три разреза: «По задачам» (что снять прямо сейчас — как было, но теперь с записью на сервер),
+   «По менеджерам» (топ загруженных → его задачи → кому и на какой день), «По команде» (перераспределить
+   равномерно или по компетенциям: категория задачи = уровень менеджера; «интеллект менеджера» — кто какие
+   категории реально закрывает, сверка с грейдом и подсказка «делает A, получает как C»).
+   Кнопка «Перераспределить» — с повторным подтверждением и галочкой «и на следующие недели»; сервер
+   (v74, POST /refs/tasks/reassign) переводит задачи новым ответственным и снимает со старых.
+   Планёрки и блоки РК не перераспределяются (планёрки ведёт бот планёрок).                              */
+
+var UNL = {tab: "tasks", person: null, plan: {}, strategy: "even", confirm: null, perm: false, intel: null, intelAt: 0, busy: false};
+var FO_GRADE_RANK = {assist: 0, jun: 1, mid: 2, head: 3, pm: 4};
+var FO_GRADE_NAME = {assist: "Ассистент", jun: "Младший", mid: "Менеджер", head: "Главный", pm: "Проджект"};
+var FO_CAT_MINRANK = {A: 3, B: 2, C: 0};
+
+function foUnlLive(){ try{ return typeof isLive === "function" && isLive(); }catch(e){ return false; } }
+function foUnlPeople(){ return (S.people || []).filter(function(m){ return !m.hidden; }); }
+function foUnlTaskCat(t){
+  try{ var f = t.fn ? fnById(t.fn) : null; var c = f ? String(fnCfg(f).cat || "").toUpperCase() : ""; return (c === "A" || c === "B" || c === "C") ? c : ""; }catch(e){ return ""; }
+}
+function foUnlMovable(t){
+  if(!t || t.done || t.rk || !t.person) return false;
+  if(typeof t.dow !== "number" || t.dow < today) return false;
+  if(/план[её]рк|совещ/i.test(String(t.title || ""))) return false;
+  return true;
+}
+function foUnlRem(){ return Math.max(1, 5 - today); }                           /* дней осталось на неделе, включая сегодня */
+function foUnlCap(m){ return (m.hoursDay || 8) * 60 * foUnlRem(); }
+function foUnlLoad(m, plan){
+  var mins = 0;
+  (S.tasks || []).forEach(function(t){
+    if(t.done || t.rk || typeof t.dow !== "number" || t.dow < today) return;
+    var who = (plan && plan[t.id] && plan[t.id].to) ? plan[t.id].to : t.person;
+    if(who === m.id) mins += (t.minutes || 0);
+  });
+  return mins;
+}
+function foUnlPct(m, plan){ var c = foUnlCap(m); return c ? Math.round(foUnlLoad(m, plan) / c * 100) : 0; }
+function foUnlDate(dow){ var d = monday(); d.setDate(d.getDate() + dow); return iso(d); }
+function foUnlGrade(m){ var g = m.grade || ""; return FO_GRADE_RANK[g] != null ? g : ""; }
+
+/* ── интеллект менеджера: с сервера, кэш 5 минут ── */
+function foIntelLoad(cb){
+  if(!foUnlLive()) { if(cb) cb(null); return; }
+  if(UNL.intel && Date.now() - UNL.intelAt < 300000){ if(cb) cb(UNL.intel); return; }
+  api("/refs/team/intel?weeks=8").then(function(r){
+    UNL.intel = r; UNL.intelAt = Date.now();
+    if(cb) cb(r);
+  }).catch(function(){ if(cb) cb(null); });
+}
+function foIntelOf(m){
+  var it = UNL.intel && (UNL.intel["люди"] || []).filter(function(x){ return x.employee_id === m.id; })[0];
+  if(!it) return null;
+  var d = it["закрыто"] || {}, n = (d.A || 0) + (d.B || 0) + (d.C || 0);
+  var prof = "";
+  if(n){
+    if((d.A || 0) / n >= 0.3) prof = "A";
+    else if((d.B || 0) / n >= 0.3) prof = "B";
+    else prof = "C";
+  }
+  return {it: it, n: n, prof: prof, a: d.A || 0, b: d.B || 0, c: d.C || 0, late: it["просрочено"] || 0};
+}
+function foIntelHint(m){
+  var x = foIntelOf(m); if(!x || !x.prof) return "";
+  var g = foUnlGrade(m); if(!g) return "";
+  var need = FO_CAT_MINRANK[x.prof];
+  if(FO_GRADE_RANK[g] < need){
+    return "делает функции категории " + x.prof + ", а получает как «" + FO_GRADE_NAME[g] + "» — грейд ниже работы";
+  }
+  if(x.prof === "C" && FO_GRADE_RANK[g] >= 3 && x.n >= 5){
+    return "закрывает в основном C, при грейде «" + FO_GRADE_NAME[g] + "» — можно давать сложнее";
+  }
+  return "";
+}
+
+/* ── стратегии для «По команде» ── */
+function foUnlMovesEven(){
+  var ppl = foUnlPeople(); if(ppl.length < 2) return [];
+  var plan = {}, moves = [];
+  var tasksBy = {};
+  (S.tasks || []).filter(foUnlMovable).forEach(function(t){ (tasksBy[t.person] = tasksBy[t.person] || []).push(t); });
+  for(var step = 0; step < 300; step++){
+    var arr = ppl.map(function(m){ return {m: m, pct: foUnlPct(m, plan), load: foUnlLoad(m, plan), cap: foUnlCap(m)}; });
+    arr.sort(function(a, b){ return b.pct - a.pct; });
+    var P = arr[0], Q = arr[arr.length - 1];
+    if(P.pct - Q.pct <= 15) break;
+    var cand = (tasksBy[P.m.id] || []).filter(function(t){ return !plan[t.id] && !moves.some(function(x){ return x.t.id === t.id; }); });
+    if(!cand.length){ tasksBy[P.m.id] = []; continue; }
+    var gapMin = (P.load - Q.load) / 2;
+    cand.sort(function(a, b){ return Math.abs((a.minutes || 0) - gapMin) - Math.abs((b.minutes || 0) - gapMin); });
+    var pick = cand[0];
+    var qAfter = (Q.load + (pick.minutes || 0)) / Q.cap * 100;
+    if(qAfter > P.pct){ tasksBy[P.m.id] = tasksBy[P.m.id].filter(function(t){ return t.id !== pick.id; }); continue; }
+    plan[pick.id] = {to: Q.m.id, dow: pick.dow};
+    moves.push({t: pick, from: P.m, to: Q.m, why: "выравнивание: " + P.pct + "% → " + Q.pct + "%"});
+  }
+  return moves;
+}
+function foUnlMovesSkill(){
+  var ppl = foUnlPeople(); if(ppl.length < 2) return [];
+  var plan = {}, moves = [];
+  var tasks = (S.tasks || []).filter(foUnlMovable).sort(function(a, b){ return (b.minutes || 0) - (a.minutes || 0); });
+  tasks.forEach(function(t){
+    var cat = foUnlTaskCat(t); if(!cat) return;
+    var need = FO_CAT_MINRANK[cat];
+    var cur = person(t.person); if(!cur) return;
+    var ok = function(m){
+      var g = foUnlGrade(m), r = g ? FO_GRADE_RANK[g] : -1;
+      var x = foIntelOf(m);
+      if(cat === "C") return r <= 1 || (r === 2 && x && x.prof === "C");
+      return r >= need || (x && x.prof === cat && x.n >= 3);
+    };
+    if(ok(cur)) return;
+    var cands = ppl.filter(function(m){ return m.id !== cur.id && ok(m); });
+    if(!cands.length) return;
+    cands.sort(function(a, b){ return foUnlPct(a, plan) - foUnlPct(b, plan); });
+    var to = cands[0];
+    if(foUnlPct(to, plan) >= 120) return;
+    plan[t.id] = {to: to.id, dow: t.dow};
+    moves.push({t: t, from: cur, to: to, why: "категория " + cat + " → " + (FO_GRADE_NAME[foUnlGrade(to)] || "по опыту")});
+  });
+  return moves;
+}
+
+/* ── применение на сервере ── */
+function foUnlApply(items, label){
+  if(!items.length){ toast("Нечего перераспределять"); return; }
+  if(!foUnlLive()){ toast("В демо изменения только на экране"); items.forEach(foUnlLocal); UNL.plan = {}; UNL.confirm = null; render(); return; }
+  if(UNL.busy) return;
+  UNL.busy = true;
+  var body = {items: items.map(function(x){ return {task_id: x.rid, assignee_id: x.to || null, plan_date: x.dow != null ? foUnlDate(x.dow) : null}; }),
+              permanent: !!UNL.perm, why: label};
+  api("/refs/tasks/reassign", {method: "POST", body: body}).then(function(r){
+    items.forEach(foUnlLocal);
+    UNL.plan = {}; UNL.confirm = null; UNL.busy = false; UNL.intel = null;
+    try{ saveState(); }catch(e){}
+    var sk = (r && r["пропущено"]) || [];
+    toast("Перераспределено: " + (r["переведено"] || 0) + " задач" + (r["перенесено_дней"] ? ", дней: " + r["перенесено_дней"] : "") +
+          (r["навсегда"] ? ", навсегда: " + r["навсегда"] : "") + (sk.length ? " · пропущено " + sk.length : ""));
+    render();
+  }).catch(function(e){
+    UNL.busy = false;
+    toast("Сервер не принял: " + (e && e.message || "нет ответа"));
+  });
+}
+function foUnlLocal(x){
+  var t = (S.tasks || []).filter(function(q){ return q.id === x.id; })[0];
+  if(!t) return;
+  if(x.to) t.person = x.to;
+  if(x.dow != null) t.dow = x.dow;
+}
+function foUnlItems(){
+  return Object.keys(UNL.plan).map(function(id){
+    var t = (S.tasks || []).filter(function(q){ return q.id === id; })[0];
+    if(!t) return null;
+    var p = UNL.plan[id];
+    if((!p.to || p.to === t.person) && (p.dow == null || p.dow === t.dow)) return null;
+    return {id: t.id, rid: t.rid || t.id, to: (p.to && p.to !== t.person) ? p.to : null, dow: (p.dow != null && p.dow !== t.dow) ? p.dow : null};
+  }).filter(Boolean);
+}
+function foUnlConfirmBar(n, key){
+  var on = UNL.confirm === key;
+  return '<div class="unlcf">'+
+    '<label class="unlperm"><input type="checkbox" id="unlPerm"'+(UNL.perm ? ' checked' : '')+'> и на следующие недели — сменить ответственного за функцию в кабинете</label>'+
+    '<button class="bt'+(on ? ' pri' : '')+'" data-unlgo="'+key+'"'+(n ? '' : ' disabled')+'>'+
+      (on ? 'Подтвердить: перераспределить ' + n + ' ' + plural(n, "задачу", "задачи", "задач") : 'Перераспределить' + (n ? ' · ' + n : ''))+'</button>'+
+    (on ? '<button class="bt gh2" data-unlno="1">Отмена</button>' : '')+
+  '</div>';
+}
+
+/* ── разрезы ── */
+function foUnlTabTasks(){
+  var top = unloadTop();
+  if(!top.length) return '<div class="empty">Сейчас ничего не висит: просроченных и тяжёлых задач нет</div>';
+  return '<div class="unlist">'+top.map(function(r, i){
+    var pr = r.t.project ? project(r.t.project) : null;
+    var f  = r.t.fn ? fnById(r.t.fn) : null;
+    return '<div class="unr'+(unlOpen === r.t.id ? " on" : "")+'">'+
+      '<button class="unrh" data-unl="'+esc(r.t.id)+'">'+
+        '<span class="unnum">'+(i + 1)+'</span>'+
+        '<span class="av2" style="background:'+r.m.color+'">'+esc(r.m.av || "")+'</span>'+
+        '<span class="unn"><b>'+esc(r.t.title || (f ? fnTitle(f) : "Задача"))+'</b>'+
+          '<i>'+esc(r.m.name)+(pr ? ' · ' + esc(pr.name) : '')+' · '+(r.t.minutes || 0)+' мин'+(foUnlTaskCat(r.t) ? ' · категория ' + foUnlTaskCat(r.t) : '')+'</i></span>'+
+        '<span class="unw '+(r.late ? "bad" : "")+'">'+(r.late ? 'висит с ' + DOWS[r.t.dow] : 'тяжёлая, сегодня')+'</span>'+
+        '<svg class="fnar" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>'+
+      '</button>'+
+      (unlOpen === r.t.id ? unlPanel(r) : '')+
+    '</div>'; }).join("")+'</div>';
+}
+function foUnlTabPeople(){
+  var ppl = foUnlPeople().map(function(m){ return {m: m, pct: foUnlPct(m), load: foUnlLoad(m)}; }).sort(function(a, b){ return b.pct - a.pct; });
+  if(!ppl.length) return '<div class="empty">Команда пока пустая</div>';
+  var n = foUnlItems().length;
+  return '<div class="unlp">'+ppl.map(function(x){
+    var open = UNL.person === x.m.id;
+    var tasks = open ? (S.tasks || []).filter(function(t){ return t.person === x.m.id && foUnlMovable(t); }).sort(function(a, b){ return a.dow - b.dow || (b.minutes || 0) - (a.minutes || 0); }) : [];
+    return '<div class="unpr'+(open ? ' on' : '')+'">'+
+      '<button class="unrh" data-unlp="'+esc(x.m.id)+'">'+
+        '<span class="av2" style="background:'+x.m.color+'">'+esc(x.m.av || "")+'</span>'+
+        '<span class="unn"><b>'+esc(x.m.name)+'</b><i>'+esc(x.m.role || "")+(foUnlGrade(x.m) ? ' · ' + FO_GRADE_NAME[foUnlGrade(x.m)] : '')+' · до конца недели '+Math.round(x.load / 60 * 10) / 10+' ч</i></span>'+
+        '<span class="unlbar"><i style="width:'+Math.min(100, x.pct)+'%" class="'+(x.pct > 110 ? 'z3' : x.pct > 90 ? 'z2' : 'z1')+'"></i></span>'+
+        '<span class="unw '+(x.pct > 110 ? 'bad' : '')+'">'+x.pct+'%</span>'+
+        '<svg class="fnar" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>'+
+      '</button>'+
+      (open ? '<div class="unp">'+
+        (tasks.length ? '<table class="payt unlt"><thead><tr><th>Задача</th><th>День</th><th>Мин</th><th>Кому</th><th>На какой день</th></tr></thead><tbody>'+
+          tasks.map(function(t){
+            var p = UNL.plan[t.id] || {};
+            var pr = t.project ? project(t.project) : null;
+            return '<tr'+((p.to && p.to !== t.person) || (p.dow != null && p.dow !== t.dow) ? ' class="unlchg"' : '')+'>'+
+              '<td><b>'+esc(String(t.title || "").split(" · ")[0])+'</b><i>'+(pr ? esc(pr.name) : '')+(foUnlTaskCat(t) ? ' · ' + foUnlTaskCat(t) : '')+'</i></td>'+
+              '<td>'+DOWS[t.dow]+'</td><td>'+(t.minutes || 0)+'</td>'+
+              '<td><select class="sel sm" data-unlto="'+esc(t.id)+'">'+foUnlPeople().map(function(m){
+                return '<option value="'+esc(m.id)+'"'+((p.to || t.person) === m.id ? ' selected' : '')+'>'+esc(m.name)+' · '+foUnlPct(m, UNL.plan)+'%</option>'; }).join("")+'</select></td>'+
+              '<td><select class="sel sm" data-unldow="'+esc(t.id)+'">'+DOWS.map(function(d, i){
+                return i < today ? '' : '<option value="'+i+'"'+((p.dow != null ? p.dow : t.dow) === i ? ' selected' : '')+'>'+d+'</option>'; }).join("")+'</select></td>'+
+            '</tr>'; }).join("")+'</tbody></table>'
+        : '<div class="empty">До конца недели у него нет задач, которые можно передать</div>')+
+      '</div>' : '')+
+    '</div>'; }).join("")+'</div>'+
+    foUnlConfirmBar(n, "people");
+}
+function foUnlTabTeam(){
+  var moves = UNL.strategy === "skill" ? foUnlMovesSkill() : foUnlMovesEven();
+  var plan = {}; moves.forEach(function(x){ plan[x.t.id] = {to: x.to.id, dow: x.t.dow}; });
+  var ppl = foUnlPeople();
+  var h = '<div class="unlstr">'+
+    '<button class="smb'+(UNL.strategy === "even" ? ' on' : '')+'" data-unlst="even"><b>Равномерно по команде</b><i>Снять перегруз: задачи с самых загруженных уходят самым свободным, пока разница не станет меньше 15%.</i></button>'+
+    '<button class="smb'+(UNL.strategy === "skill" ? ' on' : '')+'" data-unlst="skill"><b>По компетенциям</b><i>Категория задачи = уровень менеджера: A — главный и проджект, B — менеджер, C — младший и ассистент. Учитывается, кто какие категории реально закрывает.</i></button>'+
+  '</div>';
+  h += '<div class="unlgrid">'+ppl.map(function(m){
+    var a = foUnlPct(m), b = foUnlPct(m, plan);
+    return '<div class="unlc"><span class="av2" style="background:'+m.color+'">'+esc(m.av || "")+'</span><b>'+esc(m.name)+'</b>'+
+      '<i>'+a+'% → <u class="'+(b > 110 ? 'critc' : b <= 100 ? 'okc' : '')+'">'+b+'%</u></i></div>'; }).join("")+'</div>';
+  h += moves.length
+    ? '<table class="payt unlt"><thead><tr><th>Задача</th><th>День</th><th>Мин</th><th>От кого</th><th>Кому</th><th>Почему</th></tr></thead><tbody>'+
+      moves.map(function(x){
+        var pr = x.t.project ? project(x.t.project) : null;
+        return '<tr><td><b>'+esc(String(x.t.title || "").split(" · ")[0])+'</b><i>'+(pr ? esc(pr.name) : '')+(foUnlTaskCat(x.t) ? ' · ' + foUnlTaskCat(x.t) : '')+'</i></td>'+
+          '<td>'+DOWS[x.t.dow]+'</td><td>'+(x.t.minutes || 0)+'</td><td>'+esc(x.from.name)+'</td><td><b>'+esc(x.to.name)+'</b></td><td class="dim">'+esc(x.why)+'</td></tr>'; }).join("")+
+      '</tbody></table>'
+    : '<div class="empty">'+(UNL.strategy === "skill" ? 'По компетенциям всё уже на своих местах — или у задач не проставлена категория A / B / C в карточке функции' : 'Команда загружена ровно — перекладывать нечего')+'</div>';
+  h += foUnlConfirmBar(moves.length, "team");
+  /* интеллект менеджера */
+  h += '<div class="ndsub">Интеллект менеджера</div>';
+  if(!UNL.intel){
+    h += '<div class="dim">'+(foUnlLive() ? 'Считаю по закрытым задачам за 8 недель…' : 'Только в живом режиме')+'</div>';
+  } else {
+    h += '<table class="payt unlt"><thead><tr><th>Менеджер</th><th>Грейд</th><th>Закрыл A</th><th>B</th><th>C</th><th>Профиль</th><th>Просрочено</th><th>Подсказка</th></tr></thead><tbody>'+
+      ppl.map(function(m){
+        var x = foIntelOf(m), g = foUnlGrade(m), hint = foIntelHint(m);
+        return '<tr><td><b>'+esc(m.name)+'</b></td><td>'+(g ? FO_GRADE_NAME[g] : '—')+'</td>'+
+          '<td>'+(x ? x.a : '—')+'</td><td>'+(x ? x.b : '—')+'</td><td>'+(x ? x.c : '—')+'</td>'+
+          '<td>'+(x && x.prof ? '<b>' + x.prof + '</b>' : '<span class="dim">мало данных</span>')+'</td>'+
+          '<td class="'+(x && x.late ? 'critc' : '')+'">'+(x ? x.late : '—')+'</td>'+
+          '<td class="'+(hint ? 'warnc' : 'dim')+'">'+(hint ? esc(hint) : 'по грейду')+'</td></tr>'; }).join("")+
+      '</tbody></table><div class="payh">Категория берётся из карточки функции (A / B / C). Профиль — категория, которой в закрытых задачах не меньше 30%, от сложной к простой. Подсказка сравнивает профиль с грейдом.</div>';
+  }
+  return h;
+}
+
+/* ── сам блок ── */
+B.unload = function(el){
+  var sec = el.closest ? el.closest("section") : null;
+  if(isMgr() || isClient()){ if(sec) sec.hidden = true; return; }
+  if(sec){ sec.hidden = false; sec.style.order = "80"; }
+  var tabs = [["tasks", "По задачам"], ["people", "По менеджерам"], ["team", "По команде"]];
+  var top = unloadTop();
+  el.innerHTML =
+    '<div class="gl-t"><h2>Разгружаем менеджера</h2>'+
+      '<span class="m">'+(UNL.tab === "tasks" ? 'что снять прямо сейчас, чтобы человек выплыл' : UNL.tab === "people" ? 'топ загруженных — открой человека и раздай его задачи' : 'перераспределить задачи по всей команде')+'</span>'+
+      '<div class="seg sm unltabs">'+tabs.map(function(x){ return '<button data-unlt="'+x[0]+'" aria-pressed="'+(UNL.tab === x[0])+'">'+x[1]+(x[0] === "tasks" && top.length ? ' · ' + top.length : '')+'</button>'; }).join("")+'</div>'+
+    '</div>'+
+    (UNL.tab === "tasks" ? foUnlTabTasks() : UNL.tab === "people" ? foUnlTabPeople() : foUnlTabTeam());
+  if(UNL.tab === "team" && !UNL.intel && foUnlLive()) foIntelLoad(function(){ try{ render(); }catch(e){} });
+};
+
+/* ── клики: разрезы, выбор, подтверждение ── */
+document.addEventListener("click", function(e){
+  var t;
+  if((t = e.target.closest("[data-unlt]"))){ UNL.tab = t.getAttribute("data-unlt"); UNL.confirm = null; render(); return; }
+  if((t = e.target.closest("[data-unlp]"))){ var id = t.getAttribute("data-unlp"); UNL.person = UNL.person === id ? null : id; UNL.confirm = null; render(); return; }
+  if((t = e.target.closest("[data-unlst]"))){ UNL.strategy = t.getAttribute("data-unlst"); UNL.confirm = null; render(); return; }
+  if((t = e.target.closest("[data-unlno]"))){ UNL.confirm = null; render(); return; }
+  if((t = e.target.closest("[data-unlgo]"))){
+    var key = t.getAttribute("data-unlgo");
+    var items = key === "people" ? foUnlItems()
+      : (UNL.strategy === "skill" ? foUnlMovesSkill() : foUnlMovesEven()).map(function(x){ return {id: x.t.id, rid: x.t.rid || x.t.id, to: x.to.id, dow: null}; });
+    if(!items.length){ toast("Нечего перераспределять"); return; }
+    if(UNL.confirm !== key){ UNL.confirm = key; render(); return; }
+    foUnlApply(items, key === "people" ? "перераспределение по менеджеру" : (UNL.strategy === "skill" ? "по компетенциям" : "равномерно по команде"));
+    return;
+  }
+});
+document.addEventListener("change", function(e){
+  var t = e.target;
+  if(t.id === "unlPerm"){ UNL.perm = !!t.checked; return; }
+  if(t.matches && t.matches("[data-unlto]")){
+    var id = t.getAttribute("data-unlto"); UNL.plan[id] = UNL.plan[id] || {}; UNL.plan[id].to = t.value; UNL.confirm = null; render(); return; }
+  if(t.matches && t.matches("[data-unldow]")){
+    var id2 = t.getAttribute("data-unldow"); UNL.plan[id2] = UNL.plan[id2] || {}; UNL.plan[id2].dow = +t.value; UNL.confirm = null; render(); return; }
+});
+
+/* ── «По задачам»: действия теперь пишутся на сервер (раньше — только во вкладке) ── */
+document.addEventListener("click", function(e){
+  if(!foUnlLive()) return;
+  var t;
+  if((t = e.target.closest("[data-unmove]"))){
+    e.preventDefault(); e.stopPropagation();
+    var p = t.getAttribute("data-unmove").split("|");
+    var task = (S.tasks || []).filter(function(x){ return x.id === p[0]; })[0];
+    var to = person(p[1]);
+    if(task && to){ unlOpen = null; foUnlApply([{id: task.id, rid: task.rid || task.id, to: to.id, dow: null}], "передача задачи"); }
+    return; }
+  if((t = e.target.closest("[data-unpost]"))){
+    e.preventDefault(); e.stopPropagation();
+    var t2 = (S.tasks || []).filter(function(x){ return x.id === t.getAttribute("data-unpost"); })[0];
+    if(t2){ var nd = Math.min(4, Math.max(today, (t2.dow || 0)) + 1); unlOpen = null; foUnlApply([{id: t2.id, rid: t2.rid || t2.id, to: null, dow: nd}], "перенос на день"); }
+    return; }
+  if((t = e.target.closest("[data-undrop]"))){
+    e.preventDefault(); e.stopPropagation();
+    var id3 = t.getAttribute("data-undrop");
+    var t3 = (S.tasks || []).filter(function(x){ return x.id === id3; })[0];
+    if(!t3) return;
+    api("/refs/tasks/" + encodeURIComponent(t3.rid || t3.id) + "/remove", {method: "POST"}).then(function(){
+      S.tasks = (S.tasks || []).filter(function(x){ return x.id !== id3; });
+      unlOpen = null; try{ saveState(); }catch(x){} render();
+      toast("Задача снята на сервере.");
+    }).catch(function(err){ toast("Не снялось: " + (err && err.message || "нет ответа")); });
+    return; }
+}, true);
+/* ===== add112 (249, Виталий 30.09): «Следующие 30 дней считаешь некорректно… не считая текущий день» =====
+   Было: окно от сегодня до +30 включительно — 31 день, ежемесячный платёж 30-го числа попадал дважды
+   (30.09 и 30.10): 800 000 вместо 575 000. Теперь: «следующие 30 дней» — с завтра по +30 включительно,
+   ровно 30 дней, сегодняшний день не считается. Подпись карточки — «с 1.10 по 30.10».
+   Заодно: платёж 31-го числа в коротком месяце зацикливал перемотку — поставлен предохранитель,
+   в коротком месяце платёж считается последним днём месяца.                                           */
+(function(){
+  if(typeof addDays !== "function" || typeof dOnly !== "function") return;
+  if(typeof payOccurrences === "function"){
+    payOccurrences = function(from, to){
+      var out = [];
+      (S.projects || []).forEach(function(pr){
+        var p = payDay(pr); if(!p) return;
+        function mk(y, m){                                   /* число месяца, но не дальше его конца */
+          var last = new Date(y, m + 1, 0).getDate();
+          return new Date(y, m, Math.min(p.d, last));
+        }
+        var y = p.y, m = p.m, d = mk(y, m), g = 0;
+        while(d > from && g++ < 60){ m--; if(m < 0){ m = 11; y--; } d = mk(y, m); }
+        g = 0;
+        while(d <= to && g++ < 40){
+          if(d >= from) out.push({pr: pr, d: new Date(d)});
+          m++; if(m > 11){ m = 0; y++; }
+          d = mk(y, m);
+        }
+      });
+      return out.sort(function(a, b){ return a.d - b.d; });
+    };
+  }
+  if(typeof finIncome === "function"){
+    var _fi = finIncome;
+    finIncome = function(){
+      var r = _fi.apply(this, arguments);
+      try{
+        var now = dOnly(new Date());
+        var from = addDays(now, 1), d30 = addDays(now, 30);
+        r.d30 = payOccurrences(from, d30);
+        r.d30d = d30; r.d30from = from;
+      }catch(e){}
+      return r;
+    };
+  }
+  if(typeof renderFin === "function"){
+    var _rf = renderFin;
+    renderFin = function(){
+      var v = _rf.apply(this, arguments);
+      try{
+        var now = dOnly(new Date()), from = addDays(now, 1), to = addDays(now, 30);
+        var cards = document.querySelectorAll(".incc");
+        for(var i = 0; i < cards.length; i++){
+          var l = cards[i].querySelector(".incl");
+          if(!l || l.textContent.indexOf("30 дней") < 0) continue;
+          var d = cards[i].querySelector(".incd");
+          if(d && d.firstChild && d.firstChild.nodeType === 3){
+            d.firstChild.nodeValue = d.firstChild.nodeValue.replace(/^по\s+\d+\.\d+/, "с " + from.getDate() + "." + (from.getMonth() + 1) + " по " + to.getDate() + "." + (to.getMonth() + 1));
+          }
+        }
+      }catch(e){}
+      return v;
+    };
+    try{ if(typeof SEC_RENDER !== "undefined" && SEC_RENDER.fin) SEC_RENDER.fin = renderFin; }catch(e){}
+  }
 })();
 
 })();
