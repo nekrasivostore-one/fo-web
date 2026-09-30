@@ -1673,6 +1673,161 @@ async def _fo_save_report(c, t, p, link, note, same_table):
             p.org_id, t["fn_id"], t["cabinet_id"], me, bool(same_table), (link or None))
 
 
+# ── бот отчётов (235–236, Виталий 30.09): третий бот только пишет клиенту — выполненные функции и уведомления.
+# Правила «Куда сообщать» (chat_route) и очередь outbox — из routers/routing.py; здесь подменяем ему отправку
+# на токен бота отчётов и вешаем хук на галочку «выполнено».
+def _fo_rp_tok():
+    return _fo_env("TG_REPORT_BOT_TOKEN") or ""
+
+
+_FO_RP_ME = {"t": 0.0, "v": "", "id": 0}
+
+
+def _fo_rp_me():
+    tok = _fo_rp_tok()
+    if not tok:
+        return {}
+    if _fo_time.time() - _FO_RP_ME["t"] < 3600 and _FO_RP_ME["v"]:
+        return _FO_RP_ME
+    me = (_fo_tg_api_sync("getMe", {}, tok, 10) or {}).get("result") or {}
+    if me.get("username"):
+        _FO_RP_ME.update({"t": _fo_time.time(), "v": me.get("username"), "id": me.get("id")})
+    return _FO_RP_ME
+
+
+async def _fo_rp_send_telegram(chat_id, text):
+    """Замена notify.send_telegram: шлёт бот отчётов (если подключён), иначе бот сервиса; сообщение ложится
+    в историю чата (ИИ задач видит, что клиенту отправили)."""
+    tok = _fo_rp_tok() or _fo_env("TG_BOT_TOKEN")
+    if not tok:
+        return False
+    res = await _fo_aio.to_thread(_fo_tg_api_sync, "sendMessage", {"chat_id": str(chat_id), "text": str(text)[:4000],
+                                                                    "disable_web_page_preview": True}, tok, 20)
+    if not res.get("ok"):
+        try:
+            print("бот отчётов:", str(res.get("description") or res)[:200])
+        except Exception:
+            pass
+        return False
+    try:
+        mid = int((res.get("result") or {}).get("message_id") or 0)
+        async with pool().acquire() as c:
+            ch = await c.fetchrow("SELECT ch.id, ch.org_id, cc.client_id, cc.kind FROM chat ch "
+                                  "JOIN client_chat cc ON cc.chat_pk = ch.id WHERE ch.chat_id=$1 "
+                                  "ORDER BY (cc.kind='client') DESC LIMIT 1", str(chat_id))
+            if ch and mid:
+                await c.execute(
+                    "INSERT INTO fo_chat_msg (org_id, client_id, chat_pk, kind, tg_chat_id, msg_id, author, author_tg, text, msg_at, ai_state, ai_note) "
+                    "VALUES ($1,$2::uuid,$3,$4,$5,$6,'Бот отчётов','',$7,now(),'skip','сообщение бота отчётов') "
+                    "ON CONFLICT (tg_chat_id, msg_id) DO NOTHING",
+                    ch["org_id"], str(ch["client_id"]), ch["id"], ch["kind"], str(chat_id), -(1000000 + mid), str(text)[:4000])
+    except Exception:
+        pass
+    return True
+
+
+def _fo_rp_install():
+    """Подменить отправку в notify и routing на бота отчётов."""
+    import sys as _s
+    n = 0
+    for name, m in list(_s.modules.items()):
+        if m is None or not (name.endswith(".notify") or name.endswith(".routing")):
+            continue
+        if hasattr(m, "send_telegram") and getattr(m, "send_telegram") is not _fo_rp_send_telegram:
+            try:
+                setattr(m, "send_telegram", _fo_rp_send_telegram)
+                n += 1
+            except Exception:
+                pass
+    return n
+
+
+@router.on_event("startup")
+async def _fo_rp_boot():
+    try:
+        _fo_rp_install()
+    except Exception:
+        pass
+
+
+def _fo_rp_routing():
+    import sys as _s
+    _fo_rp_install()
+    return next((m for name, m in list(_s.modules.items()) if m is not None and name.endswith(".routing")
+                 and hasattr(m, "dispatch")), None)
+
+
+async def _fo_rp_task_done(c, t, p, link, note):
+    """Отчёт клиенту о выполненной функции — по правилам «Куда сообщать» кабинета (клиенту по умолчанию — да,
+    сразу; отложенно — если так настроено)."""
+    if not t["client_id"]:
+        return "у задачи нет клиента"
+    fn = await c.fetchval("SELECT name FROM fn WHERE id=$1", t["fn_id"]) if t["fn_id"] else None
+    cab = await c.fetchval("SELECT name FROM client WHERE id=$1", t["client_id"]) or ""
+    me = await _fo_my_emp(c, p)
+    who = await c.fetchval("SELECT name FROM employee WHERE id=$1", me or t["assignee_id"]) or ""
+    d = t["plan_date"] or _fo_msk_today()
+    when = "%02d.%02d · %s" % (d.day, d.month, _FO_MT_DOWN[d.weekday()].capitalize())
+    head = "✅ Выполнено: %s" % (fn or t["title"] or "задача")
+    lines = [head, cab, "📅 %s%s" % (when, (" · " + who.split(" ")[0]) if who else "")]
+    link = (link or "").strip()
+    note = (note or "").strip()
+    if link:
+        lines.append("🔗 " + link)
+    if note:
+        lines.append("💬 " + note[:1500])
+    txt_client = "\n".join(x for x in lines if x)
+    txt_mpv = txt_client + (("\nЗадача: " + t["title"]) if t["title"] and fn and t["title"] != fn else "")
+    rt = _fo_rp_routing()
+    if rt is None:
+        return "модуль «Куда сообщать» не найден"
+    try:
+        res = await rt.dispatch(t["org_id"], t["client_id"], "task_form", {"client": txt_client, "mpv": txt_mpv, "internal": txt_mpv})
+    except Exception as e:
+        return "не отправилось: " + str(e)[:150]
+    return "клиенту: отправлено %s, отложено %s" % (res.get("отправлено"), res.get("отложено"))
+
+
+class FoRpTestIn(_FoBM):
+    client_id: str
+    text: str | None = None
+
+
+@router.post("/report/test")
+async def fo_report_test(body: FoRpTestIn, p: Principal = Depends(max_level(4))):
+    """Проверка бота отчётов: сообщение в чат клиента от @flater_report_bot (РМ и выше)."""
+    async with pool().acquire() as c:
+        ch = await c.fetchrow("SELECT ch.chat_id FROM chat ch JOIN client_chat cc ON cc.chat_pk = ch.id "
+                              "WHERE cc.client_id=$1::uuid AND ch.org_id=$2 AND cc.kind='client' AND ch.chat_id ~ '^-?[0-9]+$' "
+                              "ORDER BY ch.id LIMIT 1", body.client_id, p.org_id)
+    if not ch:
+        raise HTTPException(404, "у клиента нет чата")
+    me = _fo_rp_me()
+    ok = await _fo_rp_send_telegram(ch["chat_id"], body.text or "Проверка связи: это бот отчётов агентства. Сюда будут приходить выполненные работы.")
+    return {"ok": ok, "бот": ("@" + me["v"]) if me.get("v") else "не подключён", "чат": ch["chat_id"]}
+
+
+@router.get("/report/status")
+async def fo_report_status(p: Principal = Depends(max_level(4))):
+    """Бот отчётов: подключён ли, в каких чатах клиентов состоит, очередь."""
+    me = _fo_rp_me()
+    out = {"бот": ("@" + me["v"]) if me.get("v") else "не подключён", "чаты": [], "подменено": _fo_rp_install()}
+    async with pool().acquire() as c:
+        for r in await c.fetch("SELECT cl.name, ch.chat_id FROM chat ch JOIN client_chat cc ON cc.chat_pk = ch.id "
+                               "JOIN client cl ON cl.id = cc.client_id WHERE ch.org_id=$1 AND cc.kind='client' "
+                               "AND ch.chat_id ~ '^-?[0-9]+$' ORDER BY cl.name", p.org_id):
+            st = "?"
+            if me.get("id"):
+                cm = await _fo_aio.to_thread(_fo_tg_api_sync, "getChatMember", {"chat_id": r["chat_id"], "user_id": me["id"]}, _fo_rp_tok(), 10)
+                st = ((cm.get("result") or {}).get("status") or str(cm.get("description") or "")[:60]) if cm else "?"
+            out["чаты"].append({"клиент": r["name"], "бот_в_чате": st})
+        try:
+            out["очередь"] = dict(await c.fetchrow("SELECT count(*) FILTER (WHERE sent_at IS NULL) AS ждут, count(*) FILTER (WHERE error IS NOT NULL) AS ошибок FROM outbox WHERE org_id=$1", p.org_id))
+        except Exception:
+            pass
+    return out
+
+
 @router.post("/tasks/{task_id}/done")
 async def fo_task_done(task_id: str, body: FoDoneIn, p: Principal = Depends(current)):
     """Галочка «выполнено»: исполнитель или РМ и выше. Ссылка и дата — на сервере."""
@@ -1689,7 +1844,11 @@ async def fo_task_done(task_id: str, body: FoDoneIn, p: Principal = Depends(curr
         await _fo_save_report(c, t, p, body.link, body.note, body.same_table)
         await c.execute("UPDATE fo_task_review SET decided_at=now(), verdict='done' "
                         "WHERE task_id=$1 AND decided_at IS NULL", t["id"])
-    return {"ok": True, "status": "done"}
+        try:
+            rp = await _fo_rp_task_done(c, t, p, body.link, body.note)     # 236: отчёт клиенту от бота отчётов
+        except Exception as e:
+            rp = "ошибка: " + str(e)[:120]
+    return {"ok": True, "status": "done", "клиенту": rp}
 
 
 @router.post("/tasks/{task_id}/undone")
@@ -6402,7 +6561,7 @@ except Exception as _e:
 p("")
 p("== ЯЩИК ДЛЯ КЛЮЧЕЙ ==")
 # ключ из «Ключи ФО.txt»: приехал зашифрованным (ключ шифра — токен бота, он есть и на Маке, и здесь)
-_FO_BLOB = "U2FsdGVkX19XxgnpaYkNj5EvvIc7bwXwvjgCA9iQUfk6BvD6skeMhW6ryrGhfxS3IwVIkpN9Y8fKASFu1vA73qw2mfYU0MgpG07WxaZbZ6rpQE7NAaxilAMvQL7cQ+Si"
+_FO_BLOB = "__FO_BLOB__"
 if _FO_BLOB and not _FO_BLOB.startswith("__"):
     try:
         _bt = ""
@@ -6640,6 +6799,27 @@ try:
           "· таймаутов", sh("journalctl -u %s --since '-60 min' --no-pager -o cat | grep -c 'timed out'" % _sv).strip())
 except Exception as _e:
     p("скорость: ошибка", str(_e)[:200])
+
+p("")
+p("== КУДА СООБЩАТЬ: московское время (236) ==")
+try:
+    _rp = "/opt/fo/backend/app/routers/routing.py"
+    _rs = open(_rp, encoding="utf-8").read()
+    if "_msk_now()" not in _rs:
+        shutil.copy(_rp, _rp + ".bak236")
+        _rs = _rs.replace("from typing import List, Optional\n",
+                          "from typing import List, Optional\nfrom zoneinfo import ZoneInfo\n\n\n"
+                          "def _msk_now():\n    return datetime.now(ZoneInfo(\"Europe/Moscow\")).replace(tzinfo=None)\n", 1)
+        _n = _rs.count("now = datetime.now()")
+        _rs = _rs.replace("now = datetime.now()", "now = _msk_now()")
+        open(_rp, "w", encoding="utf-8").write(_rs)
+        p("routing.py: datetime.now() → московское, замен:", _n)
+        sh("systemctl restart fo"); sh("sleep 3")
+        p("health после routing.py:", sh("curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8000/health").strip())
+    else:
+        p("routing.py уже по Москве")
+except Exception as _e:
+    p("routing.py: ошибка", str(_e)[:200])
 
 p("")
 p("== ОТПРАВКА КЛИЕНТУ (разведка 234) ==")
