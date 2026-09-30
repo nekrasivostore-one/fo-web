@@ -4313,6 +4313,8 @@ td small{ color:var(--ink-3); font-size:10.5px }
 .fo-nomoney .fo-mny{ filter:blur(6px); user-select:none; -webkit-user-select:none }
 .fo-nomoney input.fo-mnyi{ filter:blur(5px); user-select:none; -webkit-user-select:none }
 .fo-mnote{ font-size:11px; color:var(--ink-3); margin:-2px 0 8px; line-height:1.4 }
+/* add108: подписи «оценка по формуле» в рейтинге */
+.fo-est{ display:block; width:100%; font-size:11px; color:var(--ink-3); margin-top:2px }
 </style>
 </head>
 <body>
@@ -28883,6 +28885,121 @@ function foHideApply(){
     foMnyBusy = false;
   });
   mo.observe(document.body, {childList: true, subtree: true, characterData: true});
+})();
+/* ===== add108 (245, Виталий 30.09): «Кнопка „Рейтинг“ считает вымышленные данные — исправь» =====
+   Что было выдумано и что стало:
+   1. «Часы в сервисе» сеялись с потолка (12 400 ч первому, 6 100 второму, …) и жили только во вкладке.
+      Теперь: с нуля, только реальная активность (мышь, ввод), часы хранятся на сервере (fo_state svc,
+      сервер v73), каждый пишет только свои и только вверх. Награды начинаются с честного нуля.
+   2. Рейтинг недели: «просрочено» считалось по полю due, которого у живых задач нет; «подхватил» — по полю
+      from, которого тоже нет. Теперь: просрочено = не закрыта, а день прошёл; подхваты сервер не отслеживает —
+      не считаем (столбец «—»). Закрыто и «быстрее норматива» — по факту и таймеру.
+   3. Рекомендации по грейду создавались с датой «38 дней назад». Теперь — с сегодняшней.
+   4. «Выгодность» (оклад против «приносит») — только тем, кто видит деньги; оценочные блоки подписаны.  */
+
+function foRateLive(){ try{ return typeof isLive === "function" && isLive(); }catch(e){ return false; } }
+
+/* ── 1. часы в сервисе: без посева, хранение на сервере ── */
+(function(){
+  try{ if(typeof FO_ST_MAP !== "undefined") FO_ST_MAP.svc = "map"; }catch(e){}
+  if(typeof svcSeed === "function"){
+    var _seed = svcSeed;
+    svcSeed = function(){
+      if(foRateLive()){ S.svcSeeded = true; return; }
+      return _seed.apply(this, arguments);
+    };
+  }
+})();
+
+/* ── 2. рейтинг недели — только факты ── */
+(function(){
+  if(typeof rateRows !== "function") return;
+  var _rr = rateRows;
+  rateRows = function(){
+    if(!foRateLive()) return _rr.apply(this, arguments);
+    var td = (typeof today !== "undefined" && today != null) ? +today : -1;
+    return (S.people || []).filter(function(m){ return !m.hidden; }).map(function(m){
+      var mine = (S.tasks || []).filter(function(t){ return t.person === m.id && !t.rk; });
+      var done = mine.filter(function(t){ return t.done; });
+      var fast = done.filter(function(t){ return t.spentSec > 0 && t.minutes > 0 && t.spentSec < t.minutes * 60; });
+      var late = mine.filter(function(t){ return !t.done && typeof t.dow === "number" && t.dow < td; });
+      var h = 0;
+      try{ h = minutesOf(mine) / 60; }catch(e){ h = mine.reduce(function(a, t){ return a + (t.minutes || 0); }, 0) / 60; }
+      var doneP = mine.length ? Math.round(done.length / mine.length * 100) : 0;
+      var pts = Math.round(done.length * 10 + fast.length * 6 - late.length * 12 + doneP * 0.4);
+      return {m: m, n: mine.length, done: done.length, doneP: doneP, fast: fast.length,
+              late: late.length, pick: 0, h: h, pts: Math.max(0, pts)};
+    }).sort(function(a, b){ return b.pts - a.pts || b.done - a.done; }).filter(function(r){
+      /* роли ниже проджекта видят только себя (238) */
+      try{ return !(typeof isMgr === "function" && isMgr() && meId) || r.m.id === meId; }catch(e){ return true; }
+    });
+  };
+})();
+
+/* ── 3. рекомендации по грейду — с настоящей датой ── */
+(function(){
+  if(typeof gradeRecCheck !== "function") return;
+  var _g = gradeRecCheck;
+  gradeRecCheck = function(){
+    var before = {};
+    try{ Object.keys(gradeRecs() || {}).forEach(function(k){ before[k] = 1; }); }catch(e){}
+    var recs = _g.apply(this, arguments);
+    try{
+      var changed = false;
+      Object.keys(recs || {}).forEach(function(k){
+        var r = recs[k];
+        if(!r || r.done) return;
+        if(!before[k] || !r.real){ r.since = Date.now(); r.real = true; changed = true; }
+      });
+      if(changed && foRateLive()){ try{ saveState(); }catch(e){} }
+    }catch(e){}
+    return recs;
+  };
+})();
+
+/* ── 4. деньги в рейтинге — только тем, кто их видит; оценки подписаны ── */
+(function(){
+  if(typeof profitHTML === "function"){
+    var _p = profitHTML;
+    profitHTML = function(rows){
+      try{ if(typeof seesMoney === "function" && !seesMoney()) return ""; }catch(e){}
+      var h = _p.apply(this, arguments);
+      return h.replace('</h2>', '</h2><span class="m fo-est">оценка по формуле: часы × средняя стоимость часа по кабинетам, не бухгалтерия</span>');
+    };
+  }
+  if(typeof cmpHTML === "function"){
+    var _c = cmpHTML;
+    cmpHTML = function(){
+      try{ if(typeof seesMoney === "function" && !seesMoney()) return ""; }catch(e){}
+      return _c.apply(this, arguments);
+    };
+  }
+  if(typeof unhappyHTML === "function"){
+    var _u = unhappyHTML;
+    unhappyHTML = function(rows){
+      var h = _u.apply(this, arguments);
+      return h.replace('</h2>', '</h2><span class="m fo-est">оценка по формуле: загрузка, повышение, штрафы и премии этой недели</span>');
+    };
+  }
+})();
+
+/* подпись под рейтингом: что именно считается */
+(function(){
+  if(typeof renderRate !== "function") return;
+  var _r = renderRate;
+  renderRate = function(){
+    _r.apply(this, arguments);
+    if(!foRateLive()) return;
+    try{
+      var host = document.getElementById("sect");
+      var ph = host && host.querySelector(".payh");
+      if(ph && ph.textContent.indexOf("Подхваты") < 0){
+        ph.textContent = "Очки: 10 за закрытую задачу, 6 за закрытие быстрее норматива (по таймеру «старт»), минус 12 за просроченную " +
+          "(не закрыта, а день прошёл), плюс доля закрытых. Подхваты у коллег сервис пока не отслеживает. Всё — по задачам этой недели на сервере.";
+      }
+    }catch(e){}
+  };
+  if(typeof SEC_RENDER !== "undefined") SEC_RENDER.rate = renderRate;
 })();
 
 })();
