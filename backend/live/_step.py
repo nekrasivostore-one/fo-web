@@ -6402,7 +6402,7 @@ except Exception as _e:
 p("")
 p("== ЯЩИК ДЛЯ КЛЮЧЕЙ ==")
 # ключ из «Ключи ФО.txt»: приехал зашифрованным (ключ шифра — токен бота, он есть и на Маке, и здесь)
-_FO_BLOB = "__FO_BLOB__"
+_FO_BLOB = "U2FsdGVkX19XxgnpaYkNj5EvvIc7bwXwvjgCA9iQUfk6BvD6skeMhW6ryrGhfxS3IwVIkpN9Y8fKASFu1vA73qw2mfYU0MgpG07WxaZbZ6rpQE7NAaxilAMvQL7cQ+Si"
 if _FO_BLOB and not _FO_BLOB.startswith("__"):
     try:
         _bt = ""
@@ -6417,6 +6417,7 @@ if _FO_BLOB and not _FO_BLOB.startswith("__"):
             if _k == "YC_API_KEY" and re.match(r"^AQVN[A-Za-z0-9_\-]{20,}$", _v): _got[_k] = _v
             if _k == "YC_FOLDER_ID" and re.match(r"^b1g[a-z0-9]{10,}$", _v): _got[_k] = _v
             if _k == "TG_MEET_BOT_TOKEN" and re.match(r"^[0-9]{6,12}:[A-Za-z0-9_\-]{30,}$", _v): _got[_k] = _v
+            if _k == "TG_REPORT_BOT_TOKEN" and re.match(r"^[0-9]{6,12}:[A-Za-z0-9_\-]{30,}$", _v): _got[_k] = _v   # 235: бот отчётов
         if _got:
             _envp = "/opt/fo/.env"
             _lines = [l for l in open(_envp, encoding="utf-8").read().splitlines() if l.split("=", 1)[0].strip() not in _got]
