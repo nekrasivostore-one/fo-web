@@ -29001,6 +29001,43 @@ function foRateLive(){ try{ return typeof isLive === "function" && isLive(); }ca
   };
   if(typeof SEC_RENDER !== "undefined") SEC_RENDER.rate = renderRate;
 })();
+/* ===== add109 (246, Виталий 30.09): «В блоке „Требует решения“ варианты решения не нажимаются» =====
+   На экране «Нужен новый сотрудник» модель найма рисовалась прямо в экран, без контейнера #simHost2,
+   а нажатие на «Только новые задачи / Гибрид / Только разгрузить» и на «−/+» перерисовывало только
+   #simHost / #simHost2 — на этом экране их нет, поэтому выбор менялся внутри, а на экране ничего.
+   Теперь: после выбора экран «Требует решения» перерисовывается; выбранная модель и «сколько берём»
+   запоминаются в настройках агентства на сервере (settings.hireMode / hireAdd), чтобы не сбрасывались. */
+(function(){
+  var touched = false;
+  function restore(){
+    if(touched) return;
+    try{
+      var s = settings();
+      if(s.hireMode && SIM_MODES.some(function(m){ return m[0] === s.hireMode; })) simMode = s.hireMode;
+      if(typeof s.hireAdd === "number" && s.hireAdd >= 0 && s.hireAdd <= 20) simAdd = s.hireAdd;
+    }catch(e){}
+  }
+  if(typeof simRepaint === "function"){
+    var _sr = simRepaint;
+    simRepaint = function(){
+      touched = true;
+      try{ var s = settings(); s.hireMode = simMode; s.hireAdd = simAdd; saveState(); }catch(e){}
+      var v = _sr.apply(this, arguments);
+      try{ if(typeof view !== "undefined" && view === "need" && typeof renderNeed === "function") renderNeed(); }catch(e){}
+      return v;
+    };
+  }
+  if(typeof renderNeed === "function"){
+    var _rn = renderNeed;
+    renderNeed = function(){ restore(); return _rn.apply(this, arguments); };
+    try{ SEC_RENDER.need = renderNeed; }catch(e){}
+  }
+  if(typeof renderGrowth === "function"){
+    var _rg = renderGrowth;
+    renderGrowth = function(){ restore(); return _rg.apply(this, arguments); };
+    try{ if(typeof SEC_RENDER !== "undefined" && SEC_RENDER.growth) SEC_RENDER.growth = renderGrowth; }catch(e){}
+  }
+})();
 
 })();
 </script>
