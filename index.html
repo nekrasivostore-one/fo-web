@@ -4450,6 +4450,21 @@ html[data-view="fin"] .gl-t::after{ content:""; position:absolute; left:0; right
 .fo-ltvf .fi, .fo-ltvf .sel{ width:100% }
 .fo-ltvp .bt{ width:auto; align-self:end }
 .fo-ltvt td i{ font-style:normal; font-size:11px; margin-left:4px }
+/* add116: раскрытая задача — плашка замера, форма отправки */
+.fo-tpm{ border:1px solid var(--stroke-2); border-radius:12px; padding:10px 12px; margin:8px 0 10px; background:var(--panel-2) }
+.fo-tpml{ font-size:10.5px; text-transform:uppercase; letter-spacing:.08em; color:var(--ink-3); margin-bottom:4px }
+.fo-tpmr{ display:flex; align-items:center; gap:12px; flex-wrap:wrap }
+.fo-tv{ font-family:Unbounded,sans-serif; font-size:18px; letter-spacing:-.02em }
+.fo-tpn{ font-size:11.5px; color:var(--ink-3) } .fo-tpn u{ text-decoration:none; font-weight:600 }
+.fo-tpmr .bt{ width:auto; margin-left:auto }
+.fo-tphint{ font-size:11px; color:var(--ink-3); line-height:1.45; margin-top:6px }
+.fo-tpf{ display:flex; flex-direction:column; gap:10px; margin-top:6px }
+.fo-tpl{ display:flex; flex-direction:column; gap:4px }
+.fo-tpl > span{ font-size:10.5px; text-transform:uppercase; letter-spacing:.08em; color:var(--ink-3) }
+.fo-tpl i{ font-style:normal; font-size:11px; color:var(--ink-3) }
+.fo-tplk{ display:flex; gap:8px; align-items:center } .fo-tplk .fi{ flex:1 1 auto } .fo-tplk .bt{ width:auto; white-space:nowrap }
+.fo-tpb{ display:flex; gap:8px; flex-wrap:wrap } .fo-tpb .bt{ width:auto }
+.fo-tpprev{ margin-top:2px }
 </style>
 </head>
 <body>
@@ -30015,6 +30030,171 @@ document.addEventListener("change", function(e){
   }catch(x){}
   foLtvRepaint();
 });
+/* ===== add116 (253, Виталий 30.09): раскрытая задача — «верни как было»: галочка «выполнено», таблица (прикрепить
+   или показать текущую), комментарий, согласование, «Отправить в чат» / «На согласование», «Как уйдёт в чат» —
+   и плашка замера функции с подписью, куда и как сохраняется и где смотреть сравнение. =====
+   Всё — на сервере: «Отправить в чат» = /refs/tasks/{id}/done (ссылка, комментарий, минуты по таймеру) → отчёт
+   уходит клиенту ботом отчётов по правилам «Куда сообщать»; «На согласование» = /refs/tasks/{id}/review.
+   Заодно: «Замеры скорости» в живом режиме больше не сеют выдуманные замеры (speedSeed).                  */
+(function(){
+  if(typeof speedSeed === "function"){
+    var _ss = speedSeed;
+    speedSeed = function(){ if(typeof isLive === "function" && isLive()){ S.speedSeeded = true; return; } return _ss.apply(this, arguments); };
+  }
+})();
+function foTpLive(){ try{ return typeof isLive === "function" && isLive(); }catch(e){ return false; } }
+function foTpSpent(t){
+  var s = t.spentSec || 0;
+  try{ var r = typeof runOf === "function" ? runOf(t) : null; if(r) s += Math.round((Date.now() - r.at) / 1000); }catch(e){}
+  return s;
+}
+function foTpPreview(t, link, note){
+  var f = t.fn ? fnById(t.fn) : null, fm = null;
+  try{ fm = f ? fnForm(f.id) : null; }catch(e){}
+  var cab = ""; try{ cab = foCabName(t); }catch(e){ var pr = t.project ? project(t.project) : null; cab = pr ? pr.name : ""; }
+  var head = (fm && fm.h) ? fm.h : "✅ Выполнено: " + String(t.title || "").split(" · ")[0];
+  var body = (fm && fm.body) ? fm.body : "";
+  return '<div class="form fo-tpprev"><b>'+esc(cab)+'</b>'+esc(head)+'<br>'+
+    (body ? esc(body) + '<br>' : '')+
+    (note ? '💬 ' + esc(note) + '<br>' : '')+
+    (link ? '🔗 <a href="'+esc(link)+'" target="_blank" rel="noopener">'+esc(link)+'</a>' : '<span style="color:var(--ink-3)">ссылка не приложена — без неё отметка не ставится</span>')+
+    '</div>';
+}
+function foTaskCardV2(t){
+  var m = t.person ? person(t.person) : null, pr = t.project ? project(t.project) : null;
+  var f = null, c = null;
+  try{ f = t.fn ? fnById(t.fn) : null; c = f ? fnCfg(f) : null; }catch(e){}
+  var reg = c && c.regText ? String(c.regText).trim().split(/\n+/).slice(0, 2).join(" · ") : "";
+  if(reg.length > 200) reg = reg.slice(0, 198) + "…";
+  var link = ""; try{ link = t.link || foTaskLink(t) || ""; }catch(e){ link = t.link || ""; }
+  var can = (typeof foCanDrop === "function") ? foCanDrop() : true;
+  var running = false; try{ running = !!(typeof runOf === "function" && runOf(t)); }catch(e){}
+  var spent = foTpSpent(t), norm = t.minutes || (f ? f.minutes : 0) || 0;
+  var rec = 0; try{ rec = recordFor(t.title); }catch(e){}
+  var me = (typeof meId !== "undefined") ? meId : null;
+  var apprs = (typeof FO_EMPS !== "undefined" ? FO_EMPS : []).filter(function(e){ return String(e.id) !== String(me); });
+  var cyc = "";
+  try{
+    var cycle = (typeof FO_CABFN !== "undefined" && pr && FO_CABFN[pr.id]) ? (FO_CABFN[pr.id].rows || []).filter(function(r){ return String(r.fn_id) === String(t.fn); })[0] : null;
+    cyc = cycle && typeof foCycLabel === "function" ? foCycLabel(foCycEff(cycle)) + (foDaysEff(cycle).length && foCycEff(cycle) !== "daily" ? ' · ' + foDaysEff(cycle).map(function(i){ return FO_DOW[i]; }).join(", ") : '') : "";
+  }catch(e){}
+  return '<div class="fo-tdx fo-tp" data-fotdx="'+esc(t.id)+'">'+
+    '<div class="fo-tdxh"><b>'+esc(String(t.title || "").split(" · ")[0])+'</b>'+
+      '<i>'+(pr ? esc(pr.name) + ' · ' : '')+(m ? esc(m.name) : 'без ответственного')+' · '+norm+' мин'+(cyc ? ' · ' + esc(cyc) : '')+
+      (t.done ? ' · <u>выполнена</u>' : t.status === "wait" ? ' · на согласовании' : '')+'</i></div>'+
+    /* плашка замера функции */
+    '<div class="fo-tpm">'+
+      '<div class="fo-tpml">Замер функции</div>'+
+      '<div class="fo-tpmr"><span class="fo-tv" data-fotv="'+esc(t.id)+'">'+clock(spent)+'</span>'+
+        '<span class="fo-tpn">норматив '+norm+' мин'+(rec ? ' · рекорд '+rec+' мин' : '')+(spent && norm ? ' · '+(spent < norm * 60 ? '<u class="okc">быстрее</u>' : '<u class="critc">дольше</u>') : '')+'</span>'+
+        (t.done ? '' : '<button class="bt sm'+(running ? ' pri' : ' gh2')+'" data-run="'+esc(t.id)+'">'+(running ? 'Стоп' : 'Старт')+'</button>')+
+      '</div>'+
+      '<div class="fo-tphint">Время копится в задаче и сохраняется на сервер вместе с галочкой «выполнено» как фактические минуты. '+
+        'Параллельно идёт замер функции («Замеры скорости» на рабочем экране — норматив против факта по людям, историю видят руководитель и выше). '+
+        'Сравнение с нормативом — здесь, в «Замерах скорости» и в «Рейтинге» (столбец «Быстрее норматива»).</div>'+
+    '</div>'+
+    (reg ? '<div class="fo-tdxr"><span>Как делать</span><em>'+esc(reg)+'</em></div>' : '')+
+    (t.done
+      ? '<div class="fo-tdxr"><span>Таблица</span>'+(link ? foLinkA(t, "bt sm", "Открыть таблицу ↗") : '<em>ссылка не задана</em>')+'</div>'
+      : '<div class="fo-tpf">'+
+        '<label class="fo-tpl"><span>Выполненное задание — таблица или документ</span>'+
+          '<div class="fo-tplk"><input class="fi" data-fotpl="'+esc(t.id)+'" placeholder="Ссылка на Google-таблицу или документ" value="'+esc(link)+'">'+
+          (link ? foLinkA(t, "bt sm gh2", "Открыть ↗") : '')+'</div>'+
+          (link ? '<i>подставлена текущая таблица — можно заменить</i>' : '<i>после первой отметки ссылка запомнится за функцией и кабинетом</i>')+'</label>'+
+        '<label class="fo-tpl"><span>Комментарий</span><textarea class="fi" rows="2" data-fotpn="'+esc(t.id)+'" placeholder="Что сделано, что мешало — по желанию">'+esc(t.comment || "")+'</textarea></label>'+
+        '<label class="fo-tpl"><span>Согласование</span><select class="sel" data-fotpa="'+esc(t.id)+'">'+
+          '<option value="">Без согласования — сразу в чат</option>'+
+          apprs.map(function(e){ return '<option value="'+esc(e.id)+'">Согласовать с: '+esc(e.name)+'</option>'; }).join("")+
+          '<option value="__ext">Согласовывает клиент / человек вне сервиса</option>'+
+        '</select></label>'+
+        '<div class="fo-tpb">'+
+          '<button class="bt pri" data-fotpsend="'+esc(t.id)+'">Выполнено — отправить в чат</button>'+
+          '<button class="bt gh2" data-fotpwait="'+esc(t.id)+'">Отправить на согласование</button>'+
+        '</div>'+
+        '<div class="fo-tdxr"><span>Как уйдёт в чат</span><em data-fotpprev="'+esc(t.id)+'">'+foTpPreview(t, link, t.comment || "")+'</em></div>'+
+        '<div class="fo-tphint">Отчёт уходит клиенту ботом отчётов по правилам «Куда сообщать» кабинета. Пока задача на согласовании — в чат не уходит.</div>'+
+      '</div>')+
+    '<div class="fo-tdxb">'+
+      (f ? '<button class="bt sm gh2" data-fofnopen="'+esc(f.id)+'">Карточка функции</button>' : '')+
+      (can && t.done ? '<button class="bt sm gh2" data-fotundo="'+esc(t.id)+'">Отменить выполнение</button>' : '')+
+      (can ? '<button class="bt sm dangl" data-fotdrop="'+esc(t.id)+'">Снять задачу</button>' : '')+
+      '<button class="bt sm gh2" data-fotdxclose="'+esc(t.id)+'">Свернуть</button>'+
+    '</div>'+
+  '</div>';
+}
+(function(){
+  if(typeof foTaskCard !== "function") return;
+  foTaskCard = function(t){ return foTaskCardV2(t); };
+  if(!(typeof FO_EMPS !== "undefined" && FO_EMPS.length) && typeof foEmpsLoad === "function" && foTpLive()){ try{ foEmpsLoad().then(function(){}); }catch(e){} }
+})();
+/* секундомер на раскрытой задаче тикает */
+setInterval(function(){
+  document.querySelectorAll("[data-fotv]").forEach(function(el){
+    var t = (S.tasks || []).filter(function(x){ return x.id === el.getAttribute("data-fotv"); })[0];
+    if(t) el.textContent = clock(foTpSpent(t));
+  });
+}, 1000);
+/* предпросмотр обновляется по ссылке и комментарию */
+document.addEventListener("input", function(e){
+  var el = e.target;
+  if(!el.matches || !(el.matches("[data-fotpl]") || el.matches("[data-fotpn]"))) return;
+  var id = el.getAttribute("data-fotpl") || el.getAttribute("data-fotpn");
+  var t = (S.tasks || []).filter(function(x){ return x.id === id; })[0]; if(!t) return;
+  var box = el.closest(".fo-tp"); if(!box) return;
+  var link = (box.querySelector('[data-fotpl="'+id+'"]') || {}).value || "";
+  var note = (box.querySelector('[data-fotpn="'+id+'"]') || {}).value || "";
+  var pv = box.querySelector('[data-fotpprev="'+id+'"]');
+  if(pv) pv.innerHTML = foTpPreview(t, String(link).trim(), String(note).trim());
+});
+/* отправка: в чат (выполнено) или на согласование */
+function foTpSubmit(id, wait){
+  var t = (S.tasks || []).filter(function(x){ return x.id === id; })[0]; if(!t) return;
+  var box = document.querySelector('.fo-tp[data-fotdx="'+id+'"]'); if(!box) return;
+  var link = String((box.querySelector('[data-fotpl="'+id+'"]') || {}).value || "").trim();
+  var note = String((box.querySelector('[data-fotpn="'+id+'"]') || {}).value || "").trim();
+  var appr = String((box.querySelector('[data-fotpa="'+id+'"]') || {}).value || "");
+  if(!link){ toast("Прикрепите ссылку на таблицу или документ — без неё отметка не ставится"); var i0 = box.querySelector('[data-fotpl="'+id+'"]'); if(i0) i0.focus(); return; }
+  if(wait && !appr){ toast("Выберите, с кем согласовать"); var s0 = box.querySelector('[data-fotpa="'+id+'"]'); if(s0) s0.focus(); return; }
+  if(!foTpLive() || !t.rid){
+    t.link = link; t.comment = note;
+    if(wait){ t.status = "wait"; t.approver = appr; } else { t.done = true; t.doneAt = Date.now(); }
+    try{ saveState(); }catch(e){} render(); toast(wait ? "На согласовании (демо)" : "Выполнено (демо)"); return;
+  }
+  try{ if(typeof runOf === "function" && runOf(t) && typeof runStop === "function") runStop(t); }catch(e){}
+  var body = {link: link, note: note || null, same_table: null};
+  var req;
+  if(wait){
+    if(appr === "__ext") body.approver_label = "клиент / вне сервиса"; else body.approver_employee_id = appr;
+    req = api("/refs/tasks/" + encodeURIComponent(t.rid) + "/review", {method: "POST", body: body});
+  } else {
+    if(t.spentSec > 0) body.fact_minutes = Math.max(1, Math.round(t.spentSec / 60));
+    req = api("/refs/tasks/" + encodeURIComponent(t.rid) + "/done", {method: "POST", body: body});
+  }
+  var btns = box.querySelectorAll(".fo-tpb .bt"); btns.forEach(function(b){ b.disabled = true; });
+  req.then(function(r){
+    t.link = link; t.comment = note || t.comment;
+    try{ foRowSet(t, wait ? "review" : "done", link); }catch(e){}
+    if(wait){
+      t.status = "wait"; t.done = false;
+      var e2 = (typeof FO_EMPS !== "undefined" ? FO_EMPS : []).filter(function(x){ return String(x.id) === String(appr); })[0];
+      t.approver = e2 ? e2.name : "клиент"; t.approverMine = false;
+    } else { t.done = true; t.status = ""; t.doneAt = Date.now(); }
+    try{ FO_TD_OPEN[t.id] = false; }catch(e){}
+    try{ saveState(); }catch(e){}
+    render();
+    var rp = r && r["клиенту"];
+    toast(wait ? "Ушла на согласование — у согласующего замигает" : ("Выполнено — дата на сервере" + (rp ? " · " + rp : "")));
+    try{ foReviewsLoad().then(function(){ try{ foDecorate(); render(); }catch(e){} }); }catch(e){}
+  }).catch(function(err){
+    btns.forEach(function(b){ b.disabled = false; });
+    toast("Не ушло на сервер — " + (err && err.message || "нет ответа"));
+  });
+}
+document.addEventListener("click", function(e){
+  var t;
+  if((t = e.target.closest && e.target.closest("[data-fotpsend]"))){ e.preventDefault(); e.stopPropagation(); foTpSubmit(t.getAttribute("data-fotpsend"), false); return; }
+  if((t = e.target.closest && e.target.closest("[data-fotpwait]"))){ e.preventDefault(); e.stopPropagation(); foTpSubmit(t.getAttribute("data-fotpwait"), true); return; }
+}, true);
 
 })();
 </script>
