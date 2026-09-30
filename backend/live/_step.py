@@ -450,6 +450,10 @@ CREATE TABLE IF NOT EXISTS fo_meet_seen (
   by text, verdict text, main_pk bigint, created_at timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY (tg_chat_id, from_id, at, h));
 GRANT SELECT, INSERT, UPDATE, DELETE ON fo_meet_seen TO fo;
+-- 234: привязка Telegram собственника/директора по почте и коду
+CREATE TABLE IF NOT EXISTS fo_tg_link (tg_id bigint PRIMARY KEY, user_id uuid NOT NULL, code text NOT NULL, bot text,
+  created_at timestamptz NOT NULL DEFAULT now());
+GRANT SELECT, INSERT, UPDATE, DELETE ON fo_tg_link TO fo;
 -- чаты, внесённые в карточку ссылкой-приглашением: номер Telegram — по названию из регистрации бота
 DO $$
 BEGIN
@@ -1941,8 +1945,9 @@ def _fo_make_access_for(u):
 
 
 @router.post("/admin/shadow")
-async def fo_admin_shadow(body: FoShadowIn, p: Principal = Depends(max_level(0))):
-    """Тень: доступ от имени пользователя. Только смотреть — запись сервер отклонит."""
+async def fo_admin_shadow(body: FoShadowIn, p: Principal = Depends(max_level(2))):
+    """Тень: доступ от имени пользователя. Только смотреть — запись сервер отклонит.
+    Админ — на кого угодно; собственник и директор (234, Виталий 30.09) — на людей своего агентства ниже по роли."""
     async with pool().acquire() as c:
         u = await c.fetchrow(
             "SELECT u.id, u.email, u.org_id, u.role_code, u.display_name, r.level, o.name AS org_name "
@@ -1950,6 +1955,8 @@ async def fo_admin_shadow(body: FoShadowIn, p: Principal = Depends(max_level(0))
             "WHERE u.id=$1::uuid", body.user_id)
         if not u:
             raise HTTPException(404, "пользователь не найден")
+        if int(getattr(p, "level", 9) or 0) > 0 and (str(u["org_id"]) != str(p.org_id) or int(u["level"]) <= int(p.level)):
+            raise HTTPException(403, "тень: только на сотрудников своего агентства ниже по роли")
         tok = _fo_make_access_for(u)
         if isinstance(tok, (tuple, list)):
             tok = tok[0]
@@ -1964,10 +1971,17 @@ async def fo_admin_shadow(body: FoShadowIn, p: Principal = Depends(max_level(0))
 
 
 @router.get("/admin/people")
-async def fo_admin_people(p: Principal = Depends(max_level(0))):
-    """Все агентства и люди — для выбора, чьими глазами смотреть."""
+async def fo_admin_people(p: Principal = Depends(max_level(2))):
+    """Кого можно посмотреть глазами: админу — все агентства и люди; собственнику и директору — своё агентство,
+    роли ниже своей (234)."""
     async with pool().acquire() as c:
-        rows = await c.fetch(
+        if int(getattr(p, "level", 9) or 0) > 0:
+            rows = await c.fetch(
+                "SELECT u.id, u.email, u.display_name, u.role_code, r.level, o.id AS org_id, o.name AS org_name "
+                "FROM app_user u JOIN role r ON r.code=u.role_code JOIN org o ON o.id=u.org_id "
+                "WHERE u.is_active AND u.org_id=$1 AND r.level > $2 ORDER BY r.level, u.email", p.org_id, int(p.level))
+        else:
+            rows = await c.fetch(
             "SELECT u.id, u.email, u.display_name, u.role_code, r.level, o.id AS org_id, o.name AS org_name "
             "FROM app_user u JOIN role r ON r.code=u.role_code JOIN org o ON o.id=u.org_id "
             "WHERE u.is_active ORDER BY o.name, r.level, u.email")
@@ -3903,15 +3917,74 @@ async def _fo_mt_notify(c, sl, text, test=False):
     return "; ".join(sorted(set(out)))
 
 
+async def _fo_mt_link_mail(c, uid, un, text, bot):
+    """234 (Виталий 30.09: «бот не понимает, что я собственник»): собственник, директор или руководитель без карточки
+    сотрудника привязывается по почте входа — бот шлёт код на почту, человек присылает код сюда."""
+    t = str(text or "").strip()
+    row = await c.fetchrow("SELECT user_id, code, bot, created_at FROM fo_tg_link WHERE tg_id=$1", int(uid))
+    if re.fullmatch(r"\d{4}", t):
+        if not row:
+            return "Сначала отправьте почту, под которой входите в сервис."
+        if (_fo_dt.datetime.now(_fo_dt.timezone.utc) - row["created_at"]).total_seconds() > 900:
+            await c.execute("DELETE FROM fo_tg_link WHERE tg_id=$1", int(uid))
+            return "Код устарел. Отправьте почту ещё раз — пришлём новый."
+        if t != row["code"]:
+            return "Код не подошёл. Проверьте письмо и пришлите код ещё раз."
+        u = await c.fetchrow("SELECT u.id, u.org_id, u.display_name, u.role_code, r.level FROM app_user u "
+                             "JOIN role r ON r.code=u.role_code WHERE u.id=$1", row["user_id"])
+        emp = await c.fetchval("SELECT id FROM employee WHERE user_id=$1 AND is_active ORDER BY created_at LIMIT 1", u["id"]) \
+            if u else None
+        ref = str(emp or u["id"])
+        old = _fo_mt_load(await c.fetchval("SELECT data FROM fo_card WHERE kind='employee' AND ref_id=$1", ref), {}) or {}
+        bots = sorted(set((old.get("tg_bots") or []) + [bot or "main"]))
+        d = {"tg_id": int(uid), "tg_bots": bots}
+        if un and not old.get("tg"):
+            d["tg"] = un
+        await c.execute("INSERT INTO fo_card (kind, ref_id, org_id, data) VALUES ('employee', $1, $2, $3::jsonb) "
+                        "ON CONFLICT (kind, ref_id) DO UPDATE SET data = fo_card.data || EXCLUDED.data, updated_at = now()",
+                        ref, u["org_id"], _fo_json.dumps(d))
+        await c.execute("DELETE FROM fo_tg_link WHERE tg_id=$1", int(uid))
+        name = (u["display_name"] or "").split(" ")[0]
+        who = {"owner": "собственник", "director": "директор", "head": "руководитель"}.get(u["role_code"], "руководитель")
+        if bot == "meet":
+            return ("Готово, %s! Вы %s агентства. Сюда будет приходить график планёрок: каждый будний день в 18:00 — "
+                    "на завтра и до конца недели, в пятницу — на всю следующую; изменения времени на ближайшие дни — сразу."
+                    % (name, who)).replace(", !", "!") + ("" if emp else "\n(В команде вы не заведены как сотрудник — "
+                                                                       "списки ведущим вам не приходят, только общий график.)")
+        return ("Готово, %s! Вы %s агентства. Это бот задач: он ставит задачи из чатов с клиентами." % (name, who)).replace(", !", "!")
+    if "@" in t and "." in t.split("@")[-1] and " " not in t:
+        mail = t.lower()
+        u = await c.fetchrow("SELECT u.id, u.email, r.level FROM app_user u JOIN role r ON r.code=u.role_code "
+                             "WHERE lower(u.email)=$1 AND u.is_active ORDER BY r.level LIMIT 1", mail)
+        if not u:
+            return "Такой почты в сервисе нет. Проверьте, под какой почтой вы входите."
+        if int(u["level"]) > 3:
+            return ("Привязка по почте — для собственника, директора и руководителя. Сотруднику нужно, чтобы его ник "
+                    "вписали в карточку сотрудника в сервисе.")
+        import random as _rnd
+        code = "%04d" % _rnd.randint(0, 9999)
+        await c.execute("INSERT INTO fo_tg_link (tg_id, user_id, code, bot, created_at) VALUES ($1, $2, $3, $4, now()) "
+                        "ON CONFLICT (tg_id) DO UPDATE SET user_id=EXCLUDED.user_id, code=EXCLUDED.code, bot=EXCLUDED.bot, "
+                        "created_at=now()", int(uid), u["id"], code, bot or "main")
+        ok = await _fo_send(u["email"], "Flater: код привязки Telegram",
+                            "Код: %s\nДействует 15 минут. Пришлите его боту в Telegram.\nЕсли это не вы — просто не отвечайте." % code)
+        if not ok:
+            return "Не получилось отправить письмо. Напишите Виталию или админу сервиса — привяжут вручную."
+        a, b = u["email"].split("@", 1)
+        return "Отправили код на %s***@%s. Пришлите его сюда." % (a[:2], b)
+    return None
+
+
 async def _fo_mt_private(msg, bot=""):
-    """Личка с основным ботом: сотрудник пишет /start — привязываем его по нику из карточки сотрудника;
-    сюда приходят уведомления о планёрках и напоминание за час до начала."""
+    """Личка с ботом: сотрудник пишет /start — привязываем его по нику из карточки сотрудника;
+    собственник или директор без карточки — по почте входа и коду (234). Сюда приходят уведомления о планёрках."""
     try:
         frm = msg.get("from") or {}
         uid, un = frm.get("id"), str(frm.get("username") or "").lower()
         if not uid or frm.get("is_bot"):
             return
         ans = ""
+        text = str(msg.get("text") or "").strip()
         async with pool().acquire() as c:
             hit = None
             for r in await c.fetch("SELECT ref_id, org_id, data FROM fo_card WHERE kind='employee'"):
@@ -3936,8 +4009,14 @@ async def _fo_mt_private(msg, bot=""):
                     ans = ("Готово, %s! Это бот задач сервиса Flater: он ставит задачи из чатов с клиентами. "
                            "Уведомления о планёрках присылает другой бот%s — нажмите Start и у него." % (name, (" — @" + mb) if mb else "")).replace(", !", "!")
             else:
-                ans = ("Не нашли вас в команде агентства. Попросите руководителя вписать ваш ник @%s в карточку "
-                       "сотрудника в сервисе и нажмите /start ещё раз." % (frm.get("username") or "…"))
+                try:
+                    ans = await _fo_mt_link_mail(c, uid, un, text, bot)
+                except Exception as e:
+                    ans = "Не получилось: " + str(e)[:120]
+                if not ans:
+                    ans = ("Не нашли вас в команде агентства. Попросите руководителя вписать ваш ник @%s в карточку "
+                           "сотрудника в сервисе и нажмите /start ещё раз.\n\nЕсли вы собственник, директор или руководитель — "
+                           "отправьте сюда почту, под которой входите в сервис: пришлём код на неё." % (frm.get("username") or "…"))
         await _fo_aio.to_thread(_fo_tg_api_sync, "sendMessage", {"chat_id": str(uid), "text": ans},
                                 (_fo_env("TG_MEET_BOT_TOKEN") if bot == "meet" else "") or _fo_env("TG_BOT_TOKEN"))
     except Exception as e:
@@ -6560,6 +6639,32 @@ try:
           "· таймаутов", sh("journalctl -u %s --since '-60 min' --no-pager -o cat | grep -c 'timed out'" % _sv).strip())
 except Exception as _e:
     p("скорость: ошибка", str(_e)[:200])
+
+p("")
+p("== ОТПРАВКА КЛИЕНТУ (разведка 234) ==")
+try:
+    import re as _re234
+    _sec234 = []
+    for _ln in open("/opt/fo/.env", encoding="utf-8"):
+        if "=" in _ln and not _ln.startswith("#"):
+            _v = _ln.split("=", 1)[1].strip().strip('"').strip("'")
+            if len(_v) >= 8:
+                _sec234.append(_v)
+    def _hide(x):
+        x = str(x)
+        for _v in _sec234:
+            x = x.replace(_v, "***")
+        return _re234.sub(r"\d{6,}:[A-Za-z0-9_-]{25,}", "***", x)
+    _nt = open("/opt/fo/backend/app/notify.py", encoding="utf-8").read()
+    _i = _nt.find("def send_telegram")
+    p("notify.send_telegram:", _hide(_nt[max(0, _i - 200):_i + 1400]) if _i >= 0 else "нет send_telegram; файл: " + _hide(_nt[:800]))
+    p("таймер fo-flush:", sh("systemctl is-active fo-flush.timer 2>/dev/null").strip(), "·", sh("systemctl list-timers --no-pager 2>/dev/null | grep -i flush").strip()[:200])
+    p(sh("sudo -u postgres psql -d fo -Atc \"SELECT 'outbox всего '||count(*)||', не ушло '||count(*) FILTER (WHERE sent_at IS NULL)||', ошибок '||count(*) FILTER (WHERE error IS NOT NULL) FROM outbox\"").strip())
+    p(sh("sudo -u postgres psql -d fo -Atc \"SELECT 'chat_route правил '||count(*)||', клиентов '||count(DISTINCT client_id) FROM chat_route\"").strip())
+    p(sh("sudo -u postgres psql -d fo -Atc \"SELECT 'fo_task_report: '||string_agg(column_name, ', ' ORDER BY ordinal_position) FROM information_schema.columns WHERE table_name='fo_task_report'\"").strip()[:600])
+    p("TG_REPORT_BOT_TOKEN в .env:", sh("grep -c '^TG_REPORT_BOT_TOKEN=' /opt/fo/.env").strip())
+except Exception as _e:
+    p("разведка 234: ошибка", str(_e)[:200])
 
 p("")
 p("== БОТ ПЛАНЁРОК ==")
