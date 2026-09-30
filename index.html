@@ -29038,6 +29038,49 @@ function foRateLive(){ try{ return typeof isLive === "function" && isLive(); }ca
     try{ if(typeof SEC_RENDER !== "undefined" && SEC_RENDER.growth) SEC_RENDER.growth = renderGrowth; }catch(e){}
   }
 })();
+/* ===== add110 (247, Виталий 30.09): «В блоке „Деньги“ ничего не сохраняется — почини» =====
+   Экран «Финансы»: сумма в месяц, дата платежа и ответ «продлевает? Да / Нет / —» менялись только во вкладке —
+   на сервер не уходили, после перезагрузки пропадали. Теперь каждое изменение уходит в карточку клиента на
+   сервере (как в «Карточках клиентов»): amount, payDate, confirm. «Добавить клиента» в живом режиме ведёт в
+   настоящую форму нового кабинета, а не заводит пустышку во вкладке.                                     */
+(function(){
+  function live(){ try{ return typeof isLive === "function" && isLive(); }catch(e){ return false; } }
+  function put(id, patch){
+    if(!live() || typeof cardSave !== "function") return;
+    try{ cardSave("client", id, patch); }catch(e){}
+    try{ cardSave("cab", id, patch); }catch(e){}
+  }
+  /* сумма и дата платежа — по уходу из поля и по изменению */
+  function onFk(e){
+    var el = e.target;
+    if(!el || !el.matches || !el.matches("[data-fk]")) return;
+    var tr = el.closest("[data-fp]"); if(!tr) return;
+    var id = tr.getAttribute("data-fp"), k = el.getAttribute("data-fk");
+    if(!id || !k) return;
+    var v = el.value;
+    if(k === "amount") v = v === "" ? 0 : Math.max(0, +v || 0);
+    else v = String(v || "").trim();
+    var patch = {}; patch[k] = v;
+    put(id, patch);
+    el.classList.add("edok"); clearTimeout(el._t); el._t = setTimeout(function(){ el.classList.remove("edok"); }, 900);
+  }
+  document.addEventListener("change", onFk, true);
+  document.addEventListener("blur", onFk, true);
+  /* продлевает? — до штатного обработчика (он перерисует экран) */
+  document.addEventListener("click", function(e){
+    var t = e.target.closest && e.target.closest("[data-fc]");
+    if(!t) return;
+    var tr = t.closest("[data-fp]"); if(!tr) return;
+    put(tr.getAttribute("data-fp"), {confirm: t.getAttribute("data-fc") || ""});
+  }, true);
+  /* «Добавить клиента» в живом режиме — настоящая форма кабинета */
+  document.addEventListener("click", function(e){
+    var b = e.target.closest && e.target.closest("#finAdd");
+    if(!b || !live()) return;
+    e.preventDefault(); e.stopPropagation();
+    try{ setView("newcab"); }catch(x){ try{ toast("Откройте «Мои клиенты» → «Новый кабинет»"); }catch(y){} }
+  }, true);
+})();
 
 })();
 </script>
