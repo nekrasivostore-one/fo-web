@@ -3435,6 +3435,24 @@ async def _fo_plan_tick():
                 if not chat:
                     continue
                 cfg = await _fo_plan_cfg(c, org)
+                # 268: очередь ручных отправок (ставит собственник кнопкой или шаг при выкладке)
+                sn = cfg.get("send_now") or []
+                if isinstance(sn, list) and sn:
+                    left = []
+                    for it in sn:
+                        what = (it or {}).get("what") if isinstance(it, dict) else str(it)
+                        at = (it or {}).get("at") if isinstance(it, dict) else None
+                        if what not in ("morning", "evening", "week"):
+                            continue
+                        if at and hm < str(at):
+                            left.append(it); continue
+                        try:
+                            await _fo_plan_run(c, org, what, today, force=True)
+                        except Exception as _e:
+                            try: print("fo_plan send_now:", str(_e)[:200])
+                            except Exception: pass
+                    await _fo_plan_cfg_set(c, org, {"send_now": left})
+                    cfg["send_now"] = left
                 if cfg.get("off"):
                     continue
                 if today.weekday() < 5:
@@ -8163,6 +8181,15 @@ p(sh("sudo -u postgres psql -d fo -Atc \"SELECT ch.id||' · '||ch.title||' · '|
 p(sh("sudo -u postgres psql -d fo -Atc \"SELECT 'сообщений из чатов: '||count(*)||', последнее: '||COALESCE(max(msg_at)::text,'—') FROM fo_chat_msg WHERE tg_chat_id<>'test'\""))
 
 p("")
+p("== ОЧЕРЕДЬ ОТПРАВОК (268) ==")
+try:
+    import datetime as _qd
+    _at = (_qd.datetime.utcnow() + _qd.timedelta(hours=3, minutes=3)).strftime("%H:%M")
+    _q = sh("sudo -u postgres psql -d fo -Atc \"UPDATE fo_card SET data = data || '{\\\"send_now\\\": [{\\\"what\\\": \\\"morning\\\"}, {\\\"what\\\": \\\"evening\\\", \\\"at\\\": \\\"%s\\\"}]}'::jsonb, updated_at=now() WHERE kind='org' AND ref_id LIKE 'plan:%%' RETURNING ref_id\"" % _at).strip()
+    p("в очередь: план дня сейчас, итоги в %s МСК; карточек: %s" % (_at, _q or "0 — чат планов ещё не закреплён (первый тик цикла закрепит)"))
+except Exception as _e:
+    p("очередь: ошибка", str(_e)[:200])
+p("")
 p("== ГРУППА ПЛАНОВ (266) ==")
 try:
     import json as _pj, urllib.request as _pu, urllib.parse as _pp
@@ -8171,8 +8198,13 @@ try:
         if _ln.startswith("TG_BOT_TOKEN="): _ptok = _ln.split("=", 1)[1].strip().strip('"').strip("'")
     _pg = sh("sudo -u postgres psql -d fo -Atc \"SELECT chat_id||'|'||title FROM chat WHERE channel='telegram' AND is_active AND chat_id ~ '^-?[0-9]+$' AND title ILIKE '%план%' ORDER BY added_at DESC LIMIT 1\"").strip()
     p("группа с «план» в названии:", _pg.split("|", 1)[1] if "|" in _pg else "не найдена (бота ещё не добавили или группа без номера)")
-    if _ptok and "|" in _pg:
+    if not os.path.exists("/opt/fo/plan-hello.txt") and "|" in _pg:
+        open("/opt/fo/plan-hello.txt", "w").write("v81")   # 268: приветствие уже ушло на v81/v82 — больше не повторяем
+    if _ptok and "|" in _pg and os.path.exists("/opt/fo/plan-hello.txt"):
+        p("приветствие уже отправлялось — повторно не шлём")
+    elif _ptok and "|" in _pg:
         _pcid = _pg.split("|", 1)[0]
+        open("/opt/fo/plan-hello.txt", "w").write(stamp)
         with _pu.urlopen("https://api.telegram.org/bot%s/getMe" % _ptok, timeout=15) as _r:
             _pme = (_pj.loads(_r.read().decode()) or {}).get("result") or {}
         p("бот сервиса: @%s" % _pme.get("username"))
