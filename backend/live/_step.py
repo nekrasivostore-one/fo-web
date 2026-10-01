@@ -2865,7 +2865,7 @@ async def _fo_promise_apply(c, u):
     if not want:
         return False
     wl = await c.fetchval("SELECT level FROM role WHERE code=$1", want)
-    ok = wl is not None and int(wl) >= 2 and int(u["level"]) > int(wl)
+    ok = wl is not None and int(wl) >= 2 and int(u["level"]) > int(wl) and str(want) not in ("owner", "admin")
     if ok:
         await c.execute("UPDATE app_user SET role_code=$2 WHERE id=$1", u["id"], want)
     for k in keys:
@@ -3326,6 +3326,10 @@ async def fo_perms_audit(p: Principal = Depends(max_level(2))):
                         why.append("привязка к карточке: %s / %s" % ("есть" if base["employee"] else "нет", "есть" if r["employee"] else "нет"))
                     issues.append({"kind": "diverge", "role_code": rcode, "emails": [base["email"], r["email"]], "diff": diff,
                                    "text": "Роль %s: у %s и %s разные права (%s) — причина: %s" % (rcode, base["email"], r["email"], ", ".join(diff), "; ".join(why) or "не найдена (сообщите разработчику)")})
+        owners = [r for r in out if int(r["level"]) == 1]
+        if len(owners) != 1:
+            issues.insert(0, {"kind": "owners", "count": len(owners), "emails": [r["email"] for r in owners],
+                              "text": ("Собственников в агентстве %d — должен быть ровно один: " % len(owners)) + (", ".join(r["email"] for r in owners) or "никого")})
         linked_ids = set(str(r["employee"]["id"]) for r in out if r["employee"])
         no_acc = [{"id": k, "name": e["name"]} for k, e in emps.items() if k not in linked_ids]
         names = {}
@@ -3336,6 +3340,7 @@ async def fo_perms_audit(p: Principal = Depends(max_level(2))):
                 issues.append({"kind": "dup_employee", "name": nm, "ids": ids, "text": "Две карточки сотрудника с именем «%s» — привязка по имени может попасть не в ту" % nm})
     matrix = [{"key": k, "max_level": thr, "title": d} for k, thr, d in _FO_PERM_RULES]
     return {"accounts": out, "employees_without_account": no_acc, "issues": issues, "matrix": matrix,
+            "owner": (owners[0]["email"] if len(owners) == 1 else None), "owners_count": len(owners),
             "lim_map": _FO_LIM_MAP, "ext_map": _FO_EXT_MAP, "role_front": {str(k): v for k, v in _FO_ROLE_FRONT.items()}}
 
 
