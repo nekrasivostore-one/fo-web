@@ -31016,7 +31016,7 @@ function foPlanHTML(){
   var top = (role === "owner" || role === "dir" || role === "admin");
   if(!FO_PLAN) return '<div class="gl fo-plan"><div class="gl-t"><h2>План работы в группу</h2></div><div class="empty">Загружаю…</div></div>';
   if(FO_PLAN.error) return '<div class="gl fo-plan"><div class="gl-t"><h2>План работы в группу</h2></div><div class="empty">'+esc(FO_PLAN.error)+' (сервер ещё обновляется — откройте позже)</div></div>';
-  var P = FO_PLAN, st = P.settings || {}, last = P.last || {};
+  var P = FO_PLAN, st = P.settings || {}, last = P.last || {}, S0 = P.send || {};
   function when(v){ if(!v) return "ещё не было"; var d = new Date(v + "T00:00:00"); return isNaN(d) ? v : d.toLocaleDateString("ru-RU", {day: "2-digit", month: "2-digit"}); }
   var pv = P.preview || {};
   function prev(k, title){
@@ -31030,11 +31030,25 @@ function foPlanHTML(){
     (top ? '<button class="bt sm" data-plan-send="morning">План дня — сейчас</button><button class="bt sm" data-plan-send="evening">Итоги — сейчас</button><button class="bt sm" data-plan-send="week">План планёрок — сейчас</button>' : '')+
     '</div>'+
     '<div class="fo-plan-row">'+
-      '<label>Утром, план дня <input class="fi sm" data-plan-k="morning" value="'+esc(st.morning || "09:00")+'" '+(top ? '' : 'disabled')+'></label>'+
+      '<label>Куда писать <select class="sel sm" data-plan-dest '+(top ? '' : 'disabled')+'>'+
+        '<option value="">— выберите —</option>'+
+        '<optgroup label="Группы, куда добавлен бот">'+((P.groups || []).map(function(g){ return '<option value="g:'+esc(g.chat_id)+'"'+(String(g.chat_id) === String(P.chat || "") ? ' selected' : '')+'>'+esc(g.title || g.chat_id)+'</option>'; }).join("") || '<option disabled>нет групп — добавьте бота в группу</option>')+'</optgroup>'+
+        '<optgroup label="Личка сотрудника (кто нажал /start у бота)">'+((P.people || []).map(function(m){ return '<option value="p:'+esc(m.tg_id)+'|'+esc(m.name)+'"'+(String(m.tg_id) === String(P.chat || "") ? ' selected' : '')+'>'+esc(m.name)+'</option>'; }).join("") || '<option disabled>никто ещё не нажал /start</option>')+'</optgroup>'+
+      '</select></label>'+
+      '<span class="fo-plan-last">Сейчас: '+(P.chat ? '<b>'+esc(P.title || P.chat)+'</b>' : '<em>не выбрано</em>')+'</span>'+
+    '</div>'+
+    '<div class="fo-plan-row">'+
+      '<label><input type="checkbox" data-plan-k="send_morning" '+(S0.send_morning !== false ? 'checked' : '')+' '+(top ? '' : 'disabled')+'> план дня по сотрудникам</label>'+
+      '<label><input type="checkbox" data-plan-k="send_arts" '+(S0.send_arts !== false ? 'checked' : '')+' '+(top ? '' : 'disabled')+'> артикулы в работу</label>'+
+      '<label><input type="checkbox" data-plan-k="send_evening" '+(S0.send_evening !== false ? 'checked' : '')+' '+(top ? '' : 'disabled')+'> итоги дня (факт-план)</label>'+
+      '<label><input type="checkbox" data-plan-k="send_week" '+(S0.send_week !== false ? 'checked' : '')+' '+(top ? '' : 'disabled')+'> план планёрок на неделю</label>'+
+      (top ? '<label class="fo-plan-off"><input type="checkbox" data-plan-k="off" '+(P.off ? 'checked' : '')+'> выключить всё</label>' : '')+
+    '</div>'+
+    '<div class="fo-plan-row">'+
+      '<label>Утром в <input class="fi sm" data-plan-k="morning" value="'+esc(st.morning || "09:00")+'" '+(top ? '' : 'disabled')+'></label>'+
       '<label>Галочки считаются до <input class="fi sm" data-plan-k="eve_cut" value="'+esc(st.eve_cut || "17:40")+'" '+(top ? '' : 'disabled')+'></label>'+
       '<label>Итоги в <input class="fi sm" data-plan-k="eve_send" value="'+esc(st.eve_send || "17:55")+'" '+(top ? '' : 'disabled')+'></label>'+
       '<span class="fo-plan-last">Последние: план '+when(last.last_morning)+' · итоги '+when(last.last_evening)+' · планёрки '+when(last.last_week)+'</span>'+
-      (top ? '<label class="fo-plan-off"><input type="checkbox" data-plan-k="off" '+(P.off ? 'checked' : '')+'> выключить рассылку</label>' : '')+
     '</div>'+
     prev("morning", "Предпросмотр: план дня") + prev("evening", "Предпросмотр: итоги") + prev("week", "Предпросмотр: план планёрок")+
     '<div class="fo-hint">Будни: план в '+esc(st.morning || "09:00")+' (по каждому сотруднику: кабинет → функции с дедлайнами; вторым сообщением — артикулы в работу), итоги в '+esc(st.eve_send || "17:55")+' по галочкам до '+esc(st.eve_cut || "17:40")+' (✅/❌ по функциям, по артикулам — галочка «Работа с РК»). Понедельник '+esc(st.morning || "09:00")+' — план планёрок на неделю одним сообщением, без частного клиентов. Время — МСК.</div>'+
@@ -31068,9 +31082,18 @@ function foPlanHTML(){
     }).catch(function(err){ try{ toast("Не ушло: " + (err && err.message || "сервер не ответил")); }catch(x){} b.disabled = false; });
   }, true);
   document.addEventListener("change", function(e){
-    var el = e.target; if(!el || !el.matches || !el.matches("[data-plan-k]")) return;
+    var el = e.target; if(!el || !el.matches) return;
+    if(el.matches("[data-plan-dest]")){
+      var v = el.value || ""; if(!v) return;
+      var kind = v.slice(0, 1), rest = v.slice(2), cid = rest.split("|")[0], title = kind === "p" ? ("личка: " + (rest.split("|")[1] || "")) : "";
+      if(kind === "g"){ var g = (FO_PLAN && FO_PLAN.groups || []).filter(function(x){ return String(x.chat_id) === cid; })[0]; title = g ? g.title : cid; }
+      api("/refs/plan/settings", {method: "POST", body: {chat_id: cid, title: title}}).then(function(){ try{ toast("Теперь пишем: " + title); }catch(x){} FO_PLAN = null; try{ foMtRender(); }catch(x){} })
+        .catch(function(err){ try{ toast("Не сохранилось: " + (err && err.message || "")); }catch(x){} });
+      return;
+    }
+    if(!el.matches("[data-plan-k]")) return;
     var k = el.getAttribute("data-plan-k"), body = {};
-    if(k === "off") body.off = !!el.checked; else { if(!/^\d{2}:\d{2}$/.test(el.value.trim())){ try{ toast("Время в виде ЧЧ:ММ"); }catch(x){} return; } body[k] = el.value.trim(); }
+    if(k === "off" || k.indexOf("send_") === 0) body[k] = !!el.checked; else { if(!/^\d{2}:\d{2}$/.test(el.value.trim())){ try{ toast("Время в виде ЧЧ:ММ"); }catch(x){} return; } body[k] = el.value.trim(); }
     api("/refs/plan/settings", {method: "POST", body: body}).then(function(){ try{ toast("Сохранено на сервере"); }catch(x){} FO_PLAN = null; })
       .catch(function(err){ try{ toast("Не сохранилось: " + (err && err.message || "")); }catch(x){} });
   });
