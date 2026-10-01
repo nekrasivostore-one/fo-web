@@ -3138,7 +3138,7 @@ _FO_DOW_SHORT = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"]
 
 
 def _fo_plan_date(d):
-    return "%02d.%02d.%d, %s" % (d.day, d.month, d.year, _FO_DOW_RU[d.weekday()])
+    return "📅 %02d.%02d.%d, %s" % (d.day, d.month, d.year, _FO_DOW_RU[d.weekday()])
 
 
 async def _fo_plan_cfg(c, org_id):
@@ -3296,25 +3296,29 @@ async def _fo_plan_morning_msgs(c, org_id, day):
             continue
         tl = tasks.get(e) or []
         if tl:
-            lines = [head, name]
+            lines = [head, "👤 " + name + " — план на день"]
             bycl = {}
             for t in tl:
                 bycl.setdefault(t["client"], []).append(t)
             for cid in sorted(bycl, key=lambda k: clients.get(k, "я")):
-                lines.append(clients.get(cid) or "Без кабинета")
+                lines.append("")
+                lines.append("🏪 " + (clients.get(cid) or "Без кабинета"))
                 for t in bycl[cid]:
                     lines.append("— " + (t["title"] or "задача") + _fo_plan_dl(t["dl"]))
+            lines.append("")
+            lines.append("Всего задач: %d" % len(tl))
             msgs += _fo_plan_chunks(lines)
         al = arts.get(e) or {}
         if al:
-            lines = [head, name + " — артикулы в работу"]
+            lines = [head, "👤 " + name + " — 📦 артикулы в работу"]
             for cab, x in sorted(al.items(), key=lambda kv: clients.get(kv[1]["client"], "я")):
                 sk = x["skus"]
-                lines.append(clients.get(x["client"]) or "Кабинет")
-                lines.append(", ".join(sk[:80]) + (" … и ещё %d" % (len(sk) - 80) if len(sk) > 80 else "") + " (%d)" % len(sk))
+                lines.append("")
+                lines.append("🏪 " + (clients.get(x["client"]) or "Кабинет") + " · %d арт." % len(sk))
+                lines.append(", ".join(sk[:80]) + (" … и ещё %d" % (len(sk) - 80) if len(sk) > 80 else ""))
             msgs += _fo_plan_chunks(lines)
     if not msgs:
-        msgs = [head + "\nНа сегодня задач нет."]
+        msgs = [head + "\n🤷 На этот день задач нет."]
     return msgs
 
 
@@ -3329,20 +3333,21 @@ async def _fo_plan_evening_msgs(c, org_id, day, cut_hm):
     hh, mm = [int(x) for x in str(cut_hm or "17:40").split(":")[:2]]
     cut = _fo_dt.datetime.combine(day, _fo_dt.time(hh, mm)).replace(tzinfo=_FO_MSK)
     msgs = []
-    head = _fo_plan_date(day) + " — итоги"
+    head = _fo_plan_date(day) + " — 📊 итоги дня"
     tot_ok = tot_all = 0
     for e in sorted(set(list(tasks) + list(arts)), key=lambda x: people.get(x, "я")):
         name = people.get(e)
         if not name:
             continue
         tl = tasks.get(e) or []
-        lines = [head, name]
+        lines = [head, "👤 " + name]
         ok = 0
         bycl = {}
         for t in tl:
             bycl.setdefault(t["client"], []).append(t)
         for cid in sorted(bycl, key=lambda k: clients.get(k, "я")):
-            lines.append(clients.get(cid) or "Без кабинета")
+            lines.append("")
+            lines.append("🏪 " + (clients.get(cid) or "Без кабинета"))
             for t in bycl[cid]:
                 done = bool(t["done"])
                 da = t.get("done_at")
@@ -3357,19 +3362,21 @@ async def _fo_plan_evening_msgs(c, org_id, day, cut_hm):
                 lines.append(("✅ " if done else "❌ ") + (t["title"] or "задача") + _fo_plan_dl(t["dl"]))
         al = arts.get(e) or {}
         if al:
-            lines.append("Артикулы (работа с РК):")
+            lines.append("")
+            lines.append("📦 Артикулы — работа с РК:")
             for cab, x in sorted(al.items(), key=lambda kv: clients.get(kv[1]["client"], "я")):
                 k1, k2 = "%s|%s|%s" % (e, cab, day.isoformat()), "%s|%s|%s" % (e, x["client"], day.isoformat())
                 done = bool(rk.get(k1) or rk.get(k2)) if isinstance(rk, dict) else False
                 lines.append(("✅ " if done else "❌ ") + (clients.get(x["client"]) or "Кабинет") + " · %d арт." % len(x["skus"]))
         if tl:
-            lines.append("Выполнено %d из %d" % (ok, len(tl)))
+            lines.append("")
+            lines.append("📊 Выполнено %d из %d" % (ok, len(tl)))
             tot_ok += ok; tot_all += len(tl)
         msgs += _fo_plan_chunks(lines)
     if not msgs:
-        msgs = [head + "\nЗадач на день не было."]
+        msgs = [head + "\n🤷 Задач на день не было."]
     elif tot_all:
-        msgs.append("Итого по команде: %d из %d (%d%%)" % (tot_ok, tot_all, round(tot_ok * 100 / tot_all)))
+        msgs.append(head + "\n📊 Итого по команде: выполнено %d из %d (%d%%)" % (tot_ok, tot_all, round(tot_ok * 100 / tot_all)))
     return msgs
 
 
@@ -3385,16 +3392,16 @@ async def _fo_plan_week_msgs(c, org_id, mon):
         items = []
     items.sort(key=lambda t: (t[0], t[1]))
     sun = mon + _fo_dt.timedelta(days=6)
-    lines = ["План планёрок на неделю %02d.%02d–%02d.%02d" % (mon.day, mon.month, sun.day, sun.month)]
+    lines = ["🗓 План планёрок на неделю %02d.%02d–%02d.%02d" % (mon.day, mon.month, sun.day, sun.month)]
     if not items:
         lines.append("Согласованных планёрок на неделю пока нет.")
     last = None
     for d, tm, cid, host, mins in items:
         if d != last:
             lines.append("")
-            lines.append("%s %02d.%02d" % (_FO_DOW_SHORT[d.weekday()], d.day, d.month))
+            lines.append("📅 %s %02d.%02d" % (_FO_DOW_SHORT[d.weekday()], d.day, d.month))
             last = d
-        lines.append("%s — %s%s" % (tm, clients.get(cid) or "кабинет", (" (" + people[host] + ")") if host in people else ""))
+        lines.append("🕐 %s — 🏪 %s%s" % (tm, clients.get(cid) or "кабинет", (" · 👤 " + people[host]) if host in people else ""))
     return _fo_plan_chunks(lines)
 
 
