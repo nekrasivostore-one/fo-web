@@ -30279,6 +30279,68 @@ document.addEventListener("click", function(e){
     if(st && st.token !== A.token) adopt(st);
   });
 })();
+/* ===== add119 (256, Виталий 01.10): уникальная таблица из карточки кабинета — главная везде =====
+   «Если в карточку вставляется уникальная ссылка на документ — она должна быть во всех ролях, в любом блоке:
+   поставим галку или развернём задачу — уникальная сохраняется».
+   Было: хвостик «таблица» в списке дня и окно «Задача выполнена» брали личную запомненную ссылку человека
+   («да, в одной — запомнить») или последнюю из его отчётов — у собственника всплывала тестовая
+   «unitka-vasilieva», у Виктории — таблица Федоровой; окно подставляло её раньше, чем ссылку кабинета.
+   Теперь: ссылка функции из карточки кабинета — первая для всех (хвостик, раскрытая задача, окно галочки,
+   «Отметить все одной галочкой»); личные запомненные — только если в карточке ссылки нет.                */
+function foCabLink(t){
+  if(!t || !t.fn || typeof foCabX !== "function") return "";
+  try{
+    var x = t.cab ? foCabX(t.cab, t.fn) : null;
+    if(x && x.link) return String(x.link).trim();
+    x = t.project ? foCabX(t.project, t.fn) : null;
+    if(x && x.link) return String(x.link).trim();
+  }catch(e){}
+  return "";
+}
+(function(){
+  if(typeof foTaskLink === "function"){
+    var _tl = foTaskLink;
+    foTaskLink = function(t){
+      var u = foCabLink(t);
+      if(u) return u;
+      return _tl.apply(this, arguments);
+    };
+  }
+  if(typeof foDoneDialog === "function"){
+    var _dd = foDoneDialog;
+    foDoneDialog = function(tasks){
+      var v = _dd.apply(this, arguments);
+      function put(){
+        try{
+          (tasks || []).forEach(function(t){
+            var u = foCabLink(t); if(!u) return;
+            var inp = document.querySelector('#foDone [data-fol="'+t.id+'"]');
+            if(!inp) return;
+            if(!inp.dataset.foTouched && inp.value !== u) inp.value = u;
+            var ask = document.querySelector('#foDone [data-foask="'+t.id+'"]');
+            if(ask) ask.hidden = true;                       /* таблица уникальная — вопрос «в одной и той же?» не нужен */
+          });
+        }catch(e){}
+      }
+      put();
+      setTimeout(put, 300); setTimeout(put, 900);           /* если ответ /link-pref пришёл позже и перезаписал */
+      try{
+        var box = document.getElementById("foDone");
+        if(box) box.addEventListener("input", function(e){ if(e.target && e.target.matches && e.target.matches("[data-fol]")) e.target.dataset.foTouched = "1"; });
+      }catch(e){}
+      return v;
+    };
+  }
+  /* карточки приехали — перерисовать, чтобы хвостики сразу были правильные */
+  if(typeof cardsLoad === "function"){
+    var _cl = cardsLoad;
+    cardsLoad = function(){
+      var p = _cl.apply(this, arguments);
+      try{ p = p.then(function(r){ try{ render(); }catch(e){} return r; }); }catch(e){}
+      return p;
+    };
+  }
+})();
 
 })();
 </script>
