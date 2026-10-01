@@ -30356,6 +30356,41 @@ function foCabLink(t){
     return _row.apply(this, arguments);
   };
 })();
+/* ===== add121 (258, Виталий 01.10): «Видим % загруженности у роли менеджера — убери, не пугай менеджеров.
+   В ролях от РМ и выше всё остаётся» =====
+   У главного менеджера, младшего и ассистента: карточки «Моя загрузка N%» на рабочем экране нет,
+   в строках «Мой график» нет «· N%» (часы остаются). Проджект и выше видят как раньше. */
+(function(){
+  function mgr(){ try{ return typeof isMgr === "function" && isMgr(); }catch(e){ return false; } }
+  if(typeof B !== "undefined" && typeof B.kpistrip === "function"){
+    var _k = B.kpistrip;
+    B.kpistrip = function(el){
+      var v = _k.apply(this, arguments);
+      try{
+        if(mgr() && el){
+          var cards = Array.from(el.firstElementChild ? el.firstElementChild.children : []);
+          cards.forEach(function(c){
+            var l = c.firstElementChild;
+            if(l && /^Моя загрузка$/.test(l.textContent.trim())) c.remove();
+          });
+          var first = el.firstElementChild && el.firstElementChild.firstElementChild;
+          if(first){ first.style.paddingLeft = "0"; first.style.borderLeft = "none"; }
+        }
+      }catch(e){}
+      return v;
+    };
+  }
+  if(typeof B !== "undefined" && typeof B.gantt === "function"){
+    var _g = B.gantt;
+    B.gantt = function(el){
+      var v = _g.apply(this, arguments);
+      try{
+        if(mgr() && el) el.querySelectorAll(".gr .t .h").forEach(function(h){ h.textContent = h.textContent.replace(/\s*·\s*-?\d+%\s*$/, ""); });
+      }catch(e){}
+      return v;
+    };
+  }
+})();
 
 })();
 </script>
