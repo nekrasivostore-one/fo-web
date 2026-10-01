@@ -4499,6 +4499,17 @@ html, body{ overflow-x:hidden }
 .fo-paud-self span{ display:inline-block; margin:2px 8px 2px 0; padding:2px 8px; border-radius:8px; background:rgba(0,179,154,.10) }
 .fo-paud-self span.bad{ background:rgba(219,74,95,.12) }
 html.dark .fo-paud-t th, html.dark .fo-paud-t td{ border-bottom-color:rgba(255,255,255,.08) }
+/* add124 (266): план работы в группу */
+.fo-plan .fo-sub{ font-size:12px; color:var(--ink-3); margin-left:10px }
+.fo-plan-row{ display:flex; flex-wrap:wrap; gap:10px 16px; align-items:center; margin:8px 0 }
+.fo-plan-row label{ display:inline-flex; align-items:center; gap:8px; font-size:12px; color:var(--ink-2) }
+.fo-plan-row label .fi.sm{ width:72px; text-align:center }
+.fo-plan-last{ font-size:12px; color:var(--ink-3) }
+.fo-plan-off{ margin-left:auto }
+.fo-plan-pv{ margin:6px 0; font-size:12px }
+.fo-plan-pv summary{ cursor:pointer; color:var(--ink-2) }
+.fo-plan-pv pre{ white-space:pre-wrap; font:12px/1.45 inherit; background:var(--neu,#f3f4f8); border-radius:10px; padding:10px 12px; margin:6px 0 0; max-height:320px; overflow:auto }
+html.dark .fo-plan-pv pre{ background:rgba(255,255,255,.06) }
 </style>
 </head>
 <body>
@@ -30994,6 +31005,75 @@ function foPaudLoad(){
       }).catch(function(err){ if(box) box.textContent = "Не удалось: " + (err && err.message || ""); b.disabled = false; });
     }
   }, true);
+})();
+/* ===== add124 (266, Виталий 01.10): блок «План работы в группу» на экране «Планёрка» =====
+   Сервер v80 шлёт в группу Telegram («FO Д План работы НРК 1») утром план дня по сотрудникам и артикулы,
+   вечером итоги (✅/❌), по понедельникам план планёрок. Здесь: какая группа подключена, время, последние
+   отправки, предпросмотр сообщений, кнопки «отправить сейчас» (собственник, директор), время правится.   */
+var FO_PLAN = null;
+function foPlanLoad(){ return api("/refs/plan").then(function(r){ FO_PLAN = r || null; }).catch(function(e){ FO_PLAN = {error: (e && e.message) || "сервер не ответил"}; }); }
+function foPlanHTML(){
+  var top = (role === "owner" || role === "dir" || role === "admin");
+  if(!FO_PLAN) return '<div class="gl fo-plan"><div class="gl-t"><h2>План работы в группу</h2></div><div class="empty">Загружаю…</div></div>';
+  if(FO_PLAN.error) return '<div class="gl fo-plan"><div class="gl-t"><h2>План работы в группу</h2></div><div class="empty">'+esc(FO_PLAN.error)+' (сервер ещё обновляется — откройте позже)</div></div>';
+  var P = FO_PLAN, st = P.settings || {}, last = P.last || {};
+  function when(v){ if(!v) return "ещё не было"; var d = new Date(v + "T00:00:00"); return isNaN(d) ? v : d.toLocaleDateString("ru-RU", {day: "2-digit", month: "2-digit"}); }
+  var pv = P.preview || {};
+  function prev(k, title){
+    var m = pv[k];
+    if(!m || !m.length) return '';
+    return '<details class="fo-plan-pv"><summary>'+title+' · сообщений: '+m.length+'</summary><pre>'+esc(m.slice(0, 3).join("\n\n— — —\n\n"))+(m.length > 3 ? '\n\n… ещё ' + (m.length - 3) : '')+'</pre></details>';
+  }
+  return '<div class="gl fo-plan"><div class="gl-t"><h2>План работы в группу</h2>'+
+    '<span class="fo-sub">'+(P.chat ? 'группа: <b>'+esc(P.title || P.chat)+'</b>' : '<em>группа не найдена — добавьте бота в группу со словом «План» в названии</em>')+
+    (P.bot ? '' : ' · <em>на сервере нет токена бота</em>')+'</span><div class="grow"></div>'+
+    (top ? '<button class="bt sm" data-plan-send="morning">План дня — сейчас</button><button class="bt sm" data-plan-send="evening">Итоги — сейчас</button><button class="bt sm" data-plan-send="week">План планёрок — сейчас</button>' : '')+
+    '</div>'+
+    '<div class="fo-plan-row">'+
+      '<label>Утром, план дня <input class="fi sm" data-plan-k="morning" value="'+esc(st.morning || "09:00")+'" '+(top ? '' : 'disabled')+'></label>'+
+      '<label>Галочки считаются до <input class="fi sm" data-plan-k="eve_cut" value="'+esc(st.eve_cut || "17:40")+'" '+(top ? '' : 'disabled')+'></label>'+
+      '<label>Итоги в <input class="fi sm" data-plan-k="eve_send" value="'+esc(st.eve_send || "17:55")+'" '+(top ? '' : 'disabled')+'></label>'+
+      '<span class="fo-plan-last">Последние: план '+when(last.last_morning)+' · итоги '+when(last.last_evening)+' · планёрки '+when(last.last_week)+'</span>'+
+      (top ? '<label class="fo-plan-off"><input type="checkbox" data-plan-k="off" '+(P.off ? 'checked' : '')+'> выключить рассылку</label>' : '')+
+    '</div>'+
+    prev("morning", "Предпросмотр: план дня") + prev("evening", "Предпросмотр: итоги") + prev("week", "Предпросмотр: план планёрок")+
+    '<div class="fo-hint">Будни: план в '+esc(st.morning || "09:00")+' (по каждому сотруднику: кабинет → функции с дедлайнами; вторым сообщением — артикулы в работу), итоги в '+esc(st.eve_send || "17:55")+' по галочкам до '+esc(st.eve_cut || "17:40")+' (✅/❌ по функциям, по артикулам — галочка «Работа с РК»). Понедельник '+esc(st.morning || "09:00")+' — план планёрок на неделю одним сообщением, без частного клиентов. Время — МСК.</div>'+
+  '</div>';
+}
+(function(){
+  if(typeof foMtRender !== "function") return;
+  var _r = foMtRender;
+  foMtRender = function(){
+    var v = _r.apply(this, arguments);
+    try{
+      if(!(typeof isLive === "function" && isLive())) return v;
+      if(!(typeof foMtCan === "function" && foMtCan())) return v;
+      var host = document.getElementById("sect"); if(!host) return v;
+      var w = document.createElement("div"); w.innerHTML = foPlanHTML();
+      host.appendChild(w.firstChild);
+      if(!FO_PLAN) foPlanLoad().then(function(){ var old = host.querySelector(".fo-plan"); if(old){ var w2 = document.createElement("div"); w2.innerHTML = foPlanHTML(); old.parentNode.replaceChild(w2.firstChild, old); } });
+    }catch(e){}
+    return v;
+  };
+  try{ if(typeof SEC_RENDER === "object" && SEC_RENDER) SEC_RENDER.meet = foMtRender; }catch(e){}
+  document.addEventListener("click", function(e){
+    var b = e.target.closest && e.target.closest("[data-plan-send]"); if(!b) return;
+    e.preventDefault(); e.stopPropagation();
+    var what = b.getAttribute("data-plan-send");
+    if(b.dataset.armed !== "1"){ b.dataset.armed = "1"; b.textContent = "Точно отправить в группу? Нажмите ещё раз"; setTimeout(function(){ b.dataset.armed = ""; try{ FO_PLAN = null; foMtRender(); }catch(x){} }, 6000); return; }
+    b.disabled = true; b.textContent = "Отправляю…";
+    api("/refs/plan/send", {method: "POST", body: {what: what}}).then(function(r){
+      try{ toast(r && r.ok ? ("Отправлено в группу «" + (r.chat || "") + "»: сообщений " + r.sent) : ("Не ушло: " + ((r && (r.why || (r.errors || []).join("; "))) || "ошибка"))); }catch(x){}
+      FO_PLAN = null; try{ foMtRender(); }catch(x){}
+    }).catch(function(err){ try{ toast("Не ушло: " + (err && err.message || "сервер не ответил")); }catch(x){} b.disabled = false; });
+  }, true);
+  document.addEventListener("change", function(e){
+    var el = e.target; if(!el || !el.matches || !el.matches("[data-plan-k]")) return;
+    var k = el.getAttribute("data-plan-k"), body = {};
+    if(k === "off") body.off = !!el.checked; else { if(!/^\d{2}:\d{2}$/.test(el.value.trim())){ try{ toast("Время в виде ЧЧ:ММ"); }catch(x){} return; } body[k] = el.value.trim(); }
+    api("/refs/plan/settings", {method: "POST", body: body}).then(function(){ try{ toast("Сохранено на сервере"); }catch(x){} FO_PLAN = null; })
+      .catch(function(err){ try{ toast("Не сохранилось: " + (err && err.message || "")); }catch(x){} });
+  });
 })();
 
 })();
