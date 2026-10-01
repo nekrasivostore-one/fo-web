@@ -677,18 +677,20 @@ async def fo_card_save(body: FoCardIn, p: Principal = Depends(current)):
             _bad0 = [str(k) for k in data.keys() if not str(k).startswith("fn_")]
             if _bad0:
                 raise HTTPException(403, "С галочкой «Может заполнять функции кабинета» правятся только функции кабинета — не сохранено: " + ", ".join(_bad0))
-        # 259: кому деньги закрыты — суммы и даты платежей не принимаем (та же проверка, что на отдачу, v71)
-        if kind in ("client", "cab") and _lvl > 2:
-            _lims = await _fo_money_lims(c, p, await _fo_my_emp(c, p))
+        # 259/262 (Виталий 01.10): «проджект не может менять суммы проектов и суммы зп — может либо видеть, либо
+        # не видеть по желанию собственника». Суммы и даты платежей клиентов и кабинетов, оклады, дни выплат,
+        # премии и штрафы — принимаем только от собственника и директора, что бы ни было видно.
+        if _lvl > 2:
             _bad = []
             for _k in data.keys():
                 _kl = str(_k).lower()
-                if "money" in _lims and (_k in _FO_PRIV_MONEY or _kl.startswith("pay")):
+                if kind in ("client", "cab") and (_k in _FO_PRIV_MONEY or _kl.startswith("pay")):
                     _bad.append(str(_k))
-                elif "pay" in _lims and _k in _FO_PRIV_SUM:
+                elif kind == "employee" and _FO_PRIV_PAY.search(str(_k)):
                     _bad.append(str(_k))
             if _bad:
-                raise HTTPException(403, "Суммы и даты платежей клиентов вам закрыты — не сохранено: " + ", ".join(_bad))
+                raise HTTPException(403, ("Оклады, дни выплат, премии и штрафы" if kind == "employee" else "Суммы и даты платежей клиентов") +
+                                    " меняют собственник и директор — не сохранено: " + ", ".join(_bad))
         await c.execute(
             "INSERT INTO fo_card (kind, ref_id, org_id, data) VALUES ($1,$2,$3,$4::jsonb) "
             "ON CONFLICT (kind, ref_id) DO UPDATE "
@@ -2626,6 +2628,7 @@ _FO_ST_KEYS = {
     "tpl":      ("org", "map",  4, 9, 0),
     "log":      ("org", "list", 9, 4, 1000),
     "svc":      ("org", "map",  9, 9, 0),      # 245: часы в сервисе, сотрудник → часы (свои — каждый, только вверх)
+    "rkDone":   ("org", "map",  9, 9, 0),      # 263: «Работа с РК выполнена»: сотрудник|проект|дата → отметка (ниже РМ — свои)
 }
 _FO_ST_FRONT = {"access", "leads", "placed", "drafts", "log"}   # новые записи — в начало списка
 
@@ -2704,6 +2707,13 @@ async def fo_state_put(key: str, body: FoStIn, p: Principal = Depends(current)):
             me = await c.fetchval("SELECT id FROM employee WHERE user_id=$1 AND org_id=$2::uuid LIMIT 1", uid, str(p.org_id))
             body.data, body.delete = None, None
             body.set = {k2: v2 for k2, v2 in (body.set or {}).items() if str(k2) == str(me) and isinstance(v2, (int, float))}
+        if key == "rkDone" and lvl > 4:
+            # 263: отметки РК — ниже РМ только свои строки (ключ начинается со своего id сотрудника)
+            me = await c.fetchval("SELECT id FROM employee WHERE user_id=$1 AND org_id=$2::uuid LIMIT 1", uid, str(p.org_id))
+            _pre = str(me) + "|"
+            body.data = None
+            body.set = {k2: v2 for k2, v2 in (body.set or {}).items() if str(k2).startswith(_pre)}
+            body.delete = [k2 for k2 in (body.delete or []) if str(k2).startswith(_pre)]
         async with c.transaction():
             await c.execute("INSERT INTO fo_state (org_id, scope, key, data) VALUES ($1::uuid, $2, $3, 'null'::jsonb) "
                             "ON CONFLICT (org_id, scope, key) DO NOTHING", org, scope, key)
