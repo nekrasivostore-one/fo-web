@@ -4478,6 +4478,27 @@ html[data-view="fin"] .gl-t::after{ content:""; position:absolute; left:0; right
 .gl.tall > .gl-t .gpick{ flex:0 0 auto }
 html, body{ overflow-x:hidden }
 @media (max-width:980px){ .gl.tall > .gl-t .gscale{ margin-left:0 } }
+/* add123 (264): проверка прав + плашка привязки */
+.fo-pbanner{ margin:10px 16px 0; padding:10px 14px; border-radius:12px; background:rgba(219,74,95,.10); border:1px solid rgba(219,74,95,.35); color:var(--ink); font-size:13px; line-height:1.45 }
+.fo-paud .fo-sub{ font-size:12px; color:var(--ink-3); margin-left:10px }
+.fo-paud-issues{ display:flex; flex-direction:column; gap:6px; margin:8px 0 12px }
+.fo-paud-issue{ padding:8px 12px; border-radius:10px; background:rgba(219,74,95,.10); border:1px solid rgba(219,74,95,.35); font-size:13px; line-height:1.4 }
+.fo-paud-issue.dup_employee, .fo-paud-issue.err{ background:rgba(240,160,40,.12); border-color:rgba(240,160,40,.4) }
+.fo-paud-ok{ padding:8px 12px; border-radius:10px; background:rgba(0,179,154,.10); border:1px solid rgba(0,179,154,.35); font-size:13px; margin:8px 0 12px }
+.fo-paud-wrap{ overflow-x:auto; -webkit-overflow-scrolling:touch }
+.fo-paud-t{ border-collapse:collapse; width:100%; font-size:12px }
+.fo-paud-t th, .fo-paud-t td{ padding:6px 8px; border-bottom:1px solid var(--neu-b,#e6e8ef); text-align:left; vertical-align:top; white-space:nowrap }
+.fo-paud-t th.c{ writing-mode:vertical-rl; transform:rotate(180deg); font-weight:500; color:var(--ink-3); white-space:nowrap; max-height:120px; padding:4px 2px }
+.fo-paud-t td.c{ text-align:center; font-weight:700 }
+.fo-paud-t td.c.y{ color:#00B39A } .fo-paud-t td.c.n{ color:var(--ink-3) }
+.fo-paud-t td i{ display:block; font-style:normal; font-size:11px; color:var(--ink-3) }
+.fo-paud-t td.fl{ white-space:normal; max-width:220px; font-size:11px; color:var(--ink-2) }
+.fo-paud-t tr.bad td{ background:rgba(219,74,95,.07) }
+.fo-paud-noacc{ margin-top:10px; font-size:12px; color:var(--ink-3) }
+.fo-paud-self{ margin-top:10px; font-size:12px; line-height:1.6 }
+.fo-paud-self span{ display:inline-block; margin:2px 8px 2px 0; padding:2px 8px; border-radius:8px; background:rgba(0,179,154,.10) }
+.fo-paud-self span.bad{ background:rgba(219,74,95,.12) }
+html.dark .fo-paud-t th, html.dark .fo-paud-t td{ border-bottom-color:rgba(255,255,255,.08) }
 </style>
 </head>
 <body>
@@ -30701,6 +30722,277 @@ function foRkCanTick(t){
      .catch(function(err){ try{ toast("Не сохранилось: " + (err && err.message || "сервер не ответил")); }catch(x){} });
     try{ foRkInject(); }catch(x){}
     try{ render(); }catch(x){}
+  }, true);
+})();
+/* ===== add123 (264, Виталий 01.10): архитектура прав — экран берёт права с сервера =====
+   «Одна роль — одно поведение у всех аккаунтов; масштабируемо на новые агентства». Было: ~30 проверок прав
+   на экране с разными порогами, «кто я» — по привязке аккаунта к карточке, без привязки «я» = первый в списке
+   (случай Игоря: пустая «Команда агентства» при той же роли, что у Виктории). Теперь:
+   1. Сервер (v78) считает права одним расчётом по матрице и отдаёт их в /refs/me/account (поле perms) —
+      FO_PERMS. Все старые проверки (isMgr, seesMoney, foCanAdd, foBelowPm, canGrant, canEditFns, foCanDrop,
+      foMoneyRO, foMoneyFormOff, isFin, foMtCan, foAiIsTop, foCanSeeCards…) — переходники к FO_PERMS.can.
+   2. Роль экрана = роль с сервера (FO_PERMS.role), не из localStorage; неизвестная роль = ассистент, не собственник.
+   3. «Кто я» = FO_PERMS.employee_id (сервер привязывает по user_id → e-mail карточки → имени и сохраняет);
+      если привязки нет — плашка с объяснением, а не чужие данные.
+   4. Рельса и setView — по FO_PERMS.views: раздел не для роли — не показывается и не открывается ссылкой.
+   5. «Доступы → Проверка прав»: таблица аккаунтов агентства — роль, уровень, привязка, флаги, права; расхождения
+      внутри роли подсвечены с причиной; «Самопроверка» — прогон фильтров сервера по всем уровням.         */
+var FO_PERMS = null;
+function foPermsLive(){ try{ return !!(FO_PERMS && FO_PERMS.can && typeof isLive === "function" && isLive()); }catch(e){ return false; } }
+function foCan(key){
+  if(!foPermsLive()) return null;                       /* null — сервер ещё не ответил: решает старая логика */
+  var v = FO_PERMS.can[key];
+  return (v === undefined) ? null : !!v;
+}
+function foView(v){
+  if(!foPermsLive() || !FO_PERMS.views) return null;
+  var x = FO_PERMS.views[v];
+  return (x === undefined) ? null : !!x;
+}
+function foPermsAdopt(p){
+  if(!p || !p.can) return;
+  var was = FO_PERMS ? JSON.stringify(FO_PERMS.can) + FO_PERMS.role + String(FO_PERMS.employee_id) : "";
+  FO_PERMS = p;
+  try{
+    if(p.role && typeof role !== "undefined" && role !== p.role && typeof isLive === "function" && isLive()){
+      role = p.role;                                     /* 2: роль экрана — с сервера */
+      try{ if(typeof applyRoleRail === "function") applyRoleRail(); }catch(e){}
+    }
+    if(p.employee_id && typeof meId !== "undefined" && String(meId) !== String(p.employee_id) && typeof person === "function" && person(p.employee_id)){
+      meId = p.employee_id;                              /* 3: «я» — с сервера */
+    }
+  }catch(e){}
+  try{ foPermsBanner(); }catch(e){}
+  var now = JSON.stringify(p.can) + p.role + String(p.employee_id);
+  if(was !== now){ try{ foPermsRail(); }catch(e){} try{ if(typeof foRepaint === "function") foRepaint(); }catch(e){} }
+}
+function foPermsLoad(){
+  if(typeof api !== "function") return Promise.resolve(null);
+  return api("/refs/me/perms").then(function(p){ foPermsAdopt(p); return p; }).catch(function(){ return null; });
+}
+(function(){
+  /* права приезжают вместе с /refs/me/account (v78) — подхватываем из любого места, где он читается */
+  if(typeof foMeLoad === "function"){
+    var _ml = foMeLoad;
+    foMeLoad = function(){
+      return _ml.apply(this, arguments).then(function(a){
+        if(a && a.perms) foPermsAdopt(a.perms); else if(a && !FO_PERMS) foPermsLoad();
+        return a;
+      });
+    };
+  }
+  /* и просто вовремя: старт, после входа, раз в 2 минуты и при возврате на вкладку */
+  function tick(){ if(typeof isLive === "function" && isLive() && !document.hidden) foPermsLoad(); }
+  [1200, 5000, 15000].forEach(function(ms){ setTimeout(tick, ms); });
+  setInterval(tick, 120000);
+  document.addEventListener("visibilitychange", function(){ if(!document.hidden) tick(); });
+})();
+
+/* ── 1. переходники: старые проверки → матрица ── */
+(function(){
+  function wrap(name, fn){
+    var old = window[name];
+    if(typeof old !== "function") return;
+    window[name] = function(){ var r = fn.apply(this, arguments); return (r === null || r === undefined) ? old.apply(this, arguments) : r; };
+  }
+  wrap("seesMoney",     function(){ return foCan("money_sum_read"); });
+  wrap("isFin",         function(){ return foCan("fin_screen"); });
+  wrap("foCanAdd",      function(){ return foCan("client_cards_write"); });
+  wrap("foCanSeeCards", function(){ return foCan("staff_cards_read"); });
+  wrap("canGrant",      function(){ return foCan("access_grant"); });
+  wrap("foCanGrant",    function(){ return foCan("access_grant"); });
+  wrap("canEditFns",    function(){ return foCan("fns_dir_write"); });
+  wrap("foCanDrop",     function(){ return foCan("tasks_remove"); });
+  wrap("foMtCan",       function(){ return foCan("meet_manage"); });
+  wrap("foAiIsTop",     function(){ return foCan("tasks_approve"); });
+  wrap("foMoneyOff",    function(){ var c = foCan("money_client_read"); return c === null ? null : !c; });
+  wrap("foMoneyRO",     function(){ var c = foCan("money_write"); return c === null ? null : !c; });
+  wrap("foLim",         function(k){ if(!foPermsLive()) return null; if(FO_PERMS.level <= 2) return false; return !!(FO_PERMS.lims && FO_PERMS.lims[k]); });
+  wrap("foMoneyFormOff", function(){
+    if(!foPermsLive()) return null;
+    if(!FO_PERMS.can.money_client_read) return "all";
+    if(!FO_PERMS.can.money_sum_read) return "sum";
+    return "";
+  });
+  /* ниже РМ = нет права править карточки клиентов; внутри блока функций кабинета — право «заполнять функции» */
+  if(typeof foBelowPm === "function"){
+    var _bp = foBelowPm;
+    foBelowPm = function(){
+      if(!foPermsLive()) return _bp.apply(this, arguments);
+      if(typeof FO_FNS_NOW !== "undefined" && FO_FNS_NOW > 0 && FO_PERMS.can.cab_fns_write) return false;
+      return !FO_PERMS.can.client_cards_write;
+    };
+    try{ window.foBelowPm = foBelowPm; }catch(e){}
+  }
+  if(typeof foCanFns === "function"){ foCanFns = function(){ var c = foCan("cab_fns_write"); return c === null ? !foBelowPm() : c; }; }
+  /* неизвестная роль — ассистент, не собственник */
+  if(typeof srvRole === "function"){
+    var _sr = srvRole;
+    srvRole = function(code, level){
+      var r = _sr.apply(this, arguments);
+      if(r === "owner"){
+        var c = String(code == null ? "" : code).toLowerCase(), n = parseInt(level, 10);
+        if(c !== "owner" && !(n === 1)) return "asst";
+      }
+      return r;
+    };
+  }
+  /* чужие задачи и загрузка — по праву (галочка «не видит чужую загрузку», клиент) */
+  if(typeof visiblePeople === "function"){
+    var _vp = visiblePeople;
+    visiblePeople = function(){
+      if(foCan("tasks_others_read") === false) return (S.people || []).filter(function(p){ return String(p.id) === String(meId); });
+      return _vp.apply(this, arguments);
+    };
+  }
+  if(typeof visibleTasks === "function"){
+    var _vt = visibleTasks;
+    visibleTasks = function(){
+      var l = _vt.apply(this, arguments);
+      if(foCan("tasks_others_read") === false) l = l.filter(function(t){ return String(t.person) === String(meId); });
+      return l;
+    };
+  }
+  /* рейтинг: без права «вся команда» — только своя строка */
+  if(typeof rateRows === "function"){
+    var _rr = rateRows;
+    rateRows = function(){
+      var rows = _rr.apply(this, arguments);
+      if(foCan("rating_all") === false) rows = (rows || []).filter(function(r){ return r && r.m && String(r.m.id) === String(meId); });
+      return rows;
+    };
+  }
+  /* согласования: право «согласовывать» = видеть все ожидающие */
+  if(typeof foMyReviews === "function"){
+    var _mr = foMyReviews;
+    foMyReviews = function(){
+      var c = foCan("tasks_approve");
+      if(c === null) return _mr.apply(this, arguments);
+      return (FO_REVIEWS || []).filter(function(r){ return r.mine || c; });
+    };
+  }
+  /* ставить задачи другим — только с правом */
+  if(typeof B !== "undefined" && B && typeof B.newtask === "function"){
+    var _nt = B.newtask;
+    B.newtask = function(el){
+      var v = _nt.apply(this, arguments);
+      try{
+        if(foCan("tasks_set_others") === false){
+          var sel = el.querySelector("#ntPerson");
+          if(sel){ Array.prototype.forEach.call(sel.options, function(o){ if(o.value && String(o.value) !== String(meId)) o.remove(); }); sel.value = meId || ""; }
+        }
+      }catch(e){}
+      return v;
+    };
+  }
+})();
+
+/* ── 4. рельса и переходы — по views с сервера ── */
+function foPermsRail(){
+  if(!foPermsLive() || !FO_PERMS.views) return;
+  var V = FO_PERMS.views;
+  document.querySelectorAll(".rail .ri[data-v]").forEach(function(b){
+    var v = b.getAttribute("data-v");
+    if(V[v] === false){ b.style.display = "none"; b.hidden = true; }
+  });
+  var sb = document.getElementById("setupBtn"); if(sb && V.setup === false){ sb.style.display = "none"; sb.hidden = true; }
+  var mi = document.getElementById("moneyIc"); if(mi && V.fin === false){ mi.style.display = "none"; mi.hidden = true; }
+}
+(function(){
+  if(typeof applyRoleRail === "function"){
+    var _ar = applyRoleRail;
+    applyRoleRail = function(){ var v = _ar.apply(this, arguments); try{ foPermsRail(); }catch(e){} return v; };
+  }
+  if(typeof setView === "function"){
+    var _sv = setView;
+    setView = function(v, keepNav){
+      try{
+        if(v !== "work" && foView(v) === false){
+          try{ toast("Этот раздел не для вашей роли"); }catch(e){}
+          return _sv.call(this, "work");
+        }
+      }catch(e){}
+      return _sv.apply(this, arguments);
+    };
+  }
+})();
+
+/* ── 3. плашка «аккаунт не привязан к карточке» ── */
+function foPermsBanner(){
+  var old = document.getElementById("foPermsBanner");
+  if(!foPermsLive() || FO_PERMS.linked || FO_PERMS.level <= 2){ if(old) old.remove(); return; }
+  if(old) return;
+  var d = document.createElement("div"); d.id = "foPermsBanner"; d.className = "fo-pbanner";
+  d.innerHTML = '<b>Ваш аккаунт не привязан к карточке сотрудника</b> — поэтому не видно своих задач и команды. '+
+    'Сервис ищет карточку по рабочей почте и имени: попросите собственника вписать вашу почту в карточку сотрудника («Данные сотрудника → Рабочая почта») — привяжется само при следующем входе.';
+  var bar = document.querySelector("header.bar");
+  if(bar && bar.parentNode) bar.parentNode.insertBefore(d, bar.nextSibling); else document.body.insertBefore(d, document.body.firstChild);
+}
+
+/* ── 5. «Доступы → Проверка прав» ── */
+var FO_PAUD = null;
+function foPaudHTML(){
+  if(!FO_PAUD) return '<div class="gl fo-paud"><div class="gl-t"><h2>Проверка прав</h2></div><div class="empty">Загружаю с сервера…</div></div>';
+  var a = FO_PAUD, cols = [["money_client_read", "деньги клиентов"], ["money_staff_read", "чужие оклады"], ["money_write", "менять деньги"],
+    ["client_cards_read", "карточки клиентов"], ["client_cards_write", "править клиентов"], ["staff_cards_read", "карточки коллег"],
+    ["cab_fns_write", "функции кабинета"], ["fns_dir_write", "справочник функций"], ["tasks_others_read", "чужие задачи"],
+    ["tasks_set_others", "ставить другим"], ["tasks_remove", "снимать задачи"], ["tasks_approve", "согласовывать"],
+    ["access_grant", "выдавать доступы"], ["fin_screen", "экран «Деньги»"], ["rating_all", "рейтинг команды"], ["meet_manage", "планёрки"]];
+  var issues = (a.issues || []).map(function(i){ return '<div class="fo-paud-issue '+esc(i.kind)+'">'+esc(i.text)+'</div>'; }).join("");
+  var rows = (a.accounts || []).map(function(r){
+    var bad = (a.issues || []).some(function(i){ return (i.kind === "unlinked" && i.email === r.email) || (i.kind === "diverge" && (i.emails || []).indexOf(r.email) >= 0); });
+    var fl = []; Object.keys(r.flags || {}).forEach(function(k){ if(k !== "grade") fl.push(k + "=" + r.flags[k]); });
+    Object.keys(r.lims || {}).forEach(function(k){ fl.push("−" + k); }); Object.keys(r.exts || {}).forEach(function(k){ fl.push("+" + k); });
+    return '<tr class="'+(bad ? 'bad' : '')+'"><td><b>'+esc(r.name || "")+'</b><i>'+esc(r.email || "")+'</i></td>'+
+      '<td>'+esc(r.role_title || r.role_code)+'<i>уровень '+r.level+'</i></td>'+
+      '<td>'+(r.employee ? esc(r.employee.name)+'<i>'+({user_id: "привязан", email: "по почте", mail: "по почте карточки", name: "по имени"}[r.link_how] || r.link_how || "")+'</i>' : '<em>нет привязки</em>')+'</td>'+
+      '<td class="fl">'+(fl.length ? esc(fl.join(" · ")) : '—')+'</td>'+
+      cols.map(function(c){ var v = r.can && r.can[c[0]]; return '<td class="c '+(v ? 'y' : 'n')+'" title="'+esc(c[1])+'">'+(v ? '✓' : '·')+'</td>'; }).join("")+'</tr>';
+  }).join("");
+  var noacc = (a.employees_without_account || []);
+  return '<div class="gl fo-paud"><div class="gl-t"><h2>Проверка прав</h2><span class="fo-sub">одна роль — одинаковые права у всех аккаунтов; красное — расхождение</span>'+
+    '<div class="grow"></div><button class="bt sm" data-paud-self>Самопроверка сервера</button><button class="bt sm" data-paud-reload>Обновить</button></div>'+
+    (issues ? '<div class="fo-paud-issues">'+issues+'</div>' : '<div class="fo-paud-ok">Расхождений внутри ролей нет, все аккаунты привязаны к карточкам.</div>')+
+    '<div class="fo-paud-wrap"><table class="fo-paud-t"><thead><tr><th>Аккаунт</th><th>Роль</th><th>Карточка</th><th>Поправки</th>'+
+    cols.map(function(c){ return '<th class="c" title="'+esc(c[1])+'">'+esc(c[1])+'</th>'; }).join("")+'</tr></thead><tbody>'+rows+'</tbody></table></div>'+
+    (noacc.length ? '<div class="fo-paud-noacc">Карточки без аккаунта (человек ещё не входил): '+noacc.map(function(e){ return esc(e.name); }).join(", ")+'</div>' : '')+
+    '<div class="fo-paud-self" id="foPaudSelf"></div>'+
+    '<div class="fo-hint">Права считает сервер по матрице «роль → порог». Поправки: «−ключ» — галочка-ограничение роли, «+ключ» — дополнение, money=no / canFns=1 — флаги карточки. Новая роль или агентство — та же матрица.</div>'+
+  '</div>';
+}
+function foPaudLoad(){
+  return api("/refs/perms/audit").then(function(r){ FO_PAUD = r || null; }).catch(function(e){ FO_PAUD = {accounts: [], issues: [{kind: "err", text: "Сервер не ответил: " + (e && e.message || "")}]}; });
+}
+(function(){
+  if(typeof renderAcc !== "function") return;
+  var _ra = renderAcc;
+  renderAcc = function(){
+    var v = _ra.apply(this, arguments);
+    try{
+      if(typeof isLive === "function" && isLive() && (role === "owner" || role === "dir" || role === "admin")){
+        var host = document.getElementById("sect");
+        var w = document.createElement("div"); w.innerHTML = foPaudHTML();
+        host.insertBefore(w.firstChild, host.firstChild.nextSibling);
+        if(!FO_PAUD) foPaudLoad().then(function(){ var old = host.querySelector(".fo-paud"); if(old){ var w2 = document.createElement("div"); w2.innerHTML = foPaudHTML(); old.parentNode.replaceChild(w2.firstChild, old); } });
+      }
+    }catch(e){}
+    return v;
+  };
+  try{ if(typeof SEC_RENDER === "object" && SEC_RENDER) SEC_RENDER.acc = renderAcc; }catch(e){}
+  document.addEventListener("click", function(e){
+    var b;
+    if((b = e.target.closest && e.target.closest("[data-paud-reload]"))){ e.preventDefault(); FO_PAUD = null; foPaudLoad().then(function(){ try{ renderAcc(); }catch(x){} }); return; }
+    if((b = e.target.closest && e.target.closest("[data-paud-self]"))){
+      e.preventDefault(); b.disabled = true;
+      var box = document.getElementById("foPaudSelf"); if(box) box.textContent = "Проверяю…";
+      api("/refs/perms/selftest").then(function(r){
+        if(!box) return;
+        box.innerHTML = '<b>'+(r.ok ? 'Утечек нет ✓' : 'Есть утечки ✗')+'</b> ' + (r.levels || []).map(function(l){
+          return '<span class="'+(l.ok ? 'ok' : 'bad')+'">'+esc(l.role)+' ('+l.level+'): карточек '+l.cards_out+'/'+l.cards_in+', задачи — '+esc(l.tasks_scope)+
+            (l.money_leak.length ? ', деньги: '+esc(l.money_leak.join(",")) : '')+(l.contact_leak.length ? ', контакты: '+esc(l.contact_leak.join(",")) : '')+(l.pay_leak.length ? ', оклады: '+esc(l.pay_leak.join(",")) : '')+'</span>'; }).join("");
+        b.disabled = false;
+      }).catch(function(err){ if(box) box.textContent = "Не удалось: " + (err && err.message || ""); b.disabled = false; });
+    }
   }, true);
 })();
 
