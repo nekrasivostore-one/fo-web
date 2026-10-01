@@ -3130,6 +3130,415 @@ async def _fo_cards_scope(p, out):
         res.append(dict(cd, data=d))
     return res
 
+# ══ 266: ПЛАН РАБОТЫ В ГРУППУ TELEGRAM (Виталий 01.10) ═════════════════
+_FO_PLAN_DEF = {"morning": "09:00", "eve_cut": "17:40", "eve_send": "17:55"}
+_FO_PLAN_LOOP = {"task": None}
+_FO_DOW_RU = ["понедельник", "вторник", "среда", "четверг", "пятница", "суббота", "воскресенье"]
+_FO_DOW_SHORT = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"]
+
+
+def _fo_plan_date(d):
+    return "%02d.%02d.%d, %s" % (d.day, d.month, d.year, _FO_DOW_RU[d.weekday()])
+
+
+async def _fo_plan_cfg(c, org_id):
+    d = _fo_st_load(await c.fetchval("SELECT data FROM fo_card WHERE kind='org' AND ref_id=$1 AND org_id=$2",
+                                     "plan:" + str(org_id), org_id)) or {}
+    return d if isinstance(d, dict) else {}
+
+
+async def _fo_plan_cfg_set(c, org_id, patch):
+    await c.execute(
+        "INSERT INTO fo_card (kind, ref_id, org_id, data) VALUES ('org', $1, $2, $3::jsonb) "
+        "ON CONFLICT (kind, ref_id) DO UPDATE SET data = fo_card.data || EXCLUDED.data, updated_at = now() "
+        "WHERE fo_card.org_id = EXCLUDED.org_id",
+        "plan:" + str(org_id), org_id, _fo_json.dumps(patch, ensure_ascii=False, default=str))
+
+
+async def _fo_plan_chat(c, org_id):
+    """Чат планов: из настройки; иначе — группа агентства с «план» в названии (бота добавили — чат уже в списке)."""
+    cfg = await _fo_plan_cfg(c, org_id)
+    if cfg.get("chat_id"):
+        return str(cfg["chat_id"]), str(cfg.get("title") or "")
+    r = None
+    try:
+        r = await c.fetchrow("SELECT chat_id, title FROM chat WHERE org_id=$1 AND channel='telegram' AND is_active "
+                             "AND chat_id ~ '^-?[0-9]+$' AND title ILIKE '%план%' ORDER BY added_at DESC LIMIT 1", org_id)
+    except Exception:
+        r = None
+    if r:
+        await _fo_plan_cfg_set(c, org_id, {"chat_id": str(r["chat_id"]), "title": r["title"] or ""})
+        return str(r["chat_id"]), str(r["title"] or "")
+    return None, None
+
+
+async def _fo_plan_send(chat_id, text):
+    tok = _fo_env("TG_BOT_TOKEN")
+    if not tok or not chat_id or not text:
+        return {"ok": False, "description": "нет токена бота или чата"}
+    res = await _fo_aio.to_thread(_fo_tg_api_sync, "sendMessage",
+                                  {"chat_id": str(chat_id), "text": str(text)[:4000], "disable_web_page_preview": True}, tok, 20)
+    return res
+
+
+def _fo_plan_chunks(lines, limit=3800):
+    out, cur = [], ""
+    for ln in lines:
+        if len(cur) + len(ln) + 1 > limit and cur:
+            out.append(cur); cur = ""
+        cur += (ln + "\n")
+    if cur:
+        out.append(cur.rstrip("\n"))
+    return out
+
+
+async def _fo_plan_people(c, org_id):
+    try:
+        rows = await c.fetch("SELECT id, name FROM employee WHERE org_id=$1::uuid AND coalesce(is_active, true) ORDER BY name", str(org_id))
+    except Exception:
+        rows = await c.fetch("SELECT id, name FROM employee WHERE org_id=$1::uuid ORDER BY name", str(org_id))
+    return {str(r["id"]): (r["name"] or "") for r in rows}
+
+
+async def _fo_plan_clients(c, org_id):
+    out = {}
+    try:
+        for r in await c.fetch("SELECT id, name FROM client WHERE org_id=$1", org_id):
+            out[str(r["id"])] = r["name"] or ""
+    except Exception:
+        pass
+    return out
+
+
+async def _fo_plan_tasks(c, org_id, day):
+    """Задачи дня по людям: функции (task) + разовые (fo_task_once). → {emp: [{client, title, dl, done}]}"""
+    by = {}
+    rows = await c.fetch("SELECT * FROM task WHERE org_id=$1 AND plan_date=$2 AND status <> 'removed' ORDER BY assignee_id, client_id, title",
+                         org_id, day)
+    fnn = {}
+    for r in rows:
+        e = str(r["assignee_id"] or "")
+        if not e:
+            continue
+        d = dict(r)
+        title = d.get("title") or ""
+        fid = d.get("fn_id")
+        if fid:
+            if str(fid) not in fnn:
+                fnn[str(fid)] = await c.fetchval("SELECT name FROM fn WHERE id=$1", fid) or ""
+            if fnn[str(fid)]:
+                title = fnn[str(fid)]
+        dl = None
+        for k in ("deadline", "due", "due_at", "due_date", "deadline_at"):
+            if d.get(k):
+                dl = d[k]; break
+        if str(d.get("kind") or "") in ("fix", "deadline", "urgent", "urg") and not dl:
+            dl = d.get("kind")
+        by.setdefault(e, []).append({"client": str(d.get("client_id") or ""), "title": title, "dl": dl,
+                                     "done": str(d.get("status") or "") == "done", "done_at": d.get("done_at"), "src": "task"})
+    try:
+        once = await c.fetch("SELECT * FROM fo_task_once WHERE org_id=$1 AND day=$2 AND removed_at IS NULL", org_id, day)
+    except Exception:
+        once = []
+    for r in once:
+        e = str(r["employee_id"] or "")
+        if not e:
+            continue
+        d = dict(r)
+        dl = "дедлайн" if str(d.get("kind") or "") == "fix" else ("срочно" if str(d.get("kind") or "") == "urg" else None)
+        by.setdefault(e, []).append({"client": str(d.get("client_id") or ""), "title": d.get("title") or "", "dl": dl,
+                                     "done": bool(d.get("done_at")), "done_at": d.get("done_at"), "src": "once"})
+    return by
+
+
+async def _fo_plan_arts(c, org_id, day):
+    """Артикулы в работу на день по людям: {emp: {cabinet_id: {"client": id, "skus": [...]}}}"""
+    by = {}
+    try:
+        rows = await c.fetch(
+            """SELECT ao.employee_id, a.cabinet_id, a.wb_sku, cb.client_id FROM article_owner ao
+                 JOIN article a ON a.id = ao.article_id JOIN cabinet cb ON cb.id = a.cabinet_id JOIN client cl ON cl.id = cb.client_id
+                WHERE cl.org_id=$1 AND a.is_active AND ao.weekday=$2 ORDER BY ao.employee_id, a.cabinet_id, a.wb_sku""",
+            org_id, day.weekday())
+    except Exception:
+        rows = []
+    for r in rows:
+        e = str(r["employee_id"] or "")
+        if not e:
+            continue
+        cab = by.setdefault(e, {}).setdefault(str(r["cabinet_id"]), {"client": str(r["client_id"] or ""), "skus": []})
+        cab["skus"].append(str(r["wb_sku"] or ""))
+    return by
+
+
+def _fo_plan_dl(dl):
+    if not dl:
+        return ""
+    if hasattr(dl, "strftime"):
+        try:
+            return " · дедлайн " + dl.strftime("%d.%m")
+        except Exception:
+            return ""
+    x = str(dl)
+    return " · " + ({"fix": "дедлайн", "deadline": "дедлайн", "urgent": "срочно", "urg": "срочно"}.get(x, x))
+
+
+async def _fo_plan_morning_msgs(c, org_id, day):
+    people, clients = await _fo_plan_people(c, org_id), await _fo_plan_clients(c, org_id)
+    tasks, arts = await _fo_plan_tasks(c, org_id, day), await _fo_plan_arts(c, org_id, day)
+    msgs = []
+    head = _fo_plan_date(day)
+    for e in sorted(set(list(tasks) + list(arts)), key=lambda x: people.get(x, "я")):
+        name = people.get(e)
+        if not name:
+            continue
+        tl = tasks.get(e) or []
+        if tl:
+            lines = [head, name]
+            bycl = {}
+            for t in tl:
+                bycl.setdefault(t["client"], []).append(t)
+            for cid in sorted(bycl, key=lambda k: clients.get(k, "я")):
+                lines.append(clients.get(cid) or "Без кабинета")
+                for t in bycl[cid]:
+                    lines.append("— " + (t["title"] or "задача") + _fo_plan_dl(t["dl"]))
+            msgs += _fo_plan_chunks(lines)
+        al = arts.get(e) or {}
+        if al:
+            lines = [head, name + " — артикулы в работу"]
+            for cab, x in sorted(al.items(), key=lambda kv: clients.get(kv[1]["client"], "я")):
+                sk = x["skus"]
+                lines.append(clients.get(x["client"]) or "Кабинет")
+                lines.append(", ".join(sk[:80]) + (" … и ещё %d" % (len(sk) - 80) if len(sk) > 80 else "") + " (%d)" % len(sk))
+            msgs += _fo_plan_chunks(lines)
+    if not msgs:
+        msgs = [head + "\nНа сегодня задач нет."]
+    return msgs
+
+
+async def _fo_plan_evening_msgs(c, org_id, day, cut_hm):
+    people, clients = await _fo_plan_people(c, org_id), await _fo_plan_clients(c, org_id)
+    tasks, arts = await _fo_plan_tasks(c, org_id, day), await _fo_plan_arts(c, org_id, day)
+    rk = {}
+    try:
+        rk = _fo_st_load(await c.fetchval("SELECT data FROM fo_state WHERE org_id=$1::uuid AND scope='org' AND key='rkDone'", str(org_id))) or {}
+    except Exception:
+        rk = {}
+    hh, mm = [int(x) for x in str(cut_hm or "17:40").split(":")[:2]]
+    cut = _fo_dt.datetime.combine(day, _fo_dt.time(hh, mm)).replace(tzinfo=_FO_MSK)
+    msgs = []
+    head = _fo_plan_date(day) + " — итоги"
+    tot_ok = tot_all = 0
+    for e in sorted(set(list(tasks) + list(arts)), key=lambda x: people.get(x, "я")):
+        name = people.get(e)
+        if not name:
+            continue
+        tl = tasks.get(e) or []
+        lines = [head, name]
+        ok = 0
+        bycl = {}
+        for t in tl:
+            bycl.setdefault(t["client"], []).append(t)
+        for cid in sorted(bycl, key=lambda k: clients.get(k, "я")):
+            lines.append(clients.get(cid) or "Без кабинета")
+            for t in bycl[cid]:
+                done = bool(t["done"])
+                da = t.get("done_at")
+                if done and da is not None:
+                    try:
+                        if da.tzinfo is None:
+                            da = da.replace(tzinfo=_fo_dt.timezone.utc)
+                        done = da <= cut
+                    except Exception:
+                        pass
+                ok += 1 if done else 0
+                lines.append(("✅ " if done else "❌ ") + (t["title"] or "задача") + _fo_plan_dl(t["dl"]))
+        al = arts.get(e) or {}
+        if al:
+            lines.append("Артикулы (работа с РК):")
+            for cab, x in sorted(al.items(), key=lambda kv: clients.get(kv[1]["client"], "я")):
+                k1, k2 = "%s|%s|%s" % (e, cab, day.isoformat()), "%s|%s|%s" % (e, x["client"], day.isoformat())
+                done = bool(rk.get(k1) or rk.get(k2)) if isinstance(rk, dict) else False
+                lines.append(("✅ " if done else "❌ ") + (clients.get(x["client"]) or "Кабинет") + " · %d арт." % len(x["skus"]))
+        if tl:
+            lines.append("Выполнено %d из %d" % (ok, len(tl)))
+            tot_ok += ok; tot_all += len(tl)
+        msgs += _fo_plan_chunks(lines)
+    if not msgs:
+        msgs = [head + "\nЗадач на день не было."]
+    elif tot_all:
+        msgs.append("Итого по команде: %d из %d (%d%%)" % (tot_ok, tot_all, round(tot_ok * 100 / tot_all)))
+    return msgs
+
+
+async def _fo_plan_week_msgs(c, org_id, mon):
+    people, clients = await _fo_plan_people(c, org_id), await _fo_plan_clients(c, org_id)
+    items = []
+    try:
+        await _fo_mt_migrate(c, org_id)
+        for r in await c.fetch("SELECT * FROM fo_meet WHERE org_id=$1::uuid", str(org_id)):
+            for x in await _fo_mt_week(c, org_id, r["client_id"], mon, r):
+                items.append((x["day"], str(x["time"]), str(r["client_id"]), str(x.get("host") or ""), int(x.get("minutes") or 60)))
+    except Exception as _e:
+        items = []
+    items.sort(key=lambda t: (t[0], t[1]))
+    sun = mon + _fo_dt.timedelta(days=6)
+    lines = ["План планёрок на неделю %02d.%02d–%02d.%02d" % (mon.day, mon.month, sun.day, sun.month)]
+    if not items:
+        lines.append("Согласованных планёрок на неделю пока нет.")
+    last = None
+    for d, tm, cid, host, mins in items:
+        if d != last:
+            lines.append("")
+            lines.append("%s %02d.%02d" % (_FO_DOW_SHORT[d.weekday()], d.day, d.month))
+            last = d
+        lines.append("%s — %s%s" % (tm, clients.get(cid) or "кабинет", (" (" + people[host] + ")") if host in people else ""))
+    return _fo_plan_chunks(lines)
+
+
+async def _fo_plan_run(c, org_id, what, day=None, force=False):
+    """Отправка в чат планов. what: morning | evening | week. Возвращает {sent, chat, errors}."""
+    chat, title = await _fo_plan_chat(c, org_id)
+    if not chat:
+        return {"ok": False, "sent": 0, "chat": None, "why": "в агентстве нет группы с «план» в названии, куда добавлен бот"}
+    cfg = await _fo_plan_cfg(c, org_id)
+    day = day or _fo_mt_now().date()
+    if what == "morning":
+        msgs = await _fo_plan_morning_msgs(c, org_id, day)
+    elif what == "evening":
+        msgs = await _fo_plan_evening_msgs(c, org_id, day, cfg.get("eve_cut") or _FO_PLAN_DEF["eve_cut"])
+    else:
+        msgs = await _fo_plan_week_msgs(c, org_id, _fo_mt_mon(day))
+    sent, errs = 0, []
+    for m in msgs:
+        r = await _fo_plan_send(chat, m)
+        if r.get("ok"):
+            sent += 1
+        else:
+            errs.append(str(r.get("description") or r)[:160])
+        await _fo_aio.sleep(0.4)
+    return {"ok": not errs, "sent": sent, "chat": title or chat, "errors": errs, "messages": len(msgs)}
+
+
+async def _fo_plan_tick():
+    now = _fo_mt_now()
+    today = now.date()
+    hm = now.strftime("%H:%M")
+    async with pool().acquire() as c:
+        orgs = [r["id"] for r in await c.fetch("SELECT id FROM org")]
+    for org in orgs:
+        try:
+            async with pool().acquire() as c:
+                chat, _t = await _fo_plan_chat(c, org)
+                if not chat:
+                    continue
+                cfg = await _fo_plan_cfg(c, org)
+                if cfg.get("off"):
+                    continue
+                if today.weekday() < 5:
+                    if hm >= (cfg.get("morning") or _FO_PLAN_DEF["morning"]) and cfg.get("last_morning") != today.isoformat():
+                        await _fo_plan_cfg_set(c, org, {"last_morning": today.isoformat()})
+                        await _fo_plan_run(c, org, "morning", today)
+                    if hm >= (cfg.get("eve_send") or _FO_PLAN_DEF["eve_send"]) and cfg.get("last_evening") != today.isoformat():
+                        await _fo_plan_cfg_set(c, org, {"last_evening": today.isoformat()})
+                        await _fo_plan_run(c, org, "evening", today)
+                mon = _fo_mt_mon(today)
+                if today.weekday() == 0 and hm >= (cfg.get("morning") or _FO_PLAN_DEF["morning"]) and cfg.get("last_week") != mon.isoformat():
+                    await _fo_plan_cfg_set(c, org, {"last_week": mon.isoformat()})
+                    await _fo_plan_run(c, org, "week", today)
+        except Exception as e:
+            try:
+                print("fo_plan:", str(e)[:200])
+            except Exception:
+                pass
+
+
+async def _fo_plan_loop():
+    await _fo_aio.sleep(50)
+    while True:
+        try:
+            await _fo_plan_tick()
+        except Exception:
+            pass
+        await _fo_aio.sleep(60)
+
+
+@router.on_event("startup")
+async def _fo_plan_boot():
+    t = _FO_PLAN_LOOP.get("task")
+    if t is None or t.done():
+        try:
+            _FO_PLAN_LOOP["task"] = _fo_aio.get_running_loop().create_task(_fo_plan_loop())
+        except Exception:
+            pass
+
+
+class FoPlanSendIn(_FoBM):
+    what: str = "morning"          # morning | evening | week
+    day: str | None = None
+
+
+class FoPlanSetIn(_FoBM):
+    morning: str | None = None
+    eve_cut: str | None = None
+    eve_send: str | None = None
+    off: bool | None = None
+    chat_id: str | None = None
+    title: str | None = None
+
+
+@router.get("/plan")
+async def fo_plan_get(p: Principal = Depends(max_level(4))):
+    async with pool().acquire() as c:
+        chat, title = await _fo_plan_chat(c, p.org_id)
+        cfg = await _fo_plan_cfg(c, p.org_id)
+        day = _fo_mt_now().date()
+        prev = {}
+        try:
+            prev = {"morning": await _fo_plan_morning_msgs(c, p.org_id, day),
+                    "evening": await _fo_plan_evening_msgs(c, p.org_id, day, cfg.get("eve_cut") or _FO_PLAN_DEF["eve_cut"]),
+                    "week": await _fo_plan_week_msgs(c, p.org_id, _fo_mt_mon(day))}
+        except Exception as e:
+            prev = {"error": str(e)[:200]}
+        groups = []
+        try:
+            groups = [{"chat_id": str(r["chat_id"]), "title": r["title"]} for r in await c.fetch(
+                "SELECT chat_id, title FROM chat WHERE org_id=$1 AND channel='telegram' AND is_active AND chat_id ~ '^-?[0-9]+$' "
+                "AND NOT EXISTS (SELECT 1 FROM client_chat cc WHERE cc.chat_pk = chat.id) ORDER BY added_at DESC", p.org_id)]
+        except Exception:
+            pass
+    return {"chat": chat, "title": title, "settings": {k: cfg.get(k) or _FO_PLAN_DEF[k] for k in _FO_PLAN_DEF}, "off": bool(cfg.get("off")),
+            "last": {k: cfg.get(k) for k in ("last_morning", "last_evening", "last_week")}, "preview": prev, "groups": groups,
+            "bot": bool(_fo_env("TG_BOT_TOKEN"))}
+
+
+@router.post("/plan/send")
+async def fo_plan_send_now(body: FoPlanSendIn, p: Principal = Depends(max_level(2))):
+    day = None
+    if body.day:
+        try: day = _fo_dt.date.fromisoformat(body.day)
+        except Exception: day = None
+    async with pool().acquire() as c:
+        return await _fo_plan_run(c, p.org_id, body.what if body.what in ("morning", "evening", "week") else "morning", day, force=True)
+
+
+@router.post("/plan/settings")
+async def fo_plan_settings(body: FoPlanSetIn, p: Principal = Depends(max_level(2))):
+    patch = {}
+    for k in ("morning", "eve_cut", "eve_send"):
+        v = getattr(body, k)
+        if v and re.match(r"^\d{2}:\d{2}$", v):
+            patch[k] = v
+    if body.off is not None:
+        patch["off"] = bool(body.off)
+    if body.chat_id:
+        patch["chat_id"] = str(body.chat_id); patch["title"] = body.title or ""
+    async with pool().acquire() as c:
+        if patch:
+            await _fo_plan_cfg_set(c, p.org_id, patch)
+        return {"ok": True, "settings": await _fo_plan_cfg(c, p.org_id)}
+
+
 # ══ 264: МАТРИЦА ПРАВ — один источник правды ══════════════════════
 # Право = ключ. Базовое правило: уровень роли ≤ порога. Модификаторы (действуют на уровни 3 и ниже):
 # галочки роли «Доступы → Роли» (fo_state.roleCfg[<роль>].lim / .ext), выключатель settings.pmMoney (только РМ),
@@ -7731,5 +8140,31 @@ p("")
 p("== ЧАТЫ КЛИЕНТОВ ==")
 p(sh("sudo -u postgres psql -d fo -Atc \"SELECT ch.id||' · '||ch.title||' · '||cc.kind||' · '||CASE WHEN ch.chat_id ~ '^-?[0-9]+$' THEN 'номер Telegram ✓' ELSE 'ссылка, номера нет' END FROM chat ch JOIN client_chat cc ON cc.chat_pk=ch.id ORDER BY ch.id\""))
 p(sh("sudo -u postgres psql -d fo -Atc \"SELECT 'сообщений из чатов: '||count(*)||', последнее: '||COALESCE(max(msg_at)::text,'—') FROM fo_chat_msg WHERE tg_chat_id<>'test'\""))
+
+p("")
+p("== ГРУППА ПЛАНОВ (266) ==")
+try:
+    import json as _pj, urllib.request as _pu, urllib.parse as _pp
+    _ptok = ""
+    for _ln in open("/opt/fo/.env", encoding="utf-8"):
+        if _ln.startswith("TG_BOT_TOKEN="): _ptok = _ln.split("=", 1)[1].strip().strip('"').strip("'")
+    _pg = sh("sudo -u postgres psql -d fo -Atc \"SELECT chat_id||'|'||title FROM chat WHERE channel='telegram' AND is_active AND chat_id ~ '^-?[0-9]+$' AND title ILIKE '%план%' ORDER BY added_at DESC LIMIT 1\"").strip()
+    p("группа с «план» в названии:", _pg.split("|", 1)[1] if "|" in _pg else "не найдена (бота ещё не добавили или группа без номера)")
+    if _ptok and "|" in _pg:
+        _pcid = _pg.split("|", 1)[0]
+        with _pu.urlopen("https://api.telegram.org/bot%s/getMe" % _ptok, timeout=15) as _r:
+            _pme = (_pj.loads(_r.read().decode()) or {}).get("result") or {}
+        p("бот сервиса: @%s" % _pme.get("username"))
+        _ptxt = ("Бот подключён к этой группе. Сюда будут приходить: в 09:00 — план работы на день по каждому сотруднику "
+                 "и артикулы в работу; в 17:55 — итоги дня (✅/❌ по функциям и по работе с РК, по галочкам до 17:40); "
+                 "по понедельникам в 09:00 — план планёрок на неделю.")
+        _pd = _pp.urlencode({"chat_id": _pcid, "text": _ptxt}).encode()
+        with _pu.urlopen(_pu.Request("https://api.telegram.org/bot%s/sendMessage" % _ptok, data=_pd), timeout=15) as _r:
+            _pr = _pj.loads(_r.read().decode()) or {}
+        p("тестовое сообщение:", "отправлено ✓" if _pr.get("ok") else ("не ушло: " + str(_pr.get("description"))[:200]))
+    elif not _ptok:
+        p("в .env нет TG_BOT_TOKEN")
+except Exception as _e:
+    p("группа планов: ошибка", str(_e).replace(_ptok, "***")[:300] if _ptok else str(_e)[:300])
 
 print("\n".join(out))
