@@ -2150,8 +2150,9 @@ async def fo_link_pref_get(fn_id: str, cabinet_id: str | None = None, p: Princip
             fn_id, cabinet_id, me)
         if not r:
             last = await c.fetchval(
-                "SELECT link FROM fo_task_report WHERE org_id=$1 AND fn_id=$2::uuid AND employee_id=$3 AND link IS NOT NULL ORDER BY made_at DESC LIMIT 1",
-                p.org_id, fn_id, me)
+                "SELECT link FROM fo_task_report WHERE org_id=$1 AND fn_id=$2::uuid AND employee_id=$3 AND link IS NOT NULL "
+                "AND cabinet_id IS NOT DISTINCT FROM $4::uuid ORDER BY made_at DESC LIMIT 1",
+                p.org_id, fn_id, me, cabinet_id)
             return {"asked": False, "link": last}
     return {"asked": True, "same_table": r["same_table"], "link": r["link"]}
 
