@@ -3446,8 +3446,14 @@ async def _fo_plan_tick():
                             continue
                         if at and hm < str(at):
                             left.append(it); continue
+                        dday = today                        # 269: send_now day — день, за который слать
                         try:
-                            await _fo_plan_run(c, org, what, today, force=True)
+                            if isinstance(it, dict) and it.get("day"):
+                                dday = _fo_dt.date.fromisoformat(str(it["day"]))
+                        except Exception:
+                            dday = today
+                        try:
+                            await _fo_plan_run(c, org, what, dday, force=True)
                         except Exception as _e:
                             try: print("fo_plan send_now:", str(_e)[:200])
                             except Exception: pass
@@ -8185,8 +8191,8 @@ p("== ОЧЕРЕДЬ ОТПРАВОК (268) ==")
 try:
     import datetime as _qd
     _at = (_qd.datetime.utcnow() + _qd.timedelta(hours=3, minutes=3)).strftime("%H:%M")
-    _q = sh("sudo -u postgres psql -d fo -Atc \"UPDATE fo_card SET data = data || '{\\\"send_now\\\": [{\\\"what\\\": \\\"morning\\\"}, {\\\"what\\\": \\\"evening\\\", \\\"at\\\": \\\"%s\\\"}]}'::jsonb, updated_at=now() WHERE kind='org' AND ref_id LIKE 'plan:%%' RETURNING ref_id\"" % _at).strip()
-    p("в очередь: план дня сейчас, итоги в %s МСК; карточек: %s" % (_at, _q or "0 — чат планов ещё не закреплён (первый тик цикла закрепит)"))
+    _q = sh("sudo -u postgres psql -d fo -Atc \"UPDATE fo_card SET data = data || '{\\\"send_now\\\": [{\\\"what\\\": \\\"morning\\\", \\\"day\\\": \\\"2026-10-01\\\"}, {\\\"what\\\": \\\"evening\\\", \\\"day\\\": \\\"2026-10-01\\\", \\\"at\\\": \\\"%s\\\"}]}'::jsonb, updated_at=now() WHERE kind='org' AND ref_id LIKE 'plan:%%' RETURNING ref_id\"" % _at).strip()
+    p("в очередь: план за 2026-10-01 сейчас, итоги за 2026-10-01 в %s МСК; карточек: %s" % (_at, _q or "0 — чат планов ещё не закреплён"))
 except Exception as _e:
     p("очередь: ошибка", str(_e)[:200])
 p("")
