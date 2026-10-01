@@ -30341,6 +30341,21 @@ function foCabLink(t){
     };
   }
 })();
+/* ===== add120 (257, Виталий 01.10): «Менеджеры видят бегунок „Скрыть деньги“, а денег не видят — убери у ролей ниже РМ» =====
+   Бегунок в меню аккаунта — только тем, кто видит деньги: собственник, директор, руководитель, проджект
+   (и только если проджекту деньги не закрыты). Главный менеджер, младший, ассистент, клиент — без бегунка. */
+(function(){
+  if(typeof foHideRow !== "function") return;
+  var _row = foHideRow;
+  foHideRow = function(){
+    try{
+      var ok = (role === "owner" || role === "dir" || role === "head" || role === "pm" || role === "admin");
+      if(ok && typeof foMoneyOff === "function" && foMoneyOff()) ok = false;
+      if(!ok){ try{ foHideSet(false); }catch(e){} return ""; }
+    }catch(e){}
+    return _row.apply(this, arguments);
+  };
+})();
 
 })();
 </script>
