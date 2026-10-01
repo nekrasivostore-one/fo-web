@@ -8222,6 +8222,9 @@ p(sh("sudo -u postgres psql -d fo -Atc \"SELECT 'сообщений из чат�
 p("")
 p("== ГРУППА ПЛАНОВ → АГЕНТСТВО СОБСТВЕННИКА (270) ==")
 try:
+    if os.path.exists("/opt/fo/plan-270.txt"):
+        raise RuntimeError("уже выполнялось — повторно не переносим и не шлём")
+    open("/opt/fo/plan-270.txt", "w").write(stamp)
     _sql270 = """
 DO $$
 DECLARE o uuid; cid text; ttl text;
