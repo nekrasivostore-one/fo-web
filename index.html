@@ -30391,6 +30391,318 @@ function foCabLink(t){
     };
   }
 })();
+/* ===== add122 (259–260, Виталий 01.10) =====
+   259 (срочно). «Вероника в роли проджекта смогла поменять в карточке клиента сумму и дату платежа — и увидела».
+       Сервер карточку отдавал без денег (v71), но форма «Данные клиента» всё равно рисовала поля «Платёж, ₽ в месяц»
+       и «Дата платежа» — пустыми; проджект вписала, сервер принял (v76 — больше не принимает). Теперь у роли,
+       которой деньги закрыты (галочки роли, выключатель, карточка проджекта, роли ниже РМ), группы «Деньги» в
+       форме нет вовсе, а «Не хватает: Дата платежа, Сумма в месяц» для неё не пишется. Галочка «Не показывать
+       суммы платежей» (только суммы) — убирает поле суммы, дата остаётся.
+   260. «Галочка, чтобы конкретный менеджер мог заполнять функции кабинета» — в карточке главного/младшего
+       менеджера и ассистента («Данные сотрудника») — переключатель «Функции кабинета: может заполнять».
+       Ставят РМ и выше, хранится на сервере (карточка сотрудника, canFns). С галочкой человек в карточке клиента
+       добавляет, меняет и убирает функции кабинета и заполняет «В этом кабинете» (таблица, текст в чат,
+       особенности) — сервер v76 пускает его в эти три действия; всё остальное ниже РМ как было: просмотр.  */
+
+/* ── 259: форма «Данные клиента» без денег у тех, кому они закрыты ── */
+function foMoneyFormOff(){
+  try{
+    if(typeof foBelowPm === "function" && foBelowPm()) return "all";
+    if(typeof foMoneyOff === "function" && foMoneyOff()) return "all";
+    if(typeof seesMoney === "function" && !seesMoney()) return "all";
+    if(typeof foLim === "function" && foLim("pay")) return "sum";
+  }catch(e){}
+  return "";
+}
+(function(){
+  if(typeof edCliForm !== "function") return;
+  var _ef = edCliForm;
+  edCliForm = function(pr){
+    var h = _ef.apply(this, arguments);
+    var off = foMoneyFormOff();
+    if(!off) return h;
+    try{
+      var box = document.createElement("div"); box.innerHTML = h;
+      if(off === "all"){
+        box.querySelectorAll(".edg").forEach(function(g){
+          if(g.textContent.trim() !== "Деньги") return;
+          var row = g.nextElementSibling;
+          g.remove(); if(row && !row.classList.contains("edg")) row.remove();
+        });
+        box.querySelectorAll('[data-edk="amount"], [data-edk="payDate"]').forEach(function(inp){
+          var w = inp.closest("label") || inp.parentNode; if(w) w.remove();
+        });
+      }else{
+        box.querySelectorAll('[data-edk="amount"]').forEach(function(inp){
+          var w = inp.closest("label") || inp.parentNode; if(w) w.remove();
+        });
+      }
+      return box.innerHTML;
+    }catch(e){ return h; }
+  };
+})();
+/* «Не хватает: Дата платежа, Сумма в месяц» — не требовать то, чего роль не видит */
+(function(){
+  if(typeof cardFill !== "function" || typeof CARD_BASE === "undefined") return;
+  var _cf = cardFill;
+  cardFill = function(pr){
+    var off = foMoneyFormOff();
+    if(!off) return _cf.apply(this, arguments);
+    var saved = CARD_BASE;
+    try{
+      CARD_BASE = saved.filter(function(f){ return off === "all" ? (f[0] !== "amount" && f[0] !== "payDate") : f[0] !== "amount"; });
+      return _cf.apply(this, arguments);
+    }catch(e){ return _cf.apply(this, arguments); }
+    finally{ CARD_BASE = saved; }
+  };
+})();
+
+/* ── 260: галочка «Может заполнять функции кабинета» ── */
+function foCanFns(){
+  try{
+    if(typeof foBelowPm !== "function" || !foBelowPm()) return true;
+    if(typeof foLive === "function" && !foLive()) return false;
+    var me = (typeof meId !== "undefined" && meId && typeof person === "function") ? person(meId) : null;
+    return !!(me && String(me.canFns || "").trim() === "1");
+  }catch(e){ return false; }
+}
+var FO_FNS_NOW = 0;
+(function(){
+  if(typeof foBelowPm !== "function") return;
+  var _bp = foBelowPm;
+  foBelowPm = function(){
+    if(FO_FNS_NOW > 0){
+      try{
+        var me = (typeof meId !== "undefined" && meId && typeof person === "function") ? person(meId) : null;
+        if(me && String(me.canFns || "").trim() === "1") return false;         /* внутри блока функций кабинета — как РМ */
+      }catch(e){}
+    }
+    return _bp.apply(this, arguments);
+  };
+  function wrap(name){
+    var f = window[name]; if(typeof f !== "function") return;
+    window[name] = function(){ FO_FNS_NOW++; try{ return f.apply(this, arguments); } finally{ FO_FNS_NOW--; } };
+  }
+  wrap("foCabFnBlock"); wrap("foCabBlockHTML"); wrap("foCabBriefHTML");
+})();
+/* переключатель в карточке сотрудника — у главного/младшего менеджера и ассистента; ставят РМ и выше */
+(function(){
+  if(typeof edManForm !== "function") return;
+  var _ef = edManForm;
+  edManForm = function(m){
+    var h = _ef.apply(this, arguments);
+    try{
+      if(!m || ["mid", "jun", "assist"].indexOf(String(m.grade || "")) < 0) return h;
+      if(!(role === "owner" || role === "dir" || role === "head" || role === "pm" || role === "admin")) return h;
+      var block = '<div class="edg">Что может сверх роли</div>'+
+        edRow([edSel("man", m.id, "canFns", "Функции кабинета", String(m.canFns || "") === "1" ? "1" : "",
+          [["", "Только смотрит — как у роли"], ["1", "Может заполнять функции кабинета"]])])+
+        '<div class="fo-mnote">С галочкой в карточке клиента добавляет, меняет и убирает функции кабинета и заполняет «В этом кабинете» (таблица, текст в чат, особенности). Деньги, карточки людей и справочник функций — как у роли.</div>';
+      var mark = '<div class="edg">Рабочий день</div>';
+      return h.indexOf(mark) >= 0 ? h.replace(mark, block + mark) : h.replace(/<\/div>\s*$/, block + '</div>');
+    }catch(e){ return h; }
+  };
+})();
+/* галочку поменяли — перерисовать карточки клиентов (блок функций) */
+document.addEventListener("change", function(e){
+  var el = e.target; if(!el || !el.matches || !el.matches('[data-ed="man"][data-edk="canFns"]')) return;
+  setTimeout(function(){ try{ renderCards(); }catch(x){} }, 700);
+});
+
+/* ── 261 (Виталий 01.10): «в роли проджекта не работает фильтр по клиентам» ──
+   Гант «<Имя> по проектам» (выбран менеджер) и «Мой график» строили строки по ВСЕМ проектам, выбранный
+   клиент в шапке не учитывался — у любой роли; «Списком» тоже не фильтровал. Теперь выбранный клиент
+   ограничивает и строки ганта, и список.                                                              */
+(function(){
+  if(typeof B === "undefined" || !B || typeof B.gantt !== "function") return;
+  var _g = B.gantt;
+  B.gantt = function(el){
+    var v = _g.apply(this, arguments);
+    try{
+      var narrow = !!proj && ((typeof selPerson !== "undefined" && !!selPerson) || (typeof isMgr === "function" && isMgr()));
+      if(!narrow) return v;
+      var pr = project(proj); if(!pr) return v;
+      /* гант: строка = проект — оставляем только выбранный */
+      el.querySelectorAll(".gr").forEach(function(r){
+        var n = r.querySelector(".gn .n"); if(!n) return;
+        if(n.textContent.trim() !== String(pr.name || "").trim()) r.remove();
+      });
+      /* список: строки задач других проектов — убрать */
+      el.querySelectorAll("[data-task], [data-open]").forEach(function(r){
+        if(r.closest(".gr")) return;
+        var id = r.getAttribute("data-task") || r.getAttribute("data-open");
+        var t = null; try{ t = (typeof foTaskById === "function") ? foTaskById(id) : null; }catch(e){}
+        if(!t){ try{ t = (S.tasks || []).filter(function(x){ return String(x.id) === String(id); })[0]; }catch(e){} }
+        if(t && t.project && String(t.project) !== String(proj)) r.remove();
+      });
+    }catch(e){}
+    return v;
+  };
+})();
+
+/* ── 262 (Виталий 01.10): «проджект не может менять суммы проектов и суммы зп — может либо видеть, либо не видеть» ──
+   Поля денег (платёж и дата платежа клиента; оклад, день выплаты, премия и штраф сотрудника) правят только
+   собственник и директор. У остальных ролей: чужие оклады не показываются вовсе (сервер их и не отдаёт — поля
+   были пустыми и в них можно было вписать что угодно), свои и суммы клиентов — только смотреть. Сервер v77 такие
+   поля от них не принимает; экран их и не отправляет.                                                       */
+var FO_PAY_RX = /^(pay|salary|oklad|rate|prem|bonus|fine|shtraf|penalty)/i;
+var FO_MONEY_KEYS = {amount:1, payDate:1, price:1, sum:1, contract:1, payDay:1};
+function foMoneyRO(){
+  try{
+    if(typeof isLive === "function" && !isLive()) return false;
+    return !(role === "owner" || role === "dir" || role === "admin");
+  }catch(e){ return false; }
+}
+function foMoneyStrip(kind, patch){
+  var out = {}, cut = [];
+  Object.keys(patch || {}).forEach(function(k){
+    var bad = (kind === "employee") ? FO_PAY_RX.test(k) : (kind === "client" || kind === "cab") ? (FO_MONEY_KEYS[k] || /^pay/i.test(k)) : false;
+    if(bad) cut.push(k); else out[k] = patch[k];
+  });
+  return {patch: out, cut: cut};
+}
+(function(){
+  if(typeof cardSave === "function"){
+    var _cs = cardSave;
+    cardSave = function(kind, id, patch){
+      if(foMoneyRO() && patch){
+        var r = foMoneyStrip(kind, patch);
+        if(r.cut.length){ try{ toast("Суммы и оклады меняют собственник и директор — не сохранено: " + r.cut.join(", ")); }catch(e){} }
+        if(!Object.keys(r.patch).length) return;
+        return _cs.call(this, kind, id, r.patch);
+      }
+      return _cs.apply(this, arguments);
+    };
+  }
+  if(typeof foManPatch === "function"){
+    var _mp = foManPatch;
+    foManPatch = function(m){
+      var p = _mp.apply(this, arguments);
+      if(foMoneyRO() && p) p = foMoneyStrip("employee", p).patch;
+      return p;
+    };
+  }
+  /* «Данные клиента»: суммы видны (если роли открыты), но только смотреть */
+  if(typeof edCliForm === "function"){
+    var _ec = edCliForm;
+    edCliForm = function(pr){
+      var h = _ec.apply(this, arguments);
+      if(!foMoneyRO() || foMoneyFormOff()) return h;
+      try{
+        var box = document.createElement("div"); box.innerHTML = h;
+        var any = false;
+        box.querySelectorAll('[data-edk="amount"], [data-edk="payDate"]').forEach(function(inp){ inp.disabled = true; inp.title = "Меняют собственник и директор"; any = true; });
+        if(any){
+          var g = Array.prototype.filter.call(box.querySelectorAll(".edg"), function(x){ return x.textContent.trim() === "Деньги"; })[0];
+          var row = g && g.nextElementSibling;
+          if(row){ var n = document.createElement("div"); n.className = "fo-mnote"; n.textContent = "Платёж и дату платежа меняют собственник и директор — у вас просмотр."; row.parentNode.insertBefore(n, row.nextSibling); }
+        }
+        return box.innerHTML;
+      }catch(e){ return h; }
+    };
+  }
+  /* «Данные сотрудника»: свой оклад — смотреть, чужие — группы «Деньги» нет */
+  if(typeof edManForm === "function"){
+    var _em = edManForm;
+    edManForm = function(m){
+      var h = _em.apply(this, arguments);
+      if(!foMoneyRO() || !m) return h;
+      try{
+        var box = document.createElement("div"); box.innerHTML = h;
+        var mine = (typeof meId !== "undefined" && meId && String(m.id) === String(meId));
+        var g = Array.prototype.filter.call(box.querySelectorAll(".edg"), function(x){ return x.textContent.trim() === "Деньги"; })[0];
+        if(g){
+          var row = g.nextElementSibling;
+          if(mine){
+            if(row) row.querySelectorAll("input, select").forEach(function(inp){ inp.disabled = true; inp.title = "Ставит собственник"; });
+            var n = document.createElement("div"); n.className = "fo-mnote"; n.textContent = "Оклад, день выплаты, премию и штраф ставит собственник — у вас просмотр.";
+            if(row) row.parentNode.insertBefore(n, row.nextSibling);
+          }else{
+            if(row && !row.classList.contains("edg")) row.remove();
+            g.remove();
+          }
+        }
+        box.querySelectorAll('[data-edk]').forEach(function(inp){ if(FO_PAY_RX.test(inp.getAttribute("data-edk") || "")){ if(mine) inp.disabled = true; else { var w = inp.closest("label") || inp.parentNode; if(w) w.remove(); } } });
+        return box.innerHTML;
+      }catch(e){ return h; }
+    };
+  }
+  /* старая карточка менеджера (.mcard: «Зарплата, ₽ в месяц», «День выплаты») и экран «Финансы» — по факту отрисовки */
+  function sweep(root){
+    if(!foMoneyRO() || !root || !root.querySelectorAll) return;
+    try{
+      root.querySelectorAll('.mcard [data-sk2="pay"], .mcard [data-sk2="payDay"]').forEach(function(inp){
+        var card = inp.closest(".mcard"); var b = card && card.querySelector("[data-mcsave]");
+        var mine = b && typeof meId !== "undefined" && meId && String(b.getAttribute("data-mcsave")) === String(meId);
+        if(mine){ inp.disabled = true; inp.title = "Ставит собственник"; }
+        else { var w = inp.closest("label") || inp.parentNode; if(w) w.remove(); }
+      });
+      root.querySelectorAll('[data-fk="amount"], [data-fk="payDate"]').forEach(function(inp){ inp.disabled = true; inp.title = "Меняют собственник и директор"; });
+    }catch(e){}
+  }
+  try{
+    new MutationObserver(function(list){
+      if(!foMoneyRO()) return;
+      for(var i = 0; i < list.length; i++){ var mu = list[i]; for(var j = 0; j < mu.addedNodes.length; j++){ var a = mu.addedNodes[j]; if(a.nodeType === 1) sweep(a); } }
+    }).observe(document.body || document.documentElement, {childList: true, subtree: true});
+  }catch(e){}
+  setTimeout(function(){ sweep(document.body); }, 1500);
+})();
+
+/* ── 263 (Виталий 01.10): «В блоке задачи на сегодня — галочки, чтобы все могли проставить, и работа с РК выполнена» ──
+   Блок «Работа с РК» был не задачей: без галочки. Теперь у него галочка, как у задачи: отметка уходит на сервер
+   (fo_state rkDone: сотрудник|проект|дата), видна всем ролям; свои строки отмечает каждый, чужие — РМ и выше.
+   Прошлые дни без отметки считаются как раньше (сделанными) — отметки ведутся с сегодняшнего дня.               */
+try{ if(typeof FO_ST_MAP !== "undefined") FO_ST_MAP.rkDone = "map"; }catch(e){}
+function foRkMap(){ if(!S.rkDone || typeof S.rkDone !== "object" || Array.isArray(S.rkDone)) S.rkDone = {}; return S.rkDone; }
+function foRkKey(t){
+  var d = monday(); d.setDate(d.getDate() + (+t.dow || 0));
+  return String(t.person || "") + "|" + String(t.project || "") + "|" + iso(d);
+}
+function foRkCanTick(t){
+  try{ if(typeof isMgr === "function" && isMgr()) return String(t.person) === String(meId); }catch(e){}
+  return true;
+}
+(function(){
+  if(typeof foRkBlocks === "function"){
+    var _rb = foRkBlocks;
+    foRkBlocks = function(){
+      var out = _rb.apply(this, arguments);
+      try{ var map = foRkMap(); out.forEach(function(b){ var k = foRkKey(b); b.rkKey = k; b.rkDone = !!map[k]; if(b.rkDone) b.done = true; }); }catch(e){}
+      return out;
+    };
+  }
+  if(typeof tdRow === "function"){
+    var _td = tdRow;
+    tdRow = function(t){
+      var h = _td.apply(this, arguments);
+      if(!t || !t.rk) return h;
+      try{
+        var k = t.rkKey || foRkKey(t), on = !!foRkMap()[k];
+        if(foRkCanTick(t)){
+          h = h.replace(/<span class="tdc fo-rkdot"[^>]*><i><\/i><\/span>/,
+            '<button class="tdc fo-rkcb" data-rkcb="'+esc(k)+'" aria-pressed="'+on+'" title="'+(on ? 'Работа с РК выполнена — снять отметку' : 'Отметить: работа с РК выполнена')+'"><i></i></button>');
+        }
+        if(on && h.indexOf('class="tdr done') < 0) h = h.replace('class="tdr', 'class="tdr done');
+      }catch(e){}
+      return h;
+    };
+  }
+  document.addEventListener("click", function(e){
+    var b = e.target.closest && e.target.closest("[data-rkcb]"); if(!b) return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    var k = b.getAttribute("data-rkcb"), map = foRkMap(), on = !map[k];
+    if(on) map[k] = {at: new Date().toISOString(), by: (typeof meId !== "undefined" ? meId : null) || ""}; else delete map[k];
+    b.setAttribute("aria-pressed", String(on));
+    try{ if(typeof FO_ST !== "undefined" && FO_ST.snap) FO_ST.snap.rkDone = foStJson(map); }catch(x){}
+    var body = on ? {set: (function(){ var o = {}; o[k] = map[k]; return o; })()} : {delete: [k]};
+    var p = (typeof foStPost === "function") ? foStPost("rkDone", body) : Promise.resolve();
+    p.then(function(){ try{ toast(on ? "Работа с РК — выполнено ✓ (сохранено на сервере)" : "Отметка «работа с РК» снята"); }catch(x){} })
+     .catch(function(err){ try{ toast("Не сохранилось: " + (err && err.message || "сервер не ответил")); }catch(x){} });
+    try{ foRkInject(); }catch(x){}
+    try{ render(); }catch(x){}
+  }, true);
+})();
 
 })();
 </script>
