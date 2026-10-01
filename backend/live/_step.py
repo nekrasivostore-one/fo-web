@@ -3285,7 +3285,9 @@ def _fo_plan_dl(dl):
 
 async def _fo_plan_morning_msgs(c, org_id, day):
     people, clients = await _fo_plan_people(c, org_id), await _fo_plan_clients(c, org_id)
-    tasks, arts = await _fo_plan_tasks(c, org_id, day), await _fo_plan_arts(c, org_id, day)
+    cfg = await _fo_plan_cfg(c, org_id)
+    tasks = (await _fo_plan_tasks(c, org_id, day)) if cfg.get("send_morning", True) else {}
+    arts = (await _fo_plan_arts(c, org_id, day)) if cfg.get("send_arts", True) else {}
     msgs = []
     head = _fo_plan_date(day)
     for e in sorted(set(list(tasks) + list(arts)), key=lambda x: people.get(x, "я")):
@@ -3438,12 +3440,14 @@ async def _fo_plan_tick():
                 if today.weekday() < 5:
                     if hm >= (cfg.get("morning") or _FO_PLAN_DEF["morning"]) and cfg.get("last_morning") != today.isoformat():
                         await _fo_plan_cfg_set(c, org, {"last_morning": today.isoformat()})
-                        await _fo_plan_run(c, org, "morning", today)
+                        if cfg.get("send_morning", True) or cfg.get("send_arts", True):
+                            await _fo_plan_run(c, org, "morning", today)
                     if hm >= (cfg.get("eve_send") or _FO_PLAN_DEF["eve_send"]) and cfg.get("last_evening") != today.isoformat():
                         await _fo_plan_cfg_set(c, org, {"last_evening": today.isoformat()})
-                        await _fo_plan_run(c, org, "evening", today)
+                        if cfg.get("send_evening", True):
+                            await _fo_plan_run(c, org, "evening", today)
                 mon = _fo_mt_mon(today)
-                if today.weekday() == 0 and hm >= (cfg.get("morning") or _FO_PLAN_DEF["morning"]) and cfg.get("last_week") != mon.isoformat():
+                if today.weekday() == 0 and hm >= (cfg.get("morning") or _FO_PLAN_DEF["morning"]) and cfg.get("last_week") != mon.isoformat() and cfg.get("send_week", True):
                     await _fo_plan_cfg_set(c, org, {"last_week": mon.isoformat()})
                     await _fo_plan_run(c, org, "week", today)
         except Exception as e:
@@ -3485,6 +3489,10 @@ class FoPlanSetIn(_FoBM):
     off: bool | None = None
     chat_id: str | None = None
     title: str | None = None
+    send_morning: bool | None = None
+    send_arts: bool | None = None
+    send_evening: bool | None = None
+    send_week: bool | None = None
 
 
 @router.get("/plan")
@@ -3507,9 +3515,18 @@ async def fo_plan_get(p: Principal = Depends(max_level(4))):
                 "AND NOT EXISTS (SELECT 1 FROM client_chat cc WHERE cc.chat_pk = chat.id) ORDER BY added_at DESC", p.org_id)]
         except Exception:
             pass
+    people = []
+    try:
+        for r in await c.fetch("SELECT e.id, e.name, cd.data->>'tg_id' AS tg_id FROM employee e JOIN fo_card cd ON cd.kind='employee' "
+                               "AND cd.ref_id=e.id::text AND cd.org_id::text=e.org_id::text WHERE e.org_id=$1::uuid "
+                               "AND coalesce(cd.data->>'tg_id','') ~ '^[0-9]+$' ORDER BY e.name", str(p.org_id)):
+            people.append({"employee_id": str(r["id"]), "name": r["name"], "tg_id": str(r["tg_id"])})
+    except Exception:
+        pass
     return {"chat": chat, "title": title, "settings": {k: cfg.get(k) or _FO_PLAN_DEF[k] for k in _FO_PLAN_DEF}, "off": bool(cfg.get("off")),
+            "send": {k: cfg.get(k, True) for k in ("send_morning", "send_arts", "send_evening", "send_week")},
             "last": {k: cfg.get(k) for k in ("last_morning", "last_evening", "last_week")}, "preview": prev, "groups": groups,
-            "bot": bool(_fo_env("TG_BOT_TOKEN"))}
+            "people": people, "bot": bool(_fo_env("TG_BOT_TOKEN"))}
 
 
 @router.post("/plan/send")
@@ -3531,6 +3548,10 @@ async def fo_plan_settings(body: FoPlanSetIn, p: Principal = Depends(max_level(2
             patch[k] = v
     if body.off is not None:
         patch["off"] = bool(body.off)
+    for k in ("send_morning", "send_arts", "send_evening", "send_week"):
+        v = getattr(body, k)
+        if v is not None:
+            patch[k] = bool(v)
     if body.chat_id:
         patch["chat_id"] = str(body.chat_id); patch["title"] = body.title or ""
     async with pool().acquire() as c:
