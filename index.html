@@ -30207,6 +30207,78 @@ document.addEventListener("click", function(e){
   if((t = e.target.closest && e.target.closest("[data-fotpsend]"))){ e.preventDefault(); e.stopPropagation(); foTpSubmit(t.getAttribute("data-fotpsend"), false); return; }
   if((t = e.target.closest && e.target.closest("[data-fotpwait]"))){ e.preventDefault(); e.stopPropagation(); foTpSubmit(t.getAttribute("data-fotpwait"), true); return; }
 }, true);
+/* ===== add118 (255, 01.10): сессия в нескольких вкладках — не вылетать на вход =====
+   Нашлось при проверке: вторая вкладка сервиса ушла на экран входа, хотя в браузере лежал живой токен.
+   Токен доступа живёт 2 часа; обновление по refresh-токену одноразовое. Если две вкладки обновляются
+   врозь, одна получает «не обновился» и показывала вход (а Виталий просил: вылет на вход — не чаще раза
+   в месяц). Теперь: перед обновлением вкладка смотрит, не обновила ли токен другая вкладка (localStorage),
+   после неудачи — ещё раз; одно обновление на все запросы; вкладки слушают storage и подхватывают новый
+   токен сразу. На вход — только если обновить не удалось никак.                                       */
+(function(){
+  if(typeof A === "undefined" || typeof api !== "function") return;
+  var KEY = (typeof AK !== "undefined") ? AK : "fo_auth_v1";
+  function raw(path, opt){
+    opt = opt || {}; opt.headers = opt.headers || {};
+    if(A.token) opt.headers["Authorization"] = "Bearer " + A.token;
+    if(opt.body && typeof opt.body !== "string"){ opt.headers["Content-Type"] = "application/json"; opt.body = JSON.stringify(opt.body); }
+    return fetch(path, opt).then(function(r){
+      return r.text().then(function(tx){
+        var d = null; try{ d = tx ? JSON.parse(tx) : null; }catch(e){ d = {detail: tx}; }
+        if(!r.ok){
+          var err = new Error((d && d.detail) ? (typeof d.detail === "string" ? d.detail : JSON.stringify(d.detail)) : ("ошибка " + r.status));
+          err.status = r.status; throw err;
+        }
+        return d;
+      });
+    });
+  }
+  function stored(){ try{ var o = JSON.parse(localStorage.getItem(KEY) || "null"); return (o && o.token) ? o : null; }catch(e){ return null; } }
+  function adopt(o){
+    A.token = o.token; if(o.refresh) A.refresh = o.refresh;
+    if(o.role) A.role = o.role; if(typeof o.level === "number") A.level = o.level;
+    if(o.email) A.email = o.email; if(o.savedAt) A.savedAt = o.savedAt;
+  }
+  function expired(st, msg){ return st === 401 || /401|токен|сесси|not authenticated|unauthorized/i.test(String(msg || "")); }
+  var refreshing = null;
+  function refresh(){
+    if(refreshing) return refreshing;
+    refreshing = Promise.resolve().then(function(){
+      var st = stored();
+      if(st && st.token !== A.token){ adopt(st); return true; }            /* другая вкладка уже обновила */
+      return raw("/auth/refresh", {method: "POST", body: {refresh: A.refresh}}).then(function(r){
+        if(!r || !r.access) throw new Error("не обновился");
+        A.token = r.access; if(r.refresh) A.refresh = r.refresh;
+        if(r.role) A.role = r.role; if(typeof r.level === "number") A.level = r.level;
+        try{ saveAuth(); }catch(e){}
+        return true;
+      }).catch(function(){
+        var st2 = stored();                                               /* пока обновлялись — успела другая */
+        if(st2 && st2.token !== A.token){ adopt(st2); return true; }
+        return false;
+      });
+    }).then(function(ok){ refreshing = null; return ok; });
+    return refreshing;
+  }
+  api = function(path, opt){
+    var p = String(path || "");
+    var isAuth = /\/auth\/(login|start|verify|refresh|register|workspace|invite)/.test(p);
+    return raw(path, opt).catch(function(e){
+      if(isAuth || !A || !A.token || !expired(e && e.status, e && e.message)) throw e;
+      return refresh().then(function(ok){
+        if(!ok){
+          try{ if(typeof window.foKick === "function") window.foKick("Сессия истекла — войдите заново"); }catch(x){}
+          throw e;
+        }
+        return raw(path, opt);
+      });
+    });
+  };
+  window.addEventListener("storage", function(e){
+    if(e.key !== KEY) return;
+    var st = stored();
+    if(st && st.token !== A.token) adopt(st);
+  });
+})();
 
 })();
 </script>
