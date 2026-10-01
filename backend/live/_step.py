@@ -3434,6 +3434,24 @@ async def _fo_plan_tick():
                 chat, _t = await _fo_plan_chat(c, org)
                 if not chat:
                     continue
+                # 270: сервис в несколько процессов — замок на агентство, настройки читаем после замка
+                if not await c.fetchval("SELECT pg_try_advisory_lock(hashtext($1))", "fo-plan:" + str(org)):
+                    continue
+                try:
+                    await _fo_plan_tick_org(c, org, today, hm)
+                finally:
+                    try:
+                        await c.execute("SELECT pg_advisory_unlock(hashtext($1))", "fo-plan:" + str(org))
+                    except Exception:
+                        pass
+        except Exception as e:
+            try:
+                print("fo_plan:", str(e)[:200])
+            except Exception:
+                pass
+
+
+async def _fo_plan_tick_org(c, org, today, hm):
                 cfg = await _fo_plan_cfg(c, org)
                 # 268: очередь ручных отправок (ставит собственник кнопкой или шаг при выкладке)
                 sn = cfg.get("send_now") or []
@@ -3460,7 +3478,7 @@ async def _fo_plan_tick():
                     await _fo_plan_cfg_set(c, org, {"send_now": left})
                     cfg["send_now"] = left
                 if cfg.get("off"):
-                    continue
+                    return
                 if today.weekday() < 5:
                     if hm >= (cfg.get("morning") or _FO_PLAN_DEF["morning"]) and cfg.get("last_morning") != today.isoformat():
                         await _fo_plan_cfg_set(c, org, {"last_morning": today.isoformat()})
@@ -3474,11 +3492,6 @@ async def _fo_plan_tick():
                 if today.weekday() == 0 and hm >= (cfg.get("morning") or _FO_PLAN_DEF["morning"]) and cfg.get("last_week") != mon.isoformat() and cfg.get("send_week", True):
                     await _fo_plan_cfg_set(c, org, {"last_week": mon.isoformat()})
                     await _fo_plan_run(c, org, "week", today)
-        except Exception as e:
-            try:
-                print("fo_plan:", str(e)[:200])
-            except Exception:
-                pass
 
 
 async def _fo_plan_loop():
@@ -4455,6 +4468,19 @@ async def _fo_tg_register(upd):
         if linked or await _fo_tg_claim(c, str(chat["id"]), chat.get("title") or ""):
             return
         org = await c.fetchval("SELECT org_id FROM chat WHERE chat_id=$1 ORDER BY added_at LIMIT 1", str(chat["id"]))
+        if not org:
+            # 270: агентство того, кто добавил бота (tg_id в карточке сотрудника); иначе — с наибольшей командой
+            frm = ev.get("from") or {}
+            try:
+                if frm.get("id"):
+                    org = await c.fetchval("SELECT org_id FROM fo_card WHERE kind='employee' AND data->>'tg_id'=$1 LIMIT 1", str(frm["id"]))
+            except Exception:
+                org = None
+            if not org:
+                try:
+                    org = await c.fetchval("SELECT org_id FROM employee GROUP BY org_id ORDER BY count(*) DESC LIMIT 1")
+                except Exception:
+                    org = None
         if not org:
             org = await c.fetchval("SELECT id FROM org ORDER BY created_at LIMIT 1")
         await c.execute(
@@ -8187,12 +8213,38 @@ p(sh("sudo -u postgres psql -d fo -Atc \"SELECT ch.id||' · '||ch.title||' · '|
 p(sh("sudo -u postgres psql -d fo -Atc \"SELECT 'сообщений из чатов: '||count(*)||', последнее: '||COALESCE(max(msg_at)::text,'—') FROM fo_chat_msg WHERE tg_chat_id<>'test'\""))
 
 p("")
+p("== ГРУППА ПЛАНОВ → АГЕНТСТВО СОБСТВЕННИКА (270) ==")
+try:
+    _sql270 = """
+DO $$
+DECLARE o uuid; cid text; ttl text;
+BEGIN
+  SELECT u.org_id INTO o FROM app_user u WHERE lower(u.email)='nekrasivostore@gmail.com' LIMIT 1;
+  IF o IS NULL THEN SELECT org_id INTO o FROM employee GROUP BY org_id ORDER BY count(*) DESC LIMIT 1; END IF;
+  SELECT chat_id, title INTO cid, ttl FROM chat WHERE channel='telegram' AND is_active AND chat_id ~ '^-?[0-9]+$' AND title ILIKE '%план%' ORDER BY added_at DESC LIMIT 1;
+  IF cid IS NULL THEN RAISE NOTICE 'группа план не найдена'; RETURN; END IF;
+  DELETE FROM chat WHERE channel='telegram' AND chat_id=cid AND org_id<>o AND NOT EXISTS (SELECT 1 FROM client_chat cc WHERE cc.chat_pk=chat.id);
+  INSERT INTO chat (org_id, channel, chat_id, title) VALUES (o, 'telegram', cid, ttl) ON CONFLICT (org_id, channel, chat_id) DO UPDATE SET title=EXCLUDED.title, is_active=true;
+  DELETE FROM fo_card WHERE kind='org' AND ref_id LIKE 'plan:%';
+  INSERT INTO fo_card (kind, ref_id, org_id, data) VALUES ('org', 'plan:'||o::text, o,
+    jsonb_build_object('chat_id', cid, 'title', ttl, 'send_now', jsonb_build_array(
+      jsonb_build_object('what','morning','day','2026-09-30'),
+      jsonb_build_object('what','evening','day','2026-09-30','at', to_char((now() at time zone 'Europe/Moscow') + interval '3 minutes', 'HH24:MI')))));
+  RAISE NOTICE 'ok org=% chat=% title=%', o, cid, ttl;
+END $$;
+"""
+    open("/tmp/fo_270.sql", "w", encoding="utf-8").write(_sql270)
+    _r270 = sh("sudo -u postgres psql -d fo -v ON_ERROR_STOP=1 -f /tmp/fo_270.sql 2>&1")
+    p(_r270.strip()[-600:])
+    p(sh("sudo -u postgres psql -d fo -Atc \"SELECT 'задач 30.09: '||count(*) FILTER (WHERE plan_date='2026-09-30')||', 01.10: '||count(*) FILTER (WHERE plan_date='2026-10-01') FROM task t JOIN app_user u ON u.org_id=t.org_id AND lower(u.email)='nekrasivostore@gmail.com'\"").strip())
+except Exception as _e:
+    p("270: ошибка", str(_e)[:300])
+p("")
 p("== ОЧЕРЕДЬ ОТПРАВОК (268) ==")
 try:
     import datetime as _qd
     _at = (_qd.datetime.utcnow() + _qd.timedelta(hours=3, minutes=3)).strftime("%H:%M")
-    _q = sh("sudo -u postgres psql -d fo -Atc \"UPDATE fo_card SET data = data || '{\\\"send_now\\\": [{\\\"what\\\": \\\"morning\\\", \\\"day\\\": \\\"2026-10-01\\\"}, {\\\"what\\\": \\\"evening\\\", \\\"day\\\": \\\"2026-10-01\\\", \\\"at\\\": \\\"%s\\\"}]}'::jsonb, updated_at=now() WHERE kind='org' AND ref_id LIKE 'plan:%%' RETURNING ref_id\"" % _at).strip()
-    p("в очередь: план за 2026-10-01 сейчас, итоги за 2026-10-01 в %s МСК; карточек: %s" % (_at, _q or "0 — чат планов ещё не закреплён"))
+    p("очередь поставлена блоком 270 (среда 30.09: план сейчас, итоги через 3 минуты, %s)" % _at)
 except Exception as _e:
     p("очередь: ошибка", str(_e)[:200])
 p("")
