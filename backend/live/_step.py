@@ -537,6 +537,15 @@ def _fo_uid(p):
     raise HTTPException(500, "в токене нет пользователя")
 
 
+def _fo_lvl(p):
+    """264: уровень аккаунта одним способом везде. admin = 0 (раньше `0 or 9` давал 9), нет уровня = 9."""
+    try:
+        v = getattr(p, "level", None)
+        return 9 if v is None else int(v)
+    except Exception:
+        return 9
+
+
 def _fo_hash():
     for mod in ("app.security", "app.auth", "app.deps", "app.utils", "app.hash"):
         try:
@@ -594,7 +603,7 @@ async def _fo_grade_role(c, p, emp_ref, grade):
     want = _FO_GRADE_ROLE.get(str(grade or ""))
     if not want:
         return "грейд без роли"
-    if int(getattr(p, "level", 9) or 9) > 2:
+    if _fo_lvl(p) > 2:
         return "роль меняет собственник или директор"
     u = await c.fetchrow("SELECT u.id, u.role_code, r.level FROM employee e JOIN app_user u ON u.id=e.user_id "
                          "JOIN role r ON r.code=u.role_code WHERE e.id=$1::uuid AND e.org_id=$2::uuid", str(emp_ref), str(p.org_id))
@@ -603,7 +612,7 @@ async def _fo_grade_role(c, p, emp_ref, grade):
     wl = await c.fetchval("SELECT level FROM role WHERE code=$1", want)
     if int(u["level"]) <= 1 or wl is None:
         return "собственника и админа так не меняют"
-    if int(wl) <= int(getattr(p, "level", 9) or 9):
+    if int(wl) <= _fo_lvl(p):
         return "нельзя выдать уровень не ниже своего"
     if u["role_code"] == want:
         return "роль уже " + want
@@ -662,7 +671,7 @@ async def fo_card_save(body: FoCardIn, p: Principal = Depends(current)):
         raise HTTPException(400, "неизвестный вид карточки")
     if not ref:
         raise HTTPException(400, "не сказано, чья карточка")
-    _lvl = int(getattr(p, "level", 9) or 9)
+    _lvl = _fo_lvl(p)
     if _lvl > 4 and kind != "cab":
         raise HTTPException(403, "Карточки сотрудников, клиентов и функций правят РМ и выше — вам доступен просмотр")
     data = body.data if isinstance(body.data, dict) else {}
@@ -670,6 +679,8 @@ async def fo_card_save(body: FoCardIn, p: Principal = Depends(current)):
         raise HTTPException(403, "«Видит деньги» в карточке меняют собственник и директор")
     if kind == "employee" and "canFns" in data and _lvl > 4:
         raise HTTPException(403, "«Может заполнять функции кабинета» ставят РМ и выше")
+    if kind == "org" and _lvl > 2:
+        raise HTTPException(403, "Настройки агентства (ИИ, планёрки, карточка организации) меняют собственник и директор")
     async with pool().acquire() as c:
         # 260: карточку кабинета ниже РМ правит только сотрудник с галочкой — и только поля функций (fn_…)
         if _lvl > 4:
@@ -761,6 +772,10 @@ async def fo_once_new(body: FoOnceIn, p: Principal = Depends(current)):
     if len(t) < 2:
         raise HTTPException(400, "Напишите, что сделать")
     async with pool().acquire() as c:
+        if _fo_lvl(p) > 4:                 # 264: ниже РМ — задачу только себе (если нет права «ставить другим»)
+            _me = await _fo_my_emp(c, p)
+            if not (await _fo_can(c, p, "tasks_set_others")) and (not _me or str(body.employee_id or "") != str(_me)):
+                raise HTTPException(403, "Задачи другим ставят РМ и выше — себе поставить можно")
         r = await c.fetchrow(
             "INSERT INTO fo_task_once (org_id, title, client_id, employee_id, fn_id, "
             "day, dow, minutes, kind, note, created_by) "
@@ -796,6 +811,11 @@ async def fo_once_patch(task_id: str, body: FoOncePatch, p: Principal = Depends(
     if not sets:
         return {"ok": True, "changed": 0}
     async with pool().acquire() as c:
+        if _fo_lvl(p) > 4:                 # 264: ниже РМ — только свою разовую задачу, и не переназначать
+            _me = await _fo_my_emp(c, p)
+            _own = await c.fetchval("SELECT employee_id FROM fo_task_once WHERE id=$1 AND org_id=$2", _fo_task_id(task_id), p.org_id)
+            if not _me or str(_own or "") != str(_me) or (body.employee_id is not None and str(body.employee_id or "") != str(_me)):
+                raise HTTPException(403, "Чужие разовые задачи правят РМ и выше")
         r = await c.fetchrow(
             "UPDATE fo_task_once SET " + ", ".join(sets) +
             " WHERE id=$1 AND org_id=$%d RETURNING *" % (len(vals) + 2),
@@ -837,7 +857,7 @@ async def _fo_tbl(c, names, need):
 
 
 @router.post("/clients/{client_id}/remove")
-async def fo_client_remove(client_id: str, p: Principal = Depends(current)):
+async def fo_client_remove(client_id: str, p: Principal = Depends(max_level(4))):
     """Убрать клиента и его кабинеты. Если мешают связи — прячем в архив."""
     global _FO_CLI_T, _FO_CAB_T
     async with pool().acquire() as c:
@@ -954,7 +974,7 @@ async def _fo_daycfg(c, org_id, fid, dc):
 async def _fo_can_fns(c, p):
     """260: функции кабинета заполняют РМ и выше — или сотрудник с галочкой «Может заполнять функции кабинета»
     в карточке (fo_card employee.canFns = "1")."""
-    if int(getattr(p, "level", 9) or 9) <= 4:
+    if _fo_lvl(p) <= 4:
         return True
     try:
         me = await _fo_my_emp(c, p)
@@ -1855,9 +1875,61 @@ class FoLinkPrefIn(_FoBM):
     link: str | None = None
 
 
-async def _fo_my_emp(c, p):
+async def _fo_resolve_emp(c, p):
+    """264: кто я как сотрудник. 1) employee.user_id; 2) e-mail аккаунта = колонка email или поле «mail»
+    карточки сотрудника (без привязанного аккаунта); 3) имя аккаунта = имя сотрудника. Найденное по 2/3 —
+    привязывается (UPDATE employee.user_id), чтобы дальше всё решалось одинаково. Возвращает (id, как)."""
     uid = _fo_uid(p)
-    return await c.fetchval("SELECT id FROM employee WHERE user_id=$1 AND org_id=$2 LIMIT 1", uid, p.org_id)
+    org = str(p.org_id)
+    try:
+        me = await c.fetchval("SELECT id FROM employee WHERE user_id=$1 AND org_id=$2::uuid LIMIT 1", uid, org)
+    except Exception:
+        me = await c.fetchval("SELECT id FROM employee WHERE user_id=$1 AND org_id=$2 LIMIT 1", uid, p.org_id)
+    if me:
+        return str(me), "user_id"
+    try:
+        u = await c.fetchrow("SELECT email, display_name, " + _FO_NAME_COL + " AS base_name FROM app_user WHERE id=$1", uid)
+    except Exception:
+        u = None
+    if not u:
+        return None, None
+    em = str(u["email"] or "").strip().lower()
+    cand, how = None, None
+    if em:
+        try:
+            cand = await c.fetchval("SELECT id FROM employee WHERE org_id=$1::uuid AND user_id IS NULL AND lower(trim(email))=$2 LIMIT 1", org, em)
+            if cand: how = "email"
+        except Exception:
+            cand = None
+        if not cand:
+            try:
+                cand = await c.fetchval(
+                    "SELECT e.id FROM employee e JOIN fo_card cd ON cd.kind='employee' AND cd.ref_id=e.id::text AND cd.org_id::text=e.org_id::text "
+                    "WHERE e.org_id=$1::uuid AND e.user_id IS NULL "
+                    "AND lower(trim(coalesce(cd.data->>'mail', cd.data->>'email', ''))) = $2 LIMIT 1", org, em)
+                if cand: how = "mail"
+            except Exception:
+                cand = None
+    if not cand:
+        nm = str(u["display_name"] or u["base_name"] or "").strip().lower()
+        if nm:
+            try:
+                cand = await c.fetchval("SELECT id FROM employee WHERE org_id=$1::uuid AND user_id IS NULL AND lower(trim(name))=$2 LIMIT 1", org, nm)
+                if cand: how = "name"
+            except Exception:
+                cand = None
+    if cand:
+        try:
+            await c.execute("UPDATE employee SET user_id=$2 WHERE id=$1 AND user_id IS NULL", cand, uid)
+        except Exception:
+            pass
+        return str(cand), how
+    return None, None
+
+
+async def _fo_my_emp(c, p):
+    me, _how = await _fo_resolve_emp(c, p)
+    return me
 
 
 async def _fo_task_for(c, task_id, p):
@@ -1874,7 +1946,7 @@ async def _fo_can_mark(c, t, p):
     me = await _fo_my_emp(c, p)
     if me and t["assignee_id"] and str(me) == str(t["assignee_id"]):
         return True
-    return int(getattr(p, "level", 9) or 9) <= 4
+    return _fo_lvl(p) <= 4
 
 
 async def _fo_save_report(c, t, p, link, note, same_table):
@@ -2077,7 +2149,7 @@ async def fo_task_done(task_id: str, body: FoDoneIn, p: Principal = Depends(curr
 
 
 @router.post("/tasks/{task_id}/undone")
-async def fo_task_undone(task_id: str, p: Principal = Depends(max_level(4))):
+async def fo_task_undone(task_id: str, p: Principal = Depends(current)):
     """Снять галочку (ошиблись): исполнитель или РМ и выше."""
     async with pool().acquire() as c:
         t = await _fo_task_for(c, task_id, p)
@@ -2128,7 +2200,7 @@ async def fo_task_decide(task_id: str, body: FoDecideIn, p: Principal = Depends(
             raise HTTPException(409, "задача не на согласовании")
         uid = _fo_uid(p)
         mine = rv["approver_user_id"] and str(rv["approver_user_id"]) == str(uid)
-        if not mine and int(getattr(p, "level", 9) or 9) > 2:
+        if not mine and _fo_lvl(p) > 2:
             raise HTTPException(403, "решает согласующий, собственник или директор")
         note = (body.note or "").strip()[:2000] or None
         await c.execute("UPDATE fo_task_review SET decided_at=now(), verdict=$2, decision_note=$3, decided_by=$4 WHERE id=$1",
@@ -2144,7 +2216,7 @@ async def fo_task_decide(task_id: str, body: FoDecideIn, p: Principal = Depends(
 async def fo_task_reviews(p: Principal = Depends(current)):
     """Что ждёт согласования: мои (я согласую) и по всему агентству для собственника/директора."""
     uid = _fo_uid(p)
-    lvl = int(getattr(p, "level", 9) or 9)
+    lvl = _fo_lvl(p)
     async with pool().acquire() as c:
         me = await _fo_my_emp(c, p)
         rows = await c.fetch(
@@ -2402,12 +2474,18 @@ async def fo_me(p: Principal = Depends(current)):
             "JOIN org o ON o.id = u.org_id WHERE u.id = $1", uid)
         except Exception:
             pass
-    return {"id": str(u["id"]), "email": u["email"],
+    out = {"id": str(u["id"]), "email": u["email"],
             "name": u["display_name"] or u["base_name"] or "",
             "phone": u["phone"] or "", "role_code": u["role_code"],
             "role_title": u["role_title"] or u["role_code"], "level": u["level"],
             "org_name": u["org_name"], "org_id": str(u["org_id"]),
-            "invite_code": u["invite_code"], "created_at": u["created_at"]}
+            "invite_code": u["invite_code"] if _fo_lvl(p) <= 2 else None, "created_at": u["created_at"]}
+    try:                                   # 264: права — сразу, одним ответом
+        async with pool().acquire() as c:
+            out["perms"] = await _fo_perms(c, p)
+    except Exception as _e:
+        out["perms_error"] = str(_e)[:200]
+    return out
 
 
 class FoMeIn(_FoBM):
@@ -2562,7 +2640,7 @@ async def fo_invite_new(body: FoInviteIn, p: Principal = Depends(max_level(1))):
 
 
 @router.get("/invites")
-async def fo_invite_list(p: Principal = Depends(current)):
+async def fo_invite_list(p: Principal = Depends(max_level(1))):
     async with pool().acquire() as c:
         rows = await c.fetch(
             "SELECT token, role_code, name, email, person_ref, created_at, used_at, revoked_at "
@@ -2607,7 +2685,7 @@ _FO_ST_ZERO = "00000000-0000-0000-0000-000000000000"
 _FO_ST_KEYS = {
     "roleCfg":  ("org", "obj",  2, 9, 0),
     "access":   ("org", "list", 3, 3, 500),
-    "promised": ("org", "map",  3, 3, 0),
+    "promised": ("org", "map",  1, 3, 0),      # 264: обещанные уровни пишет только собственник
     "speed":    ("org", "list", 9, 9, 3000),
     "regDocs":  ("org", "list", 3, 9, 500),
     "regUniq":  ("org", "map",  3, 9, 0),
@@ -2714,6 +2792,9 @@ async def fo_state_put(key: str, body: FoStIn, p: Principal = Depends(current)):
             body.data = None
             body.set = {k2: v2 for k2, v2 in (body.set or {}).items() if str(k2).startswith(_pre)}
             body.delete = [k2 for k2 in (body.delete or []) if str(k2).startswith(_pre)]
+        if key in ("log", "speed") and lvl > 4:
+            # 264: журнал и замеры ниже РМ — только дописывать, не заменять и не стирать
+            body.data, body.remove = None, None
         async with c.transaction():
             await c.execute("INSERT INTO fo_state (org_id, scope, key, data) VALUES ($1::uuid, $2, $3, 'null'::jsonb) "
                             "ON CONFLICT (org_id, scope, key) DO NOTHING", org, scope, key)
@@ -2941,7 +3022,7 @@ async def _fo_scope_ids(c, p):
     lvl = _fo_st_lvl(p)
     if lvl <= 4:
         return None
-    me = await c.fetchval("SELECT id FROM employee WHERE user_id=$1 AND org_id=$2::uuid LIMIT 1", _fo_uid(p), str(p.org_id))
+    me = await _fo_my_emp(c, p)
     # 238 (Виталий 30.09): все роли ниже проджекта — главный менеджер, младший, ассистент — только свои задачи
     return {str(me)} if me else set()
 
@@ -2985,6 +3066,16 @@ async def _fo_money_lims(c, p, me):
         return set()
     if lvl >= 5:
         return {"money", "pay"}
+    try:                                   # 264: единая матрица
+        pr = await _fo_perms(c, p, with_emp=bool(me))
+        out = set()
+        if not pr["can"]["money_client_read"]:
+            out.update({"money", "pay"})
+        elif not pr["can"]["money_sum_read"]:
+            out.add("pay")
+        return out
+    except Exception:
+        pass
     out = set()
     rid = _FO_LVL_FRONT.get(lvl, "")
     try:
@@ -3019,7 +3110,7 @@ async def _fo_cards_scope(p, out):
     me, lims = None, set()
     try:
         async with pool().acquire() as c:
-            me = await c.fetchval("SELECT id FROM employee WHERE user_id=$1 AND org_id=$2::uuid LIMIT 1", _fo_uid(p), str(p.org_id))
+            me = await _fo_my_emp(c, p)
             lims = await _fo_money_lims(c, p, me)
     except Exception:
         pass
@@ -3038,6 +3129,253 @@ async def _fo_cards_scope(p, out):
             d = {a: b for a, b in d.items() if not _FO_PRIV_PAY.search(str(a))}
         res.append(dict(cd, data=d))
     return res
+
+# ══ 264: МАТРИЦА ПРАВ — один источник правды ══════════════════════
+# Право = ключ. Базовое правило: уровень роли ≤ порога. Модификаторы (действуют на уровни 3 и ниже):
+# галочки роли «Доступы → Роли» (fo_state.roleCfg[<роль>].lim / .ext), выключатель settings.pmMoney (только РМ),
+# флаги карточки сотрудника (money=no, canFns=1). Новая роль = строка в таблице role с уровнем — права
+# получаются из матрицы сами; новое агентство — та же матрица, свои галочки.
+_FO_ROLE_FRONT = {0: "admin", 1: "owner", 2: "dir", 3: "head", 4: "pm", 5: "mgr", 6: "jun", 7: "asst", 8: "client", 9: "client"}
+_FO_PERM_RULES = [
+    ("admin_panel",          0, "Панель администратора сервиса"),
+    ("shadow",               2, "Режим тени"),
+    ("access_grant",         1, "Выдавать доступы и приглашения"),
+    ("access_block",         1, "Блокировать аккаунты"),
+    ("roles_cfg",            2, "Галочки ролей и настройки агентства"),
+    ("money_write",          2, "Менять суммы и даты платежей клиентов, оклады, премии, штрафы"),
+    ("money_staff_read",     2, "Видеть чужие оклады"),
+    ("money_client_read",    4, "Видеть суммы и даты платежей клиентов"),
+    ("fin_screen",           4, "Экран «Деньги»"),
+    ("client_contacts_read", 4, "Контакты клиентов: собственник, telegram, телефон, таблица"),
+    ("client_cards_read",    4, "Открывать карточки клиентов"),
+    ("client_cards_write",   4, "Править карточки клиентов, заводить кабинеты"),
+    ("staff_cards_read",     4, "Открывать карточки коллег"),
+    ("staff_cards_write",    4, "Править карточки коллег"),
+    ("cab_fns_write",        4, "Заполнять функции кабинета"),
+    ("fns_dir_write",        4, "Править справочник функций"),
+    ("tasks_others_read",    4, "Видеть чужие задачи и загрузку"),
+    ("tasks_set_others",     4, "Ставить задачи другим"),
+    ("tasks_remove",         4, "Снимать и отменять задачи"),
+    ("tasks_reassign",       4, "Перераспределять задачи"),
+    ("tasks_approve",        2, "Согласовывать задачи (кроме назначенных согласующим)"),
+    ("rating_all",           4, "Рейтинг всей команды (ниже — только свой)"),
+    ("growth",               2, "«Рост» и модель найма"),
+    ("sales",                4, "Отдел продаж"),
+    ("aod_all",              4, "АОД целиком (ниже — только свои артикулы)"),
+    ("aod",                  6, "АОД"),
+    ("meet_manage",          4, "Планёрки: график, отправка"),
+    ("meet_rules",           2, "Правила планёрок"),
+    ("ai_settings",          2, "Настройки ИИ и согласующие"),
+    ("office",               5, "Онлайн-офис"),
+    ("export",               4, "Выгрузка данных"),
+    ("reg",                  7, "Регламенты и справочник"),
+]
+_FO_LIM_MAP = {"money": ["money_client_read", "fin_screen"], "pay": ["money_sum_read"], "others": ["tasks_others_read"],
+               "cards": ["client_cards_read"], "staff": ["staff_cards_read"], "growth": ["growth"], "rate": ["rating_all"],
+               "del": ["tasks_remove"], "export": ["export"]}
+_FO_EXT_MAP = {"grant": ["access_grant"], "block": ["access_block"], "setTask": ["tasks_set_others"], "approve": ["tasks_approve"],
+               "editFns": ["fns_dir_write"], "aodAll": ["aod_all"], "fin": ["fin_screen", "money_client_read"], "cab": ["client_cards_write"]}
+_FO_NO = ("no", "false", "0", "нет")
+_FO_YES = ("1", "yes", "true", "да")
+
+
+def _fo_perm_views(lvl, rf, can):
+    cl = rf == "client"
+    v = {"work": True, "people": True, "projects": True, "acct": True, "help": True, "orgcard": True,
+         "cards": bool(can["client_cards_read"]), "aod": bool(can["aod"]) and not cl, "acc": bool(can["access_grant"]),
+         "sales": bool(can["sales"]), "reg": bool(can["reg"]) and not cl, "guide": bool(can["reg"]) and not cl,
+         "fns": not cl, "rate": not cl, "adm": bool(can["admin_panel"]), "meet": bool(can["meet_manage"]),
+         "office": bool(can["office"]) or cl, "growth": bool(can["growth"]), "fin": bool(can["fin_screen"]),
+         "setup": bool(can["client_cards_write"]), "newcab": bool(can["client_cards_write"]), "newman": bool(can["staff_cards_write"]),
+         "unload": bool(can["tasks_reassign"]), "tariff": lvl <= 4}
+    return v
+
+
+async def _fo_perms(c, p, with_emp=True):
+    """Права аккаунта — один расчёт для сервера и экрана."""
+    lvl = _fo_lvl(p)
+    rf = _FO_ROLE_FRONT.get(lvl, "client")
+    uid = _fo_uid(p)
+    rc = None
+    try:
+        rc = await c.fetchval("SELECT role_code FROM app_user WHERE id=$1", uid)
+    except Exception:
+        rc = None
+    me, how = (None, None)
+    if with_emp:
+        try:
+            me, how = await _fo_resolve_emp(c, p)
+        except Exception:
+            me, how = None, None
+    lims, exts, pm_money = {}, {}, None
+    try:
+        for r in await c.fetch("SELECT key, data FROM fo_state WHERE org_id=$1::uuid AND scope='org' AND key IN ('roleCfg','settings')", str(p.org_id)):
+            d = _fo_st_load(r["data"]) or {}
+            if not isinstance(d, dict):
+                continue
+            if r["key"] == "roleCfg":
+                rcfg = d.get(rf) if isinstance(d.get(rf), dict) else {}
+                lims = {k: bool(v) for k, v in (rcfg.get("lim") or {}).items() if v}
+                exts = {k: bool(v) for k, v in (rcfg.get("ext") or {}).items() if v}
+            elif r["key"] == "settings":
+                pm_money = d.get("pmMoney")
+    except Exception:
+        pass
+    flags = {}
+    if me:
+        try:
+            cd = _fo_st_load(await c.fetchval("SELECT data FROM fo_card WHERE kind='employee' AND ref_id=$1 AND org_id=$2",
+                                              str(me), p.org_id)) or {}
+            if isinstance(cd, dict):
+                for k in ("money", "canFns", "canGrant", "grade"):
+                    if cd.get(k) not in (None, ""):
+                        flags[k] = cd.get(k)
+        except Exception:
+            pass
+    can = {k: lvl <= thr for k, thr, _ in _FO_PERM_RULES}
+    can["money_sum_read"] = can["money_client_read"]
+    if lvl > 2:
+        for lk, keys in _FO_LIM_MAP.items():
+            if lims.get(lk):
+                for k in keys: can[k] = False
+        for ek, keys in _FO_EXT_MAP.items():
+            if exts.get(ek):
+                for k in keys: can[k] = True
+        if lvl == 4 and pm_money is False:
+            can["money_client_read"] = False; can["fin_screen"] = False
+        if str(flags.get("money") or "").strip().lower() in _FO_NO:
+            can["money_client_read"] = False; can["fin_screen"] = False
+        if str(flags.get("canFns") or "").strip().lower() in _FO_YES:
+            can["cab_fns_write"] = True
+        if str(flags.get("canGrant") or "").strip().lower() in _FO_YES:
+            can["access_grant"] = True
+    if not can["money_client_read"]:
+        can["money_sum_read"] = False
+    if lvl >= 5:
+        can["client_contacts_read"] = False; can["money_client_read"] = False; can["money_sum_read"] = False
+        can["money_staff_read"] = False; can["fin_screen"] = False
+    if lvl > 2:
+        can["money_write"] = False
+    views = _fo_perm_views(lvl, rf, can)
+    return {"level": lvl, "role_code": rc, "role": rf, "employee_id": me, "linked": bool(me), "link_how": how,
+            "flags": flags, "lims": lims, "exts": exts, "can": can, "views": views}
+
+
+async def _fo_can(c, p, key):
+    return bool((await _fo_perms(c, p, with_emp=(key == "cab_fns_write")))["can"].get(key))
+
+
+async def _fo_need(c, p, key, msg=None):
+    if not await _fo_can(c, p, key):
+        raise HTTPException(403, msg or ("Нет права: " + dict((k, d) for k, _t, d in _FO_PERM_RULES).get(key, key)))
+
+
+@router.get("/me/perms")
+async def fo_me_perms(p: Principal = Depends(current)):
+    async with pool().acquire() as c:
+        return await _fo_perms(c, p)
+
+
+class _FoFakeP:
+    def __init__(self, user_id, org_id, level):
+        self.user_id, self.org_id, self.level = user_id, org_id, level
+
+
+@router.get("/perms/audit")
+async def fo_perms_audit(p: Principal = Depends(max_level(2))):
+    """264: все аккаунты агентства — роль, уровень, привязка к сотруднику (и как), флаги, права; расхождения
+    внутри одной роли с объяснением; карточки сотрудников без аккаунта."""
+    out, issues = [], []
+    async with pool().acquire() as c:
+        try:
+            users = await c.fetch("SELECT u.id, u.email, u.role_code, u.display_name, u." + _FO_NAME_COL + " AS base_name, "
+                                  "u.is_active, r.level, r.__ROLE_TITLE__ AS role_title FROM app_user u JOIN role r ON r.code=u.role_code "
+                                  "WHERE u.org_id=$1 ORDER BY r.level, u.email", p.org_id)
+        except Exception:
+            users = await c.fetch("SELECT u.id, u.email, u.role_code, u.display_name, u." + _FO_NAME_COL + " AS base_name, "
+                                  "true AS is_active, r.level, r.__ROLE_TITLE__ AS role_title FROM app_user u JOIN role r ON r.code=u.role_code "
+                                  "WHERE u.org_id=$1 ORDER BY r.level, u.email", p.org_id)
+        emps = {str(e["id"]): e for e in await c.fetch("SELECT id, name, user_id FROM employee WHERE org_id=$1::uuid", str(p.org_id))}
+        for u in users:
+            fp = _FoFakeP(u["id"], p.org_id, int(u["level"]))
+            pr = await _fo_perms(c, fp)
+            e = emps.get(str(pr["employee_id"] or ""))
+            row = {"id": str(u["id"]), "email": u["email"], "name": u["display_name"] or u["base_name"] or "",
+                   "role_code": u["role_code"], "role_title": u["role_title"] or u["role_code"], "level": int(u["level"]),
+                   "role": pr["role"], "active": bool(u["is_active"]), "employee": ({"id": str(e["id"]), "name": e["name"]} if e else None),
+                   "link_how": pr["link_how"], "flags": pr["flags"], "lims": pr["lims"], "exts": pr["exts"], "can": pr["can"], "views": pr["views"]}
+            out.append(row)
+            if not pr["linked"] and int(u["level"]) >= 3:
+                issues.append({"kind": "unlinked", "email": u["email"], "role_code": u["role_code"],
+                               "text": "Аккаунт %s (%s) не привязан к карточке сотрудника: не совпали ни e-mail, ни имя. Впишите e-mail аккаунта в карточку сотрудника (поле «Рабочая почта») — привяжется само." % (u["email"], u["role_code"])})
+        by_role = {}
+        for r in out:
+            by_role.setdefault(r["role_code"], []).append(r)
+        for rcode, rows in by_role.items():
+            if len(rows) < 2:
+                continue
+            base = rows[0]
+            for r in rows[1:]:
+                diff = [k for k in base["can"] if base["can"][k] != r["can"].get(k)]
+                if diff:
+                    why = []
+                    for k in ("money", "canFns", "canGrant"):
+                        if (base["flags"].get(k) or "") != (r["flags"].get(k) or ""):
+                            why.append("флаг карточки «%s»: %s / %s" % (k, base["flags"].get(k) or "—", r["flags"].get(k) or "—"))
+                    if bool(base["employee"]) != bool(r["employee"]):
+                        why.append("привязка к карточке: %s / %s" % ("есть" if base["employee"] else "нет", "есть" if r["employee"] else "нет"))
+                    issues.append({"kind": "diverge", "role_code": rcode, "emails": [base["email"], r["email"]], "diff": diff,
+                                   "text": "Роль %s: у %s и %s разные права (%s) — причина: %s" % (rcode, base["email"], r["email"], ", ".join(diff), "; ".join(why) or "не найдена (сообщите разработчику)")})
+        linked_ids = set(str(r["employee"]["id"]) for r in out if r["employee"])
+        no_acc = [{"id": k, "name": e["name"]} for k, e in emps.items() if k not in linked_ids]
+        names = {}
+        for e in emps.values():
+            names.setdefault(str(e["name"] or "").strip().lower(), []).append(str(e["id"]))
+        for nm, ids in names.items():
+            if nm and len(ids) > 1:
+                issues.append({"kind": "dup_employee", "name": nm, "ids": ids, "text": "Две карточки сотрудника с именем «%s» — привязка по имени может попасть не в ту" % nm})
+    matrix = [{"key": k, "max_level": thr, "title": d} for k, thr, d in _FO_PERM_RULES]
+    return {"accounts": out, "employees_without_account": no_acc, "issues": issues, "matrix": matrix,
+            "lim_map": _FO_LIM_MAP, "ext_map": _FO_EXT_MAP, "role_front": {str(k): v for k, v in _FO_ROLE_FRONT.items()}}
+
+
+@router.get("/perms/selftest")
+async def fo_perms_selftest(p: Principal = Depends(max_level(2))):
+    """264: автопроверка на живых данных агентства — по каждому уровню: что отдают фильтры карточек и задач,
+    и не уходит ли лишнее. Запускать после каждого шага сервера."""
+    res = []
+    async with pool().acquire() as c:
+        rows = await c.fetch("SELECT kind, ref_id, data FROM fo_card WHERE org_id=$1", p.org_id)
+    cards = []
+    for r in rows:
+        d = r["data"]
+        if isinstance(d, str):
+            try: d = _fo_json.loads(d)
+            except Exception: d = {}
+        cards.append({"kind": r["kind"], "ref_id": r["ref_id"], "data": d or {}})
+    for lvl in (0, 1, 2, 3, 4, 5, 6, 7, 8):
+        fp = _FoFakeP("00000000-0000-0000-0000-000000000000", p.org_id, lvl)
+        async with pool().acquire() as c:
+            pr = await _fo_perms(c, fp, with_emp=False)
+        out = await _fo_cards_scope(fp, cards)
+        leak_money, leak_contact, leak_pay = [], [], []
+        for cd in out:
+            d = cd.get("data") or {}
+            if cd["kind"] in ("client", "cab"):
+                if not pr["can"]["money_client_read"]:
+                    leak_money += [k for k in d if k in _FO_PRIV_MONEY or str(k).lower().startswith("pay")]
+                if not pr["can"]["client_contacts_read"]:
+                    leak_contact += [k for k in d if k in _FO_PRIV_CLIENT and k not in _FO_PRIV_MONEY]
+            elif cd["kind"] == "employee" and not pr["can"]["money_staff_read"]:
+                leak_pay += [k for k in d if _FO_PRIV_PAY.search(str(k))]
+        async with pool().acquire() as c:
+            ids = await _fo_scope_ids(c, fp)
+        res.append({"level": lvl, "role": pr["role"], "cards_in": len(cards), "cards_out": len(out),
+                    "money_leak": sorted(set(leak_money))[:10], "contact_leak": sorted(set(leak_contact))[:10], "pay_leak": sorted(set(leak_pay))[:10],
+                    "tasks_scope": "все" if ids is None else ("свои" if ids else "ничего (нет карточки)"),
+                    "ok": not (leak_money or leak_contact or leak_pay)})
+    return {"ok": all(r["ok"] for r in res), "levels": res}
+
 
 # ══ ИИ ИЗ ЧАТОВ (С11, этап 1) ════════════════════════════════════
 # Клиент пишет в чат кабинета → Telegram шлёт сообщение сюда (свой
@@ -3766,7 +4104,7 @@ def _fo_ai_row(r):
 async def fo_ai_tasks(status: str = "pending", p: Principal = Depends(current)):
     """Задачи, которые ИИ нашёл в чатах: мои на согласовании; собственнику и директору — все."""
     uid = _fo_uid(p)
-    lvl = int(getattr(p, "level", 9) or 9)
+    lvl = _fo_lvl(p)
     async with pool().acquire() as c:
         rows = await c.fetch(
             """SELECT a.*, cl.name AS client_name, e.name AS employee_name, fn.code AS fn_code, fn.name AS fn_name,
@@ -3804,7 +4142,7 @@ class FoAiDecideIn(_FoBM):
 async def fo_ai_decide(ai_id: str, body: FoAiDecideIn, p: Principal = Depends(current)):
     """Согласующий принимает (задача ставится ответственному) или отклоняет."""
     uid = _fo_uid(p)
-    lvl = int(getattr(p, "level", 9) or 9)
+    lvl = _fo_lvl(p)
     try:
         aid = int(str(ai_id))
     except Exception:
@@ -3921,7 +4259,7 @@ class FoAiSettingsIn(_FoBM):
 
 
 @router.get("/ai/settings")
-async def fo_ai_settings_get(p: Principal = Depends(max_level(6))):
+async def fo_ai_settings_get(p: Principal = Depends(max_level(4))):
     async with pool().acquire() as c:
         st = await _fo_ai_settings(c, p.org_id)
         uids, label, _e = await _fo_ai_approvers(c, p.org_id)
@@ -5338,8 +5676,16 @@ async def fo_meet_get(p: Principal = Depends(max_level(4))):
                 if r["client_id"]:
                     held.setdefault(str(r["client_id"]), []).append(r["plan_date"].isoformat())
     out = []
+    _nomoney = False
+    try:
+        async with pool().acquire() as c:
+            _nomoney = "money" in (await _fo_money_lims(c, p, await _fo_my_emp(c, p)))
+    except Exception:
+        _nomoney = False
     for cid in sorted(lv, key=lambda k: lv[k]["rank"]):
         o = _fo_mt_out(cid, rows.get(cid), lv, cid in chats)
+        if _nomoney:
+            o["amount"] = None                 # 264: сумма платежа — кому деньги закрыты, не отдаём
         cs = _fo_mt_chatstate_fast(chats.get(cid)) if cid in chats else {"in": False, "pin": False, "why": ""}
         o["bot_in"], o["bot_pin"] = cs["in"], cs["pin"]
         out.append(o)
