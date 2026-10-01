@@ -662,12 +662,33 @@ async def fo_card_save(body: FoCardIn, p: Principal = Depends(current)):
         raise HTTPException(400, "неизвестный вид карточки")
     if not ref:
         raise HTTPException(400, "не сказано, чья карточка")
-    if int(getattr(p, "level", 9) or 9) > 4:
+    _lvl = int(getattr(p, "level", 9) or 9)
+    if _lvl > 4 and kind != "cab":
         raise HTTPException(403, "Карточки сотрудников, клиентов и функций правят РМ и выше — вам доступен просмотр")
     data = body.data if isinstance(body.data, dict) else {}
-    if kind == "employee" and "money" in data and int(getattr(p, "level", 9) or 9) > 2:
+    if kind == "employee" and "money" in data and _lvl > 2:
         raise HTTPException(403, "«Видит деньги» в карточке меняют собственник и директор")
+    if kind == "employee" and "canFns" in data and _lvl > 4:
+        raise HTTPException(403, "«Может заполнять функции кабинета» ставят РМ и выше")
     async with pool().acquire() as c:
+        # 260: карточку кабинета ниже РМ правит только сотрудник с галочкой — и только поля функций (fn_…)
+        if _lvl > 4:
+            await _fo_need_fns(c, p)
+            _bad0 = [str(k) for k in data.keys() if not str(k).startswith("fn_")]
+            if _bad0:
+                raise HTTPException(403, "С галочкой «Может заполнять функции кабинета» правятся только функции кабинета — не сохранено: " + ", ".join(_bad0))
+        # 259: кому деньги закрыты — суммы и даты платежей не принимаем (та же проверка, что на отдачу, v71)
+        if kind in ("client", "cab") and _lvl > 2:
+            _lims = await _fo_money_lims(c, p, await _fo_my_emp(c, p))
+            _bad = []
+            for _k in data.keys():
+                _kl = str(_k).lower()
+                if "money" in _lims and (_k in _FO_PRIV_MONEY or _kl.startswith("pay")):
+                    _bad.append(str(_k))
+                elif "pay" in _lims and _k in _FO_PRIV_SUM:
+                    _bad.append(str(_k))
+            if _bad:
+                raise HTTPException(403, "Суммы и даты платежей клиентов вам закрыты — не сохранено: " + ", ".join(_bad))
         await c.execute(
             "INSERT INTO fo_card (kind, ref_id, org_id, data) VALUES ($1,$2,$3,$4::jsonb) "
             "ON CONFLICT (kind, ref_id) DO UPDATE "
@@ -928,6 +949,27 @@ async def _fo_daycfg(c, org_id, fid, dc):
     return _fo_json.dumps(norm) if norm else None
 
 
+async def _fo_can_fns(c, p):
+    """260: функции кабинета заполняют РМ и выше — или сотрудник с галочкой «Может заполнять функции кабинета»
+    в карточке (fo_card employee.canFns = "1")."""
+    if int(getattr(p, "level", 9) or 9) <= 4:
+        return True
+    try:
+        me = await _fo_my_emp(c, p)
+        if not me:
+            return False
+        d = _fo_st_load(await c.fetchval("SELECT data FROM fo_card WHERE kind='employee' AND ref_id=$1 AND org_id=$2",
+                                         str(me), p.org_id)) or {}
+        return bool(isinstance(d, dict) and str(d.get("canFns") or "").strip().lower() in ("1", "yes", "true", "да"))
+    except Exception:
+        return False
+
+
+async def _fo_need_fns(c, p):
+    if not await _fo_can_fns(c, p):
+        raise HTTPException(403, "Функции кабинета заполняют РМ и выше — или сотрудник, кому в карточке включили «Может заполнять функции кабинета»")
+
+
 async def _fo_cab_of(c, cab_id, org_id):
     r = await c.fetchrow(
         "SELECT cb.id, cb.client_id FROM cabinet cb JOIN client cl ON cl.id = cb.client_id "
@@ -963,9 +1005,10 @@ async def fo_cab_fns(cab_id: str, p: Principal = Depends(current)):
 
 
 @router.put("/cabinets/{cab_id}/functions")
-async def fo_cab_fns_put(cab_id: str, body: list[FoCabFnItem], p: Principal = Depends(max_level(4))):
-    """Полная замена набора функций кабинета. Уровень: РМ и выше (С5)."""
+async def fo_cab_fns_put(cab_id: str, body: list[FoCabFnItem], p: Principal = Depends(current)):
+    """Полная замена набора функций кабинета. Уровень: РМ и выше (С5) или сотрудник с галочкой (260)."""
     async with pool().acquire() as c:
+        await _fo_need_fns(c, p)
         await _fo_cab_of(c, cab_id, p.org_id)
         _old = {}
         for _r in await c.fetch(
@@ -1019,13 +1062,14 @@ async def fo_cab_fns_put(cab_id: str, body: list[FoCabFnItem], p: Principal = De
 
 
 @router.post("/cabinets/{cab_id}/functions/add")
-async def fo_cab_fn_add(cab_id: str, it: FoCabFnItem, p: Principal = Depends(max_level(4))):
+async def fo_cab_fn_add(cab_id: str, it: FoCabFnItem, p: Principal = Depends(current)):
     """Одна функция в кабинет: добавить или обновить, остальные не трогая.
-    Задачи досводятся сразу. Уровень: РМ и выше (С5). Три пути (145) ведут сюда."""
+    Задачи досводятся сразу. Уровень: РМ и выше (С5) или сотрудник с галочкой (260). Три пути (145) ведут сюда."""
     fid = (it.fn_id or "").strip()
     if not fid:
         raise HTTPException(400, "не указана функция")
     async with pool().acquire() as c:
+        await _fo_need_fns(c, p)
         await _fo_cab_of(c, cab_id, p.org_id)
         ok = await c.fetchval("SELECT 1 FROM fn WHERE id=$1::uuid AND org_id=$2", fid, p.org_id)
         if not ok:
@@ -1109,9 +1153,10 @@ async def fo_cab_fn_take(cab_id: str, fn_id: str, p: Principal = Depends(current
 
 
 @router.post("/cabinets/{cab_id}/functions/{fn_id}/remove")
-async def fo_cab_fn_remove(cab_id: str, fn_id: str, p: Principal = Depends(max_level(4))):
-    """Убрать функцию из кабинета: будущие несделанные задачи по ней снимаются."""
+async def fo_cab_fn_remove(cab_id: str, fn_id: str, p: Principal = Depends(current)):
+    """Убрать функцию из кабинета: будущие несделанные задачи по ней снимаются. РМ и выше или с галочкой (260)."""
     async with pool().acquire() as c:
+        await _fo_need_fns(c, p)
         await _fo_cab_of(c, cab_id, p.org_id)
         await c.execute("DELETE FROM cabinet_fn WHERE cabinet_id=$1::uuid AND fn_id=$2::uuid", cab_id, fn_id)
         await c.execute("DELETE FROM fo_cabinet_fn_cfg WHERE cabinet_id=$1::uuid AND fn_id=$2::uuid", cab_id, fn_id)
