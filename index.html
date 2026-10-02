@@ -4525,6 +4525,62 @@ html.dark .fo-plan-cmds{ background:rgba(255,255,255,.05) }
 .fo-plan-cmds-st{ font-size:12px; padding:6px 10px; border-radius:8px; margin-bottom:6px }
 .fo-plan-cmds-st.ok{ background:rgba(0,179,154,.10); color:var(--ink) }
 .fo-plan-cmds-st.bad{ background:rgba(219,74,95,.10); color:var(--ink) }
+/* add127 (275): «Чат-боты» */
+.fo-bots .fo-sub{ font-size:12px; color:var(--ink-3); margin-left:10px }
+.fo-bots-grid{ display:grid; grid-template-columns:minmax(220px,300px) 1fr; gap:16px; margin-top:10px }
+@media (max-width:860px){ .fo-bots-grid{ grid-template-columns:1fr } }
+.fo-bots-list{ display:flex; flex-direction:column; gap:8px }
+.fo-bots-card{ display:flex; align-items:center; gap:10px; text-align:left; padding:10px 12px; border-radius:14px; border:1px solid var(--neu-b,#e6e8ef); background:var(--card,#fff); cursor:pointer; font:inherit; color:inherit }
+.fo-bots-card.on{ border-color:#7C5CFF; box-shadow:0 0 0 2px rgba(124,92,255,.18) }
+.fo-bots-av{ width:36px; height:36px; border-radius:11px; display:inline-flex; align-items:center; justify-content:center; font-size:20px; background:rgba(124,92,255,.10); flex:none }
+.fo-bots-ct{ display:flex; flex-direction:column; min-width:0; flex:1 }
+.fo-bots-ct b{ font-size:13px } .fo-bots-ct i{ font-style:normal; font-size:11px; color:var(--ink-3) } .fo-bots-ct u{ text-decoration:none; font-size:11px; color:var(--ink-2) }
+.fo-bots-dot{ font-size:11px; color:var(--ink-3); display:inline-flex; align-items:center; gap:5px; flex:none }
+.fo-bots-dot::before{ content:""; width:8px; height:8px; border-radius:50%; background:#c9ccd6 }
+.fo-bots-dot.ok::before{ background:#00B39A } .fo-bots-dot.off::before{ background:#DB4A5F }
+.fo-bots-info{ padding:12px 14px; border-radius:14px; background:var(--neu,#f3f4f8); min-width:0 }
+html.dark .fo-bots-info, html.dark .fo-bots-card{ background:rgba(255,255,255,.04) }
+.fo-bots-ih{ display:flex; align-items:center; gap:10px; flex-wrap:wrap }
+.fo-bots-ih > div{ display:flex; flex-direction:column } .fo-bots-ih i{ font-style:normal; font-size:12px; color:var(--ink-3) }
+.fo-bots-cfgbtn{ margin-left:auto }
+.fo-bots-sec{ margin-top:12px } .fo-bots-sec h4{ display:inline; font-size:12px; text-transform:uppercase; letter-spacing:.04em; color:var(--ink-3); margin:0 }
+.fo-bots-sec > h4{ display:block; margin-bottom:6px }
+.fo-bots-logic summary{ cursor:pointer; margin-bottom:6px }
+.fo-bots-fn{ display:flex; flex-direction:column; gap:2px; margin:0 0 8px } .fo-bots-fn b{ font-size:13px } .fo-bots-fn span{ font-size:12.5px; color:var(--ink-2); line-height:1.45 }
+.fo-bots-sec ol{ margin:0; padding-left:18px; font-size:12.5px; color:var(--ink-2); line-height:1.5 }
+.fo-bots-cfg{ margin-top:16px; padding-top:12px; border-top:1px solid var(--neu-b,#e6e8ef) }
+.fo-bots-tabs{ margin-bottom:12px; flex-wrap:wrap }
+.fo-bots-cfg .fo-plan{ box-shadow:none; padding:0; background:transparent }
+.fo-bots-set{ display:flex; flex-direction:column; gap:8px; margin:6px 0 12px }
+.fo-bots-row{ display:grid; grid-template-columns:minmax(140px,220px) minmax(0,auto) 1fr; gap:4px 12px; font-size:12.5px; align-items:baseline }
+.fo-bots-row span{ color:var(--ink-3) } .fo-bots-row i{ font-style:normal; color:var(--ink-3); font-size:12px }
+@media (max-width:640px){ .fo-bots-row{ grid-template-columns:1fr } }
+.fo-bots-stats{ display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:8px; margin:6px 0 12px }
+.fo-bots-kpi{ padding:10px 12px; border-radius:12px; background:var(--neu,#f3f4f8); display:flex; flex-direction:column; gap:2px }
+html.dark .fo-bots-kpi{ background:rgba(255,255,255,.05) }
+.fo-bots-kpi b{ font-size:20px } .fo-bots-kpi span{ font-size:11.5px; color:var(--ink-3); line-height:1.35 }
+.fo-bots-log h4{ font-size:12px; text-transform:uppercase; letter-spacing:.04em; color:var(--ink-3); margin:4px 0 6px }
+.fo-bots-lr{ display:grid; grid-template-columns:90px 150px 1fr; gap:8px; font-size:12px; padding:4px 0; border-bottom:1px dashed var(--neu-b,#e6e8ef) }
+.fo-bots-lr span{ color:var(--ink-3) } .fo-bots-lr i{ font-style:normal; color:var(--ink-2) } .fo-bots-lr.bad i{ color:#DB4A5F }
+@media (max-width:640px){ .fo-bots-lr{ grid-template-columns:1fr } }
+.fo-bots-chats{ display:flex; flex-direction:column; gap:4px; margin:6px 0 }
+.fo-bots-chh{ font-size:12.5px; margin-bottom:4px } .fo-bots-chh .bad{ color:#DB4A5F }
+.fo-bots-chr{ display:grid; grid-template-columns:18px minmax(120px,220px) 1fr; gap:6px; font-size:12px }
+.fo-bots-chr.ok span{ color:#00B39A } .fo-bots-chr.bad span, .fo-bots-chr.bad i{ color:#DB4A5F } .fo-bots-chr i{ font-style:normal; color:var(--ink-3) }
+/* витрина */
+.fo-shop{ display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:14px; margin-top:10px; align-items:start }
+.fo-shop-card{ border-radius:18px; overflow:hidden; border:1px solid var(--neu-b,#e6e8ef); background:var(--card,#fff); transition:box-shadow .2s }
+html.dark .fo-shop-card{ background:rgba(255,255,255,.04) }
+.fo-shop-card:hover, .fo-shop-card.open{ box-shadow:0 10px 28px rgba(30,20,80,.12) }
+.fo-shop-pic{ height:120px; display:flex; align-items:center; justify-content:center }
+.fo-shop-pic span{ font-size:54px; filter:drop-shadow(0 6px 12px rgba(0,0,0,.18)) }
+.fo-shop-body{ padding:12px 14px 14px; display:flex; flex-direction:column; gap:8px }
+.fo-shop-body b{ font-size:15px } .fo-shop-body p{ margin:0; font-size:12.5px; color:var(--ink-2); line-height:1.45 }
+.fo-shop-body .bt{ align-self:flex-start }
+.fo-shop-more{ display:flex; flex-direction:column; gap:8px; padding-top:6px; border-top:1px solid var(--neu-b,#e6e8ef) }
+.fo-shop-more h5{ margin:0 0 2px; font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:var(--ink-3) }
+.fo-shop-more span{ font-size:12.5px; color:var(--ink); line-height:1.45 }
+@media (prefers-reduced-motion:reduce){ .fo-shop-card{ transition:none } }
 </style>
 </head>
 <body>
@@ -31093,17 +31149,11 @@ function foPlanHTML(){
 (function(){
   if(typeof foMtRender !== "function") return;
   var _r = foMtRender;
+  /* 275 (02.10): «Планёрка» — только планёрки и расписание; блок плана работы переехал в «Чат-боты».
+     Кнопки и поля блока после действий зовут foMtRender — на экране «Чат-боты» перерисовываем его. */
   foMtRender = function(){
-    var v = _r.apply(this, arguments);
-    try{
-      if(!(typeof isLive === "function" && isLive())) return v;
-      if(!(typeof foMtCan === "function" && foMtCan())) return v;
-      var host = document.getElementById("sect"); if(!host) return v;
-      var w = document.createElement("div"); w.innerHTML = foPlanHTML();
-      host.appendChild(w.firstChild);
-      if(!FO_PLAN) foPlanLoad().then(function(){ var old = host.querySelector(".fo-plan"); if(old){ var w2 = document.createElement("div"); w2.innerHTML = foPlanHTML(); old.parentNode.replaceChild(w2.firstChild, old); } });
-    }catch(e){}
-    return v;
+    if(typeof view !== "undefined" && view === "bots" && typeof foBotsRender === "function") return foBotsRender();
+    return _r.apply(this, arguments);
   };
   try{ if(typeof SEC_RENDER === "object" && SEC_RENDER) SEC_RENDER.meet = foMtRender; }catch(e){}
   document.addEventListener("click", function(e){
@@ -31214,6 +31264,282 @@ document.addEventListener("change", function(e){
   api("/refs/plan/settings", {method: "POST", body: {cmds_off: !!el.checked}})
     .then(function(){ try{ toast(el.checked ? "Команды бота выключены" : "Команды бота включены"); }catch(x){} FO_PLAN = null; try{ foMtRender(); }catch(x){} })
     .catch(function(err){ try{ toast("Не сохранилось: " + (err && err.message || "")); }catch(x){} });
+}, true);
+/* ===== add127 (275, Виталий 02.10): кнопка «Чат-боты» на рельсе =====
+   Видит только собственник. Модуль платный: у всех агентств кнопка есть; без подключения — витрина ботов
+   (карточки: какую проблему решает, что делает, стоимость; подключение доделаем позже). Flater — полный экран
+   с логикой работы каждого бота для чтения. Внутри: список подключённых ботов; выбрал бота — справа что он
+   делает и как им пользоваться; «Настроить» — вся логика: куда и что отправляет, команды, внутренние настройки
+   сбора задач, где бот сидит, цифры за неделю и журнал отправок. Блок плана работы переехал сюда с «Планёрки». */
+var FO_BOTS = null, FO_BOTS_SEL = "main", FO_BOTS_CFG = false, FO_BOTS_TAB = "plan", FO_BOTS_CHATS = {};
+var FO_BOTS_INFO = {
+  main: {
+    ico: "🤖", title: "Flater Team Service", user: "Flater_Team_Service_bot", short: "задачи из чатов · план работы",
+    does: [
+      ["Сбор задач из чатов с клиентами", "Читает сообщения в чатах клиентов. ИИ находит в них задачи, формулирует (что сделать, кабинет, функция, срок, зачем) и отправляет на согласование. После «Принять» задача появляется у ответственного. Сами задачи — на рабочем экране, в «На согласование»."],
+      ["План работы по сотрудникам — сам, по расписанию", "Будни 09:00 — каждому сотруднику план дня (кабинеты и функции с дедлайнами), вторым сообщением — артикулы в работу. 17:55 — итоги ✅/❌ по галочкам до 17:40. Понедельник 09:00 — план планёрок на неделю. Пишет в группу плана."],
+      ["План и факт по кабинету — по запросу", "Собственник пишет в группе плана: «План работы ИП Петров», «Факт план работы ИП Петров», «План работы ИП Иванов за 01.10» — бот отвечает туда же."]
+    ],
+    logic: [
+      ["Сбор задач", "Каждое сообщение в чате клиента сохраняется в сервисе. ИИ (YandexGPT) решает, задача ли это. Если да — формулирует: что сделать, кабинет, функция, ответственный (кто ведёт функцию в этом кабинете, у кого есть окно), срочность, дедлайн, зачем и какая цель. Задача уходит согласующему; «Принять» — разовая задача у ответственного, «Отклонить» — не ставится. Клиент исправил сообщение — бот разбирает заново. Не задачи: планёрки, созвоны, приветствия. Реакция 🧑‍💻 / ✍ на сообщение — бот принял его в работу."],
+      ["План по сотрудникам", "Сервер раз в минуту сверяет расписание (МСК). Будни, «Утром в»: каждому сотруднику отдельное сообщение — его задачи дня (функции кабинетов и разовые), по кабинетам, с дедлайнами; вторым сообщением — артикулы по графику АОД на этот день недели. «Итоги в»: ✅ — галочка поставлена до «Галочки считаются до», иначе ❌; артикулы — по галочке «Работа с РК»; в конце — итог по команде. Понедельник — план планёрок на неделю одним сообщением, без частного клиентов. Одна отправка на агентство, всё пишется в журнал."],
+      ["Команды по кабинету", "Только в группе плана и только от собственника (Telegram привязан к аккаунту). Команда — с начала сообщения: «План работы …», «Факт план работы …», можно «за 01.10 / вчера». Клиент ищется по точному названию (без «ИП/ООО»); не нашёлся — бот подсказывает похожие и ничего не угадывает. Факт — все галочки за день. Обычные сообщения в группе бот пропускает."]
+    ],
+    how: [
+      "Добавьте бота в чат с клиентом — он сам привяжется к клиенту по названию чата.",
+      "Для плана работы: группа со словом «План» в названии, бот в ней. Куда и что писать — в «Настроить».",
+      "Чтобы бот узнавал вас по командам: в личке бота отправьте почту входа и перешлите код из письма (один раз).",
+      "В группе плана бот отвечает только на команды с начала сообщения; обычные сообщения пропускает."
+    ]
+  },
+  meet: {
+    ico: "📅", title: "Планёрки", user: "planerka_flater_team_bot", short: "согласует время планёрок",
+    does: [
+      ["Согласование планёрок с клиентами", "Предлагает клиенту в его чате время планёрки, понимает ответы («после обеда», «какие слоты?», «давайте на 15:00»), переносит, фиксирует согласованное."],
+      ["График и напоминания", "Ведёт график планёрок по кабинетам, напоминает ведущим, присылает график в личку."]
+    ],
+    logic: [
+      ["Порядок и приоритет", "Кабинеты ранжируются по сумме платежа — у крупных клиентов выбор времени первым. Рассылка идёт волнами: следующая волна — когда ответила предыдущая или прошло время ожидания."],
+      ["Разговор с клиентом", "Предлагает 2–3 слота и ждёт выбора. Понимает «до обеда / после обеда / ближе к вечеру», «какие слоты?», своё время клиента; «я просила после обеда» — переносит последнюю назначенную. Время вне рабочих часов — предлагает ближайшее рабочее."],
+      ["График и напоминания", "Согласованное попадает в график и в гант ведущего. Ведущему — напоминания и график в личку (будни 18:00 — на завтра и до конца недели, пятница — на всю следующую)."]
+    ],
+    how: [
+      "Добавьте бота в чат клиента вместе с основным ботом.",
+      "Расписание, правила и рассылка — на экране «Планёрка».",
+      "Ведущему (проджекту) — нажать Start у бота в личке, чтобы получать график."
+    ]
+  },
+  report: {
+    ico: "📤", title: "Отчёты клиентам", user: "flater_report_bot", short: "шлёт клиенту выполненное",
+    does: [
+      ["Выполненные задачи — клиенту", "Когда сотрудник ставит галочку и отправляет задачу в чат, бот присылает клиенту что сделано и ссылку на таблицу."]
+    ],
+    logic: [
+      ["Когда отправляет", "Сотрудник ставит галочку «выполнено» и выбирает «в чат» — отчёт уходит в чат клиента: что сделано и ссылка на таблицу кабинета по этой функции."],
+      ["Надёжность", "Сообщения встают в очередь; не ушло — сервис повторяет, ошибки видны в цифрах бота. Отправленное ложится в историю чата — ИИ задач видит, что клиенту уже ответили."]
+    ],
+    how: [
+      "Добавьте бота в чат клиента.",
+      "Куда что уходит — маршруты «Куда сообщать» в карточке клиента."
+    ]
+  }
+};
+function foBotsOwner(){
+  try{
+    if(typeof FO_PERMS !== "undefined" && FO_PERMS && typeof FO_PERMS.level === "number") return FO_PERMS.level === 1;
+    return role === "owner";
+  }catch(e){ return false; }
+}
+function foBotsLoad(){
+  return api("/refs/bots").then(function(r){ FO_BOTS = r || {}; }).catch(function(e){ FO_BOTS = {error: (e && e.message) || "сервер не ответил"}; });
+}
+function foBotsN(x){ return (x === null || x === undefined) ? "—" : String(x); }
+function foBotsInfoHTML(k){
+  var I = FO_BOTS_INFO[k], B = ((FO_BOTS && FO_BOTS.bots) || []).filter(function(b){ return b.key === k; })[0] || {};
+  var on = !!(FO_BOTS && FO_BOTS.enabled);
+  return '<div class="fo-bots-info">'+
+    '<div class="fo-bots-ih"><span class="fo-bots-av">'+I.ico+'</span><div><b>'+esc(B.name || I.title)+'</b><i>@'+esc(B.username || I.user)+'</i></div>'+
+      '<span class="fo-bots-dot '+(B.online ? 'ok' : 'off')+'">'+(B.online ? 'на связи' : (B.token ? 'не отвечает' : 'не подключён'))+'</span>'+
+      '<button class="bt sm pri fo-bots-cfgbtn" data-bots-cfg="'+k+'"'+(on ? '' : ' disabled title="Модуль не подключён"')+'>'+(FO_BOTS_CFG && FO_BOTS_SEL === k ? 'Свернуть настройки' : 'Настроить')+'</button></div>'+
+    '<div class="fo-bots-sec"><h4>Что делает</h4>'+I.does.map(function(d){ return '<div class="fo-bots-fn"><b>'+esc(d[0])+'</b><span>'+esc(d[1])+'</span></div>'; }).join("")+'</div>'+
+    '<div class="fo-bots-sec"><h4>Как пользоваться</h4><ol>'+I.how.map(function(h){ return '<li>'+esc(h)+'</li>'; }).join("")+'</ol></div>'+
+    ((I.logic || []).length ? '<details class="fo-bots-sec fo-bots-logic" open><summary><h4>Логика работы</h4></summary>'+I.logic.map(function(d){ return '<div class="fo-bots-fn"><b>'+esc(d[0])+'</b><span>'+esc(d[1])+'</span></div>'; }).join("")+'</details>' : '')+
+  '</div>';
+}
+function foBotsChatsHTML(k){
+  var d = FO_BOTS_CHATS[k];
+  if(!d) return '<button class="bt sm" data-bots-chats="'+k+'">Проверить, в каких чатах клиентов бот сидит</button>';
+  if(d.loading) return '<div class="empty">Проверяю чаты…</div>';
+  if(d.error) return '<div class="empty">'+esc(d.error)+'</div>';
+  var miss = (d.chats || []).filter(function(x){ return !x.in; });
+  return '<div class="fo-bots-chats"><div class="fo-bots-chh">Чатов клиентов с номером: '+(d.chats || []).length+' · бот есть в '+((d.chats || []).length - miss.length)+(miss.length ? ' · <b class="bad">нет в '+miss.length+'</b>' : ' ✓')+'</div>'+
+    (d.chats || []).map(function(x){ return '<div class="fo-bots-chr '+(x.in ? 'ok' : 'bad')+'"><span>'+(x.in ? '✓' : '✗')+'</span><b>'+esc(x.client)+'</b><i>'+esc(x.chat || "")+(x.in ? '' : ' — ' + esc(x.status || 'бота нет'))+'</i></div>'; }).join("")+
+    '<button class="bt sm" data-bots-chats="'+k+'">Проверить ещё раз</button></div>';
+}
+function foBotsStatsHTML(){
+  var m = (FO_BOTS && FO_BOTS.main) || {}, ai = m.ai || {};
+  var tot = 0; Object.keys(ai).forEach(function(s){ tot += ai[s] || 0; });
+  var log = m.log || [];
+  var WH = {morning: "план дня", evening: "итоги", week: "план планёрок", cmd: "ответ на команду"};
+  return '<div class="fo-bots-stats">'+
+    '<div class="fo-bots-kpi"><b>'+foBotsN(m.msgs)+'</b><span>сообщений из чатов клиентов прочитано за 7 дней</span></div>'+
+    '<div class="fo-bots-kpi"><b>'+tot+'</b><span>задач нашёл ИИ за 7 дней</span></div>'+
+    '<div class="fo-bots-kpi"><b>'+(ai.accepted || 0)+'</b><span>принято</span></div>'+
+    '<div class="fo-bots-kpi"><b>'+(ai.rejected || 0)+'</b><span>отклонено</span></div>'+
+    '<div class="fo-bots-kpi"><b>'+(ai.pending || 0)+'</b><span>ждут решения</span></div>'+
+  '</div>'+
+  '<div class="fo-bots-log"><h4>Журнал отправок</h4>'+(log.length ? log.map(function(x){
+    return '<div class="fo-bots-lr '+(x.err ? 'bad' : '')+'"><span>'+esc(x.at || "")+'</span><b>'+esc(WH[x.what] || x.what || "")+'</b><i>'+
+      (x.what === "cmd" ? esc(x.text || "") : (esc(x.day || "") + ' · сообщений ' + (x.sent || 0) + ' из ' + (x.of || 0) + (x.chat ? ' · ' + esc(x.chat) : '')))+
+      (x.err ? ' · ошибка: ' + esc(x.err) : '')+'</i></div>'; }).join("") : '<div class="empty">Отправок ещё не было (журнал ведётся с 02.10).</div>')+'</div>';
+}
+function foBotsCfgHTML(k){
+  var on = !!(FO_BOTS && FO_BOTS.enabled);
+  if(!on) return '';
+  if(k === "main"){
+    var m = FO_BOTS.main || {}, ch = m.chats || {};
+    var tabs = [["plan", "План работы и команды"], ["tasks", "Сбор задач из чатов"], ["chats", "Где сидит"], ["stats", "Цифры и журнал"]];
+    var body = "";
+    if(FO_BOTS_TAB === "plan") body = (typeof foPlanHTML === "function") ? foPlanHTML() : '<div class="empty">Блок плана не загрузился</div>';
+    else if(FO_BOTS_TAB === "tasks") body =
+      '<div class="fo-bots-set">'+
+        '<div class="fo-bots-row"><span>Задачи из чатов согласует</span><b>'+esc(m.approvers || "Собственник")+'</b><i>меняется на рабочем экране → «На согласование» → «Передать право согласования»</i></div>'+
+        '<div class="fo-bots-row"><span>Режим</span><b>через согласование</b><i>ИИ ничего не ставит сам: формулирует задачу и ждёт «Принять»</i></div>'+
+        '<div class="fo-bots-row"><span>Чаты клиентов</span><b>'+foBotsN(ch.total)+'</b><i>клиентов с чатами: '+foBotsN(ch.clients)+' · с номером Telegram: '+foBotsN(ch.with_number)+(ch.total && ch.with_number < ch.total ? ' — у остальных бот не видит сообщения (чат внесён ссылкой, бота туда не добавили)' : '')+'</i></div>'+
+        '<div class="fo-bots-row"><span>Что не задача</span><b>планёрки, созвоны, «доброе утро»</b><i>реакции 🧑‍💻 / ✍ — бот принял сообщение в работу</i></div>'+
+        '<div class="fo-hint">Сами задачи от ИИ здесь не показываем — они на рабочем экране, чтобы не дублировать.</div>'+
+      '</div>';
+    else if(FO_BOTS_TAB === "chats") body = foBotsChatsHTML("main");
+    else body = foBotsStatsHTML();
+    return '<div class="fo-bots-cfg"><div class="seg sm fo-bots-tabs">'+tabs.map(function(t){ return '<button data-bots-tab="'+t[0]+'" aria-pressed="'+(FO_BOTS_TAB === t[0])+'">'+t[1]+'</button>'; }).join("")+'</div>'+body+'</div>';
+  }
+  if(k === "meet"){
+    var mt = FO_BOTS.meet || {};
+    return '<div class="fo-bots-cfg"><div class="fo-bots-stats">'+
+      '<div class="fo-bots-kpi"><b>'+foBotsN(mt.week_agreed)+'</b><span>планёрок согласовано на эту неделю</span></div>'+
+      '<div class="fo-bots-kpi"><b>'+foBotsN(mt.agreed)+'</b><span>кабинетов с согласованным графиком</span></div>'+
+      '<div class="fo-bots-kpi"><b>'+foBotsN(mt.proposed)+'</b><span>ждут ответа клиента</span></div>'+
+    '</div>'+
+    '<div class="fo-bots-set"><div class="fo-bots-row"><span>Расписание, правила, рассылка</span><b>на экране «Планёрка»</b><i>там назначаются планёрки и строится график</i></div>'+
+      '<button class="bt sm" data-bots-go="meet">Открыть «Планёрку»</button></div>'+
+    foBotsChatsHTML("meet")+'</div>';
+  }
+  var rp = FO_BOTS.report || {}, q = rp.queue || {};
+  return '<div class="fo-bots-cfg"><div class="fo-bots-stats">'+
+    '<div class="fo-bots-kpi"><b>'+foBotsN(rp.reports)+'</b><span>отчётов о выполненном за 7 дней</span></div>'+
+    '<div class="fo-bots-kpi"><b>'+foBotsN(q.wait)+'</b><span>в очереди на отправку</span></div>'+
+    '<div class="fo-bots-kpi"><b>'+foBotsN(q.err)+'</b><span>ошибок отправки</span></div>'+
+  '</div>'+
+  '<div class="fo-bots-set"><div class="fo-bots-row"><span>Куда что уходит</span><b>маршруты «Куда сообщать»</b><i>в карточке клиента</i></div></div>'+
+  foBotsChatsHTML("report")+'</div>';
+}
+var FO_BOTS_SHOP = [
+  {k: "tasks", ico: "🤖", bg: "linear-gradient(135deg,#7C5CFF,#4FB7FF)", title: "Бот задач из чатов",
+   pain: "Клиенты пишут задачи в чат как попало — задачи теряются, менеджер переписывает их руками.",
+   does: "Читает чаты с клиентами, ИИ находит задачи и формулирует их: что сделать, кабинет, срок, кто делает. Вы нажимаете «Принять» — задача у ответственного.",
+   win: "Ни одна просьба клиента не теряется; менеджер не тратит время на переписывание."},
+  {k: "plan", ico: "🗂", bg: "linear-gradient(135deg,#00B39A,#7ED957)", title: "План и итоги дня",
+   pain: "Руководитель не видит, кто чем занят сегодня и что реально сделано.",
+   does: "Утром присылает в вашу группу план по каждому сотруднику и артикулы в работу, вечером — итоги ✅/❌. По команде — план и факт по любому кабинету.",
+   win: "Контроль команды из Telegram, без созвонов и таблиц."},
+  {k: "meet", ico: "📅", bg: "linear-gradient(135deg,#FF9F43,#FF6B6B)", title: "Бот планёрок",
+   pain: "Согласовать время планёрок с десятками клиентов — часы переписки каждую неделю.",
+   does: "Сам предлагает клиентам слоты, понимает ответы живым языком, переносит, ведёт график и напоминает ведущим.",
+   win: "График планёрок собирается сам, проджект занят работой, а не перепиской."},
+  {k: "report", ico: "📤", bg: "linear-gradient(135deg,#5B8DEF,#A66CFF)", title: "Бот отчётов клиентам",
+   pain: "Клиент не видит работу агентства и сомневается, за что платит.",
+   does: "Как только сотрудник закрыл задачу, отправляет клиенту в чат, что сделано, со ссылкой на таблицу.",
+   win: "Клиент видит работу каждый день — продлевает охотнее."}
+];
+var FO_BOTS_OPEN = {};
+function foBotsShopHTML(){
+  return '<div class="gl fo-bots"><div class="gl-t"><h2>Чат-боты</h2><span class="fo-sub">витрина ботов, которые можно подключить агентству</span></div>'+
+    '<div class="fo-shop">'+FO_BOTS_SHOP.map(function(b){
+      var open = !!FO_BOTS_OPEN[b.k];
+      return '<div class="fo-shop-card'+(open ? ' open' : '')+'">'+
+        '<div class="fo-shop-pic" style="background:'+b.bg+'"><span>'+b.ico+'</span></div>'+
+        '<div class="fo-shop-body"><b>'+esc(b.title)+'</b><p>'+esc(b.pain)+'</p>'+
+          '<button class="bt sm" data-shop="'+b.k+'">'+(open ? 'Свернуть ▴' : 'Подробнее ▾')+'</button>'+
+          (open ? '<div class="fo-shop-more">'+
+            '<div><h5>Какую проблему решает</h5><span>'+esc(b.pain)+'</span></div>'+
+            '<div><h5>Что делает</h5><span>'+esc(b.does)+'</span></div>'+
+            '<div><h5>Что вы получаете</h5><span>'+esc(b.win)+'</span></div>'+
+            '<div><h5>Стоимость</h5><span>по запросу — подключение через менеджера сервиса</span></div>'+
+          '</div>' : '')+
+        '</div></div>';
+    }).join("")+'</div></div>';
+}
+function foBotsRender(){
+  var host = document.getElementById("sect"); if(!host) return;
+  if(!foBotsOwner()){ host.innerHTML = '<div class="gl"><div class="empty">Раздел «Чат-боты» — только для собственника агентства.</div></div>'; return; }
+  if(!FO_BOTS){ host.innerHTML = '<div class="gl"><div class="empty">Загружаю ботов…</div></div>'; foBotsLoad().then(foBotsRender); return; }
+  if(FO_BOTS.error){ host.innerHTML = '<div class="gl"><div class="empty">'+esc(FO_BOTS.error)+' (сервер мог ещё обновляться — откройте через пару минут)</div></div>'; return; }
+  if(FO_BOTS.enabled && FO_BOTS_CFG && FO_BOTS_SEL === "main" && FO_BOTS_TAB === "plan" && typeof FO_PLAN !== "undefined" && !FO_PLAN && typeof foPlanLoad === "function"){
+    foPlanLoad().then(foBotsRender);
+  }
+  var on = !!FO_BOTS.enabled;
+  if(!on){ var yy = window.scrollY; host.innerHTML = foBotsShopHTML(); window.scrollTo(0, yy); return; }
+  var list = ["main", "meet", "report"].map(function(k){
+    var I = FO_BOTS_INFO[k], B = (FO_BOTS.bots || []).filter(function(b){ return b.key === k; })[0] || {};
+    return '<button class="fo-bots-card'+(FO_BOTS_SEL === k ? ' on' : '')+'" data-bots-sel="'+k+'"><span class="fo-bots-av">'+I.ico+'</span>'+
+      '<span class="fo-bots-ct"><b>'+esc(B.name || I.title)+'</b><i>@'+esc(B.username || I.user)+'</i><u>'+esc(I.short)+'</u></span>'+
+      '<span class="fo-bots-dot '+(B.online ? 'ok' : 'off')+'"></span></button>';
+  }).join("");
+  var y = window.scrollY;
+  host.innerHTML = '<div class="gl fo-bots"><div class="gl-t"><h2>Чат-боты</h2><span class="fo-sub">подключено ботов: '+(FO_BOTS.bots || []).filter(function(b){ return b.online; }).length+' из 3</span></div>'+
+    '<div class="fo-bots-grid"><div class="fo-bots-list">'+list+'</div>'+foBotsInfoHTML(FO_BOTS_SEL)+'</div>'+
+    (FO_BOTS_CFG ? foBotsCfgHTML(FO_BOTS_SEL) : '')+
+  '</div>';
+  try{ if(typeof enhanceSelects === "function") enhanceSelects(host); }catch(e){}
+  window.scrollTo(0, y);
+}
+
+/* рельса: кнопка после «Планёрки», только собственнику */
+(function(){
+  var ICO = '<svg viewBox="0 0 24 24"><path d="M4 6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v7a2.5 2.5 0 0 1-2.5 2.5H11l-4 3.5V16h-.5A2.5 2.5 0 0 1 4 13.5z"/><circle cx="9.5" cy="10" r="1"/><circle cx="14.5" cy="10" r="1"/></svg>';
+  function put(){
+    if(document.querySelector('.rail .ri[data-v="bots"]')) return;
+    var after = document.querySelector('.rail .ri[data-v="meet"]') || document.querySelector('.rail .ri[data-v="fns"]');
+    if(!after || !after.parentNode) return;
+    var b = document.createElement("button"); b.className = "ri"; b.setAttribute("data-v", "bots"); b.title = "Чат-боты";
+    b.innerHTML = ICO + '<span class="rl">Чат-боты</span>';
+    after.parentNode.insertBefore(b, after.nextSibling);
+  }
+  function show(){
+    put();
+    var b = document.querySelector('.rail .ri[data-v="bots"]'); if(!b) return;
+    var ok = foBotsOwner();
+    b.style.display = ok ? "" : "none"; b.hidden = !ok;
+  }
+  put(); show();
+  try{ if(typeof NAV_TITLES === "object" && NAV_TITLES) NAV_TITLES.bots = ["Чат-боты", "Какие боты подключены, что делают и как ими пользоваться"]; }catch(e){}
+  try{ if(typeof SEC_RENDER === "object" && SEC_RENDER) SEC_RENDER.bots = foBotsRender; }catch(e){}
+  if(typeof applyRoleRail === "function"){
+    var _ar = applyRoleRail;
+    applyRoleRail = function(){ var v = _ar.apply(this, arguments); try{ show(); }catch(e){} return v; };
+  }
+  if(typeof setView === "function"){
+    var _sv = setView;
+    setView = function(v){
+      if(v === "bots" && !foBotsOwner()){ try{ toast("«Чат-боты» — только для собственника"); }catch(e){} return _sv.call(this, "work"); }
+      return _sv.apply(this, arguments);
+    };
+  }
+  [800, 3000, 8000].forEach(function(ms){ setTimeout(function(){ try{ show(); }catch(e){} }, ms); });
+  document.addEventListener("click", function(e){
+    var r = e.target.closest && e.target.closest('.rail .ri[data-v="bots"]'); if(!r) return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    FO_BOTS = null;
+    try{ setView("bots"); }catch(x){}
+  }, true);
+})();
+
+/* клики на экране */
+document.addEventListener("click", function(e){
+  var sh = e.target.closest && e.target.closest("[data-shop]");
+  if(sh && document.querySelector(".fo-shop")){ e.preventDefault(); e.stopPropagation(); var kk = sh.getAttribute("data-shop"); FO_BOTS_OPEN[kk] = !FO_BOTS_OPEN[kk]; foBotsRender(); return; }
+  var t = e.target.closest && e.target.closest("[data-bots-sel], [data-bots-cfg], [data-bots-tab], [data-bots-chats], [data-bots-req], [data-bots-go]");
+  if(!t || !document.querySelector(".fo-bots")) return;
+  e.preventDefault(); e.stopPropagation();
+  if(t.hasAttribute("data-bots-sel")){ var k = t.getAttribute("data-bots-sel"); if(FO_BOTS_SEL !== k){ FO_BOTS_SEL = k; FO_BOTS_CFG = false; } foBotsRender(); return; }
+  if(t.hasAttribute("data-bots-cfg")){ var k2 = t.getAttribute("data-bots-cfg"); FO_BOTS_CFG = !(FO_BOTS_CFG && FO_BOTS_SEL === k2); FO_BOTS_SEL = k2; foBotsRender(); return; }
+  if(t.hasAttribute("data-bots-tab")){ FO_BOTS_TAB = t.getAttribute("data-bots-tab"); foBotsRender(); return; }
+  if(t.hasAttribute("data-bots-go")){ try{ setView(t.getAttribute("data-bots-go")); }catch(x){} return; }
+  if(t.hasAttribute("data-bots-chats")){
+    var b = t.getAttribute("data-bots-chats");
+    FO_BOTS_CHATS[b] = {loading: true}; foBotsRender();
+    api("/refs/bots/chats?bot=" + encodeURIComponent(b)).then(function(r){ FO_BOTS_CHATS[b] = r || {chats: []}; })
+      .catch(function(err){ FO_BOTS_CHATS[b] = {error: "Не проверилось: " + (err && err.message || "")}; })
+      .then(function(){ if(typeof view !== "undefined" && view === "bots") foBotsRender(); });
+    return;
+  }
+  if(t.hasAttribute("data-bots-req")){
+    t.disabled = true; t.textContent = "Отправляю…";
+    api("/refs/bots/request", {method: "POST"}).then(function(r){
+      try{ toast(r && r.notified ? "Заявка отправлена администратору сервиса" : "Заявка записана — администратор увидит её в сервисе"); }catch(x){}
+      FO_BOTS = null; foBotsRender();
+    }).catch(function(err){ t.disabled = false; t.textContent = "Подключить модуль"; try{ toast("Не отправилось: " + (err && err.message || "")); }catch(x){} });
+  }
 }, true);
 
 })();
