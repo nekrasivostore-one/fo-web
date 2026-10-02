@@ -4581,6 +4581,39 @@ html.dark .fo-shop-card{ background:rgba(255,255,255,.04) }
 .fo-shop-more h5{ margin:0 0 2px; font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:var(--ink-3) }
 .fo-shop-more span{ font-size:12.5px; color:var(--ink); line-height:1.45 }
 @media (prefers-reduced-motion:reduce){ .fo-shop-card{ transition:none } }
+/* 279 (02.10): два раскрывающихся раздела — «Настроить» и «Что делает» */
+.fo-bots-fold{ margin-top:12px; border:1px solid var(--neu-b,#e6e8ef); border-radius:14px; background:var(--card,#fff); overflow:hidden }
+html.dark .fo-bots-fold{ background:rgba(255,255,255,.03) }
+.fo-bots-foldh{ width:100%; display:flex; align-items:center; gap:10px; padding:12px 14px; border:0; background:transparent; font:inherit; color:inherit; cursor:pointer; text-align:left }
+.fo-bots-foldh b{ font-size:14px } .fo-bots-foldh span{ margin-left:auto; font-size:12px; color:var(--ink-3) }
+.fo-bots-foldh:hover{ background:rgba(124,92,255,.06) }
+.fo-bots-fold.open > .fo-bots-foldh{ border-bottom:1px solid var(--neu-b,#e6e8ef) }
+.fo-bots-foldb{ padding:12px 14px 14px }
+.fo-bots-foldb .fo-bots-cfg{ margin-top:0; padding-top:0; border-top:0 }
+.fo-bots-foldb .fo-bots-sec:first-child{ margin-top:0 }
+/* ИИ Яндекс — развёрнуто */
+.fo-ai h5{ margin:14px 0 6px; font-size:13px; color:var(--ink) }
+.fo-ai ul{ margin:0; padding-left:18px; font-size:12.5px; color:var(--ink-2); line-height:1.55 }
+.fo-ai ul ul{ margin-top:4px } .fo-ai li{ margin:2px 0 }
+.fo-ai-top{ display:flex; flex-direction:column; gap:3px; font-size:12.5px; color:var(--ink-2); padding:8px 10px; border-radius:10px; background:var(--neu,#f3f4f8) }
+html.dark .fo-ai-top{ background:rgba(255,255,255,.05) }
+.fo-ai-notes{ font-size:12px; color:var(--ink-3); margin-top:6px; line-height:1.45 }
+.fo-ai-rules{ display:flex; flex-direction:column; gap:6px }
+.fo-ai-rule{ display:grid; grid-template-columns:22px 1fr auto; gap:6px; align-items:start; font-size:12.5px; padding:6px 8px; border-radius:10px; background:var(--neu,#f3f4f8) }
+html.dark .fo-ai-rule{ background:rgba(255,255,255,.05) }
+.fo-ai-rule span{ color:var(--ink-3) } .fo-ai-rule i{ font-style:normal; color:var(--ink) }
+.fo-ai-rule .fo-x{ border:0; background:transparent; cursor:pointer; font-size:16px; line-height:1; color:var(--ink-3); padding:0 4px }
+.fo-ai-rule .fo-x:hover{ color:#DB4A5F }
+.fo-ai-add{ display:flex; gap:8px; flex-wrap:wrap; margin-top:4px } .fo-ai-add .fi{ flex:1; min-width:220px }
+.fo-ai-raw{ margin-top:10px } .fo-ai-raw summary{ cursor:pointer; font-size:12.5px; color:var(--ink-2) }
+.fo-ai-raw pre{ white-space:pre-wrap; word-break:break-word; font-size:12px; line-height:1.5; max-height:420px; overflow:auto; padding:10px 12px; border-radius:10px; background:var(--neu,#f3f4f8); margin:6px 0 0 }
+html.dark .fo-ai-raw pre{ background:rgba(255,255,255,.05) }
+/* настройки бота планёрок */
+.fo-mtc-h{ margin:14px 0 6px; font-size:13px; color:var(--ink) }
+.fo-mtc{ display:flex; flex-direction:column; gap:8px; font-size:12.5px }
+.fo-mtc label{ display:flex; align-items:center; gap:6px; flex-wrap:wrap }
+.fo-mtc .fi.sm{ width:74px; text-align:center }
+.fo-mtc-ul{ margin:0; padding-left:18px; font-size:12.5px; color:var(--ink-2); line-height:1.55 }
 /* add128 (277, Виталий 02.10): «рельса не катается, когда скролю вниз».
    Причина — правило add117 (254) `html, body{overflow-x:hidden}`: у body с overflow, отличным от visible, body
    становится контейнером прокрутки, и position:sticky у рельсы привязывается к нему (а он не прокручивается) —
@@ -31344,16 +31377,168 @@ function foBotsLoad(){
   return api("/refs/bots").then(function(r){ FO_BOTS = r || {}; }).catch(function(e){ FO_BOTS = {error: (e && e.message) || "сервер не ответил"}; });
 }
 function foBotsN(x){ return (x === null || x === undefined) ? "—" : String(x); }
+/* 279 (02.10): справа у бота два раскрывающихся раздела — сначала «Настроить», потом «Что делает и как устроен» */
+var FO_BOTS_FOLD = {cfg: true, about: false}, FO_BOTS_AI = null;
 function foBotsInfoHTML(k){
   var I = FO_BOTS_INFO[k], B = ((FO_BOTS && FO_BOTS.bots) || []).filter(function(b){ return b.key === k; })[0] || {};
   var on = !!(FO_BOTS && FO_BOTS.enabled);
+  function fold(id, title, body){
+    var open = !!FO_BOTS_FOLD[id];
+    return '<div class="fo-bots-fold'+(open ? ' open' : '')+'"><button type="button" class="fo-bots-foldh" data-bots-fold="'+id+'"><b>'+title+'</b><span>'+(open ? 'Свернуть ▴' : 'Развернуть ▾')+'</span></button>'+
+      (open ? '<div class="fo-bots-foldb">'+body()+'</div>' : '')+'</div>';
+  }
   return '<div class="fo-bots-info">'+
     '<div class="fo-bots-ih"><span class="fo-bots-av">'+I.ico+'</span><div><b>'+esc(B.name || I.title)+'</b><i>@'+esc(B.username || I.user)+'</i></div>'+
-      '<span class="fo-bots-dot '+(B.online ? 'ok' : 'off')+'">'+(B.online ? 'на связи' : (B.token ? 'не отвечает' : 'не подключён'))+'</span>'+
-      '<button class="bt sm pri fo-bots-cfgbtn" data-bots-cfg="'+k+'"'+(on ? '' : ' disabled title="Модуль не подключён"')+'>'+(FO_BOTS_CFG && FO_BOTS_SEL === k ? 'Свернуть настройки' : 'Настроить')+'</button></div>'+
-    '<div class="fo-bots-sec"><h4>Что делает</h4>'+I.does.map(function(d){ return '<div class="fo-bots-fn"><b>'+esc(d[0])+'</b><span>'+esc(d[1])+'</span></div>'; }).join("")+'</div>'+
-    '<div class="fo-bots-sec"><h4>Как пользоваться</h4><ol>'+I.how.map(function(h){ return '<li>'+esc(h)+'</li>'; }).join("")+'</ol></div>'+
-    ((I.logic || []).length ? '<details class="fo-bots-sec fo-bots-logic" open><summary><h4>Логика работы</h4></summary>'+I.logic.map(function(d){ return '<div class="fo-bots-fn"><b>'+esc(d[0])+'</b><span>'+esc(d[1])+'</span></div>'; }).join("")+'</details>' : '')+
+      '<span class="fo-bots-dot '+(B.online ? 'ok' : 'off')+'">'+(B.online ? 'на связи' : (B.token ? 'не отвечает' : 'не подключён'))+'</span></div>'+
+    fold("cfg", "⚙️ Настроить", function(){ return on ? foBotsCfgHTML(k) : '<div class="empty">Модуль не подключён.</div>'; })+
+    fold("about", "ℹ️ Что делает и как устроен", function(){
+      return '<div class="fo-bots-sec"><h4>Что делает</h4>'+I.does.map(function(d){ return '<div class="fo-bots-fn"><b>'+esc(d[0])+'</b><span>'+esc(d[1])+'</span></div>'; }).join("")+'</div>'+
+        '<div class="fo-bots-sec"><h4>Как пользоваться</h4><ol>'+I.how.map(function(h){ return '<li>'+esc(h)+'</li>'; }).join("")+'</ol></div>'+
+        ((I.logic || []).length ? '<div class="fo-bots-sec"><h4>Логика работы</h4>'+I.logic.map(function(d){ return '<div class="fo-bots-fn"><b>'+esc(d[0])+'</b><span>'+esc(d[1])+'</span></div>'; }).join("")+'</div>' : '')+
+        (k === "main" || k === "meet" ? foBotsAiHTML(k) : '');
+    })+
+  '</div>';
+}
+/* 279: настройки бота планёрок — прямо здесь (те же, что на сервере для экрана «Планёрка») */
+var FO_BOTS_MEET = null;
+function foBotsMeetLoad(){
+  return Promise.all([api("/refs/meet").catch(function(){ return null; }), api("/refs/meet/rules").catch(function(){ return null; })])
+    .then(function(r){ var m = r[0] || {}; FO_BOTS_MEET = {settings: m.settings || {}, levels: m.levels || {}, camp: m.camp || null, rows: m.rows || [], rules: (r[1] && r[1].rules) || [], ok: !!r[0]}; });
+}
+function foBotsMeetCfgHTML(){
+  if(!FO_BOTS_MEET){ foBotsMeetLoad().then(function(){ if(typeof view !== "undefined" && view === "bots") foBotsRender(); }); return '<div class="empty">Загружаю настройки планёрок…</div>'; }
+  var M = FO_BOTS_MEET, st = M.settings || {}, mt = (FO_BOTS && FO_BOTS.meet) || {};
+  if(!M.ok) return '<div class="empty">Настройки планёрок не загрузились — откройте позже.</div>';
+  var LV = {"1": "высокий", "2": "средний", "3": "обычный"};
+  var lv = Object.keys(M.levels || {}).sort().map(function(k){ var x = M.levels[k] || {}; return '<li><b>Приоритет '+k+' ('+(LV[k] || "")+')</b>: '+x.min+'–'+x.max+' мин, по умолчанию '+x.def+' мин</li>'; }).join("");
+  var cnt = {}; (M.rows || []).forEach(function(r){ cnt[r.level] = (cnt[r.level] || 0) + 1; });
+  var cp = M.camp;
+  var camp = cp && cp.status === "active"
+    ? '<div class="fo-bots-row"><span>Рассылка согласования</span><b>идёт · волна '+esc(String(cp.wave || 1))+(cp.test ? ' · тест' : '')+'</b><i><button class="bt sm" data-mt-stop>Остановить рассылку</button></i></div>'
+    : '<div class="fo-bots-row"><span>Рассылка согласования</span><b>не идёт</b><i>запускается сама по понедельникам (если включено ниже) или вручную на экране «Планёрка»</i></div>';
+  return '<div class="fo-bots-stats">'+
+      '<div class="fo-bots-kpi"><b>'+foBotsN(mt.week_agreed)+'</b><span>планёрок согласовано на эту неделю</span></div>'+
+      '<div class="fo-bots-kpi"><b>'+foBotsN(mt.agreed)+'</b><span>кабинетов с согласованным графиком</span></div>'+
+      '<div class="fo-bots-kpi"><b>'+foBotsN(mt.proposed)+'</b><span>ждут ответа клиента</span></div>'+
+    '</div>'+
+    '<h5 class="fo-mtc-h">Когда и как бот согласует</h5>'+
+    '<div class="fo-mtc">'+
+      '<label>Планёрки — с <input class="fi sm" data-mt-k="start" value="'+esc(st.from || "10:00")+'"> до <input class="fi sm" data-mt-k="end" value="'+esc(st.to || "18:00")+'"></label>'+
+      '<label>Перерыв между планёрками у ведущего <input class="fi sm" type="number" min="0" max="60" data-mt-k="brk" value="'+esc(String(st.brk != null ? st.brk : 15))+'"> мин</label>'+
+      '<label>Ждать ответа клиента, прежде чем писать следующим <input class="fi sm" type="number" min="15" max="4320" data-mt-k="gap" value="'+esc(String(st.gap != null ? st.gap : 180))+'"> мин</label>'+
+      '<label><input type="checkbox" data-mt-k="auto" '+(st.auto !== false ? 'checked' : '')+'> по понедельникам запускать согласование само в <input class="fi sm" data-mt-k="auto_at" value="'+esc(st.auto_at || "10:00")+'"></label>'+
+    '</div>'+
+    '<div class="fo-bots-set">'+camp+'</div>'+
+    '<h5 class="fo-mtc-h">Длительность и приоритет</h5><ul class="fo-mtc-ul">'+lv+'<li>Приоритет кабинета считается по сумме платежа клиента: верхняя треть — 1, средняя — 2, нижняя и без суммы — 3. Сейчас: 1 — '+(cnt[1] || 0)+', 2 — '+(cnt[2] || 0)+', 3 — '+(cnt[3] || 0)+' кабинетов. У кого выше приоритет — тому время предлагается первым.</li></ul>'+
+    '<h5 class="fo-mtc-h">Правила планёрок — учим бота своими словами</h5>'+
+    '<div class="fo-ai-rules">'+((M.rules || []).length ? M.rules.map(function(r, i){ return '<div class="fo-ai-rule"><span>'+(i + 1)+'.</span><i>'+esc(r)+'</i><button class="fo-x" data-mt-rule-del="'+i+'" title="Убрать правило">×</button></div>'; }).join("") : '<div class="empty">Правил пока нет.</div>')+
+      '<div class="fo-ai-add"><input class="fi sm" data-mt-rule-new placeholder="Например: «С ИП Сидякин планёрки только после 14:00»"><button class="bt sm pri" data-mt-rule-add>Добавить правило</button></div></div>'+
+    '<div class="fo-bots-set"><div class="fo-bots-row"><span>График по кабинетам и ручная рассылка</span><b>на экране «Планёрка»</b><i><button class="bt sm" data-bots-go="meet">Открыть «Планёрку»</button></i></div></div>';
+}
+document.addEventListener("change", function(e){
+  var el = e.target; if(!el || !el.matches || !el.matches("[data-mt-k]") || !document.querySelector(".fo-bots")) return;
+  var k = el.getAttribute("data-mt-k"), body = {};
+  if(k === "auto") body.auto = !!el.checked;
+  else if(k === "brk" || k === "gap") body[k] = +el.value || 0;
+  else { if(!/^\d{1,2}:\d{2}$/.test(el.value.trim())){ try{ toast("Время в виде ЧЧ:ММ"); }catch(x){} return; } body[k] = el.value.trim(); }
+  api("/refs/meet/settings", {method: "POST", body: body}).then(function(r){ try{ toast("Сохранено на сервере"); }catch(x){} if(FO_BOTS_MEET && r && r.settings) FO_BOTS_MEET.settings = r.settings; })
+    .catch(function(err){ try{ toast("Не сохранилось: " + (err && err.message || "")); }catch(x){} });
+});
+document.addEventListener("click", function(e){
+  if(!document.querySelector(".fo-bots")) return;
+  var b = e.target.closest && e.target.closest("[data-mt-rule-add], [data-mt-rule-del], [data-mt-stop]"); if(!b) return;
+  e.preventDefault(); e.stopPropagation();
+  if(b.hasAttribute("data-mt-stop")){
+    if(b.dataset.armed !== "1"){ b.dataset.armed = "1"; b.textContent = "Точно остановить? Нажмите ещё раз"; return; }
+    api("/refs/meet/campaign/stop", {method: "POST", body: {}}).then(function(){ try{ toast("Рассылка остановлена"); }catch(x){} FO_BOTS_MEET = null; foBotsRender(); });
+    return;
+  }
+  var body = {};
+  if(b.hasAttribute("data-mt-rule-add")){ var inp = document.querySelector("[data-mt-rule-new]"); var v = inp ? inp.value.trim() : ""; if(v.length < 5){ try{ toast("Напишите правило словами"); }catch(x){} return; } body.add = v; }
+  else body.remove = +b.getAttribute("data-mt-rule-del");
+  b.disabled = true;
+  api("/refs/meet/rules", {method: "POST", body: body}).then(function(d){ if(FO_BOTS_MEET) FO_BOTS_MEET.rules = (d && d.rules) || FO_BOTS_MEET.rules; try{ toast(body.add ? "Правило добавлено" : "Правило убрано"); }catch(x){} foBotsRender(); })
+    .catch(function(err){ b.disabled = false; try{ toast("Не сохранилось: " + (err && err.message || "")); }catch(x){} });
+}, true);
+
+/* ИИ Яндекс: чему научен — развёрнуто, для чтения */
+function foBotsAiLoad(){ return api("/refs/bots/ai").then(function(r){ FO_BOTS_AI = r || {}; }).catch(function(e){ FO_BOTS_AI = {error: (e && e.message) || "сервер не ответил"}; }); }
+function foBotsAiWords(pat){
+  try{ var m = String(pat || "").match(/\(([^()]*)\)/); return m ? m[1].split("|").map(function(x){ return x.replace(/\\/g, ""); }).filter(Boolean) : []; }catch(e){ return []; }
+}
+function foBotsAiHTML(k){
+  if(!FO_BOTS_AI){ foBotsAiLoad().then(function(){ if(typeof view !== "undefined" && view === "bots") foBotsRender(); }); return '<div class="fo-bots-sec"><h4>ИИ Яндекс</h4><div class="empty">Загружаю, чему научен ИИ…</div></div>'; }
+  var A = FO_BOTS_AI;
+  if(A.error) return '<div class="fo-bots-sec"><h4>ИИ Яндекс</h4><div class="empty">'+esc(A.error)+' (сервер мог ещё обновляться)</div></div>';
+  function pre(title, txt){ return txt ? '<details class="fo-ai-raw"><summary>'+title+'</summary><pre>'+esc(txt)+'</pre></details>' : ''; }
+  if(k === "meet"){
+    return '<div class="fo-bots-sec fo-ai"><h4>ИИ планёрок (Яндекс) — чему научен</h4>'+
+      '<div class="fo-bots-fn"><b>Два разбора</b><span>Пока время не согласовано — ИИ определяет смысл ответа клиента: согласен (yes), называет своё время (other), не может (no), непонятно (unclear), сообщение не про планёрку (not_about). Когда планёрки уже стоят — что клиент хочет: перенести (move), отменить (cancel), нужна дополнительная (extra), подтверждает (confirm), не про планёрки (not_about).</span></div>'+
+      '<div class="fo-bots-fn"><b>Что считает планёркой</b><span>Планёрка, совещание, звонок, созвон, кол (call), «проведём зум» (Zoom, Телемост) — всё это одно и то же. Перед ответом читает переписку чата, чтобы понять, на что клиент отвечает.</span></div>'+
+      pre("Полная инструкция ИИ: согласование времени", A.meet_sys)+pre("Полная инструкция ИИ: перенос / отмена / дополнительная", A.meet_sys2)+'</div>';
+  }
+  var W = A.week || {}, tot = 0; Object.keys(W).forEach(function(x){ tot += W[x] || 0; });
+  var skip = foBotsAiWords(A.skip);
+  var noiseG = [["Приветствия", 0, 1], ["Прощания", 2], ["Благодарности и согласия", 3], ["Мат и запиканные слова", 4, 5], ["Междометия", 6]];
+  var noise = noiseG.map(function(g){
+    var words = [];
+    for(var i = 1; i < g.length; i++){ var pt = (A.noise || [])[g[i]]; if(g[0].indexOf("Мат") === 0) continue; words = words.concat(foBotsAiWords(pt).slice(0, 14)); }
+    return '<li><b>'+esc(g[0])+'</b>'+(words.length ? ': '+esc(words.join(", ")) : ' — любые формы')+'</li>';
+  }).join("");
+  var rules = A.rules || [];
+  return '<div class="fo-bots-sec fo-ai"><h4>ИИ Яндекс — чему научен и как решает</h4>'+
+    '<div class="fo-ai-top"><span>Модель: <b>'+esc(A.model || "")+'</b></span><span>Ключ Яндекса: <b>'+(A.ready ? 'подключён ✓' : 'нет ✗')+'</b></span>'+
+      '<span>За 7 дней сообщений из чатов клиентов: <b>'+tot+'</b> — отсеяли фильтры '+(W.skip || 0)+', «не задача» '+(W.no_task || 0)+', задача '+(W.task || 0)+', уточнение к задаче '+(W.clarify || 0)+(W.error ? ', ошибки '+W.error : '')+'</span></div>'+
+    ((A.skip_notes || []).length ? '<div class="fo-ai-notes">Почему отсеяли: '+A.skip_notes.map(function(x){ return esc(x.note || "—")+' — '+x.n; }).join(" · ")+'</div>' : '')+
+
+    '<h5>1. Фильтры: что даже не уходит в Яндекс</h5><ul>'+
+      '<li>Сообщения короче 6 символов.</li>'+
+      '<li>Односложные ответы целиком: '+esc(skip.join(", "))+'.</li>'+
+      '<li>«Шум»: из сообщения вычёркиваются слова ниже; если после этого не осталось ни одного слова — сообщение не разбирается. Если слова остались — уходит в ИИ («Почему цена опять 2500, бл*?!» — уходит).<ul>'+noise+'</ul></li>'+
+      '<li>Ответы про время планёрки — их забирает бот планёрок, в ИИ задач не идут.</li>'+
+      '<li>Сообщения не из чата клиента (чат команды, зеркало) и сообщения самих ботов.</li>'+
+    '</ul>'+
+
+    '<h5>2. Что ИИ видит, когда разбирает сообщение</h5><ul>'+
+      '<li>Текущие дату и время по Москве и кабинет клиента.</li>'+
+      '<li>Список функций агентства: ★ — функции, которые уже стоят в этом кабинете, в скобках — кто их ведёт.</li>'+
+      '<li>Команду агентства: имена и @ники — чтобы понять, к кому обращаются.</li>'+
+      '<li>Уже поставленные задачи по этому клиенту за '+(A.dup_days || 2)+' дня — чтобы не плодить дубли.</li>'+
+      '<li>'+(A.ctx_n || 20)+' предыдущих сообщений чата — контекст для размытых просьб.</li>'+
+      '<li>Само новое сообщение и кто его написал.</li>'+
+      '<li>Правила агентства (раздел 5) — дописываются к инструкции и важнее общих.</li>'+
+    '</ul>'+
+
+    '<h5>3. Как ИИ решает, задача это или нет</h5><ul>'+
+      '<li>Решает только про новое сообщение; старые — контекст, заново задачей не ставит.</li>'+
+      '<li>Прямая просьба — задача: «сделайте», «поменяйте», «поднимите», «снизьте», «добавьте», «проверьте», «нужно …», «участвуем в …».</li>'+
+      '<li>Размытая просьба по обсуждению выше — тоже задача, суть собирает из контекста: «давайте так», «делайте, как обсуждали», «да, запускайте», обращение «@ник» без текста.</li>'+
+      '<li>Не задача: статус, отчёт, информация, обещание написать позже («как примут — напишу», «остатки отображаются корректно»), вопрос без просьбы.</li>'+
+      '<li>Если просят то же, что уже поставлено, или уточняют (срок, цифру, артикул) — новую задачу не создаёт, указывает номер той задачи.</li>'+
+    '</ul>'+
+    '<h5>Что ИИ заполняет в задаче</h5><ul>'+
+      '<li><b>Формулировка</b> — коротко, в повелительном наклонении: «Снизить цену на артикул 153667602 до 1990 ₽».</li>'+
+      '<li><b>Функция</b> — по смыслу, сначала среди ★ этого кабинета: «аб тест», «A/B», «сплит фото» → A/B тест; «фото», «обложка», «инфографика» → фотоворонка. Не подходит ни одна — пусто.</li>'+
+      '<li><b>Исполнитель</b> — только если его прямо назвали («Игорь, посмотри») или он сам ответил «сделаю», «беру». Не угадывает.</li>'+
+      '<li><b>Срочно</b> — только если клиент пишет «срочно», «сегодня», «сейчас», называет ближайший час или без этого встают продажи.</li>'+
+      '<li><b>Дедлайн</b> — если срок назван или очевиден; <b>Зачем</b> и <b>Цель</b> — по одному предложению; <b>Минуты</b> — от 5 до 240.</li>'+
+    '</ul>'+
+
+    '<h5>4. Что сервис делает после ответа ИИ</h5><ul>'+
+      '<li>«Не задача» — сообщение помечается, ничего не ставится.</li>'+
+      '<li>Повтор или уточнение (ИИ указал задачу или формулировка похожа на задачу за '+(A.dup_days || 2)+' дня) — уточнение дописывается к той задаче (и к задаче у исполнителя, если её уже приняли), в чате реакция ✍ / 👀.</li>'+
+      '<li>Функцию ИИ не определил — второй, отдельный запрос к ИИ только про функцию.</li>'+
+      '<li>Исполнителя, которого назвал ИИ, сервис проверяет: человек должен быть в переписке. Нет — имя отклоняется.</li>'+
+      '<li>Ответственный — по порядку: назван исполнителем или сам сказал «сделаю» → ведёт эту функцию в кабинете → переписывался по задаче → умеет функцию, ведёт кабинет, его артикулы; минус нагрузка сегодня. Собственник и директор — не исполнители.</li>'+
+      '<li>Согласующий — кого назначил собственник, иначе собственник. Задача уходит в «На согласование», в чате — реакция 🧑‍💻.</li>'+
+    '</ul>'+
+
+    '<h5>5. Правила агентства — учим ИИ своими словами</h5>'+
+    '<div class="fo-ai-rules">'+(rules.length ? rules.map(function(r, i){ return '<div class="fo-ai-rule"><span>'+(i + 1)+'.</span><i>'+esc(r)+'</i><button class="fo-x" data-ai-rule-del="'+i+'" title="Убрать правило">×</button></div>'; }).join("") : '<div class="empty">Правил пока нет — ИИ работает по общей инструкции.</div>')+
+      '<div class="fo-ai-add"><input class="fi sm" data-ai-rule-new placeholder="Например: «Сообщения про отгрузку на склад — это задача функции Поставки»"><button class="bt sm pri" data-ai-rule-add>Добавить правило</button></div>'+
+      '<div class="fo-hint">ИИ читает эти правила перед каждым разбором и ставит их выше общей инструкции.</div></div>'+
+
+    pre("Полная инструкция ИИ — как она написана", A.sys)+
   '</div>';
 }
 function foBotsChatsHTML(k){
@@ -31403,17 +31588,7 @@ function foBotsCfgHTML(k){
     else body = foBotsStatsHTML();
     return '<div class="fo-bots-cfg"><div class="seg sm fo-bots-tabs">'+tabs.map(function(t){ return '<button data-bots-tab="'+t[0]+'" aria-pressed="'+(FO_BOTS_TAB === t[0])+'">'+t[1]+'</button>'; }).join("")+'</div>'+body+'</div>';
   }
-  if(k === "meet"){
-    var mt = FO_BOTS.meet || {};
-    return '<div class="fo-bots-cfg"><div class="fo-bots-stats">'+
-      '<div class="fo-bots-kpi"><b>'+foBotsN(mt.week_agreed)+'</b><span>планёрок согласовано на эту неделю</span></div>'+
-      '<div class="fo-bots-kpi"><b>'+foBotsN(mt.agreed)+'</b><span>кабинетов с согласованным графиком</span></div>'+
-      '<div class="fo-bots-kpi"><b>'+foBotsN(mt.proposed)+'</b><span>ждут ответа клиента</span></div>'+
-    '</div>'+
-    '<div class="fo-bots-set"><div class="fo-bots-row"><span>Расписание, правила, рассылка</span><b>на экране «Планёрка»</b><i>там назначаются планёрки и строится график</i></div>'+
-      '<button class="bt sm" data-bots-go="meet">Открыть «Планёрку»</button></div>'+
-    foBotsChatsHTML("meet")+'</div>';
-  }
+  if(k === "meet") return '<div class="fo-bots-cfg">' + foBotsMeetCfgHTML() + foBotsChatsHTML("meet") + '</div>';
   var rp = FO_BOTS.report || {}, q = rp.queue || {};
   return '<div class="fo-bots-cfg"><div class="fo-bots-stats">'+
     '<div class="fo-bots-kpi"><b>'+foBotsN(rp.reports)+'</b><span>отчётов о выполненном за 7 дней</span></div>'+
@@ -31464,7 +31639,7 @@ function foBotsRender(){
   if(!foBotsOwner()){ host.innerHTML = '<div class="gl"><div class="empty">Раздел «Чат-боты» — только для собственника агентства.</div></div>'; return; }
   if(!FO_BOTS){ host.innerHTML = '<div class="gl"><div class="empty">Загружаю ботов…</div></div>'; foBotsLoad().then(foBotsRender); return; }
   if(FO_BOTS.error){ host.innerHTML = '<div class="gl"><div class="empty">'+esc(FO_BOTS.error)+' (сервер мог ещё обновляться — откройте через пару минут)</div></div>'; return; }
-  if(FO_BOTS.enabled && FO_BOTS_CFG && FO_BOTS_SEL === "main" && FO_BOTS_TAB === "plan" && typeof FO_PLAN !== "undefined" && !FO_PLAN && typeof foPlanLoad === "function"){
+  if(FO_BOTS.enabled && FO_BOTS_FOLD.cfg && FO_BOTS_SEL === "main" && FO_BOTS_TAB === "plan" && typeof FO_PLAN !== "undefined" && !FO_PLAN && typeof foPlanLoad === "function"){
     foPlanLoad().then(foBotsRender);
   }
   var on = !!FO_BOTS.enabled;
@@ -31482,7 +31657,6 @@ function foBotsRender(){
   var y = window.scrollY;
   host.innerHTML = '<div class="gl fo-bots"><div class="gl-t"><h2>Чат-боты</h2><span class="fo-sub">подключено ботов: '+(FO_BOTS.bots || []).filter(function(b){ return b.online; }).length+' из 3</span><div class="grow"></div><button class="bt sm" data-bots-preview="1" title="Так раздел видят агентства, у которых модуль не подключён">Витрина для других агентств</button></div>'+
     '<div class="fo-bots-grid"><div class="fo-bots-list">'+list+'</div>'+foBotsInfoHTML(FO_BOTS_SEL)+'</div>'+
-    (FO_BOTS_CFG ? foBotsCfgHTML(FO_BOTS_SEL) : '')+
   '</div>';
   try{ if(typeof enhanceSelects === "function") enhanceSelects(host); }catch(e){}
   window.scrollTo(0, y);
@@ -31530,6 +31704,19 @@ function foBotsRender(){
 
 /* клики на экране */
 document.addEventListener("click", function(e){
+  var fd = e.target.closest && e.target.closest("[data-bots-fold]");
+  if(fd && document.querySelector(".fo-bots")){ e.preventDefault(); e.stopPropagation(); var fk = fd.getAttribute("data-bots-fold"); FO_BOTS_FOLD[fk] = !FO_BOTS_FOLD[fk]; foBotsRender(); return; }
+  var ra = e.target.closest && e.target.closest("[data-ai-rule-add], [data-ai-rule-del]");
+  if(ra && document.querySelector(".fo-bots")){
+    e.preventDefault(); e.stopPropagation();
+    var body = {};
+    if(ra.hasAttribute("data-ai-rule-add")){ var inp = document.querySelector("[data-ai-rule-new]"); var v = inp ? inp.value.trim() : ""; if(v.length < 5){ try{ toast("Напишите правило словами"); }catch(x){} return; } body.add = v; }
+    else body.remove = +ra.getAttribute("data-ai-rule-del");
+    ra.disabled = true;
+    api("/refs/ai/rules", {method: "POST", body: body}).then(function(){ try{ toast(body.add ? "Правило добавлено — ИИ учтёт его со следующего сообщения" : "Правило убрано"); }catch(x){} FO_BOTS_AI = null; foBotsRender(); })
+      .catch(function(err){ ra.disabled = false; try{ toast("Не сохранилось: " + (err && err.message || "")); }catch(x){} });
+    return;
+  }
   var pv = e.target.closest && e.target.closest("[data-bots-preview]");
   if(pv && document.querySelector(".fo-bots")){ e.preventDefault(); e.stopPropagation(); FO_BOTS_PREVIEW = pv.getAttribute("data-bots-preview") === "1"; foBotsRender(); return; }
   var sh = e.target.closest && e.target.closest("[data-shop]");
@@ -31537,7 +31724,7 @@ document.addEventListener("click", function(e){
   var t = e.target.closest && e.target.closest("[data-bots-sel], [data-bots-cfg], [data-bots-tab], [data-bots-chats], [data-bots-req], [data-bots-go]");
   if(!t || !document.querySelector(".fo-bots")) return;
   e.preventDefault(); e.stopPropagation();
-  if(t.hasAttribute("data-bots-sel")){ var k = t.getAttribute("data-bots-sel"); if(FO_BOTS_SEL !== k){ FO_BOTS_SEL = k; FO_BOTS_CFG = true; } foBotsRender(); return; }
+  if(t.hasAttribute("data-bots-sel")){ var k = t.getAttribute("data-bots-sel"); if(FO_BOTS_SEL !== k){ FO_BOTS_SEL = k; FO_BOTS_CFG = true; FO_BOTS_FOLD.cfg = true; } foBotsRender(); return; }
   if(t.hasAttribute("data-bots-cfg")){ var k2 = t.getAttribute("data-bots-cfg"); FO_BOTS_CFG = !(FO_BOTS_CFG && FO_BOTS_SEL === k2); FO_BOTS_SEL = k2; foBotsRender(); return; }
   if(t.hasAttribute("data-bots-tab")){ FO_BOTS_TAB = t.getAttribute("data-bots-tab"); foBotsRender(); return; }
   if(t.hasAttribute("data-bots-go")){ try{ setView(t.getAttribute("data-bots-go")); }catch(x){} return; }
