@@ -4508,8 +4508,10 @@ html.dark .fo-paud-t th, html.dark .fo-paud-t td{ border-bottom-color:rgba(255,2
 .fo-plan-off{ margin-left:auto }
 .fo-plan-pv{ margin:6px 0; font-size:12px }
 .fo-plan-pv summary{ cursor:pointer; color:var(--ink-2) }
-.fo-plan-pv pre{ white-space:pre-wrap; font:12px/1.45 inherit; background:var(--neu,#f3f4f8); border-radius:10px; padding:10px 12px; margin:6px 0 0; max-height:320px; overflow:auto }
-html.dark .fo-plan-pv pre{ background:rgba(255,255,255,.06) }
+.fo-plan-pvb{ max-height:560px; overflow:auto; margin-top:6px; padding-right:4px }
+.fo-plan-pv pre, .fo-plan-msg{ white-space:pre-wrap; font:12px/1.45 inherit; background:var(--neu,#f3f4f8); border-radius:10px; padding:10px 12px; margin:0 0 8px }
+.fo-plan-more{ margin:2px 0 6px }
+html.dark .fo-plan-pv pre, html.dark .fo-plan-msg{ background:rgba(255,255,255,.06) }
 /* add126 (273): команды бота */
 .fo-plan-cmds{ margin:10px 0 4px; padding:10px 12px; border-radius:12px; background:var(--neu,#f3f4f8) }
 html.dark .fo-plan-cmds{ background:rgba(255,255,255,.05) }
@@ -31049,7 +31051,14 @@ function foPlanHTML(){
   function prev(k, title){
     var m = pv[k];
     if(!m || !m.length) return '';
-    return '<details class="fo-plan-pv"><summary>'+title+' · сообщений: '+m.length+'</summary><pre>'+esc(m.slice(0, 3).join("\n\n— — —\n\n"))+(m.length > 3 ? '\n\n… ещё ' + (m.length - 3) : '')+'</pre></details>';
+    /* 274 (02.10): каждое сообщение — отдельной карточкой, как в Telegram; «ещё N» — настоящая кнопка */
+    function card(x){ return '<pre class="fo-plan-msg">'+esc(x)+'</pre>'; }
+    var rest = m.length - 3;
+    return '<details class="fo-plan-pv"><summary>'+title+' · сообщений: '+m.length+'</summary><div class="fo-plan-pvb">'+
+      m.slice(0, 3).map(card).join("")+
+      (rest > 0 ? '<div class="fo-plan-rest" hidden>'+m.slice(3).map(card).join("")+'</div>'+
+        '<button type="button" class="bt sm fo-plan-more" data-plan-more="'+rest+'">Показать ещё '+rest+'</button>' : '')+
+    '</div></details>';
   }
   return '<div class="gl fo-plan"><div class="gl-t"><h2>План работы в группу</h2>'+
     '<span class="fo-sub">'+(P.chat ? 'группа: <b>'+esc(P.title || P.chat)+'</b>' : '<em>группа не найдена — добавьте бота в группу со словом «План» в названии</em>')+
@@ -31125,6 +31134,16 @@ function foPlanHTML(){
       .catch(function(err){ try{ toast("Не сохранилось: " + (err && err.message || "")); }catch(x){} });
   });
 })();
+
+/* 274: «Показать ещё N» в предпросмотре — раскрывает остальные сообщения на месте */
+document.addEventListener("click", function(e){
+  var b = e.target.closest && e.target.closest("[data-plan-more]"); if(!b) return;
+  e.preventDefault(); e.stopPropagation();
+  var box = b.parentNode.querySelector(".fo-plan-rest"); if(!box) return;
+  var open = box.hidden;
+  box.hidden = !open;
+  b.textContent = open ? "Свернуть" : ("Показать ещё " + b.getAttribute("data-plan-more"));
+}, true);
 /* ===== add125 (272, Виталий 02.10): «В роли Виктории при „Обновить команду“ на секунду высвечивается карточка
    Вероники, потом моя» =====
    Причина: базовый loadLive после загрузки людей ставит meId = первый в списке (Вероника), а привязка «я» по
