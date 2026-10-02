@@ -4614,6 +4614,23 @@ html.dark .fo-ai-raw pre{ background:rgba(255,255,255,.05) }
 .fo-mtc label{ display:flex; align-items:center; gap:6px; flex-wrap:wrap }
 .fo-mtc .fi.sm{ width:74px; text-align:center }
 .fo-mtc-ul{ margin:0; padding-left:18px; font-size:12.5px; color:var(--ink-2); line-height:1.55 }
+/* 281: «Кабинеты и команда» — таблицы под всё агентство */
+.fo-bch-top{ display:flex; align-items:center; gap:8px; margin-bottom:10px }
+.fo-bch-kpi{ display:grid; grid-template-columns:repeat(auto-fill,minmax(170px,1fr)); gap:8px; margin:0 0 10px }
+.fo-bch-kpi .fo-bots-kpi.bad b{ color:#DB4A5F }
+.fo-bch-bar{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:8px } .fo-bch-bar .fi{ width:220px }
+.fo-bch-wrap{ overflow-x:auto; border:1px solid var(--neu-b,#e6e8ef); border-radius:12px }
+.fo-bch{ width:100%; border-collapse:collapse; font-size:12.5px }
+.fo-bch th{ text-align:left; font-weight:600; font-size:12px; color:var(--ink-2); padding:8px 10px; background:var(--neu,#f3f4f8); position:sticky; top:0 }
+html.dark .fo-bch th{ background:rgba(255,255,255,.05) }
+.fo-bch th i{ display:block; font-style:normal; font-weight:400; font-size:11px; color:var(--ink-3) }
+.fo-bch td{ padding:7px 10px; border-top:1px solid var(--neu-b,#e6e8ef); vertical-align:top }
+.fo-bch tr.bad td:first-child{ box-shadow:inset 3px 0 0 #DB4A5F }
+.fo-bch .mute{ color:var(--ink-3) }
+.fo-bch-chat{ display:flex; flex-direction:column; gap:1px; margin-bottom:4px } .fo-bch-chat:last-child{ margin-bottom:0 }
+.fo-bch-chat i{ font-style:normal; font-size:11.5px; color:var(--ink-2) } .fo-bch-chat u{ text-decoration:none; font-size:11px; color:var(--ink-3) }
+.fo-bch-st{ font-weight:600; font-size:12px } .fo-bch-st.ok{ color:#00B39A } .fo-bch-st.bad{ color:#DB4A5F } .fo-bch-st.warn{ color:#E08A00 } .fo-bch-st.mute{ color:var(--ink-3); font-weight:400 }
+.fo-bch-ai b{ color:#E08A00 }
 /* add128 (277, Виталий 02.10): «рельса не катается, когда скролю вниз».
    Причина — правило add117 (254) `html, body{overflow-x:hidden}`: у body с overflow, отличным от visible, body
    становится контейнером прокрутки, и position:sticky у рельсы привязывается к нему (а он не прокручивается) —
@@ -4622,6 +4639,19 @@ html.dark .fo-ai-raw pre{ background:rgba(255,255,255,.05) }
 html{ overflow-x:hidden }
 body{ overflow-x:visible }
 @supports (overflow-x: clip){ html{ overflow-x:clip } }
+/* add129 (280): «Разослать команде» */
+.fo-plan-team{ margin:12px 0; padding:10px 12px; border-radius:12px; border:1px solid var(--neu-b,#e6e8ef); background:var(--card,#fff) }
+html.dark .fo-plan-team{ background:rgba(255,255,255,.03) }
+.fo-plan-team.on{ border-color:rgba(0,179,154,.45); box-shadow:0 0 0 2px rgba(0,179,154,.10) }
+.fo-plan-teamh{ display:flex; align-items:center; gap:10px; flex-wrap:wrap }
+.fo-plan-teamh > i{ font-style:normal; font-size:12px; color:var(--ink-3) }
+.fo-pt-on{ display:inline-flex; align-items:center; gap:6px; cursor:pointer } .fo-pt-on b{ font-size:14px }
+.fo-plan-team .fo-plan-row{ margin-top:8px }
+.fo-pt-mode > span{ font-size:12.5px; color:var(--ink-3) }
+.fo-pt-date{ width:auto !important; min-width:140px }
+.fo-pt-st{ font-size:12.5px; margin-top:6px; color:var(--ink-2) } .fo-pt-st i{ font-style:normal; color:var(--ink-3) }
+.fo-pt-ppl{ margin-top:10px; display:flex; flex-direction:column; gap:4px; font-size:12.5px; line-height:1.5 }
+.fo-pt-ppl i{ font-style:normal; color:var(--ink-3) } .fo-pt-ppl .ok{ color:#00B39A; font-weight:600 } .fo-pt-ppl .bad{ color:#DB4A5F; font-weight:600 }
 </style>
 </head>
 <body>
@@ -31321,11 +31351,14 @@ var FO_BOTS_INFO = {
     does: [
       ["Сбор задач из чатов с клиентами", "Читает сообщения в чатах клиентов. ИИ находит в них задачи, формулирует (что сделать, кабинет, функция, срок, зачем) и отправляет на согласование. После «Принять» задача появляется у ответственного. Сами задачи — на рабочем экране, в «На согласование»."],
       ["План работы по сотрудникам — сам, по расписанию", "Будни 09:00 — каждому сотруднику план дня (кабинеты и функции с дедлайнами), вторым сообщением — артикулы в работу. 17:55 — итоги ✅/❌ по галочкам до 17:40. Понедельник 09:00 — план планёрок на неделю. Пишет в группу плана."],
-      ["План и факт по кабинету — по запросу", "Собственник пишет в группе плана: «План работы ИП Петров», «Факт план работы ИП Петров», «План работы ИП Иванов за 01.10» — бот отвечает туда же."]
+      ["План и факт по кабинету — по запросу", "Собственник пишет в группе плана: «План работы ИП Петров», «Факт план работы ИП Петров», «План работы ИП Иванов за 01.10» — бот отвечает туда же."],
+      ["Разослать команде — каждому в личку", "Галочка в «Настроить»: каждый сотрудник получает от бота в личку только своё — утром свой план дня, вечером свои итоги ✅/❌. Циклично каждый день в заданное время или разово в выбранные дату и время."],
+      ["Кабинеты и команда", "По всем клиентам сразу: у каждого два чата — чат с клиентом (команда + клиент) и чат МПВ (зеркало, только команда), есть ли там бот; по команде — кто привязал Telegram и как идёт день."]
     ],
     logic: [
       ["Сбор задач", "Каждое сообщение в чате клиента сохраняется в сервисе. ИИ (YandexGPT) решает, задача ли это. Если да — формулирует: что сделать, кабинет, функция, ответственный (кто ведёт функцию в этом кабинете, у кого есть окно), срочность, дедлайн, зачем и какая цель. Задача уходит согласующему; «Принять» — разовая задача у ответственного, «Отклонить» — не ставится. Клиент исправил сообщение — бот разбирает заново. Не задачи: планёрки, созвоны, приветствия. Реакция 🧑‍💻 / ✍ на сообщение — бот принял его в работу."],
       ["План по сотрудникам", "Сервер раз в минуту сверяет расписание (МСК). Будни, «Утром в»: каждому сотруднику отдельное сообщение — его задачи дня (функции кабинетов и разовые), по кабинетам, с дедлайнами; вторым сообщением — артикулы по графику АОД на этот день недели. «Итоги в»: ✅ — галочка поставлена до «Галочки считаются до», иначе ❌; артикулы — по галочке «Работа с РК»; в конце — итог по команде. Понедельник — план планёрок на неделю одним сообщением, без частного клиентов. Одна отправка на агентство, всё пишется в журнал."],
+      ["Рассылка команде в личку", "Тот же план и те же итоги, но разложенные по людям: каждому сотруднику — только его сообщения, в личку бота. Получают те, кто привязал Telegram (почта входа + код из письма); кто не привязал — в списке «не получат». Режим «циклично»: каждый день (выходные — галочкой) план в своё время, итоги в своё; включили позже времени — сегодня задним числом не шлём. Режим «разово»: один раз в выбранные дату и время — план, итоги или оба. Всё пишется в журнал."],
       ["Команды по кабинету", "Только в группе плана и только от собственника (Telegram привязан к аккаунту). Команда — с начала сообщения: «План работы …», «Факт план работы …», можно «за 01.10 / вчера». Клиент ищется по точному названию (без «ИП/ООО»); не нашёлся — бот подсказывает похожие и ничего не угадывает. Факт — все галочки за день. Обычные сообщения в группе бот пропускает."]
     ],
     how: [
@@ -31541,21 +31574,120 @@ function foBotsAiHTML(k){
     pre("Полная инструкция ИИ — как она написана", A.sys)+
   '</div>';
 }
+/* 281 (02.10): «Кабинеты и команда» — не под одного клиента, а под всё агентство (20, 50 клиентов).
+   По кабинетам: у каждого клиента два чата — «Чат с клиентом» (команда + клиент) и «Чат МПВ» (зеркало чата с клиентом,
+   только команда): есть ли чат, внесён ли номером (иначе бот его не видит), сидит ли бот, когда последнее сообщение,
+   что нашёл ИИ за 7 дней. По команде: у кого привязан Telegram (бот может писать в личку), план и факт на сегодня. */
+var FO_BCH = {v: "cab", f: "all"};
+function foBchDate(iso){
+  if(!iso) return "";
+  var d = new Date(iso); if(isNaN(d)) return "";
+  var p = function(n){ return (n < 10 ? "0" : "") + n; };
+  return p(d.getDate()) + "." + p(d.getMonth() + 1) + " " + p(d.getHours()) + ":" + p(d.getMinutes());
+}
+function foBchCell(list, need){
+  /* → {html, bad} — одна ячейка: чат(ы) одного вида у клиента */
+  list = list || [];
+  if(!list.length) return {bad: need, html: '<span class="fo-bch-st '+(need ? 'bad' : 'mute')+'">— чата нет</span>'};
+  var bad = false;
+  var html = list.map(function(x){
+    var st, cls;
+    if(!x.num){ st = 'внесён ссылкой — бот не видит'; cls = 'warn'; bad = true; }
+    else if(x["in"]){ st = '✓ бот в чате'; cls = 'ok'; }
+    else { st = '✗ бота нет' + (x.status && x.status !== 'left' && x.status !== 'kicked' ? '' : ''); cls = 'bad'; bad = true; }
+    var meta = [];
+    if(x.last) meta.push('посл. ' + foBchDate(x.last));
+    if(x.n7) meta.push(x.n7 + ' сообщ. за 7 дн.');
+    return '<div class="fo-bch-chat"><span class="fo-bch-st '+cls+'">'+st+'</span>'+(x.title ? '<i>'+esc(x.title)+'</i>' : '')+(meta.length ? '<u>'+meta.join(' · ')+'</u>' : '')+'</div>';
+  }).join("");
+  return {bad: bad, html: html};
+}
 function foBotsChatsHTML(k){
   var d = FO_BOTS_CHATS[k];
-  if(!d) return '<button class="bt sm" data-bots-chats="'+k+'">Проверить, в каких чатах клиентов бот сидит</button>';
-  if(d.loading) return '<div class="empty">Проверяю чаты…</div>';
-  if(d.error) return '<div class="empty">'+esc(d.error)+'</div>';
-  var miss = (d.chats || []).filter(function(x){ return !x.in; });
-  return '<div class="fo-bots-chats"><div class="fo-bots-chh">Чатов клиентов с номером: '+(d.chats || []).length+' · бот есть в '+((d.chats || []).length - miss.length)+(miss.length ? ' · <b class="bad">нет в '+miss.length+'</b>' : ' ✓')+'</div>'+
-    (d.chats || []).map(function(x){ return '<div class="fo-bots-chr '+(x.in ? 'ok' : 'bad')+'"><span>'+(x.in ? '✓' : '✗')+'</span><b>'+esc(x.client)+'</b><i>'+esc(x.chat || "")+(x.in ? '' : ' — ' + esc(x.status || 'бота нет'))+'</i></div>'; }).join("")+
-    '<button class="bt sm" data-bots-chats="'+k+'">Проверить ещё раз</button></div>';
+  if(!d){
+    FO_BOTS_CHATS[k] = {loading: true};
+    api("/refs/bots/chats?bot=" + encodeURIComponent(k)).then(function(r){ FO_BOTS_CHATS[k] = r || {rows: []}; })
+      .catch(function(err){ FO_BOTS_CHATS[k] = {error: "Не проверилось: " + (err && err.message || "")}; })
+      .then(function(){ if(typeof view !== "undefined" && view === "bots") foBotsRender(); });
+    d = FO_BOTS_CHATS[k];
+  }
+  if(d.loading) return '<div class="empty">Проверяю чаты всех клиентов и команду…</div>';
+  if(d.error) return '<div class="empty">'+esc(d.error)+' <button class="bt sm" data-bots-chats="'+k+'">Ещё раз</button></div>';
+  if(!d.rows){ /* сервер ещё старый */
+    var miss = (d.chats || []).filter(function(x){ return !x["in"]; });
+    return '<div class="fo-bots-chats"><div class="fo-bots-chh">Чатов клиентов с номером: '+(d.chats || []).length+' · бот есть в '+((d.chats || []).length - miss.length)+'</div>'+
+      (d.chats || []).map(function(x){ return '<div class="fo-bots-chr '+(x["in"] ? 'ok' : 'bad')+'"><span>'+(x["in"] ? '✓' : '✗')+'</span><b>'+esc(x.client)+'</b><i>'+esc(x.chat || "")+'</i></div>'; }).join("")+
+      '<div class="fo-hint">Сервер обновляется — через пару минут здесь будет таблица по всем кабинетам и команде.</div><button class="bt sm" data-bots-chats="'+k+'">Проверить ещё раз</button></div>';
+  }
+  var two = (d.kinds || []).indexOf("mpv") >= 0, withTeam = (k === "main");
+  if(!withTeam) FO_BCH.v = "cab";
+  /* по кабинетам */
+  var cnt = {all: 0, prob: 0, cl: 0, clIn: 0, mp: 0, mpIn: 0, wait: 0};
+  var rows = (d.rows || []).map(function(r){
+    var ch = r.chats || {}, c1 = foBchCell(ch.client, true), c2 = two ? foBchCell(ch.mpv, true) : null;
+    var bad = c1.bad || (c2 && c2.bad);
+    cnt.all++; if(bad) cnt.prob++;
+    if((ch.client || []).length) cnt.cl++; if((ch.client || []).some(function(x){ return x["in"]; })) cnt.clIn++;
+    if((ch.mpv || []).length) cnt.mp++; if((ch.mpv || []).some(function(x){ return x["in"]; })) cnt.mpIn++;
+    var ai = r.ai || {}; cnt.wait += ai.wait || 0;
+    return {bad: bad, html: '<tr class="'+(bad ? 'bad' : '')+'" data-bch-q="'+esc(String(r.client || "").toLowerCase())+'"><td><b>'+esc(r.client || "—")+'</b></td><td>'+c1.html+'</td>'+(two ? '<td>'+c2.html+'</td>' : '')+
+      (k === "main" ? '<td class="fo-bch-ai">'+(ai.n ? 'задач '+ai.n+(ai.wait ? ' · <b>ждут '+ai.wait+'</b>' : '') : '<span class="mute">—</span>')+'</td>' : '')+'</tr>'};
+  });
+  var shown = rows.filter(function(x){ return FO_BCH.f !== "prob" || x.bad; });
+  var cab = '<div class="fo-bch-kpi">'+
+      '<div class="fo-bots-kpi"><b>'+cnt.all+'</b><span>кабинетов (клиентов)</span></div>'+
+      '<div class="fo-bots-kpi"><b>'+cnt.clIn+' / '+cnt.all+'</b><span>чат с клиентом: бот на месте (чат есть у '+cnt.cl+')</span></div>'+
+      (two ? '<div class="fo-bots-kpi"><b>'+cnt.mpIn+' / '+cnt.all+'</b><span>чат МПВ: бот на месте (чат есть у '+cnt.mp+')</span></div>' : '')+
+      '<div class="fo-bots-kpi'+(cnt.prob ? ' bad' : '')+'"><b>'+cnt.prob+'</b><span>кабинетов с проблемой: нет чата, внесён ссылкой или бота нет</span></div>'+
+      (k === "main" ? '<div class="fo-bots-kpi"><b>'+cnt.wait+'</b><span>задач от ИИ ждут решения (7 дней)</span></div>' : '')+
+    '</div>'+
+    '<div class="fo-bch-bar"><input class="fi sm" data-bch-find placeholder="Найти кабинет…"><div class="seg sm">'+
+      '<button data-bch-f="all" aria-pressed="'+(FO_BCH.f !== "prob")+'">Все · '+cnt.all+'</button><button data-bch-f="prob" aria-pressed="'+(FO_BCH.f === "prob")+'">Только проблемы · '+cnt.prob+'</button></div></div>'+
+    '<div class="fo-bch-wrap"><table class="fo-bch"><thead><tr><th>Кабинет</th><th>Чат с клиентом<i>команда + клиент</i></th>'+(two ? '<th>Чат МПВ<i>зеркало чата с клиентом, только команда</i></th>' : '')+(k === "main" ? '<th>ИИ за 7 дней</th>' : '')+'</tr></thead><tbody>'+
+      (shown.length ? shown.map(function(x){ return x.html; }).join("") : '<tr><td colspan="4" class="mute">'+(FO_BCH.f === "prob" ? 'Проблем нет — у всех кабинетов чаты на месте и бот в них ✓' : 'Клиентов нет')+'</td></tr>')+
+    '</tbody></table></div>'+
+    '<div class="fo-hint">«Внесён ссылкой» — в карточке клиента чат записан ссылкой, номера чата нет: бот его не видит. Добавьте бота в этот чат — он сам привяжется по названию. '+
+      (two ? 'Чат МПВ — рабочий чат команды по клиенту, без клиента; вид чата меняется в карточке клиента → «Чаты». ' : '')+
+      (k === "meet" ? 'Боту планёрок нужен только чат с клиентом.' : '')+'</div>';
+  /* по команде */
+  var team = d.team || [], tg = team.filter(function(m){ return m.tg; }).length, tt = 0, td = 0;
+  team.forEach(function(m){ tt += m.tasks || 0; td += m.done || 0; });
+  var tm = '<div class="fo-bch-kpi">'+
+      '<div class="fo-bots-kpi"><b>'+team.length+'</b><span>сотрудников</span></div>'+
+      '<div class="fo-bots-kpi'+(tg < team.length ? ' bad' : '')+'"><b>'+tg+' / '+team.length+'</b><span>привязали Telegram — бот может писать им в личку</span></div>'+
+      '<div class="fo-bots-kpi"><b>'+td+' / '+tt+'</b><span>задач сегодня выполнено по команде</span></div>'+
+      '<div class="fo-bots-kpi"><b>'+(d.team_on ? 'вкл' : 'выкл')+'</b><span>«Разослать команде» — план и итоги в личку</span></div>'+
+    '</div>'+
+    '<div class="fo-bch-wrap"><table class="fo-bch"><thead><tr><th>Сотрудник</th><th>Telegram</th><th>Сегодня</th><th>Кабинетов</th><th>Артикулов</th><th>В личку</th></tr></thead><tbody>'+
+      (team.length ? team.map(function(m){
+        return '<tr class="'+(m.tg ? '' : 'bad')+'"><td><b>'+esc(m.name || "—")+'</b></td>'+
+          '<td>'+(m.tg ? '<span class="fo-bch-st ok">✓ привязан</span>' : '<span class="fo-bch-st bad">✗ не привязан</span>')+'</td>'+
+          '<td>'+(m.tasks ? (m.done || 0)+' из '+m.tasks+' ✅' : '<span class="mute">задач нет</span>')+'</td>'+
+          '<td>'+(m.cabs || '<span class="mute">—</span>')+'</td><td>'+(m.arts || '<span class="mute">—</span>')+'</td>'+
+          '<td>'+(!d.team_on ? '<span class="mute">рассылка выключена</span>' : (m.tg ? '<span class="fo-bch-st ok">получает</span>' : '<span class="fo-bch-st bad">не получит</span>'))+'</td></tr>';
+      }).join("") : '<tr><td colspan="6" class="mute">Сотрудников нет</td></tr>')+
+    '</tbody></table></div>'+
+    '<div class="fo-hint">Привязать Telegram: сотрудник пишет боту @'+esc(d.username || "Flater_Team_Service_bot")+' в личку почту, под которой входит в сервис, и пересылает ему код из письма — один раз. Рассылка «каждому в личку» включается во вкладке «План работы и команды» → «Разослать команде».</div>';
+  return '<div class="fo-bch-top">'+(withTeam ? '<div class="seg sm"><button data-bch-v="cab" aria-pressed="'+(FO_BCH.v === "cab")+'">По кабинетам</button><button data-bch-v="team" aria-pressed="'+(FO_BCH.v === "team")+'">По команде</button></div>' : '')+
+      '<div class="grow"></div><button class="bt sm" data-bots-chats="'+k+'">Обновить</button></div>'+
+    (FO_BCH.v === "team" && withTeam ? tm : cab);
 }
+document.addEventListener("click", function(e){
+  var b = e.target.closest && e.target.closest("[data-bch-v], [data-bch-f]"); if(!b || !document.querySelector(".fo-bots")) return;
+  e.preventDefault(); e.stopPropagation();
+  if(b.hasAttribute("data-bch-v")) FO_BCH.v = b.getAttribute("data-bch-v"); else FO_BCH.f = b.getAttribute("data-bch-f");
+  foBotsRender();
+}, true);
+document.addEventListener("input", function(e){
+  var el = e.target; if(!el || !el.matches || !el.matches("[data-bch-find]")) return;
+  var q = el.value.trim().toLowerCase();
+  document.querySelectorAll(".fo-bch tr[data-bch-q]").forEach(function(tr){ tr.style.display = (!q || tr.getAttribute("data-bch-q").indexOf(q) >= 0) ? "" : "none"; });
+});
 function foBotsStatsHTML(){
   var m = (FO_BOTS && FO_BOTS.main) || {}, ai = m.ai || {};
   var tot = 0; Object.keys(ai).forEach(function(s){ tot += ai[s] || 0; });
   var log = m.log || [];
-  var WH = {morning: "план дня", evening: "итоги", week: "план планёрок", cmd: "ответ на команду"};
+  var WH = {morning: "план дня", evening: "итоги", week: "план планёрок", cmd: "ответ на команду", team_morning: "план в личку команде", team_evening: "итоги в личку команде"};
   return '<div class="fo-bots-stats">'+
     '<div class="fo-bots-kpi"><b>'+foBotsN(m.msgs)+'</b><span>сообщений из чатов клиентов прочитано за 7 дней</span></div>'+
     '<div class="fo-bots-kpi"><b>'+tot+'</b><span>задач нашёл ИИ за 7 дней</span></div>'+
@@ -31573,7 +31705,7 @@ function foBotsCfgHTML(k){
   if(!on) return '';
   if(k === "main"){
     var m = FO_BOTS.main || {}, ch = m.chats || {};
-    var tabs = [["plan", "План работы в группу и команды"], ["tasks", "Сбор задач из чатов"], ["chats", "Где сидит"], ["stats", "Цифры и журнал"]];
+    var tabs = [["plan", "План работы в группу и команды"], ["tasks", "Сбор задач из чатов"], ["chats", "Кабинеты и команда"], ["stats", "Цифры и журнал"]];
     var body = "";
     if(FO_BOTS_TAB === "plan") body = (typeof foPlanHTML === "function") ? foPlanHTML() : '<div class="empty">Блок плана не загрузился</div>';
     else if(FO_BOTS_TAB === "tasks") body =
@@ -31588,7 +31720,7 @@ function foBotsCfgHTML(k){
     else body = foBotsStatsHTML();
     return '<div class="fo-bots-cfg"><div class="seg sm fo-bots-tabs">'+tabs.map(function(t){ return '<button data-bots-tab="'+t[0]+'" aria-pressed="'+(FO_BOTS_TAB === t[0])+'">'+t[1]+'</button>'; }).join("")+'</div>'+body+'</div>';
   }
-  if(k === "meet") return '<div class="fo-bots-cfg">' + foBotsMeetCfgHTML() + foBotsChatsHTML("meet") + '</div>';
+  if(k === "meet") return '<div class="fo-bots-cfg">' + foBotsMeetCfgHTML() + '<h5 class="fo-mtc-h">Кабинеты: где сидит бот планёрок</h5>' + foBotsChatsHTML("meet") + '</div>';
   var rp = FO_BOTS.report || {}, q = rp.queue || {};
   return '<div class="fo-bots-cfg"><div class="fo-bots-stats">'+
     '<div class="fo-bots-kpi"><b>'+foBotsN(rp.reports)+'</b><span>отчётов о выполненном за 7 дней</span></div>'+
@@ -31596,7 +31728,7 @@ function foBotsCfgHTML(k){
     '<div class="fo-bots-kpi"><b>'+foBotsN(q.err)+'</b><span>ошибок отправки</span></div>'+
   '</div>'+
   '<div class="fo-bots-set"><div class="fo-bots-row"><span>Куда что уходит</span><b>маршруты «Куда сообщать»</b><i>в карточке клиента</i></div></div>'+
-  foBotsChatsHTML("report")+'</div>';
+  '<h5 class="fo-mtc-h">Кабинеты: где сидит бот отчётов</h5>'+foBotsChatsHTML("report")+'</div>';
 }
 var FO_BOTS_SHOP = [
   {k: "tasks", ico: "🤖", bg: "linear-gradient(135deg,#7C5CFF,#4FB7FF)", title: "Бот задач из чатов",
@@ -31744,6 +31876,107 @@ document.addEventListener("click", function(e){
     }).catch(function(err){ t.disabled = false; t.textContent = "Подключить модуль"; try{ toast("Не отправилось: " + (err && err.message || "")); }catch(x){} });
   }
 }, true);
+/* ===== add129 (280, Виталий 02.10): «Разослать команде» в блоке «План работы в группу» =====
+   Галочка «Разослать команде» — каждому сотруднику в личку его план дня и его итоги ✅/❌ (не вся группа — только своё).
+   Когда: циклично — каждый день в заданное время (план и итоги — каждое со своим временем, выходные — галочкой),
+   или разово — дата, время и что слать. Кто получит / кто не получит (не привязан Telegram) — списком.
+   Сервер v92: /refs/plan → team, /refs/plan/settings team_*, /refs/plan/send what=team_morning|team_evening.          */
+(function(){
+  if(typeof foPlanHTML !== "function") return;
+  var _ph = foPlanHTML;
+  function p2(n){ return (n < 10 ? "0" : "") + n; }
+  function dmy(iso){ if(!iso) return "—"; var m = String(iso).match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? m[3] + "." + m[2] : String(iso); }
+  var WH = {morning: "план дня", evening: "итоги дня", both: "план и итоги"};
+  foPlanHTML = function(){
+    var h = _ph.apply(this, arguments);
+    try{
+      if(!FO_PLAN || FO_PLAN.error) return h;
+      var T = FO_PLAN.team;
+      if(!T) return h;                       /* сервер ещё не обновился */
+      var on = !!T.on, once = T.once || {}, done = T.once_done || {}, ppl = T.people || [];
+      var td = new Date(); var today = td.getFullYear() + "-" + p2(td.getMonth() + 1) + "-" + p2(td.getDate());
+      var yes = ppl.filter(function(m){ return m.tg; }), no = ppl.filter(function(m){ return !m.tg; });
+      function who(m){ return esc(m.name) + (m.tasks ? ' <i>· ' + m.tasks + ' задач' + (m.tasks === 1 ? 'а' : (m.tasks < 5 ? 'и' : '')) + '</i>' : ' <i>· задач нет</i>'); }
+      var blk = '<div class="fo-plan-team'+(on ? ' on' : '')+'">'+
+        '<div class="fo-plan-teamh"><label class="fo-pt-on"><input type="checkbox" data-pt-k="team_on" '+(on ? 'checked' : '')+'> <b>Разослать команде</b></label>'+
+          '<i>каждому сотруднику в личку — его план дня и его итоги ✅/❌, только своё</i><div class="grow"></div>'+
+          '<button class="bt sm" data-pt-send="team_morning">План — в личку сейчас</button><button class="bt sm" data-pt-send="team_evening">Итоги — в личку сейчас</button></div>'+
+        (on ? (
+          '<div class="fo-plan-row fo-pt-mode"><span>Когда:</span>'+
+            '<label><input type="radio" name="fo-pt-mode" data-pt-mode="daily" '+(T.mode !== "once" ? 'checked' : '')+'> циклично — каждый день в это время</label>'+
+            '<label><input type="radio" name="fo-pt-mode" data-pt-mode="once" '+(T.mode === "once" ? 'checked' : '')+'> разово — один раз</label></div>'+
+          (T.mode !== "once"
+            ? '<div class="fo-plan-row">'+
+                '<label><input type="checkbox" data-pt-k="team_send_m" '+(T.send_m !== false ? 'checked' : '')+'> план дня в <input class="fi sm" data-pt-t="team_morning" value="'+esc(T.morning || "09:00")+'"></label>'+
+                '<label><input type="checkbox" data-pt-k="team_send_e" '+(T.send_e !== false ? 'checked' : '')+'> итоги в <input class="fi sm" data-pt-t="team_eve" value="'+esc(T.eve || "17:55")+'"></label>'+
+                '<label><input type="checkbox" data-pt-k="team_wkend" '+(T.wkend ? 'checked' : '')+'> и в субботу, воскресенье</label>'+
+                '<span class="fo-plan-last">Последние в личку: план '+dmy(T.last_m)+' · итоги '+dmy(T.last_e)+'</span></div>'
+            : '<div class="fo-plan-row">'+
+                '<label>Дата <input type="date" class="fi sm fo-pt-date" data-pt-o="day" value="'+esc(once.day || today)+'"></label>'+
+                '<label>Время <input class="fi sm" data-pt-o="at" value="'+esc(once.at || T.morning || "09:00")+'"></label>'+
+                '<label>Что <select class="sel sm" data-pt-o="what">'+["morning", "evening", "both"].map(function(w){ return '<option value="'+w+'"'+((once.what || "morning") === w ? ' selected' : '')+'>'+WH[w]+'</option>'; }).join("")+'</select></label>'+
+                '<button class="bt sm pri" data-pt-once>'+(once.day ? 'Изменить' : 'Запланировать')+'</button></div>'+
+              '<div class="fo-pt-st">'+(once.day
+                ? '🕐 Запланировано: <b>'+dmy(once.day)+' в '+esc(once.at)+'</b> — '+WH[once.what || "morning"]+' <button class="bt sm" data-pt-once-clear>Отменить</button>'
+                : 'Разовая рассылка не запланирована.')+
+                (done && done.day ? ' · Последняя разовая: '+WH[done.what || "morning"]+', ушла '+esc(String(done.done || "").replace(/^(\d{4})-(\d{2})-(\d{2})/, "$3.$2"))+'.' : '')+
+                ' <i>Пока выбрано «разово», каждый день в личку не шлём.</i></div>')
+          ) : '')+
+        '<div class="fo-pt-ppl">'+
+          '<div><span class="ok">Получат в личку ('+yes.length+'):</span> '+(yes.length ? yes.map(who).join(", ") : '<i>никто — ни у кого не привязан Telegram</i>')+'</div>'+
+          (no.length ? '<div><span class="bad">Не получат — не привязан Telegram ('+no.length+'):</span> '+no.map(function(m){ return esc(m.name); }).join(", ")+
+            '<div class="fo-hint">Привязать: сотрудник пишет боту «Флатер Тим» (@Flater_Team_Service_bot) в личку почту, под которой входит в сервис, и пересылает ему код из письма — один раз.</div></div>' : '')+
+        '</div>'+
+      '</div>';
+      var i = h.indexOf('<div class="fo-plan-cmds">');
+      if(i < 0) i = h.indexOf('<div class="fo-hint">Будни:');
+      return i >= 0 ? h.slice(0, i) + blk + h.slice(i) : h.replace(/<\/div>\s*$/, blk + '</div>');
+    }catch(e){ return h; }
+  };
+  function save(body, msg){
+    return api("/refs/plan/settings", {method: "POST", body: body}).then(function(r){
+      if(r && r.ok === false){ try{ toast(r.why || "Не сохранилось"); }catch(x){} return; }
+      try{ toast(msg || "Сохранено на сервере"); }catch(x){}
+      FO_PLAN = null; try{ foMtRender(); }catch(x){}
+    }).catch(function(err){ try{ toast("Не сохранилось: " + (err && err.message || "")); }catch(x){} });
+  }
+  document.addEventListener("change", function(e){
+    var el = e.target; if(!el || !el.matches) return;
+    if(el.matches("[data-pt-k]")){
+      var k = el.getAttribute("data-pt-k"), b = {}; b[k] = !!el.checked;
+      save(b, k === "team_on" ? (el.checked ? "Рассылка команде включена — каждому в личку своё" : "Рассылка команде выключена") : null);
+      return;
+    }
+    if(el.matches("[data-pt-mode]")){ save({team_mode: el.getAttribute("data-pt-mode")}, el.getAttribute("data-pt-mode") === "once" ? "Режим: разово" : "Режим: каждый день"); return; }
+    if(el.matches("[data-pt-t]")){
+      var v = el.value.trim(); if(!/^\d{2}:\d{2}$/.test(v)){ try{ toast("Время в виде ЧЧ:ММ, например 09:00"); }catch(x){} return; }
+      var b2 = {}; b2[el.getAttribute("data-pt-t")] = v; save(b2); return;
+    }
+  });
+  document.addEventListener("click", function(e){
+    var b = e.target.closest && e.target.closest("[data-pt-send], [data-pt-once], [data-pt-once-clear]"); if(!b) return;
+    e.preventDefault(); e.stopPropagation();
+    if(b.hasAttribute("data-pt-once-clear")){ save({team_once_clear: true}, "Разовая рассылка отменена"); return; }
+    if(b.hasAttribute("data-pt-once")){
+      var box = b.closest(".fo-plan-team") || document;
+      function val(k){ var x = box.querySelector('[data-pt-o="' + k + '"]'); return x ? String(x.value || "").trim() : ""; }
+      var day = val("day"), at = val("at"), what = val("what") || "morning";
+      if(!/^\d{4}-\d{2}-\d{2}$/.test(day)){ try{ toast("Выберите дату"); }catch(x){} return; }
+      if(!/^\d{2}:\d{2}$/.test(at)){ try{ toast("Время в виде ЧЧ:ММ, например 09:00"); }catch(x){} return; }
+      save({team_once_day: day, team_once_at: at, team_once_what: what}, "Запланировано: " + day.slice(8) + "." + day.slice(5, 7) + " в " + at);
+      return;
+    }
+    var what = b.getAttribute("data-pt-send");
+    if(b.dataset.armed !== "1"){ b.dataset.armed = "1"; b.textContent = "Точно разослать каждому в личку? Нажмите ещё раз"; setTimeout(function(){ if(b.isConnected){ b.dataset.armed = ""; b.textContent = what === "team_morning" ? "План — в личку сейчас" : "Итоги — в личку сейчас"; } }, 6000); return; }
+    b.disabled = true; b.textContent = "Рассылаю…";
+    api("/refs/plan/send", {method: "POST", body: {what: what}}).then(function(r){
+      var t = r && r.people != null ? ("В личку ушло: " + r.people + " чел., сообщений " + r.sent + ((r.miss || []).length ? " · без Telegram: " + r.miss.join(", ") : "")) : ("Не ушло: " + ((r && (r.why || (r.errors || []).join("; "))) || "сервер ещё обновляется"));
+      if(r && (r.errors || []).length) t += " · ошибки: " + r.errors.join("; ");
+      try{ toast(t); }catch(x){}
+      FO_PLAN = null; try{ foMtRender(); }catch(x){}
+    }).catch(function(err){ b.disabled = false; try{ toast("Не ушло: " + (err && err.message || "сервер не ответил")); }catch(x){} });
+  }, true);
+})();
 
 })();
 </script>
