@@ -3674,6 +3674,34 @@ async def fo_bots(p: Principal = Depends(max_level(1))):
     return out
 
 
+@router.get("/bots/ai")
+async def fo_bots_ai(p: Principal = Depends(max_level(1))):
+    """279: чему научен ИИ — для чтения собственником."""
+    since = _fo_dt.datetime.now(_fo_dt.timezone.utc) - _fo_dt.timedelta(days=7)
+    out = {"model": _fo_env("YC_MODEL") or "yandexgpt-lite/latest", "ready": _fo_ai_ready(),
+           "ctx_n": _FO_AI_CTX_N, "dup_days": _FO_AI_DUP_DAYS, "sys": _FO_AI_SYS,
+           "skip": _FO_AI_SKIP.pattern, "noise": [r.pattern for r in _FO_NOISE_RX],
+           "meet_sys": globals().get("_FO_MT_SYS") or "", "meet_sys2": globals().get("_FO_MT_SYS2") or ""}
+    async with pool().acquire() as c:
+        try:
+            st = await _fo_ai_settings(c, p.org_id)
+            out["rules"] = [str(r) for r in (st.get("rules") or [])]
+        except Exception:
+            out["rules"] = []
+        try:
+            stat = {}
+            for r in await c.fetch("SELECT coalesce(ai_state,'—') AS s, count(*) AS n FROM fo_chat_msg WHERE org_id=$1 AND msg_at >= $2 "
+                                   "AND tg_chat_id<>'test' GROUP BY 1", p.org_id, since):
+                stat[str(r["s"])] = int(r["n"])
+            out["week"] = stat
+            out["skip_notes"] = [{"note": r["ai_note"], "n": int(r["n"])} for r in await c.fetch(
+                "SELECT ai_note, count(*) AS n FROM fo_chat_msg WHERE org_id=$1 AND msg_at >= $2 AND ai_state='skip' "
+                "AND tg_chat_id<>'test' GROUP BY 1 ORDER BY 2 DESC LIMIT 8", p.org_id, since)]
+        except Exception:
+            out["week"], out["skip_notes"] = {}, []
+    return out
+
+
 @router.get("/bots/chats")
 async def fo_bots_chats(bot: str = "main", p: Principal = Depends(max_level(1))):
     """В каких чатах клиентов бот сидит (getChatMember по каждому чату с номером)."""
