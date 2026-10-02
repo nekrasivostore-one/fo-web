@@ -4581,6 +4581,14 @@ html.dark .fo-shop-card{ background:rgba(255,255,255,.04) }
 .fo-shop-more h5{ margin:0 0 2px; font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:var(--ink-3) }
 .fo-shop-more span{ font-size:12.5px; color:var(--ink); line-height:1.45 }
 @media (prefers-reduced-motion:reduce){ .fo-shop-card{ transition:none } }
+/* add128 (277, Виталий 02.10): «рельса не катается, когда скролю вниз».
+   Причина — правило add117 (254) `html, body{overflow-x:hidden}`: у body с overflow, отличным от visible, body
+   становится контейнером прокрутки, и position:sticky у рельсы привязывается к нему (а он не прокручивается) —
+   рельса уезжала вместе со страницей. Горизонтальную прокрутку режем только на html (он передаёт это окну
+   браузера), body — без overflow: рельса снова «едет» за экраном. */
+html{ overflow-x:hidden }
+body{ overflow-x:visible }
+@supports (overflow-x: clip){ html{ overflow-x:clip } }
 </style>
 </head>
 <body>
