@@ -3283,7 +3283,7 @@ def _fo_plan_dl(dl):
     return " · " + ({"fix": "дедлайн", "deadline": "дедлайн", "urgent": "срочно", "urg": "срочно"}.get(x, x))
 
 
-async def _fo_plan_morning_msgs(c, org_id, day):
+async def _fo_plan_morning_msgs(c, org_id, day, by_emp=None):
     people, clients = await _fo_plan_people(c, org_id), await _fo_plan_clients(c, org_id)
     cfg = await _fo_plan_cfg(c, org_id)
     tasks = (await _fo_plan_tasks(c, org_id, day)) if cfg.get("send_morning", True) else {}
@@ -3308,6 +3308,8 @@ async def _fo_plan_morning_msgs(c, org_id, day):
             lines.append("")
             lines.append("Всего задач: %d" % len(tl))
             msgs += _fo_plan_chunks(lines)
+            if by_emp is not None:
+                by_emp.setdefault(e, []).extend(_fo_plan_chunks(lines))
         al = arts.get(e) or {}
         if al:
             lines = [head, "👤 " + name + " — 📦 артикулы в работу"]
@@ -3317,12 +3319,14 @@ async def _fo_plan_morning_msgs(c, org_id, day):
                 lines.append("🏪 " + (clients.get(x["client"]) or "Кабинет") + " · %d арт." % len(sk))
                 lines.append(", ".join(sk[:80]) + (" … и ещё %d" % (len(sk) - 80) if len(sk) > 80 else ""))
             msgs += _fo_plan_chunks(lines)
+            if by_emp is not None:
+                by_emp.setdefault(e, []).extend(_fo_plan_chunks(lines))
     if not msgs:
         msgs = [head + "\n🤷 На этот день задач нет."]
     return msgs
 
 
-async def _fo_plan_evening_msgs(c, org_id, day, cut_hm):
+async def _fo_plan_evening_msgs(c, org_id, day, cut_hm, by_emp=None):
     people, clients = await _fo_plan_people(c, org_id), await _fo_plan_clients(c, org_id)
     tasks, arts = await _fo_plan_tasks(c, org_id, day), await _fo_plan_arts(c, org_id, day)
     rk = {}
@@ -3373,6 +3377,8 @@ async def _fo_plan_evening_msgs(c, org_id, day, cut_hm):
             lines.append("📊 Выполнено %d из %d" % (ok, len(tl)))
             tot_ok += ok; tot_all += len(tl)
         msgs += _fo_plan_chunks(lines)
+        if by_emp is not None:
+            by_emp.setdefault(e, []).extend(_fo_plan_chunks(lines))
     if not msgs:
         msgs = [head + "\n🤷 Задач на день не было."]
     elif tot_all:
@@ -3431,6 +3437,74 @@ async def _fo_plan_run(c, org_id, what, day=None, force=False):
     return {"ok": not errs, "sent": sent, "chat": title or chat, "errors": errs, "messages": len(msgs)}
 
 
+async def _fo_plan_team_tg(c, org_id):
+    """280: сотрудник → его Telegram (привязан через бота: почта + код). Только им бот может писать в личку."""
+    out = {}
+    try:
+        for r in await c.fetch("SELECT e.id, cd.data->>'tg_id' AS tg_id FROM employee e JOIN fo_card cd ON cd.kind='employee' "
+                               "AND cd.ref_id=e.id::text AND cd.org_id::text=e.org_id::text WHERE e.org_id=$1::uuid "
+                               "AND coalesce(cd.data->>'tg_id','') ~ '^[0-9]+$'", str(org_id)):
+            out[str(r["id"])] = str(r["tg_id"])
+    except Exception:
+        pass
+    return out
+
+
+async def _fo_plan_team_run(c, org_id, what, day=None):
+    """280: «Разослать команде» — каждому сотруднику в личку его план дня (what=morning) или его итоги (evening)."""
+    day = day or _fo_mt_now().date()
+    cfg = await _fo_plan_cfg(c, org_id)
+    by = {}
+    if what == "evening":
+        await _fo_plan_evening_msgs(c, org_id, day, cfg.get("eve_cut") or _FO_PLAN_DEF["eve_cut"], by_emp=by)
+    else:
+        what = "morning"
+        await _fo_plan_morning_msgs(c, org_id, day, by_emp=by)
+    tg, names = await _fo_plan_team_tg(c, org_id), await _fo_plan_people(c, org_id)
+    sent, people, errs, miss = 0, 0, [], []
+    for e, msgs in by.items():
+        t = tg.get(e)
+        if not t:
+            miss.append(names.get(e) or e)
+            continue
+        ok1 = False
+        for m in msgs:
+            r = await _fo_plan_send(t, m)
+            if r.get("ok"):
+                sent += 1; ok1 = True
+            else:
+                errs.append((names.get(e) or "") + ": " + str(r.get("description") or r)[:120])
+            await _fo_aio.sleep(0.35)
+        people += 1 if ok1 else 0
+    await _fo_plan_log(c, org_id, {"what": "team_" + what, "day": day.isoformat(), "sent": sent,
+                                   "of": sum(len(v) for v in by.values()), "err": (errs[0] if errs else ""),
+                                   "chat": "в личку: %d чел." % people + (" · без Telegram: " + ", ".join(miss[:6]) if miss else "")})
+    return {"ok": not errs, "sent": sent, "people": people, "miss": miss, "errors": errs[:5], "chat": "личка сотрудников"}
+
+
+async def _fo_plan_team_tick(c, org, cfg, today, hm):
+    """280: расписание рассылки команде: каждый день в своё время или разово (дата + время)."""
+    if not cfg.get("team_on"):
+        return
+    if (cfg.get("team_mode") or "daily") == "once":
+        on = cfg.get("team_once") or {}
+        if isinstance(on, dict) and on.get("day") and on.get("at") and (today.isoformat(), hm) >= (str(on["day"]), str(on["at"])):
+            await _fo_plan_cfg_set(c, org, {"team_once": {}, "team_once_done": dict(on, done=today.isoformat() + " " + hm)})
+            for w in (["morning", "evening"] if on.get("what") == "both" else [on.get("what") or "morning"]):
+                await _fo_plan_team_run(c, org, w, today)
+        return
+    if today.weekday() >= 5 and not cfg.get("team_wkend"):
+        return
+    tm = cfg.get("team_morning") or cfg.get("morning") or _FO_PLAN_DEF["morning"]
+    te = cfg.get("team_eve") or cfg.get("eve_send") or _FO_PLAN_DEF["eve_send"]
+    if cfg.get("team_send_m", True) and hm >= tm and cfg.get("last_team_morning") != today.isoformat():
+        await _fo_plan_cfg_set(c, org, {"last_team_morning": today.isoformat()})
+        await _fo_plan_team_run(c, org, "morning", today)
+    if cfg.get("team_send_e", True) and hm >= te and cfg.get("last_team_evening") != today.isoformat():
+        await _fo_plan_cfg_set(c, org, {"last_team_evening": today.isoformat()})
+        await _fo_plan_team_run(c, org, "evening", today)
+
+
 async def _fo_plan_tick():
     now = _fo_mt_now()
     today = now.date()
@@ -3441,7 +3515,7 @@ async def _fo_plan_tick():
         try:
             async with pool().acquire() as c:
                 chat, _t = await _fo_plan_chat(c, org)
-                if not chat:
+                if not chat and not (await _fo_plan_cfg(c, org)).get("team_on"):     # 280
                     continue
                 # 270: сервис в несколько процессов — замок на агентство, настройки читаем после замка
                 if not await c.fetchval("SELECT pg_try_advisory_lock(hashtext($1))", "fo-plan:" + str(org)):
@@ -3499,6 +3573,11 @@ async def _fo_plan_tick_org(c, org, today, hm):
                         await _fo_plan_cfg_set(c, org, {"last_evening": today.isoformat()})
                         if cfg.get("send_evening", True):
                             await _fo_plan_run(c, org, "evening", today)
+                try:                                             # 280: рассылка команде — каждому в личку
+                    await _fo_plan_team_tick(c, org, cfg, today, hm)
+                except Exception as _e:
+                    try: print("fo_plan team:", str(_e)[:200])
+                    except Exception: pass
                 mon = _fo_mt_mon(today)
                 if today.weekday() == 0 and hm >= (cfg.get("morning") or _FO_PLAN_DEF["morning"]) and cfg.get("last_week") != mon.isoformat() and cfg.get("send_week", True):
                     await _fo_plan_cfg_set(c, org, {"last_week": mon.isoformat()})
@@ -3704,25 +3783,73 @@ async def fo_bots_ai(p: Principal = Depends(max_level(1))):
 
 @router.get("/bots/chats")
 async def fo_bots_chats(bot: str = "main", p: Principal = Depends(max_level(1))):
-    """В каких чатах клиентов бот сидит (getChatMember по каждому чату с номером)."""
-    tok = _fo_bot_toks().get(bot if bot in ("main", "meet", "report") else "main")
+    """281: по кабинетам и по команде. У каждого клиента два чата: «Чат с клиентом» (команда + клиент, kind=client) и
+    «Чат МПВ» (зеркало чата с клиентом — только команда, kind=mpv). Внесён ли номером (иначе бот его не видит), сидит ли
+    бот, последнее сообщение, сообщений и задач от ИИ за 7 дней. По команде — привязан ли Telegram, план и факт на сегодня."""
+    bk = bot if bot in ("main", "meet", "report") else "main"
+    tok = _fo_bot_toks().get(bk)
     me = await _fo_bot_me(tok) if tok else {}
-    if not me.get("id"):
-        return {"bot": bot, "online": False, "chats": []}
+    since = _fo_dt.datetime.now(_fo_dt.timezone.utc) - _fo_dt.timedelta(days=7)
+    kinds = ("client",) if bk == "meet" else ("client", "mpv")
+    team, team_on = [], False
     async with pool().acquire() as c:
-        rows = await c.fetch("SELECT cl.name, ch.chat_id, ch.title FROM chat ch JOIN client_chat cc ON cc.chat_pk = ch.id "
-                             "JOIN client cl ON cl.id = cc.client_id WHERE ch.org_id=$1 AND cc.kind='client' "
-                             "AND ch.chat_id ~ '^-?[0-9]+$' ORDER BY cl.name", p.org_id)
+        cls = await c.fetch("SELECT id, name FROM client WHERE org_id=$1 ORDER BY name", p.org_id)
+        chs = await c.fetch("SELECT cc.client_id, cc.kind, ch.id AS pk, ch.chat_id, ch.title FROM client_chat cc "
+                            "JOIN chat ch ON ch.id = cc.chat_pk WHERE ch.org_id=$1 ORDER BY ch.id", p.org_id)
+        last = {}
+        try:
+            for r in await c.fetch("SELECT chat_pk, max(msg_at) AS at, count(*) FILTER (WHERE msg_at >= $2) AS n7 "
+                                   "FROM fo_chat_msg WHERE org_id=$1 AND tg_chat_id<>'test' GROUP BY chat_pk", p.org_id, since):
+                last[r["chat_pk"]] = (r["at"], int(r["n7"] or 0))
+        except Exception:
+            last = {}
+        ai = {}
+        try:
+            for r in await c.fetch("SELECT client_id, count(*) AS n, count(*) FILTER (WHERE status='pending') AS wait "
+                                   "FROM fo_ai_task WHERE org_id=$1 AND created_at >= $2 GROUP BY client_id", p.org_id, since):
+                ai[str(r["client_id"])] = {"n": int(r["n"] or 0), "wait": int(r["wait"] or 0)}
+        except Exception:
+            ai = {}
+        try:
+            day = _fo_mt_now().date()
+            cfg = await _fo_plan_cfg(c, p.org_id)
+            team_on = bool(cfg.get("team_on"))
+            names, tgm = await _fo_plan_people(c, p.org_id), await _fo_plan_team_tg(c, p.org_id)
+            tk, ar = await _fo_plan_tasks(c, p.org_id, day), await _fo_plan_arts(c, p.org_id, day)
+            for e, n in sorted(names.items(), key=lambda kv: kv[1] or "я"):
+                tl, al = tk.get(e) or [], (ar.get(e) or {})
+                cabs = set([t["client"] for t in tl if t.get("client")] + [x["client"] for x in al.values() if x.get("client")])
+                team.append({"employee_id": e, "name": n, "tg": bool(tgm.get(e)), "tasks": len(tl),
+                             "done": sum(1 for t in tl if t.get("done")), "cabs": len(cabs),
+                             "arts": sum(len(x["skus"]) for x in al.values())})
+        except Exception:
+            pass
     sem = _fo_aio.Semaphore(6)
 
-    async def one(r):
+    async def member(chat_id):
+        if not me.get("id"):
+            return None, "бот не на связи"
         async with sem:
-            cm = await _fo_aio.to_thread(_fo_tg_api_sync, "getChatMember", {"chat_id": r["chat_id"], "user_id": me["id"]}, tok, 10)
+            cm = await _fo_aio.to_thread(_fo_tg_api_sync, "getChatMember", {"chat_id": chat_id, "user_id": me["id"]}, tok, 10)
         st = ((cm.get("result") or {}).get("status") or "") if cm and cm.get("ok") else ""
-        return {"client": r["name"], "chat": r["title"] or "", "in": st in ("member", "administrator", "creator"),
-                "status": st or str((cm or {}).get("description") or "")[:60]}
-    res = await _fo_aio.gather(*[one(r) for r in rows])
-    return {"bot": bot, "online": True, "username": me.get("username"), "chats": list(res)}
+        return st in ("member", "administrator", "creator"), (st or str((cm or {}).get("description") or "")[:60])
+    items = [r for r in chs if r["kind"] in kinds]
+    num = [r for r in items if re.match(r"^-?\d+$", str(r["chat_id"] or ""))]
+    res = await _fo_aio.gather(*[member(str(r["chat_id"])) for r in num])
+    mem = {r["pk"]: x for r, x in zip(num, res)}
+    by = {}
+    for r in items:
+        la = last.get(r["pk"]) or (None, 0)
+        inn, st = mem.get(r["pk"], (None, ""))
+        by.setdefault(str(r["client_id"]), {}).setdefault(r["kind"], []).append({
+            "title": r["title"] or "", "num": r["pk"] in mem, "in": inn, "status": st,
+            "last": la[0].isoformat() if la[0] else None, "n7": la[1]})
+    rows = [{"client_id": str(cl["id"]), "client": cl["name"] or "", "chats": by.get(str(cl["id"]), {}),
+             "ai": ai.get(str(cl["id"]), {"n": 0, "wait": 0})} for cl in cls]
+    flat = [{"client": r["client"], "chat": x.get("title") or "", "in": bool(x.get("in")), "status": x.get("status") or ""}
+            for r in rows for x in r["chats"].get("client", []) if x.get("num")]
+    return {"bot": bk, "online": bool(me.get("id")), "username": me.get("username"), "kinds": list(kinds),
+            "rows": rows, "team": team, "team_on": team_on, "chats": flat}
 
 
 @router.post("/bots/request")
@@ -3994,6 +4121,17 @@ class FoPlanSetIn(_FoBM):
     send_evening: bool | None = None
     send_week: bool | None = None
     cmds_off: bool | None = None
+    team_on: bool | None = None
+    team_mode: str | None = None
+    team_morning: str | None = None
+    team_eve: str | None = None
+    team_wkend: bool | None = None
+    team_send_m: bool | None = None
+    team_send_e: bool | None = None
+    team_once_day: str | None = None
+    team_once_at: str | None = None
+    team_once_what: str | None = None
+    team_once_clear: bool | None = None
 
 
 @router.get("/plan")
@@ -4025,7 +4163,22 @@ async def fo_plan_get(p: Principal = Depends(max_level(1))):
         except Exception:
             pass
         owner_tg = bool(await _fo_plan_owner_tg(c, p.org_id))
-    return {"cmds": {"on": not cfg.get("cmds_off"), "owner_tg": owner_tg},
+        team = {"on": bool(cfg.get("team_on")), "mode": cfg.get("team_mode") or "daily",
+                "morning": cfg.get("team_morning") or cfg.get("morning") or _FO_PLAN_DEF["morning"],
+                "eve": cfg.get("team_eve") or cfg.get("eve_send") or _FO_PLAN_DEF["eve_send"],
+                "wkend": bool(cfg.get("team_wkend")), "send_m": cfg.get("team_send_m", True), "send_e": cfg.get("team_send_e", True),
+                "once": cfg.get("team_once") or {}, "once_done": cfg.get("team_once_done") or {},
+                "last_m": cfg.get("last_team_morning"), "last_e": cfg.get("last_team_evening"), "people": []}
+        try:
+            tgm, names = await _fo_plan_team_tg(c, p.org_id), await _fo_plan_people(c, p.org_id)
+            tk = await _fo_plan_tasks(c, p.org_id, day)
+            for e, n in sorted(names.items(), key=lambda kv: kv[1] or "я"):
+                tl = tk.get(e) or []
+                team["people"].append({"employee_id": e, "name": n, "tg": bool(tgm.get(e)), "tasks": len(tl),
+                                       "done": sum(1 for t in tl if t.get("done"))})
+        except Exception:
+            pass
+    return {"cmds": {"on": not cfg.get("cmds_off"), "owner_tg": owner_tg}, "team": team,
             "chat": chat, "title": title, "settings": {k: cfg.get(k) or _FO_PLAN_DEF[k] for k in _FO_PLAN_DEF}, "off": bool(cfg.get("off")),
             "send": {k: cfg.get(k, True) for k in ("send_morning", "send_arts", "send_evening", "send_week")},
             "last": {k: cfg.get(k) for k in ("last_morning", "last_evening", "last_week")}, "preview": prev, "groups": groups,
@@ -4039,6 +4192,8 @@ async def fo_plan_send_now(body: FoPlanSendIn, p: Principal = Depends(max_level(
         try: day = _fo_dt.date.fromisoformat(body.day)
         except Exception: day = None
     async with pool().acquire() as c:
+        if body.what in ("team_morning", "team_evening"):          # 280
+            return await _fo_plan_team_run(c, p.org_id, body.what[5:], day)
         return await _fo_plan_run(c, p.org_id, body.what if body.what in ("morning", "evening", "week") else "morning", day, force=True)
 
 
@@ -4057,7 +4212,36 @@ async def fo_plan_settings(body: FoPlanSetIn, p: Principal = Depends(max_level(1
             patch[k] = bool(v)
     if body.chat_id:
         patch["chat_id"] = str(body.chat_id); patch["title"] = body.title or ""
+    # 280: «Разослать команде»
+    for k in ("team_on", "team_wkend", "team_send_m", "team_send_e"):
+        v = getattr(body, k)
+        if v is not None:
+            patch[k] = bool(v)
+    if body.team_mode in ("daily", "once"):
+        patch["team_mode"] = body.team_mode
+    for k in ("team_morning", "team_eve"):
+        v = getattr(body, k)
+        if v and re.match(r"^\d{2}:\d{2}$", v):
+            patch[k] = v
+    if body.team_once_clear:
+        patch["team_once"] = {}
+    elif body.team_once_day or body.team_once_at or body.team_once_what:
+        d0 = body.team_once_day if body.team_once_day and re.match(r"^\d{4}-\d{2}-\d{2}$", body.team_once_day) else None
+        a0 = body.team_once_at if body.team_once_at and re.match(r"^\d{2}:\d{2}$", body.team_once_at) else None
+        w0 = body.team_once_what if body.team_once_what in ("morning", "evening", "both") else None
+        if not (d0 and a0 and w0):
+            return {"ok": False, "why": "для разовой рассылки нужны дата, время и что слать"}
+        patch["team_once"] = {"day": d0, "at": a0, "what": w0}
     async with pool().acquire() as c:
+        if any(k in patch for k in ("team_on", "team_morning", "team_eve", "team_mode", "team_send_m", "team_send_e")):
+            # время сегодня уже прошло — сегодня не досылаем задним числом, начнём со следующего раза
+            cur = await _fo_plan_cfg(c, p.org_id)
+            cur.update(patch)
+            now = _fo_mt_now(); hm, td = now.strftime("%H:%M"), now.date().isoformat()
+            if hm >= (cur.get("team_morning") or cur.get("morning") or _FO_PLAN_DEF["morning"]):
+                patch["last_team_morning"] = td
+            if hm >= (cur.get("team_eve") or cur.get("eve_send") or _FO_PLAN_DEF["eve_send"]):
+                patch["last_team_evening"] = td
         if patch:
             await _fo_plan_cfg_set(c, p.org_id, patch)
         return {"ok": True, "settings": await _fo_plan_cfg(c, p.org_id)}
