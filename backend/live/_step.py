@@ -3521,6 +3521,205 @@ async def _fo_plan_boot():
             pass
 
 
+# ── 273: команды собственника в группе плана ──
+_FO_PLAN_CMD_RX = re.compile(r"^(факт\s+плана?\s+работы|план\s+работы)\s+(.+?)(?:\s+за\s+(\S+))?$", re.I)
+
+
+def _fo_plan_norm(x):
+    x = str(x or "").lower().replace("ё", "е")
+    x = re.sub(r"[«»\"'`.,;:!?()]", " ", x)
+    x = re.sub(r"(^|\s)(ип|ооо|ао|зао|пао)(?=\s|$)", " ", x)
+    return " ".join(x.split())
+
+
+def _fo_plan_cmd_date(word, today):
+    w = str(word or "").strip().lower().rstrip(".")
+    if w in ("", "сегодня"):
+        return today
+    if w == "вчера":
+        return today - _fo_dt.timedelta(days=1)
+    if w == "завтра":
+        return today + _fo_dt.timedelta(days=1)
+    m = re.fullmatch(r"(\d{1,2})[./-](\d{1,2})(?:[./-](\d{2,4}))?", w)
+    if not m:
+        return None
+    y = int(m.group(3)) if m.group(3) else today.year
+    if y < 100:
+        y += 2000
+    try:
+        return _fo_dt.date(y, int(m.group(2)), int(m.group(1)))
+    except Exception:
+        return None
+
+
+async def _fo_plan_owner_tg(c, org):
+    """Telegram собственника агентства (привязан через бота: почта входа → код)."""
+    try:
+        rows = await c.fetch("SELECT ref_id, data->>'tg_id' AS tg FROM fo_card WHERE kind='employee' AND org_id=$1 "
+                             "AND coalesce(data->>'tg_id','') ~ '^[0-9]+$'", org)
+    except Exception:
+        return []
+    out = []
+    for r in rows:
+        ref = str(r["ref_id"])
+        uid = None
+        try:
+            uid = await c.fetchval("SELECT user_id FROM employee WHERE id::text=$1", ref)
+        except Exception:
+            uid = None
+        try:
+            lvl = await c.fetchval("SELECT r.level FROM app_user u JOIN role r ON r.code=u.role_code WHERE u.id::text=$1",
+                                   str(uid or ref))
+        except Exception:
+            lvl = None
+        if lvl is not None and int(lvl) == 1:
+            out.append(str(r["tg"]))
+    return out
+
+
+async def _fo_plan_reply(chat_id, lines, reply_to=None):
+    tok = _fo_env("TG_BOT_TOKEN")
+    if not tok:
+        return
+    for i, ch in enumerate(_fo_plan_chunks(lines)):
+        prm = {"chat_id": str(chat_id), "text": ch, "disable_web_page_preview": True}
+        if i == 0 and reply_to:
+            prm["reply_to_message_id"] = int(reply_to)
+            prm["allow_sending_without_reply"] = True
+        await _fo_aio.to_thread(_fo_tg_api_sync, "sendMessage", prm, tok, 20)
+        await _fo_aio.sleep(0.3)
+
+
+async def _fo_plan_cmd(msg, bot=""):
+    """True — сообщение из группы плана (обработано или пропущено); False — это не группа плана."""
+    chat = msg.get("chat") or {}
+    tg = str(chat.get("id") or "")
+    if not tg:
+        return False
+    async with pool().acquire() as c:
+        row = await c.fetchrow("SELECT org_id, data FROM fo_card WHERE kind='org' AND ref_id LIKE 'plan:%' "
+                               "AND data->>'chat_id'=$1 LIMIT 1", tg)
+        if not row:
+            return False
+        if bot == "meet":
+            return True
+        frm = msg.get("from") or {}
+        if frm.get("is_bot"):
+            return True
+        raw = str(msg.get("text") or "").strip()
+        t = " ".join(raw.replace("ё", "е").replace("Ё", "Е").split()).rstrip(".!?")
+        m = _FO_PLAN_CMD_RX.match(t)
+        if not m:
+            return True                               # не команда — бот молчит
+        org = row["org_id"]
+        cfg = _fo_st_load(row["data"]) or {}
+        if isinstance(cfg, dict) and cfg.get("cmds_off"):
+            return True
+        mid = msg.get("message_id")
+        owners = await _fo_plan_owner_tg(c, org)
+        if str(frm.get("id") or "") not in owners:
+            await _fo_plan_reply(tg, ["Команды плана выполняются только для собственника агентства.",
+                                      "Если вы собственник, а бот вас не узнал: напишите боту в личку почту, под которой входите "
+                                      "в сервис, — он пришлёт код на почту, перешлите код ему."], mid)
+            return True
+        fact = m.group(1).lower().startswith("факт")
+        today = _fo_mt_now().date()
+        day = _fo_plan_cmd_date(m.group(3), today)
+        if day is None:
+            await _fo_plan_reply(tg, ["Не понял дату «%s». Пишите так: «План работы ИП Петров за 01.10»." % (m.group(3) or "")], mid)
+            return True
+        q = _fo_plan_norm(m.group(2))
+        clients = await _fo_plan_clients(c, org)
+        norm = {cid: _fo_plan_norm(nm) for cid, nm in clients.items()}
+        cids = [cid for cid, nn in norm.items() if nn and nn == q]
+        if not cids:
+            import difflib as _fo_dl
+            names = {}
+            for cid, nn in norm.items():
+                names.setdefault(nn, clients[cid])
+            sim = _fo_dl.get_close_matches(q, list(names), n=6, cutoff=0.45)
+            sub = [nn for nn in names if q and (q in nn or nn in q) and nn not in sim]
+            pick = [names[x] for x in (sim + sub)][:6]
+            lines = ["Не нашёл клиента «%s»." % m.group(2).strip()]
+            if pick:
+                lines.append("Похожие: " + ", ".join(pick))
+            else:
+                lines.append("Клиенты агентства: " + ", ".join(sorted(clients.values())[:40]))
+            lines.append("Напишите команду ещё раз с точным названием.")
+            await _fo_plan_reply(tg, lines, mid)
+            return True
+        cname = clients[cids[0]]
+        people = await _fo_plan_people(c, org)
+        tasks = await _fo_plan_tasks(c, org, day)
+        arts = await _fo_plan_arts(c, org, day)
+        rk = {}
+        if fact:
+            try:
+                rk = _fo_st_load(await c.fetchval("SELECT data FROM fo_state WHERE org_id=$1::uuid AND scope='org' AND key='rkDone'",
+                                                  str(org))) or {}
+            except Exception:
+                rk = {}
+    cset = set(cids)
+    if fact and day > today:
+        await _fo_plan_reply(tg, ["%s — день ещё не наступил, факта нет." % _fo_plan_date(day),
+                                  "План: «План работы %s за %02d.%02d»" % (cname, day.day, day.month)], mid)
+        return True
+    head = _fo_plan_date(day)
+    if fact:
+        head += " — 📊 факт" + ((" на %s" % _fo_mt_now().strftime("%H:%M")) if day == today else " за день")
+    lines = [head, "🏪 " + cname + (" — факт плана работы" if fact else " — план работы")]
+    emps = set()
+    for e, tl in tasks.items():
+        if any(t["client"] in cset for t in tl):
+            emps.add(e)
+    for e, cabs in arts.items():
+        if any(x["client"] in cset for x in cabs.values()):
+            emps.add(e)
+    total = ok = 0
+    for e in sorted(emps, key=lambda x: people.get(x, "я")):
+        if not people.get(e):
+            continue
+        lines.append("")
+        lines.append("👤 " + people[e])
+        for t in [t for t in (tasks.get(e) or []) if t["client"] in cset]:
+            total += 1
+            if fact:
+                ok += 1 if t["done"] else 0
+                lines.append(("✅ " if t["done"] else "❌ ") + (t["title"] or "задача") + _fo_plan_dl(t["dl"]))
+            else:
+                lines.append("— " + (t["title"] or "задача") + _fo_plan_dl(t["dl"]))
+        for cab, x in (arts.get(e) or {}).items():
+            if x["client"] not in cset:
+                continue
+            sk = x["skus"]
+            if fact:
+                k1, k2 = "%s|%s|%s" % (e, cab, day.isoformat()), "%s|%s|%s" % (e, x["client"], day.isoformat())
+                done = bool(rk.get(k1) or rk.get(k2)) if isinstance(rk, dict) else False
+                lines.append(("✅ " if done else "❌ ") + "📦 работа с РК · %d арт." % len(sk))
+            else:
+                lines.append("📦 Артикулы в работу (%d): " % len(sk) + ", ".join(sk[:80]) + (" … и ещё %d" % (len(sk) - 80) if len(sk) > 80 else ""))
+    if not emps:
+        lines.append("")
+        lines.append("🤷 На этот день задач по клиенту нет.")
+    else:
+        lines.append("")
+        lines.append(("📊 Выполнено %d из %d" % (ok, total)) if fact else ("Всего задач: %d" % total))
+    await _fo_plan_reply(tg, lines, mid)
+    return True
+
+
+async def _fo_plan_route(msg, bot=""):
+    try:
+        if await _fo_plan_cmd(msg, bot):
+            return
+    except Exception as e:
+        try:
+            print("fo_plan_cmd:", str(e)[:200])
+        except Exception:
+            pass
+    await _fo_ai_on_msg(msg, bot)
+
+
 class FoPlanSendIn(_FoBM):
     what: str = "morning"          # morning | evening | week
     day: str | None = None
@@ -3537,6 +3736,7 @@ class FoPlanSetIn(_FoBM):
     send_arts: bool | None = None
     send_evening: bool | None = None
     send_week: bool | None = None
+    cmds_off: bool | None = None
 
 
 @router.get("/plan")
@@ -3559,15 +3759,17 @@ async def fo_plan_get(p: Principal = Depends(max_level(4))):
                 "AND NOT EXISTS (SELECT 1 FROM client_chat cc WHERE cc.chat_pk = chat.id) ORDER BY added_at DESC", p.org_id)]
         except Exception:
             pass
-    people = []
-    try:
-        for r in await c.fetch("SELECT e.id, e.name, cd.data->>'tg_id' AS tg_id FROM employee e JOIN fo_card cd ON cd.kind='employee' "
-                               "AND cd.ref_id=e.id::text AND cd.org_id::text=e.org_id::text WHERE e.org_id=$1::uuid "
-                               "AND coalesce(cd.data->>'tg_id','') ~ '^[0-9]+$' ORDER BY e.name", str(p.org_id)):
-            people.append({"employee_id": str(r["id"]), "name": r["name"], "tg_id": str(r["tg_id"])})
-    except Exception:
-        pass
-    return {"chat": chat, "title": title, "settings": {k: cfg.get(k) or _FO_PLAN_DEF[k] for k in _FO_PLAN_DEF}, "off": bool(cfg.get("off")),
+        people = []
+        try:
+            for r in await c.fetch("SELECT e.id, e.name, cd.data->>'tg_id' AS tg_id FROM employee e JOIN fo_card cd ON cd.kind='employee' "
+                                   "AND cd.ref_id=e.id::text AND cd.org_id::text=e.org_id::text WHERE e.org_id=$1::uuid "
+                                   "AND coalesce(cd.data->>'tg_id','') ~ '^[0-9]+$' ORDER BY e.name", str(p.org_id)):
+                people.append({"employee_id": str(r["id"]), "name": r["name"], "tg_id": str(r["tg_id"])})
+        except Exception:
+            pass
+        owner_tg = bool(await _fo_plan_owner_tg(c, p.org_id))
+    return {"cmds": {"on": not cfg.get("cmds_off"), "owner_tg": owner_tg},
+            "chat": chat, "title": title, "settings": {k: cfg.get(k) or _FO_PLAN_DEF[k] for k in _FO_PLAN_DEF}, "off": bool(cfg.get("off")),
             "send": {k: cfg.get(k, True) for k in ("send_morning", "send_arts", "send_evening", "send_week")},
             "last": {k: cfg.get(k) for k in ("last_morning", "last_evening", "last_week")}, "preview": prev, "groups": groups,
             "people": people, "bot": bool(_fo_env("TG_BOT_TOKEN"))}
@@ -3592,7 +3794,7 @@ async def fo_plan_settings(body: FoPlanSetIn, p: Principal = Depends(max_level(2
             patch[k] = v
     if body.off is not None:
         patch["off"] = bool(body.off)
-    for k in ("send_morning", "send_arts", "send_evening", "send_week"):
+    for k in ("send_morning", "send_arts", "send_evening", "send_week", "cmds_off"):
         v = getattr(body, k)
         if v is not None:
             patch[k] = bool(v)
@@ -4572,7 +4774,7 @@ async def fo_tg_hook(request: _FoReq):
         if (msg.get("chat") or {}).get("type") == "private":
             _fo_aio.get_running_loop().create_task(_fo_mt_private(msg, request.headers.get("x-fo-bot", "")))
         else:
-            _fo_aio.get_running_loop().create_task(_fo_ai_on_msg(msg, request.headers.get("x-fo-bot", "")))
+            _fo_aio.get_running_loop().create_task(_fo_plan_route(msg, request.headers.get("x-fo-bot", "")))   # 273
     return {"ok": True}
 
 
