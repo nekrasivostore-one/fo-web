@@ -31271,6 +31271,7 @@ document.addEventListener("change", function(e){
    с логикой работы каждого бота для чтения. Внутри: список подключённых ботов; выбрал бота — справа что он
    делает и как им пользоваться; «Настроить» — вся логика: куда и что отправляет, команды, внутренние настройки
    сбора задач, где бот сидит, цифры за неделю и журнал отправок. Блок плана работы переехал сюда с «Планёрки». */
+var FO_BOTS_PREVIEW = false;
 var FO_BOTS = null, FO_BOTS_SEL = "main", FO_BOTS_CFG = false, FO_BOTS_TAB = "plan", FO_BOTS_CHATS = {};
 var FO_BOTS_INFO = {
   main: {
@@ -31458,7 +31459,11 @@ function foBotsRender(){
     foPlanLoad().then(foBotsRender);
   }
   var on = !!FO_BOTS.enabled;
-  if(!on){ var yy = window.scrollY; host.innerHTML = foBotsShopHTML(); window.scrollTo(0, yy); return; }
+  if(!on || FO_BOTS_PREVIEW){
+    var yy = window.scrollY; host.innerHTML = foBotsShopHTML();
+    if(on){ var hd = host.querySelector(".fo-bots .gl-t"); if(hd) hd.insertAdjacentHTML("beforeend", '<div class="grow"></div><button class="bt sm" data-bots-preview="0">← Наши боты</button>'); }
+    window.scrollTo(0, yy); return;
+  }
   var list = ["main", "meet", "report"].map(function(k){
     var I = FO_BOTS_INFO[k], B = (FO_BOTS.bots || []).filter(function(b){ return b.key === k; })[0] || {};
     return '<button class="fo-bots-card'+(FO_BOTS_SEL === k ? ' on' : '')+'" data-bots-sel="'+k+'"><span class="fo-bots-av">'+I.ico+'</span>'+
@@ -31466,7 +31471,7 @@ function foBotsRender(){
       '<span class="fo-bots-dot '+(B.online ? 'ok' : 'off')+'"></span></button>';
   }).join("");
   var y = window.scrollY;
-  host.innerHTML = '<div class="gl fo-bots"><div class="gl-t"><h2>Чат-боты</h2><span class="fo-sub">подключено ботов: '+(FO_BOTS.bots || []).filter(function(b){ return b.online; }).length+' из 3</span></div>'+
+  host.innerHTML = '<div class="gl fo-bots"><div class="gl-t"><h2>Чат-боты</h2><span class="fo-sub">подключено ботов: '+(FO_BOTS.bots || []).filter(function(b){ return b.online; }).length+' из 3</span><div class="grow"></div><button class="bt sm" data-bots-preview="1" title="Так раздел видят агентства, у которых модуль не подключён">Витрина для других агентств</button></div>'+
     '<div class="fo-bots-grid"><div class="fo-bots-list">'+list+'</div>'+foBotsInfoHTML(FO_BOTS_SEL)+'</div>'+
     (FO_BOTS_CFG ? foBotsCfgHTML(FO_BOTS_SEL) : '')+
   '</div>';
@@ -31516,6 +31521,8 @@ function foBotsRender(){
 
 /* клики на экране */
 document.addEventListener("click", function(e){
+  var pv = e.target.closest && e.target.closest("[data-bots-preview]");
+  if(pv && document.querySelector(".fo-bots")){ e.preventDefault(); e.stopPropagation(); FO_BOTS_PREVIEW = pv.getAttribute("data-bots-preview") === "1"; foBotsRender(); return; }
   var sh = e.target.closest && e.target.closest("[data-shop]");
   if(sh && document.querySelector(".fo-shop")){ e.preventDefault(); e.stopPropagation(); var kk = sh.getAttribute("data-shop"); FO_BOTS_OPEN[kk] = !FO_BOTS_OPEN[kk]; foBotsRender(); return; }
   var t = e.target.closest && e.target.closest("[data-bots-sel], [data-bots-cfg], [data-bots-tab], [data-bots-chats], [data-bots-req], [data-bots-go]");
