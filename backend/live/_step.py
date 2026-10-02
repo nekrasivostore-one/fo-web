@@ -3426,6 +3426,8 @@ async def _fo_plan_run(c, org_id, what, day=None, force=False):
         else:
             errs.append(str(r.get("description") or r)[:160])
         await _fo_aio.sleep(0.4)
+    await _fo_plan_log(c, org_id, {"what": what, "day": day.isoformat(), "sent": sent, "of": len(msgs),
+                                   "err": (errs[0] if errs else ""), "chat": title or chat})
     return {"ok": not errs, "sent": sent, "chat": title or chat, "errors": errs, "messages": len(msgs)}
 
 
@@ -3459,6 +3461,8 @@ async def _fo_plan_tick():
 
 
 async def _fo_plan_tick_org(c, org, today, hm):
+                if not await _fo_bots_enabled(c, org):          # 275: модуль «Чат-боты» не подключён
+                    return
                 cfg = await _fo_plan_cfg(c, org)
                 # 268: очередь ручных отправок (ставит собственник кнопкой или шаг при выкладке)
                 sn = cfg.get("send_now") or []
@@ -3519,6 +3523,210 @@ async def _fo_plan_boot():
             _FO_PLAN_LOOP["task"] = _fo_aio.get_running_loop().create_task(_fo_plan_loop())
         except Exception:
             pass
+
+
+# ── 275: модуль «Чат-боты» ──
+_FO_BOT_ME = {}
+
+
+async def _fo_bots_cfg(c, org):
+    d = _fo_st_load(await c.fetchval("SELECT data FROM fo_card WHERE kind='org' AND ref_id=$1 AND org_id=$2",
+                                     "bots:" + str(org), org)) or {}
+    return d if isinstance(d, dict) else {}
+
+
+async def _fo_bots_set(c, org, patch):
+    await c.execute(
+        "INSERT INTO fo_card (kind, ref_id, org_id, data) VALUES ('org', $1, $2, $3::jsonb) "
+        "ON CONFLICT (kind, ref_id) DO UPDATE SET data = fo_card.data || EXCLUDED.data, updated_at = now() "
+        "WHERE fo_card.org_id = EXCLUDED.org_id",
+        "bots:" + str(org), org, _fo_json.dumps(patch, ensure_ascii=False, default=str))
+
+
+async def _fo_bots_enabled(c, org):
+    try:
+        return bool((await _fo_bots_cfg(c, org)).get("enabled"))
+    except Exception:
+        return False
+
+
+async def _fo_plan_log(c, org, item):
+    try:
+        cfg = await _fo_plan_cfg(c, org)
+        log = cfg.get("log") if isinstance(cfg.get("log"), list) else []
+        item = dict(item); item["at"] = _fo_mt_now().strftime("%d.%m %H:%M")
+        log = [item] + log
+        await _fo_plan_cfg_set(c, org, {"log": log[:40]})
+    except Exception:
+        pass
+
+
+async def _fo_bot_me(tok):
+    if not tok:
+        return {}
+    x = _FO_BOT_ME.get(tok)
+    if x and _fo_time.time() - x[0] < 3600:
+        return x[1]
+    r = await _fo_aio.to_thread(_fo_tg_api_sync, "getMe", {}, tok, 10)
+    me = (r.get("result") or {}) if r.get("ok") else {}
+    _FO_BOT_ME[tok] = (_fo_time.time(), me)
+    return me
+
+
+def _fo_bot_toks():
+    main = _fo_env("TG_BOT_TOKEN")
+    return {"main": main, "meet": _fo_env("TG_MEET_BOT_TOKEN") or "", "report": _fo_env("TG_REPORT_BOT_TOKEN") or ""}
+
+
+@router.get("/bots")
+async def fo_bots(p: Principal = Depends(max_level(1))):
+    toks = _fo_bot_toks()
+    bots = []
+    for k in ("main", "meet", "report"):
+        me = await _fo_bot_me(toks[k]) if toks[k] else {}
+        bots.append({"key": k, "username": me.get("username") or "", "name": me.get("first_name") or "",
+                     "online": bool(me.get("id")), "token": bool(toks[k])})
+    since = _fo_dt.datetime.now(_fo_dt.timezone.utc) - _fo_dt.timedelta(days=7)
+    out = {"bots": bots}
+    async with pool().acquire() as c:
+        bc = await _fo_bots_cfg(c, p.org_id)
+        out["enabled"] = bool(bc.get("enabled"))
+        out["requested_at"] = bc.get("requested_at")
+        main = {}
+        try:
+            main["msgs"] = int(await c.fetchval("SELECT count(*) FROM fo_chat_msg WHERE org_id=$1 AND msg_at >= $2 AND tg_chat_id<>'test'",
+                                                p.org_id, since) or 0)
+        except Exception:
+            main["msgs"] = None
+        try:
+            ai = {}
+            for r in await c.fetch("SELECT status, count(*) AS n FROM fo_ai_task WHERE org_id=$1 AND created_at >= $2 GROUP BY status",
+                                   p.org_id, since):
+                ai[str(r["status"])] = int(r["n"])
+            main["ai"] = ai
+        except Exception:
+            main["ai"] = {}
+        try:
+            cc = await c.fetchrow("SELECT count(DISTINCT cc.client_id) AS clients, count(*) FILTER (WHERE ch.chat_id ~ '^-?[0-9]+$') AS num, "
+                                  "count(*) AS total FROM chat ch JOIN client_chat cc ON cc.chat_pk=ch.id "
+                                  "WHERE ch.org_id=$1 AND cc.kind='client'", p.org_id)
+            main["chats"] = {"clients": int(cc["clients"] or 0), "with_number": int(cc["num"] or 0), "total": int(cc["total"] or 0)}
+        except Exception:
+            main["chats"] = {}
+        try:
+            _ids, label, _e = await _fo_ai_approvers(c, p.org_id)
+            main["approvers"] = label
+        except Exception:
+            main["approvers"] = ""
+        try:
+            pc = await _fo_plan_cfg(c, p.org_id)
+            chat, title = await _fo_plan_chat(c, p.org_id)
+            main["plan"] = {"chat": title or chat, "morning": pc.get("morning") or _FO_PLAN_DEF["morning"],
+                            "eve_send": pc.get("eve_send") or _FO_PLAN_DEF["eve_send"], "off": bool(pc.get("off")),
+                            "cmds_on": not pc.get("cmds_off")}
+            main["log"] = (pc.get("log") or [])[:40] if isinstance(pc.get("log"), list) else []
+        except Exception:
+            main["plan"], main["log"] = {}, []
+        try:
+            main["owner_tg"] = bool(await _fo_plan_owner_tg(c, p.org_id))
+        except Exception:
+            main["owner_tg"] = False
+        out["main"] = main
+        meet = {}
+        try:
+            for r in await c.fetch("SELECT status, count(*) AS n FROM fo_meet WHERE org_id=$1::uuid GROUP BY status", str(p.org_id)):
+                meet[str(r["status"])] = int(r["n"])
+        except Exception:
+            pass
+        try:
+            meet["week_agreed"] = int(await c.fetchval("SELECT count(*) FROM fo_meet_occ WHERE org_id=$1::uuid AND status='agreed' "
+                                                       "AND day BETWEEN $2 AND $3", str(p.org_id), _fo_mt_mon(),
+                                                       _fo_mt_mon() + _fo_dt.timedelta(days=6)) or 0)
+        except Exception:
+            pass
+        out["meet"] = meet
+        rep = {}
+        try:
+            rep["reports"] = int(await c.fetchval("SELECT count(*) FROM fo_task_report WHERE org_id=$1 AND made_at >= $2", p.org_id, since) or 0)
+        except Exception:
+            rep["reports"] = None
+        try:
+            q = await c.fetchrow("SELECT count(*) FILTER (WHERE sent_at IS NULL) AS wait, count(*) FILTER (WHERE error IS NOT NULL) AS err "
+                                 "FROM outbox WHERE org_id=$1", p.org_id)
+            rep["queue"] = {"wait": int(q["wait"] or 0), "err": int(q["err"] or 0)}
+        except Exception:
+            pass
+        out["report"] = rep
+    return out
+
+
+@router.get("/bots/chats")
+async def fo_bots_chats(bot: str = "main", p: Principal = Depends(max_level(1))):
+    """В каких чатах клиентов бот сидит (getChatMember по каждому чату с номером)."""
+    tok = _fo_bot_toks().get(bot if bot in ("main", "meet", "report") else "main")
+    me = await _fo_bot_me(tok) if tok else {}
+    if not me.get("id"):
+        return {"bot": bot, "online": False, "chats": []}
+    async with pool().acquire() as c:
+        rows = await c.fetch("SELECT cl.name, ch.chat_id, ch.title FROM chat ch JOIN client_chat cc ON cc.chat_pk = ch.id "
+                             "JOIN client cl ON cl.id = cc.client_id WHERE ch.org_id=$1 AND cc.kind='client' "
+                             "AND ch.chat_id ~ '^-?[0-9]+$' ORDER BY cl.name", p.org_id)
+    sem = _fo_aio.Semaphore(6)
+
+    async def one(r):
+        async with sem:
+            cm = await _fo_aio.to_thread(_fo_tg_api_sync, "getChatMember", {"chat_id": r["chat_id"], "user_id": me["id"]}, tok, 10)
+        st = ((cm.get("result") or {}).get("status") or "") if cm and cm.get("ok") else ""
+        return {"client": r["name"], "chat": r["title"] or "", "in": st in ("member", "administrator", "creator"),
+                "status": st or str((cm or {}).get("description") or "")[:60]}
+    res = await _fo_aio.gather(*[one(r) for r in rows])
+    return {"bot": bot, "online": True, "username": me.get("username"), "chats": list(res)}
+
+
+@router.post("/bots/request")
+async def fo_bots_request(p: Principal = Depends(max_level(1))):
+    async with pool().acquire() as c:
+        await _fo_bots_set(c, p.org_id, {"requested_at": _fo_mt_now().strftime("%d.%m.%Y %H:%M")})
+        org = await c.fetchrow("SELECT name FROM org WHERE id=$1", p.org_id)
+        me = await c.fetchrow("SELECT email, display_name FROM app_user WHERE id=$1", _fo_uid(p))
+        admins = [r["email"] for r in await c.fetch("SELECT u.email FROM app_user u JOIN role r ON r.code=u.role_code "
+                                                     "WHERE r.level=0 AND u.is_active AND u.email IS NOT NULL")]
+    sent = 0
+    for em in admins:
+        try:
+            if await _fo_send(em, "Заявка: модуль «Чат-боты»",
+                              "Агентство: %s\nСобственник: %s (%s)\nПросит подключить модуль «Чат-боты»." %
+                              ((org or {}).get("name") if org else "", (me or {}).get("display_name") if me else "", (me or {}).get("email") if me else "")):
+                sent += 1
+        except Exception:
+            pass
+    return {"ok": True, "notified": sent}
+
+
+class FoBotsAdmIn(_FoBM):
+    org_id: str
+    enabled: bool
+
+
+@router.get("/admin/bots")
+async def fo_admin_bots(p: Principal = Depends(max_level(0))):
+    async with pool().acquire() as c:
+        rows = await c.fetch("SELECT o.id, o.name, cd.data FROM org o LEFT JOIN fo_card cd ON cd.kind='org' AND cd.ref_id='bots:'||o.id::text "
+                             "ORDER BY o.created_at")
+    out = []
+    for r in rows:
+        d = _fo_st_load(r["data"]) or {}
+        out.append({"org_id": str(r["id"]), "name": r["name"], "enabled": bool(d.get("enabled")), "requested_at": d.get("requested_at")})
+    return out
+
+
+@router.post("/admin/bots")
+async def fo_admin_bots_set(body: FoBotsAdmIn, p: Principal = Depends(max_level(0))):
+    import uuid as _fo_uu
+    oid = _fo_uu.UUID(str(body.org_id))
+    async with pool().acquire() as c:
+        await _fo_bots_set(c, oid, {"enabled": bool(body.enabled)})
+    return {"ok": True}
 
 
 # ── 273: команды собственника в группе плана ──
@@ -3615,6 +3823,8 @@ async def _fo_plan_cmd(msg, bot=""):
         cfg = _fo_st_load(row["data"]) or {}
         if isinstance(cfg, dict) and cfg.get("cmds_off"):
             return True
+        if not await _fo_bots_enabled(c, org):                 # 275
+            return True
         mid = msg.get("message_id")
         owners = await _fo_plan_owner_tg(c, org)
         if str(frm.get("id") or "") not in owners:
@@ -3705,6 +3915,11 @@ async def _fo_plan_cmd(msg, bot=""):
         lines.append("")
         lines.append(("📊 Выполнено %d из %d" % (ok, total)) if fact else ("Всего задач: %d" % total))
     await _fo_plan_reply(tg, lines, mid)
+    try:
+        async with pool().acquire() as c2:
+            await _fo_plan_log(c2, org, {"what": "cmd", "text": raw[:80], "sent": 1, "of": 1, "err": ""})
+    except Exception:
+        pass
     return True
 
 
@@ -3740,7 +3955,7 @@ class FoPlanSetIn(_FoBM):
 
 
 @router.get("/plan")
-async def fo_plan_get(p: Principal = Depends(max_level(4))):
+async def fo_plan_get(p: Principal = Depends(max_level(1))):
     async with pool().acquire() as c:
         chat, title = await _fo_plan_chat(c, p.org_id)
         cfg = await _fo_plan_cfg(c, p.org_id)
@@ -3776,7 +3991,7 @@ async def fo_plan_get(p: Principal = Depends(max_level(4))):
 
 
 @router.post("/plan/send")
-async def fo_plan_send_now(body: FoPlanSendIn, p: Principal = Depends(max_level(2))):
+async def fo_plan_send_now(body: FoPlanSendIn, p: Principal = Depends(max_level(1))):
     day = None
     if body.day:
         try: day = _fo_dt.date.fromisoformat(body.day)
@@ -3786,7 +4001,7 @@ async def fo_plan_send_now(body: FoPlanSendIn, p: Principal = Depends(max_level(
 
 
 @router.post("/plan/settings")
-async def fo_plan_settings(body: FoPlanSetIn, p: Principal = Depends(max_level(2))):
+async def fo_plan_settings(body: FoPlanSetIn, p: Principal = Depends(max_level(1))):
     patch = {}
     for k in ("morning", "eve_cut", "eve_send"):
         v = getattr(body, k)
@@ -8421,6 +8636,20 @@ p("== ЧАТЫ КЛИЕНТОВ ==")
 p(sh("sudo -u postgres psql -d fo -Atc \"SELECT ch.id||' · '||ch.title||' · '||cc.kind||' · '||CASE WHEN ch.chat_id ~ '^-?[0-9]+$' THEN 'номер Telegram ✓' ELSE 'ссылка, номера нет' END FROM chat ch JOIN client_chat cc ON cc.chat_pk=ch.id ORDER BY ch.id\""))
 p(sh("sudo -u postgres psql -d fo -Atc \"SELECT 'сообщений из чатов: '||count(*)||', последнее: '||COALESCE(max(msg_at)::text,'—') FROM fo_chat_msg WHERE tg_chat_id<>'test'\""))
 
+p("")
+p("== МОДУЛЬ «ЧАТ-БОТЫ» У FLATER (275) ==")
+try:
+    if os.path.exists("/opt/fo/bots-275.txt"):
+        p("уже включён ранее")
+    else:
+        _r275 = sh("sudo -u postgres psql -d fo -Atc \"INSERT INTO fo_card (kind, ref_id, org_id, data) SELECT 'org', 'bots:'||u.org_id::text, u.org_id, "
+                   "'{\\\"enabled\\\": true}'::jsonb FROM app_user u WHERE lower(u.email)='nekrasivostore@gmail.com' LIMIT 1 "
+                   "ON CONFLICT (kind, ref_id) DO UPDATE SET data = fo_card.data || EXCLUDED.data RETURNING ref_id\"").strip()
+        p("включено:", _r275[:120] or "аккаунт собственника не найден")
+        if _r275 and "bots:" in _r275:
+            open("/opt/fo/bots-275.txt", "w").write(stamp)
+except Exception as _e:
+    p("275: ошибка", str(_e)[:200])
 p("")
 p("== ГРУППА ПЛАНОВ → АГЕНТСТВО СОБСТВЕННИКА (270) ==")
 try:
