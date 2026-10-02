@@ -5252,12 +5252,26 @@ async function loadLive(){
   var res=await Promise.all([api("/refs/employees"), api("/refs/clients"), api("/refs/functions")]);
   var emps=res[0]||[], cls=res[1]||[], fns=res[2]||[];
   S.people=emps.map(function(e,i){ return {id:e.id, name:e.name, role:"Сотрудник",
-    av:initials(e.name).toUpperCase(), color:col(i), ord:i, workday:e.workday_min||480}; });
+    av:initials(e.name).toUpperCase(), color:col(i), ord:i, workday:e.workday_min||480,
+    user_id:e.user_id||null, email:e.email||""}; });
   S.projects=cls.map(function(c,i){ return {id:c.id, name:c.name, av:initials(c.name).toUpperCase(),
     color:col(i+1), ord:i, cabinets:c.cabinets||0, articles:0}; });
   S.fns=fns.map(function(f){ return {id:f.id, code:f.code, name:f.name, minutes:f.norm_minutes}; });
   S.cabs=[];
-  meId=S.people.length? S.people[0].id : null;
+  /* 272 (02.10): «я» — только с сервера: права (FO_PERMS.employee_id), привязка аккаунта (user_id), почта.
+     Никогда «первый в списке» — иначе до ответа сервера экран рисовал чужую карточку (Игорь, Виктория). */
+  meId=(function(){
+    var mine=null;
+    try{
+      var pid=(typeof FO_PERMS!=="undefined"&&FO_PERMS&&FO_PERMS.employee_id)?String(FO_PERMS.employee_id):"";
+      if(pid&&emps.some(function(e){ return String(e.id)===pid; })) mine=pid;
+      if(!mine&&typeof FO_ME!=="undefined"&&FO_ME&&FO_ME.id){
+        var me=emps.filter(function(e){ return String(e.user_id||"")===String(FO_ME.id); })[0]; if(me) mine=String(me.id); }
+      if(!mine&&typeof A!=="undefined"&&A&&A.email){
+        var me2=emps.filter(function(e){ return String(e.email||"").toLowerCase()===String(A.email).toLowerCase(); })[0]; if(me2) mine=String(me2.id); }
+    }catch(e){}
+    return mine;
+  })();
 
   var m=monday(), days=[];
   for(var i=0;i<5;i++){ var d=new Date(m); d.setDate(m.getDate()+i); days.push(iso(d)); }
@@ -31097,6 +31111,38 @@ function foPlanHTML(){
     api("/refs/plan/settings", {method: "POST", body: body}).then(function(){ try{ toast("Сохранено на сервере"); }catch(x){} FO_PLAN = null; })
       .catch(function(err){ try{ toast("Не сохранилось: " + (err && err.message || "")); }catch(x){} });
   });
+})();
+/* ===== add125 (272, Виталий 02.10): «В роли Виктории при „Обновить команду“ на секунду высвечивается карточка
+   Вероники, потом моя» =====
+   Причина: базовый loadLive после загрузки людей ставит meId = первый в списке (Вероника), а привязка «я» по
+   серверу приходит на сотни миллисекунд позже; любая отрисовка в этом окне рисует чужую карточку. Теперь «я»
+   всегда поправляется синхронно перед отрисовкой из FO_PERMS.employee_id (сервер, матрица прав, 264): render,
+   renderPeople, renderStaff, renderCards, foRepaint, setView и сразу после loadLive.                      */
+function foMeFix(){
+  try{
+    if(typeof foPermsLive !== "function" || !foPermsLive() || !FO_PERMS.employee_id) return false;
+    var id = FO_PERMS.employee_id;
+    if(String(meId) !== String(id) && typeof person === "function" && person(id)){ meId = id; return true; }
+  }catch(e){}
+  return false;
+}
+(function(){
+  ["render", "renderPeople", "renderStaff", "renderCards", "foRepaint", "setView"].forEach(function(name){
+    var f = window[name];
+    if(typeof f !== "function") return;
+    window[name] = function(){ foMeFix(); return f.apply(this, arguments); };
+  });
+  if(typeof loadLive === "function"){
+    var _ll = loadLive;
+    loadLive = function(){
+      var r = _ll.apply(this, arguments);
+      return Promise.resolve(r).then(function(v){ foMeFix(); return v; });
+    };
+  }
+  if(typeof foBindMe === "function"){
+    var _bm = foBindMe;
+    foBindMe = function(){ foMeFix(); var v = _bm.apply(this, arguments); foMeFix(); return v; };
+  }
 })();
 
 })();
