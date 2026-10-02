@@ -4510,6 +4510,19 @@ html.dark .fo-paud-t th, html.dark .fo-paud-t td{ border-bottom-color:rgba(255,2
 .fo-plan-pv summary{ cursor:pointer; color:var(--ink-2) }
 .fo-plan-pv pre{ white-space:pre-wrap; font:12px/1.45 inherit; background:var(--neu,#f3f4f8); border-radius:10px; padding:10px 12px; margin:6px 0 0; max-height:320px; overflow:auto }
 html.dark .fo-plan-pv pre{ background:rgba(255,255,255,.06) }
+/* add126 (273): команды бота */
+.fo-plan-cmds{ margin:10px 0 4px; padding:10px 12px; border-radius:12px; background:var(--neu,#f3f4f8) }
+html.dark .fo-plan-cmds{ background:rgba(255,255,255,.05) }
+.fo-plan-cmdh{ display:flex; flex-wrap:wrap; align-items:center; gap:6px 10px; font-size:13px }
+.fo-plan-cmdh i{ font-style:normal; font-size:12px; color:var(--ink-3) }
+.fo-plan-cmdh .fo-plan-off{ margin-left:auto; font-size:12px; display:inline-flex; gap:6px; align-items:center }
+.fo-plan-cmdl{ display:grid; grid-template-columns:minmax(0,max-content) 1fr; gap:6px 12px; margin:8px 0; font-size:12px; align-items:baseline }
+.fo-plan-cmdl code{ font:12px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace; background:rgba(124,92,255,.10); color:var(--ink); padding:2px 6px; border-radius:6px; white-space:nowrap }
+.fo-plan-cmdl span{ color:var(--ink-2) }
+@media (max-width:640px){ .fo-plan-cmdl{ grid-template-columns:1fr } .fo-plan-cmdl code{ white-space:normal } }
+.fo-plan-cmds-st{ font-size:12px; padding:6px 10px; border-radius:8px; margin-bottom:6px }
+.fo-plan-cmds-st.ok{ background:rgba(0,179,154,.10); color:var(--ink) }
+.fo-plan-cmds-st.bad{ background:rgba(219,74,95,.10); color:var(--ink) }
 </style>
 </head>
 <body>
@@ -31144,6 +31157,45 @@ function foMeFix(){
     foBindMe = function(){ foMeFix(); var v = _bm.apply(this, arguments); foMeFix(); return v; };
   }
 })();
+/* ===== add126 (273, Виталий 02.10): «Команды бота» в блоке «План работы в группу» на экране «Планёрка» =====
+   Собственник пишет в группе плана строгие команды — бот отвечает туда же. Здесь: список команд, привязан ли
+   Telegram собственника (без привязки бот не узнает, кто пишет), выключатель команд.                        */
+(function(){
+  if(typeof foPlanHTML !== "function") return;
+  var _ph = foPlanHTML;
+  foPlanHTML = function(){
+    var h = _ph.apply(this, arguments);
+    try{
+      if(!FO_PLAN || FO_PLAN.error) return h;
+      var top = (role === "owner" || role === "dir" || role === "admin");
+      var cm = FO_PLAN.cmds || {on: true, owner_tg: false};
+      var blk = '<div class="fo-plan-cmds">'+
+        '<div class="fo-plan-cmdh"><b>Команды бота</b> <i>пишет только собственник, только в этой группе, только с начала сообщения</i>'+
+          (top ? '<label class="fo-plan-off"><input type="checkbox" data-plan-k="cmds_off" '+(cm.on ? '' : 'checked')+'> выключить команды</label>' : '')+'</div>'+
+        '<div class="fo-plan-cmdl">'+
+          '<code>План работы ИП Петров</code><span>план на сегодня по клиенту: кто и что делает, артикулы</span>'+
+          '<code>Факт план работы ИП Петров</code><span>✅/❌ на эту минуту — все галочки за день</span>'+
+          '<code>План работы ИП Иванов за 01.10</code><span>за дату: 01.10, 01.10.2026, вчера, завтра</span>'+
+        '</div>'+
+        '<div class="fo-plan-cmds-st '+(cm.owner_tg ? 'ok' : 'bad')+'">'+(cm.owner_tg
+          ? 'Telegram собственника привязан ✓ — бот выполняет команды только от него.'
+          : 'Telegram собственника не привязан — бот не узнает, кто пишет. Напишите боту «Флатер Тим» в личку почту, под которой входите в сервис, и перешлите ему код из письма.')+'</div>'+
+        '<div class="fo-hint">Название клиента — как в сервисе (без «ИП» тоже можно). Опечатка — бот подскажет похожие и ничего не угадывает. Обычные сообщения в группе бот пропускает. В чатах клиентов команды не работают — там бот, как раньше, собирает задачи.</div>'+
+      '</div>';
+      var mark = '<div class="fo-hint">Будни:';
+      var i = h.indexOf(mark);
+      return i >= 0 ? h.slice(0, i) + blk + h.slice(i) : h.replace(/<\/div>\s*$/, blk + '</div>');
+    }catch(e){ return h; }
+  };
+})();
+/* выключатель команд — свой обработчик (общий в add124 понимает только время и send_*) */
+document.addEventListener("change", function(e){
+  var el = e.target; if(!el || !el.matches || !el.matches('[data-plan-k="cmds_off"]')) return;
+  e.stopImmediatePropagation();
+  api("/refs/plan/settings", {method: "POST", body: {cmds_off: !!el.checked}})
+    .then(function(){ try{ toast(el.checked ? "Команды бота выключены" : "Команды бота включены"); }catch(x){} FO_PLAN = null; try{ foMtRender(); }catch(x){} })
+    .catch(function(err){ try{ toast("Не сохранилось: " + (err && err.message || "")); }catch(x){} });
+}, true);
 
 })();
 </script>
