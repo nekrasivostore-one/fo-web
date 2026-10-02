@@ -3545,7 +3545,21 @@ async def _fo_bots_set(c, org, patch):
 
 async def _fo_bots_enabled(c, org):
     try:
-        return bool((await _fo_bots_cfg(c, org)).get("enabled"))
+        d = await _fo_bots_cfg(c, org)
+        if "enabled" in d:
+            return bool(d.get("enabled"))
+        # 276: агентство уже работает с ботами (группа плана или сообщения из чатов клиентов) — модуль подключён
+        used = await c.fetchval("SELECT 1 FROM fo_card WHERE kind='org' AND ref_id=$1 AND coalesce(data->>'chat_id','') <> ''",
+                                "plan:" + str(org))
+        if not used:
+            try:
+                used = await c.fetchval("SELECT 1 FROM fo_chat_msg WHERE org_id=$1 AND tg_chat_id<>'test' LIMIT 1", org)
+            except Exception:
+                used = None
+        if used:
+            await _fo_bots_set(c, org, {"enabled": True})
+            return True
+        return False
     except Exception:
         return False
 
@@ -3589,8 +3603,8 @@ async def fo_bots(p: Principal = Depends(max_level(1))):
     since = _fo_dt.datetime.now(_fo_dt.timezone.utc) - _fo_dt.timedelta(days=7)
     out = {"bots": bots}
     async with pool().acquire() as c:
+        out["enabled"] = await _fo_bots_enabled(c, p.org_id)
         bc = await _fo_bots_cfg(c, p.org_id)
-        out["enabled"] = bool(bc.get("enabled"))
         out["requested_at"] = bc.get("requested_at")
         main = {}
         try:
