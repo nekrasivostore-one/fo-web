@@ -31280,7 +31280,8 @@ document.addEventListener("change", function(e){
    делает и как им пользоваться; «Настроить» — вся логика: куда и что отправляет, команды, внутренние настройки
    сбора задач, где бот сидит, цифры за неделю и журнал отправок. Блок плана работы переехал сюда с «Планёрки». */
 var FO_BOTS_PREVIEW = false;
-var FO_BOTS = null, FO_BOTS_SEL = "main", FO_BOTS_CFG = false, FO_BOTS_TAB = "plan", FO_BOTS_CHATS = {};
+/* 278: у Флатера настройки основного бота открыты сразу — блок «План работы в группу» виден без лишних кликов */
+var FO_BOTS = null, FO_BOTS_SEL = "main", FO_BOTS_CFG = true, FO_BOTS_TAB = "plan", FO_BOTS_CHATS = {};
 var FO_BOTS_INFO = {
   main: {
     ico: "🤖", title: "Flater Team Service", user: "Flater_Team_Service_bot", short: "задачи из чатов · план работы",
@@ -31387,7 +31388,7 @@ function foBotsCfgHTML(k){
   if(!on) return '';
   if(k === "main"){
     var m = FO_BOTS.main || {}, ch = m.chats || {};
-    var tabs = [["plan", "План работы и команды"], ["tasks", "Сбор задач из чатов"], ["chats", "Где сидит"], ["stats", "Цифры и журнал"]];
+    var tabs = [["plan", "План работы в группу и команды"], ["tasks", "Сбор задач из чатов"], ["chats", "Где сидит"], ["stats", "Цифры и журнал"]];
     var body = "";
     if(FO_BOTS_TAB === "plan") body = (typeof foPlanHTML === "function") ? foPlanHTML() : '<div class="empty">Блок плана не загрузился</div>';
     else if(FO_BOTS_TAB === "tasks") body =
@@ -31536,7 +31537,7 @@ document.addEventListener("click", function(e){
   var t = e.target.closest && e.target.closest("[data-bots-sel], [data-bots-cfg], [data-bots-tab], [data-bots-chats], [data-bots-req], [data-bots-go]");
   if(!t || !document.querySelector(".fo-bots")) return;
   e.preventDefault(); e.stopPropagation();
-  if(t.hasAttribute("data-bots-sel")){ var k = t.getAttribute("data-bots-sel"); if(FO_BOTS_SEL !== k){ FO_BOTS_SEL = k; FO_BOTS_CFG = false; } foBotsRender(); return; }
+  if(t.hasAttribute("data-bots-sel")){ var k = t.getAttribute("data-bots-sel"); if(FO_BOTS_SEL !== k){ FO_BOTS_SEL = k; FO_BOTS_CFG = true; } foBotsRender(); return; }
   if(t.hasAttribute("data-bots-cfg")){ var k2 = t.getAttribute("data-bots-cfg"); FO_BOTS_CFG = !(FO_BOTS_CFG && FO_BOTS_SEL === k2); FO_BOTS_SEL = k2; foBotsRender(); return; }
   if(t.hasAttribute("data-bots-tab")){ FO_BOTS_TAB = t.getAttribute("data-bots-tab"); foBotsRender(); return; }
   if(t.hasAttribute("data-bots-go")){ try{ setView(t.getAttribute("data-bots-go")); }catch(x){} return; }
