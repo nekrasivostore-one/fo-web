@@ -4311,12 +4311,16 @@ async def _fo_econ(c, org_id):
     life = _fo_econ_num(cfg.get("life")) or life_auto
     # оклад проджекта раскладываем по его клиентам пропорционально часам команды (больше работы — больше его
     # времени на координацию); часов ни у кого нет — поровну
-    pm_n, pm_h = {}, {}
+    pm_n, pm_h, pm_r = {}, {}, {}
     for cid in ids:
         pm, _src = assign.get(cid, (None, ""))
         if pm:
             pm_n[pm] = pm_n.get(pm, 0) + 1
             pm_h[pm] = pm_h.get(pm, 0.0) + (mins.get(cid) or {"t": 0.0})["t"]
+            pm_r[pm] = pm_r.get(pm, 0.0) + _fo_econ_num((cards.get(cid) or {}).get("amount"))
+    split = str(cfg.get("pm_split") or "equal")
+    if split not in ("equal", "hours", "revenue"):
+        split = "equal"
     rows = []
     for cl in cl_rows:
         cid = str(cl["id"]); cd = cards.get(cid) or {}
@@ -4339,8 +4343,18 @@ async def _fo_econ(c, org_id):
                 pm_hours += mm / 60.0; pm_cost += c1
             else:
                 team_cost += c1
+        # 286: доля ЗП проджекта на клиента — видна у клиента; его собственные задачи — внутри оклада
         pm_share = 0.0
-        cost = team_cost + pm_cost
+        if pm and pm in people and pm_n.get(pm):
+            pay_pm = people[pm]["pay"]
+            if split == "hours" and pm_h.get(pm):
+                pm_share = pay_pm * x["t"] / pm_h[pm]
+            elif split == "revenue" and pm_r.get(pm):
+                pm_share = pay_pm * amount / pm_r[pm]
+            else:
+                pm_share = pay_pm / pm_n[pm]
+        labor = team_cost + pm_cost
+        cost = team_cost + pm_share
         margin = amount - cost
         fl = sorted(fns.get(cid) or [], key=lambda f: fn_names.get(f, ""))
         fh = sorted([(f, m * k_month / 60.0) for f, m in x["f"].items()], key=lambda kv: -kv[1])
@@ -4348,7 +4362,8 @@ async def _fo_econ(c, org_id):
         rows.append({"client_id": cid, "client": cl.get("name") or "", "amount": round(amount), "confirm": cd.get("confirm") or "",
                      "since": "%04d-%02d" % sv, "since_src": since_src, "months": months,
                      "pm": pm, "pm_name": (people.get(pm) or {}).get("name") if pm else None, "pm_src": pm_src,
-                     "hours": round(hours, 1), "pm_hours": round(pm_hours, 1), "team_cost": round(team_cost), "pm_share": round(pm_share), "pm_cost": round(pm_cost),
+                     "hours": round(hours, 1), "pm_hours": round(pm_hours, 1), "team_cost": round(team_cost), "pm_share": round(pm_share), "pm_cost": round(pm_cost), "labor": round(labor),
+                     "labor_margin": round(amount - labor), "labor_pct": round((amount - labor) / amount * 100, 1) if amount else None,
                      "cost": round(cost), "margin": round(margin), "margin_pct": round(margin / amount * 100, 1) if amount else None,
                      "rph": round(amount / hours) if hours > 0.05 else None,
                      "fns": [fn_names.get(f, "функция") for f in fl], "fn_ids": fl, "fn_hours": [{"fn": fn_names.get(f, "разовые"), "h": round(h, 1)} for f, h in fh[:8]],
@@ -4380,7 +4395,7 @@ async def _fo_econ(c, org_id):
         lst = [r for r in rows if r["pm"] == e]
         a = agg(lst)
         team = sum(r["team_cost"] for r in lst)          # 285: часы команды без собственных часов проджекта
-        a["labor_margin"] = a["margin"]                  # по трудозатратам, как у клиентов
+        a["labor_margin"] = sum(r["labor_margin"] for r in lst)   # по трудозатратам, как у клиентов
         a["margin"] = round(a["rev"] - team - pe["pay"])
         a["margin_pct"] = round(a["margin"] / a["rev"] * 100, 1) if a["rev"] else None
         a["team_cost"] = round(team); a["cost"] = round(team + pe["pay"])
@@ -4415,13 +4430,17 @@ async def _fo_econ(c, org_id):
     tot = agg(rows)
     # 285: итог агентства — выручка − часы команды − оклады всех проджектов (их задачи — внутри оклада)
     pm_pay_all = sum(v["pay"] for v in people.values() if v["pm"])
-    tot["labor_margin"] = tot["margin"]
+    tot["labor_margin"] = sum(r["labor_margin"] for r in rows)
+    _th = sum(r["hours"] - r["pm_hours"] for r in rows)
+    tot["cph"] = round(sum(r["team_cost"] for r in rows) / _th) if _th > 0.05 else None   # час исполнителей
     tot["pm_pay"] = round(pm_pay_all)
     tot["pm_cabs"] = sum(1 for r in rows if r["pm"])
     tot["margin"] = round(sum(r["amount"] - r["team_cost"] for r in rows) - pm_pay_all)
     tot["margin_pct"] = round(tot["margin"] / tot["rev"] * 100, 1) if tot["rev"] else None
     return {"today": today.isoformat(), "window": {"from": w_from.isoformat(), "to": w_to.isoformat(), "workdays": wdays},
-            "life": life, "life_auto": life_auto, "life_set": bool(_fo_econ_num(cfg.get("life"))),
+            "life": life, "life_auto": life_auto, "life_set": bool(_fo_econ_num(cfg.get("life"))), "pm_split": split,
+            "target": _fo_econ_num(cfg.get("target")) or 30.0,
+            "art_touch": {"A": [3, _FO_ECON_ART_MIN["A"]], "B": [2, _FO_ECON_ART_MIN["B"]], "C": [1, _FO_ECON_ART_MIN["C"]]},
             "total": tot, "clients": rows, "pms": pms, "noone": agg(noone), "noone_names": [r["client"] for r in noone],
             "buckets": buckets, "funcs": funcs, "combos": combos[:12],
             "missing": {"since": sum(1 for r in rows if r["since_src"] != "card"), "amount": sum(1 for r in rows if r["amount"] <= 0),
@@ -4431,6 +4450,8 @@ async def _fo_econ(c, org_id):
 
 class FoEconSetIn(_FoBM):
     life: float | None = None
+    pm_split: str | None = None
+    target: float | None = None
 
 
 class FoEconPmIn(_FoBM):
@@ -4448,7 +4469,17 @@ async def fo_econ_get(p: Principal = Depends(max_level(1))):
 @router.post("/econ/settings")
 async def fo_econ_settings(body: FoEconSetIn, p: Principal = Depends(max_level(1))):
     v = body.life
-    d = {"life": (max(1.0, min(60.0, float(v))) if v else None)}
+    try:
+        fs = body.model_fields_set
+    except Exception:
+        fs = getattr(body, "__fields_set__", set())
+    d = {}
+    if "life" in fs:
+        d["life"] = (max(1.0, min(60.0, float(v))) if v else None)
+    if body.pm_split in ("equal", "hours", "revenue"):
+        d["pm_split"] = body.pm_split
+    if body.target is not None:
+        d["target"] = max(0.0, min(90.0, float(body.target)))      # 287: целевая маржа — для «скидка / поднять цену»
     async with pool().acquire() as c:
         await c.execute(
             "INSERT INTO fo_card (kind, ref_id, org_id, data) VALUES ('org', $1, $2, $3::jsonb) "
