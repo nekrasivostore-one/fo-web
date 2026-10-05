@@ -32439,6 +32439,52 @@ function foDistFillSelects(){
   }
   document.addEventListener("change", save, true);
 })();
+/* ===== add133 (287, Виталий 05.10): «Куда делись артикулы из загруженности команды??? Почини» =====
+   Причина — гонка при загрузке: при старте артикулы грузились раньше, чем приходили кабинеты клиентов (FO_CABFN), —
+   каждому клиенту записывался пустой список, повторной загрузки не было (проверка «артикулы уже есть» видела
+   пустые записи), и блоки «Работа с РК» не попадали в задачи дня → загрузка команды без артикулов до следующей
+   синхронизации (90 с, и то если вкладка видна и вы не в форме).
+   Теперь: 1) кабинеты клиента для артикулов берутся с сервера, если карта кабинетов ещё не пришла;
+   2) перед каждой отрисовкой: есть артикулы с ответственными, а блоков РК в задачах нет — блоки добавляются;
+   3) все списки артикулов пустые, а кабинеты уже есть — артикулы догружаются (не чаще раза в 20 с).          */
+(function(){
+  if(typeof foArtsLoad === "function"){
+    var _fal = foArtsLoad;
+    foArtsLoad = function(cid){
+      var d = (typeof FO_CABFN !== "undefined" && FO_CABFN) ? FO_CABFN[cid] : null;
+      if(d && d.cab) return _fal.apply(this, arguments);
+      return api("/refs/clients/" + encodeURIComponent(cid) + "/cabinets").then(function(cabs){
+        var ids = (cabs || []).map(function(c){ return c.id || c.cabinet_id; }).filter(Boolean);
+        if(!ids.length){ FO_ARTS[cid] = {rows: [], at: Date.now()}; return FO_ARTS[cid]; }
+        return Promise.all(ids.map(function(id){ return api("/refs/cabinets/" + encodeURIComponent(id) + "/articles").catch(function(){ return []; }); }))
+          .then(function(ls){
+            var rows = [];
+            ls.forEach(function(l){ rows = rows.concat(Array.isArray(l) ? l : ((l && (l.items || l.rows)) || [])); });
+            FO_ARTS[cid] = {rows: rows, at: Date.now()};
+            return FO_ARTS[cid];
+          });
+      }).catch(function(){ FO_ARTS[cid] = FO_ARTS[cid] || {rows: [], at: 0, err: true}; return FO_ARTS[cid]; });
+    };
+  }
+  var lastKick = 0;
+  function live(){ try{ return typeof foIsLive === "function" && foIsLive(); }catch(e){ return false; } }
+  function ensureRk(){
+    if(!live() || typeof foRkInject !== "function" || typeof artsAll !== "function" || !S || !S.tasks) return false;
+    var arts = []; try{ arts = artsAll() || []; }catch(e){ arts = []; }
+    var withPerson = arts.some(function(a){ return a && a.person && a.days && a.days.length; });
+    if(withPerson && !S.tasks.some(function(t){ return t && t.rk; })){ foRkInject(); return true; }
+    if(!arts.length && Date.now() - lastKick > 20000 && typeof foArtsAll === "function" && (S.projects || []).length){
+      lastKick = Date.now();
+      foArtsAll().then(function(){ if(typeof artsAll === "function" && (artsAll() || []).length){ foRkInject(); try{ render(); }catch(e){} } });
+    }
+    return false;
+  }
+  if(typeof render === "function"){
+    var _rd = render;
+    render = function(){ try{ ensureRk(); }catch(e){} return _rd.apply(this, arguments); };
+  }
+  window.foEnsureRk = ensureRk;
+})();
 
 })();
 </script>
