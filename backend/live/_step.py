@@ -697,6 +697,8 @@ async def fo_card_save(body: FoCardIn, p: Principal = Depends(current)):
                 _kl = str(_k).lower()
                 if kind in ("client", "cab") and (_k in _FO_PRIV_MONEY or _kl.startswith("pay")):
                     _bad.append(str(_k))
+                elif kind == "client" and _k in ("pm", "since"):          # 282: закрепление проджекта и «работаем с»
+                    _bad.append({"pm": "проджект клиента", "since": "«работаем с»"}[_k])
                 elif kind == "employee" and _FO_PRIV_PAY.search(str(_k)):
                     _bad.append(str(_k))
             if _bad:
@@ -4132,6 +4134,335 @@ class FoPlanSetIn(_FoBM):
     team_once_at: str | None = None
     team_once_what: str | None = None
     team_once_clear: bool | None = None
+
+
+# ══ 282: ЭКОНОМИКА КЛИЕНТОВ И ПРОДЖЕКТОВ (Виталий 05.10) ══════════════
+# Источники — только то, что уже есть в сервисе: платёж и «работаем с» — карточка клиента; проджект — карточка
+# клиента (pm), иначе проджект, который ведёт больше функций кабинета, иначе единственный проджект агентства;
+# часы — задачи сервиса (функции и разовые) за последние 4 недели и 2 недели вперёд, пересчёт на месяц (21 р. д.);
+# цена часа — оклад сотрудника / (рабочий день × 21); оклада нет — середина вилки грейда (помечаем).
+_FO_ECON_BUCKETS = [(0, 40000, "до 40 тыс"), (40000, 70000, "40–70 тыс"), (70000, 100000, "70–100 тыс"), (100000, None, "100 тыс и выше")]
+_FO_GRADE_MID = {"assist": 27500, "jun": 27500, "mid": 50000, "head": 95000, "pm": 110000}
+
+
+def _fo_econ_num(v):
+    try:
+        x = float(str(v).replace(" ", "").replace(",", ".")) if v not in (None, "") else 0.0
+        return x if x == x else 0.0
+    except Exception:
+        return 0.0
+
+
+def _fo_econ_since(v):
+    m = re.match(r"^(\d{4})-(\d{1,2})", str(v or "").strip())
+    if not m:
+        m2 = re.match(r"^(\d{1,2})[./](\d{4})$", str(v or "").strip())
+        if not m2:
+            return None
+        return int(m2.group(2)), int(m2.group(1))
+    return int(m.group(1)), int(m.group(2))
+
+
+async def _fo_econ_cfg(c, org_id):
+    d = _fo_st_load(await c.fetchval("SELECT data FROM fo_card WHERE kind='org' AND ref_id=$1 AND org_id=$2",
+                                     "econ:" + str(org_id), org_id)) or {}
+    return d if isinstance(d, dict) else {}
+
+
+async def _fo_econ_people(c, org_id):
+    """Сотрудники: имя, оклад, рабочий день, проджект ли (уровень роли 4 или грейд «Проджект»)."""
+    out = {}
+    rows = await c.fetch("SELECT e.*, r.level AS lvl FROM employee e LEFT JOIN app_user u ON u.id = e.user_id "
+                         "LEFT JOIN role r ON r.code = u.role_code WHERE e.org_id = $1::uuid ORDER BY e.name", str(org_id))
+    cards = {}
+    for r in await c.fetch("SELECT ref_id, data FROM fo_card WHERE kind='employee' AND org_id=$1", org_id):
+        cards[str(r["ref_id"])] = _fo_st_load(r["data"]) or {}
+    for r in rows:
+        d = dict(r)
+        if d.get("is_active") is False:
+            continue
+        cd = cards.get(str(d["id"])) or {}
+        grade = str(cd.get("grade") or "")
+        pay = _fo_econ_num(cd.get("pay"))
+        wd = int(d.get("workday_min") or 480) or 480
+        is_pm = (d.get("lvl") == 4) or grade == "pm"
+        out[str(d["id"])] = {"id": str(d["id"]), "name": d.get("name") or "", "pay": pay or _FO_GRADE_MID.get(grade) or (110000 if is_pm else 50000),
+                             "pay_set": bool(pay), "wd": wd, "pm": is_pm, "lvl": d.get("lvl")}
+    return out
+
+
+async def _fo_econ_pm_auto(c, org_id, people):
+    """Проджект кабинета без закрепления: кто из проджектов ведёт больше функций кабинета."""
+    pms = {k for k, v in people.items() if v["pm"]}
+    out = {}
+    if not pms:
+        return out
+    cnt = {}
+    try:
+        for r in await c.fetch("SELECT cb.client_id, g.employee_id FROM fo_cabinet_fn_cfg g JOIN cabinet cb ON cb.id = g.cabinet_id "
+                               "JOIN client cl ON cl.id = cb.client_id WHERE cl.org_id = $1 AND g.employee_id IS NOT NULL", org_id):
+            e = str(r["employee_id"])
+            if e in pms:
+                k = str(r["client_id"])
+                cnt.setdefault(k, {}); cnt[k][e] = cnt[k].get(e, 0) + 1
+    except Exception:
+        cnt = {}
+    for k, m in cnt.items():
+        out[k] = sorted(m.items(), key=lambda kv: -kv[1])[0][0]
+    return out
+
+
+async def _fo_econ_assign(c, org_id, people, clients=None, cards=None):
+    """client_id → (pm_employee_id | None, источник: card | auto | one)."""
+    pms = [k for k, v in people.items() if v["pm"]]
+    if cards is None:
+        cards = {}
+        for r in await c.fetch("SELECT ref_id, data FROM fo_card WHERE kind='client' AND org_id=$1", org_id):
+            cards[str(r["ref_id"])] = _fo_st_load(r["data"]) or {}
+    if clients is None:
+        clients = [str(r["id"]) for r in await c.fetch("SELECT id FROM client WHERE org_id=$1", org_id)]
+    auto = await _fo_econ_pm_auto(c, org_id, people)
+    out = {}
+    for cid in clients:
+        pm = str((cards.get(cid) or {}).get("pm") or "")
+        if pm and pm in people:
+            out[cid] = (pm, "card")
+        elif auto.get(cid):
+            out[cid] = (auto[cid], "auto")
+        elif len(pms) == 1:
+            out[cid] = (pms[0], "one")
+        else:
+            out[cid] = (None, "")
+    return out
+
+
+async def _fo_econ(c, org_id):
+    today = _fo_mt_now().date()
+    w_from, w_to = today - _fo_dt.timedelta(days=28), today + _fo_dt.timedelta(days=13)
+    cfg = await _fo_econ_cfg(c, org_id)
+    people = await _fo_econ_people(c, org_id)
+    cl_rows = [dict(r) for r in await c.fetch("SELECT * FROM client WHERE org_id=$1 ORDER BY name", org_id)]
+    cards = {}
+    for r in await c.fetch("SELECT ref_id, data FROM fo_card WHERE kind='client' AND org_id=$1", org_id):
+        cards[str(r["ref_id"])] = _fo_st_load(r["data"]) or {}
+    ids = [str(r["id"]) for r in cl_rows]
+    assign = await _fo_econ_assign(c, org_id, people, ids, cards)
+    fn_names = {str(r["id"]): (r["name"] or "") for r in await c.fetch("SELECT id, name FROM fn WHERE org_id=$1", org_id)}
+    # часы: задачи-функции и разовые в окне
+    mins, days = {}, set()
+    def add(cid, emp, fid, m, day):
+        if not cid:
+            return
+        x = mins.setdefault(cid, {"t": 0.0, "e": {}, "f": {}})
+        x["t"] += m
+        x["e"][emp or ""] = x["e"].get(emp or "", 0.0) + m
+        if fid:
+            x["f"][fid] = x["f"].get(fid, 0.0) + m
+        if day:
+            days.add(day)
+    for r in await c.fetch("SELECT client_id, assignee_id, fn_id, plan_date, plan_minutes FROM task WHERE org_id=$1 "
+                           "AND plan_date BETWEEN $2 AND $3 AND status <> 'removed'", org_id, w_from, w_to):
+        add(str(r["client_id"] or ""), str(r["assignee_id"] or ""), str(r["fn_id"] or ""), float(r["plan_minutes"] or 30), r["plan_date"])
+    try:
+        for r in await c.fetch("SELECT client_id, employee_id, fn_id, day, minutes FROM fo_task_once WHERE org_id=$1 "
+                               "AND removed_at IS NULL AND day BETWEEN $2 AND $3", org_id, w_from, w_to):
+            add(str(r["client_id"] or ""), str(r["employee_id"] or ""), str(r["fn_id"] or ""), float(r["minutes"] or 30), r["day"])
+    except Exception:
+        pass
+    wdays = len([d for d in days if d.weekday() < 5]) or len(days)
+    k_month = (21.0 / wdays) if wdays else 0.0
+    # функции кабинетов и артикулы в управлении
+    fns = {}
+    for r in await c.fetch("SELECT cb.client_id, cf.fn_id FROM cabinet_fn cf JOIN cabinet cb ON cb.id = cf.cabinet_id "
+                           "JOIN client cl ON cl.id = cb.client_id WHERE cl.org_id = $1", org_id):
+        fns.setdefault(str(r["client_id"]), set()).add(str(r["fn_id"]))
+    arts = {}
+    try:
+        for r in await c.fetch("SELECT cb.client_id, count(*) AS n FROM article a JOIN cabinet cb ON cb.id = a.cabinet_id "
+                               "JOIN client cl ON cl.id = cb.client_id WHERE cl.org_id = $1 AND a.is_active GROUP BY 1", org_id):
+            arts[str(r["client_id"])] = int(r["n"] or 0)
+    except Exception:
+        arts = {}
+    # срок жизни клиента: из настройки, иначе по уходу (как в блоке LTV), иначе 12 мес.
+    n_all = len(ids)
+    gone = sum(1 for k in ids if str((cards.get(k) or {}).get("confirm") or "") == "no")
+    life_auto = round(1 + 0.5 / (gone / n_all), 1) if (n_all and gone) else 12.0
+    life = _fo_econ_num(cfg.get("life")) or life_auto
+    # оклад проджекта раскладываем по его клиентам пропорционально часам команды (больше работы — больше его
+    # времени на координацию); часов ни у кого нет — поровну
+    pm_n, pm_h = {}, {}
+    for cid in ids:
+        pm, _src = assign.get(cid, (None, ""))
+        if pm:
+            pm_n[pm] = pm_n.get(pm, 0) + 1
+            pm_h[pm] = pm_h.get(pm, 0.0) + (mins.get(cid) or {"t": 0.0})["t"]
+    rows = []
+    for cl in cl_rows:
+        cid = str(cl["id"]); cd = cards.get(cid) or {}
+        amount = _fo_econ_num(cd.get("amount"))
+        sv, since_src = _fo_econ_since(cd.get("since")), "card"
+        if not sv:
+            ca = cl.get("created_at")
+            sv, since_src = ((ca.year, ca.month) if ca else (today.year, today.month)), "service"
+        months = max(1, (today.year - sv[0]) * 12 + (today.month - sv[1]) + 1)
+        pm, pm_src = assign.get(cid, (None, ""))
+        x = mins.get(cid) or {"t": 0.0, "e": {}, "f": {}}
+        hours = x["t"] * k_month / 60.0
+        team_cost, pm_hours = 0.0, 0.0
+        for e, m in x["e"].items():
+            mm = m * k_month
+            if pm and e == pm:
+                pm_hours += mm / 60.0
+                continue
+            pe = people.get(e)
+            if pe:
+                team_cost += mm * pe["pay"] / (pe["wd"] * 21.0)
+        pm_share = 0.0
+        if pm and pm in people and pm_n.get(pm):
+            pm_share = people[pm]["pay"] * (x["t"] / pm_h[pm] if pm_h.get(pm) else 1.0 / pm_n[pm])
+        cost = team_cost + pm_share
+        margin = amount - cost
+        fl = sorted(fns.get(cid) or [], key=lambda f: fn_names.get(f, ""))
+        fh = sorted([(f, m * k_month / 60.0) for f, m in x["f"].items()], key=lambda kv: -kv[1])
+        rows.append({"client_id": cid, "client": cl.get("name") or "", "amount": round(amount), "confirm": cd.get("confirm") or "",
+                     "since": "%04d-%02d" % sv, "since_src": since_src, "months": months,
+                     "pm": pm, "pm_name": (people.get(pm) or {}).get("name") if pm else None, "pm_src": pm_src,
+                     "hours": round(hours, 1), "pm_hours": round(pm_hours, 1), "team_cost": round(team_cost), "pm_share": round(pm_share),
+                     "cost": round(cost), "margin": round(margin), "margin_pct": round(margin / amount * 100, 1) if amount else None,
+                     "rph": round(amount / hours) if hours > 0.05 else None,
+                     "fns": [fn_names.get(f, "функция") for f in fl], "fn_ids": fl, "fn_hours": [{"fn": fn_names.get(f, "разовые"), "h": round(h, 1)} for f, h in fh[:8]],
+                     "arts": arts.get(cid, 0), "arts_card": int(_fo_econ_num(cd.get("articles"))),
+                     "ltv_fact": round(amount * months), "ltv_full": round(amount * (months + life)),
+                     "life_value": round(margin * (months + life))})
+    rows.sort(key=lambda r: (0 if r["amount"] > 0 else 1, -r["life_value"]))   # без платежа в карточке — в конец
+    for i, r in enumerate(rows):
+        r["rank"] = i + 1
+
+    def agg(lst):
+        n = len(lst); paid = [r for r in lst if r["amount"] > 0]
+        rev = sum(r["amount"] for r in lst); hrs = sum(r["hours"] for r in lst); mar = sum(r["margin"] for r in lst)
+        return {"n": n, "paying": len(paid), "rev": rev, "check": round(rev / len(paid)) if paid else 0,
+                "hours": round(hrs, 1), "hours_per": round(hrs / n, 1) if n else 0, "team_cost": sum(r["team_cost"] for r in lst),
+                "cost": sum(r["cost"] for r in lst), "margin": mar, "margin_pct": round(mar / rev * 100, 1) if rev else None,
+                "rph": round(rev / hrs) if hrs > 0.05 else None, "arts": sum(r["arts"] for r in lst),
+                "arts_per": round(sum(r["arts"] for r in lst) / n) if n else 0,
+                "fns_per": round(sum(len(r["fns"]) for r in lst) / n, 1) if n else 0,
+                "months_avg": round(sum(r["months"] for r in lst) / n, 1) if n else 0,
+                "ltv_fact": sum(r["ltv_fact"] for r in lst), "cap": sum(r["ltv_full"] for r in lst),
+                "ltv_avg": round(sum(r["ltv_full"] for r in paid) / len(paid)) if paid else 0,
+                "life_value": sum(r["life_value"] for r in lst),
+                "life_value_per": round(sum(r["life_value"] for r in lst) / n) if n else 0}
+    pms = []
+    for e, pe in sorted(people.items(), key=lambda kv: kv[1]["name"]):
+        if not pe["pm"]:
+            continue
+        lst = [r for r in rows if r["pm"] == e]
+        a = agg(lst)
+        if not lst:
+            a["margin"] = -round(pe["pay"])
+        a.update({"employee_id": e, "name": pe["name"], "pay": round(pe["pay"]), "pay_set": pe["pay_set"],
+                  "pay_share": round(pe["pay"] / a["rev"] * 100, 1) if a["rev"] else None,
+                  "clients": [r["client"] for r in lst]})
+        pms.append(a)
+    noone = [r for r in rows if not r["pm"]]
+    buckets = []
+    for lo, hi, name in _FO_ECON_BUCKETS:
+        lst = [r for r in rows if r["amount"] > 0 and r["amount"] >= lo and (hi is None or r["amount"] < hi)]
+        b = agg(lst); b.update({"name": name, "lo": lo, "hi": hi}); buckets.append(b)
+    # функции: сколько стоят в месяц на кабинет и как живут кабинеты с ними
+    fstat = {}
+    for r in rows:
+        x = mins.get(r["client_id"]) or {"f": {}}
+        for f in r["fn_ids"]:
+            s0 = fstat.setdefault(f, {"fn": fn_names.get(f, "функция"), "n": 0, "h": 0.0, "rev": 0.0, "mar": 0.0})
+            s0["n"] += 1; s0["h"] += x["f"].get(f, 0.0) * k_month / 60.0; s0["rev"] += r["amount"]; s0["mar"] += r["margin"]
+    funcs = sorted([{"fn": v["fn"], "n": v["n"], "h_per": round(v["h"] / v["n"], 1) if v["n"] else 0,
+                     "margin_pct": round(v["mar"] / v["rev"] * 100, 1) if v["rev"] else None}
+                    for v in fstat.values()], key=lambda z: -z["n"])
+    sets = {}
+    for r in rows:
+        if not r["fns"] or r["amount"] <= 0:
+            continue
+        key = " + ".join(r["fns"])
+        sets.setdefault(key, []).append(r)
+    combos = sorted([dict(agg(v), set=k, size=len(v[0]["fns"]), names=[r["client"] for r in v]) for k, v in sets.items()],
+                    key=lambda z: -(z["margin_pct"] if z["margin_pct"] is not None else -999))
+    tot = agg(rows)
+    return {"today": today.isoformat(), "window": {"from": w_from.isoformat(), "to": w_to.isoformat(), "workdays": wdays},
+            "life": life, "life_auto": life_auto, "life_set": bool(_fo_econ_num(cfg.get("life"))),
+            "total": tot, "clients": rows, "pms": pms, "noone": agg(noone), "noone_names": [r["client"] for r in noone],
+            "buckets": buckets, "funcs": funcs, "combos": combos[:12],
+            "missing": {"since": sum(1 for r in rows if r["since_src"] != "card"), "amount": sum(1 for r in rows if r["amount"] <= 0),
+                        "pay": [v["name"] for v in people.values() if not v["pay_set"]],
+                        "pm": sum(1 for r in rows if r["pm_src"] != "card"), "no_hours": sum(1 for r in rows if r["hours"] <= 0)}}
+
+
+class FoEconSetIn(_FoBM):
+    life: float | None = None
+
+
+class FoEconPmIn(_FoBM):
+    client_id: str
+    employee_id: str | None = None
+
+
+@router.get("/econ")
+async def fo_econ_get(p: Principal = Depends(max_level(1))):
+    """282: экономика клиентов и проджектов — только собственник."""
+    async with pool().acquire() as c:
+        return await _fo_econ(c, p.org_id)
+
+
+@router.post("/econ/settings")
+async def fo_econ_settings(body: FoEconSetIn, p: Principal = Depends(max_level(1))):
+    v = body.life
+    d = {"life": (max(1.0, min(60.0, float(v))) if v else None)}
+    async with pool().acquire() as c:
+        await c.execute(
+            "INSERT INTO fo_card (kind, ref_id, org_id, data) VALUES ('org', $1, $2, $3::jsonb) "
+            "ON CONFLICT (kind, ref_id) DO UPDATE SET data = fo_card.data || EXCLUDED.data, updated_at = now() "
+            "WHERE fo_card.org_id = EXCLUDED.org_id", "econ:" + str(p.org_id), p.org_id, _fo_json.dumps(d))
+        return {"ok": True, "settings": await _fo_econ_cfg(c, p.org_id)}
+
+
+@router.get("/econ/team")
+async def fo_econ_team(p: Principal = Depends(max_level(4))):
+    """282: «Распределение в команде» — проджекты и закреплённые за ними клиенты; без проджекта — отдельно."""
+    async with pool().acquire() as c:
+        people = await _fo_econ_people(c, p.org_id)
+        cards = {}
+        for r in await c.fetch("SELECT ref_id, data FROM fo_card WHERE kind='client' AND org_id=$1", p.org_id):
+            cards[str(r["ref_id"])] = _fo_st_load(r["data"]) or {}
+        cls = await c.fetch("SELECT id, name FROM client WHERE org_id=$1 ORDER BY name", p.org_id)
+        auto = await _fo_econ_assign(c, p.org_id, people, [str(r["id"]) for r in cls], cards)
+    out = []
+    for r in cls:
+        cid = str(r["id"]); pm = str((cards.get(cid) or {}).get("pm") or "")
+        a = auto.get(cid) or (None, "")
+        out.append({"client_id": cid, "name": r["name"] or "", "pm": pm if pm in people else None,
+                    "auto": (a[0] if a[1] in ("auto", "one") else None),
+                    "auto_name": (people.get(a[0]) or {}).get("name") if a[1] in ("auto", "one") else None})
+    return {"pms": [{"employee_id": k, "name": v["name"]} for k, v in sorted(people.items(), key=lambda kv: kv[1]["name"]) if v["pm"]],
+            "clients": out, "can_edit": _fo_lvl(p) <= 2}
+
+
+@router.post("/econ/pm")
+async def fo_econ_pm(body: FoEconPmIn, p: Principal = Depends(max_level(2))):
+    """282: закрепить клиента за проджектом (или снять). Пишет в карточку клиента — видно везде, где карточка."""
+    async with pool().acquire() as c:
+        ok = await c.fetchval("SELECT 1 FROM client WHERE id=$1::uuid AND org_id=$2", body.client_id, p.org_id)
+        if not ok:
+            raise HTTPException(404, "клиент не найден")
+        emp = str(body.employee_id or "")
+        if emp:
+            people = await _fo_econ_people(c, p.org_id)
+            if emp not in people or not people[emp]["pm"]:
+                raise HTTPException(400, "закрепить можно только за сотрудником с ролью «Проджект»")
+        await c.execute(
+            "INSERT INTO fo_card (kind, ref_id, org_id, data) VALUES ('client', $1, $2, $3::jsonb) "
+            "ON CONFLICT (kind, ref_id) DO UPDATE SET data = fo_card.data || EXCLUDED.data, updated_at = now() "
+            "WHERE fo_card.org_id = EXCLUDED.org_id", str(body.client_id), p.org_id, _fo_json.dumps({"pm": emp}))
+    return {"ok": True, "client_id": body.client_id, "pm": emp or None}
 
 
 @router.get("/plan")
