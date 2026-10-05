@@ -4143,6 +4143,7 @@ class FoPlanSetIn(_FoBM):
 # цена часа — оклад сотрудника / (рабочий день × 21); оклада нет — середина вилки грейда (помечаем).
 _FO_ECON_BUCKETS = [(0, 40000, "до 40 тыс"), (40000, 70000, "40–70 тыс"), (70000, 100000, "70–100 тыс"), (100000, None, "100 тыс и выше")]
 _FO_GRADE_MID = {"assist": 27500, "jun": 27500, "mid": 50000, "head": 95000, "pm": 110000}
+_FO_ECON_ART_MIN = {"A": 5, "B": 4, "C": 3}          # 284: минут на артикул за касание — как на экране АОД
 
 
 def _fo_econ_num(v):
@@ -4271,6 +4272,22 @@ async def _fo_econ(c, org_id):
         pass
     wdays = len([d for d in days if d.weekday() < 5]) or len(days)
     k_month = (21.0 / wdays) if wdays else 0.0
+    # 284: работа с артикулами по графику АОД — сразу в месяц, потом делим на k_month (общая формула ниже умножит)
+    art_m = {}
+    try:
+        for r in await c.fetch("SELECT cb.client_id, ao.employee_id, coalesce(ac.code, 'C') AS cat, count(*) AS n "
+                               "FROM article_owner ao JOIN article a ON a.id = ao.article_id JOIN cabinet cb ON cb.id = a.cabinet_id "
+                               "JOIN client cl ON cl.id = cb.client_id LEFT JOIN article_category ac ON ac.id = a.category_id "
+                               "WHERE cl.org_id = $1 AND a.is_active GROUP BY 1, 2, 3", org_id):
+            mm = float(r["n"] or 0) * _FO_ECON_ART_MIN.get(str(r["cat"] or "C").upper(), 3) * 52.0 / 12.0
+            art_m[(str(r["client_id"]), str(r["employee_id"] or ""))] = art_m.get((str(r["client_id"]), str(r["employee_id"] or "")), 0.0) + mm
+    except Exception:
+        art_m = {}
+    if not k_month and art_m:
+        k_month = 1.0
+    for (cid, emp), mm in art_m.items():
+        add(cid, emp, "__arts__", mm / k_month, None)
+    fn_names["__arts__"] = "Артикулы (АОД)"
     # функции кабинетов и артикулы в управлении
     fns = {}
     for r in await c.fetch("SELECT cb.client_id, cf.fn_id FROM cabinet_fn cf JOIN cabinet cb ON cb.id = cf.cabinet_id "
@@ -4324,6 +4341,7 @@ async def _fo_econ(c, org_id):
         margin = amount - cost
         fl = sorted(fns.get(cid) or [], key=lambda f: fn_names.get(f, ""))
         fh = sorted([(f, m * k_month / 60.0) for f, m in x["f"].items()], key=lambda kv: -kv[1])
+        art_h = x["f"].get("__arts__", 0.0) * k_month / 60.0
         rows.append({"client_id": cid, "client": cl.get("name") or "", "amount": round(amount), "confirm": cd.get("confirm") or "",
                      "since": "%04d-%02d" % sv, "since_src": since_src, "months": months,
                      "pm": pm, "pm_name": (people.get(pm) or {}).get("name") if pm else None, "pm_src": pm_src,
@@ -4331,7 +4349,7 @@ async def _fo_econ(c, org_id):
                      "cost": round(cost), "margin": round(margin), "margin_pct": round(margin / amount * 100, 1) if amount else None,
                      "rph": round(amount / hours) if hours > 0.05 else None,
                      "fns": [fn_names.get(f, "функция") for f in fl], "fn_ids": fl, "fn_hours": [{"fn": fn_names.get(f, "разовые"), "h": round(h, 1)} for f, h in fh[:8]],
-                     "arts": arts.get(cid, 0), "arts_card": int(_fo_econ_num(cd.get("articles"))),
+                     "arts": arts.get(cid, 0), "arts_card": int(_fo_econ_num(cd.get("articles"))), "arts_hours": round(art_h, 1),
                      "ltv_fact": round(amount * months), "ltv_full": round(amount * (months + life)),
                      "life_value": round(margin * (months + life))})
     rows.sort(key=lambda r: (0 if r["amount"] > 0 else 1, -r["life_value"]))   # без платежа в карточке — в конец
@@ -4373,7 +4391,7 @@ async def _fo_econ(c, org_id):
     fstat = {}
     for r in rows:
         x = mins.get(r["client_id"]) or {"f": {}}
-        for f in r["fn_ids"]:
+        for f in r["fn_ids"] + (["__arts__"] if x["f"].get("__arts__") else []):
             s0 = fstat.setdefault(f, {"fn": fn_names.get(f, "функция"), "n": 0, "h": 0.0, "rev": 0.0, "mar": 0.0})
             s0["n"] += 1; s0["h"] += x["f"].get(f, 0.0) * k_month / 60.0; s0["rev"] += r["amount"]; s0["mar"] += r["margin"]
     funcs = sorted([{"fn": v["fn"], "n": v["n"], "h_per": round(v["h"] / v["n"], 1) if v["n"] else 0,
