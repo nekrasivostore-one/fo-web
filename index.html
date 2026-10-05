@@ -4685,6 +4685,8 @@ html.dark .fo-ec-t th{ background:rgba(255,255,255,.05) }
 .fo-ec-foot{ display:flex; flex-direction:column; gap:4px; font-size:11.5px; color:var(--ink-3); margin-top:12px }
 .fo-ec-foot label{ display:inline-flex; align-items:center; gap:6px; color:var(--ink-2); font-size:12.5px } .fo-ec-foot .fi{ width:80px }
 .fo-ec-act{ margin-top:6px }
+
+.fo-ec-set{ white-space:normal !important; min-width:240px; max-width:380px }
 /* add131 (283): распределение в команде, проджект в карточке клиента */
 .fo-dist{ margin:0 0 12px }
 .fo-dist-bar{ display:flex; gap:8px; align-items:center; margin:0 0 10px }
@@ -32133,7 +32135,8 @@ function foEcFnHTML(E){
     '</tbody></table></div>'+
     '<h5 class="fo-ec-h">Наборы функций — от выгодного к невыгодному</h5>'+
     '<div class="fo-ec-wrap"><table class="fo-ec-t"><thead><tr><th>Набор</th><th>Кабинетов</th><th>Средний чек</th><th>Часы<i>на кабинет</i></th><th>Артикулов<i>на кабинет</i></th><th>₽ за час</th><th>Рентабельность</th><th>Клиенты</th></tr></thead><tbody>'+
-    (K.length ? K.map(function(k){ return '<tr class="'+(k.margin < 0 ? 'neg' : '')+'"><td><b>'+esc(k.set)+'</b></td><td>'+k.n+'</td><td>'+foEcR(k.check)+'</td><td>'+foEcN(k.hours_per, 0)+' ч</td><td>'+k.arts_per+'</td><td>'+(k.rph ? foEcN(k.rph) + ' ₽' : '—')+'</td><td>'+foEcPct(k.margin_pct)+'</td><td class="fo-ec-names">'+esc((k.names || []).join(", "))+'</td></tr>'; }).join("") : '<tr><td colspan="8" class="mute">Нет клиентов с платежом и функциями</td></tr>')+
+    (K.length ? K.map(function(k){ var fl = String(k.set || "").split(" + "), shown = fl.slice(0, 4).join(", ") + (fl.length > 4 ? " … ещё " + (fl.length - 4) : "");
+      return '<tr class="'+(k.margin < 0 ? 'neg' : '')+'"><td class="fo-ec-set" title="'+esc(fl.join(", "))+'"><b>'+fl.length+' функц.</b><i>'+esc(shown)+'</i></td><td>'+k.n+'</td><td>'+foEcR(k.check)+'</td><td>'+foEcN(k.hours_per, 0)+' ч</td><td>'+k.arts_per+'</td><td>'+(k.rph ? foEcN(k.rph) + ' ₽' : '—')+'</td><td>'+foEcPct(k.margin_pct)+'</td><td class="fo-ec-names">'+esc((k.names || []).join(", "))+'</td></tr>'; }).join("") : '<tr><td colspan="8" class="mute">Нет клиентов с платежом и функциями</td></tr>')+
     '</tbody></table></div>'+
     '<div class="fo-hint">Отвечает на вопрос «с каким клиентом при каких настройках услуги выгоднее работать»: одинаковый набор функций у разных клиентов — одна строка. Себестоимость функции = её часы × средняя цена часа команды.</div>';
 }
