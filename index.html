@@ -32072,37 +32072,38 @@ function foEcTopHTML(E){
       '<td>'+r.months+(r.since_src !== "card" ? '<i>≈ с '+esc(r.since)+'</i>' : '')+'</td><td>'+foEcK(r.ltv_fact)+'</td>'+
       '<td><b class="'+(r.life_value < 0 ? 'critv' : '')+'">'+foEcK(r.life_value)+'</b></td></tr>';
     if(open) h += '<tr class="fo-ec-det"><td></td><td colspan="11">'+
-      '<div class="fo-ec-dg"><div><h5>Себестоимость в месяц</h5><p>Часы команды: '+foEcR(r.team_cost)+' · доля оклада проджекта: '+foEcR(r.pm_share)+(r.pm_hours ? ' (его задачи — '+foEcN(r.pm_hours, 0)+' ч — внутри оклада)' : '')+'</p></div>'+
+      '<div class="fo-ec-dg"><div><h5>Трудозатраты в месяц</h5><p>'+foEcN(r.hours, 0)+' ч · '+foEcR(r.cost)+(r.pm_hours ? ' — из них задачи проджекта '+foEcN(r.pm_hours, 0)+' ч по его ставке: '+foEcR(r.pm_cost) : '')+'. Оклад проджекта сюда не входит — он в экономике его группы.</p></div>'+
       '<div><h5>Куда уходят часы</h5><p>'+((r.fn_hours || []).length ? r.fn_hours.map(function(f){ return esc(f.fn)+' — '+foEcN(f.h, 1)+' ч'; }).join(" · ") : 'задач по клиенту за период нет')+'</p></div>'+
       '<div><h5>Набор функций</h5><p>'+((r.fns || []).length ? esc(r.fns.join(", ")) : 'функции не стоят')+'</p></div>'+
       '<div><h5>Стаж</h5><p>с '+esc(r.since)+(r.since_src !== "card" ? ' — по дате заведения в сервис; поставьте «Работаем с» в карточке клиента' : '')+' · принёс '+foEcR(r.ltv_fact)+' · ожидаем ещё ~'+foEcN(E.life, 1)+' мес.</p></div></div></td></tr>';
     return h;
   }
   return concl+
-    '<div class="fo-ec-wrap"><table class="fo-ec-t"><thead><tr><th>№</th><th>Клиент<i>проджект</i></th><th>Платёж<i>в месяц</i></th><th>Часы<i>в месяц</i></th><th>₽ за час</th><th>Себестоимость<i>часы + проджект</i></th><th>Маржа<i>в месяц</i></th><th>Функций</th><th>Артикулов<i>в управлении</i></th><th>Стаж<i>мес.</i></th><th>Принёс<i>за всё время</i></th><th>Маржа за жизнь<i>сортировка</i></th></tr></thead><tbody>'+
+    '<div class="fo-ec-wrap"><table class="fo-ec-t"><thead><tr><th>№</th><th>Клиент<i>проджект</i></th><th>Платёж<i>в месяц</i></th><th>Часы<i>в месяц</i></th><th>₽ за час</th><th>Себестоимость<i>часы команды</i></th><th>Маржа<i>в месяц</i></th><th>Функций</th><th>Артикулов<i>в управлении</i></th><th>Стаж<i>мес.</i></th><th>Принёс<i>за всё время</i></th><th>Маржа за жизнь<i>сортировка</i></th></tr></thead><tbody>'+
     rows.concat(nop).map(row).join("")+'</tbody></table></div>'+
-    '<div class="fo-hint">Маржа за жизнь клиента = маржа в месяц × (сколько месяцев уже платит + ожидаемый срок '+foEcN(E.life, 1)+' мес.). Поэтому клиент со средней маржой, который платит год, стоит выше нового с высокой; убыточный и долгий — внизу. Нажмите на строку — разбор клиента.</div>';
+    '<div class="fo-hint">Трудозатраты клиента = часы каждого, кто работает по клиенту (задачи и артикулы), × его ставка. Оклад проджекта — не здесь, а на вкладке «Проджекты», на всю его группу кабинетов. Маржа за жизнь клиента = маржа в месяц × (сколько месяцев уже платит + ожидаемый срок '+foEcN(E.life, 1)+' мес.). Поэтому клиент со средней маржой, который платит год, стоит выше нового с высокой; убыточный и долгий — внизу. Нажмите на строку — разбор клиента.</div>';
 }
 
 function foEcPmHTML(E){
   var list = (E.pms || []).slice(), no = E.noone || {};
   if(no.n) list.push(Object.assign({name: "Без проджекта", pay: 0, nobody: true, clients: E.noone_names || []}, no));
   if(!list.length) return '<div class="empty">В агентстве нет сотрудников с ролью «Проджект».</div>';
-  return '<div class="fo-ec-wrap"><table class="fo-ec-t"><thead><tr><th>Проджект</th><th>Кабинетов</th><th>Выручка в месяц<i>GMV группы</i></th><th>Средний чек</th><th>Средний LTV</th><th>Капитализация<i>за жизнь кабинетов</i></th><th>Принесли<i>за всё время</i></th><th>Часы команды<i>в месяц</i></th><th>Себестоимость команды</th><th>ЗП проджекта<i>доля выручки</i></th><th>Маржа<i>в месяц</i></th><th>₽ за час</th><th>Артикулов</th><th>Функций на кабинет</th><th>Стаж<i>средний</i></th></tr></thead><tbody>'+
+  return '<div class="fo-ec-wrap"><table class="fo-ec-t"><thead><tr><th>Проджект</th><th>Кабинетов</th><th>Выручка в месяц<i>GMV группы</i></th><th>Средний чек</th><th>Средний LTV</th><th>Капитализация<i>за жизнь кабинетов</i></th><th>Принесли<i>за всё время</i></th><th>Часы команды<i>в месяц</i></th><th>Себестоимость команды</th><th>ЗП проджекта<i>доля выручки</i></th><th>Маржа группы<i>после оклада проджекта</i></th><th>₽ за час</th><th>Артикулов</th><th>Функций на кабинет</th><th>Стаж<i>средний</i></th></tr></thead><tbody>'+
     list.map(function(g){
       return '<tr class="'+(g.margin < 0 ? 'neg' : '')+'"><td><b>'+esc(g.name)+'</b>'+(g.nobody ? '<i>закрепите на «Планёрке» → «Распределение в команде»</i>' : (!g.pay_set ? '<i>оклад не заполнен — взята вилка грейда</i>' : ''))+'</td>'+
         '<td>'+g.n+'</td><td>'+foEcR(g.rev)+'</td><td>'+foEcR(g.check)+'</td><td>'+foEcK(g.ltv_avg)+'</td><td><b>'+foEcK(g.cap)+'</b></td><td>'+foEcK(g.ltv_fact)+'</td>'+
         '<td>'+foEcN(g.hours, 0)+' ч</td><td>'+foEcR(g.team_cost)+'</td><td>'+(g.nobody ? '—' : foEcR(g.pay) + (g.pay_share !== null && g.pay_share !== undefined ? '<i>'+foEcN(g.pay_share, 0)+'%</i>' : ''))+'</td>'+
-        '<td>'+foEcR(g.margin)+' '+foEcPct(g.margin_pct)+'</td><td>'+(g.rph ? foEcN(g.rph) + ' ₽' : '—')+'</td><td>'+(g.arts || 0)+'</td><td>'+foEcN(g.fns_per, 1)+'</td><td>'+foEcN(g.months_avg, 1)+'</td></tr>'+
+        '<td>'+foEcR(g.margin)+' '+foEcPct(g.margin_pct)+(g.labor_margin !== undefined && !g.nobody ? '<i>до оклада: '+foEcR(g.labor_margin)+'</i>' : '')+'</td><td>'+(g.rph ? foEcN(g.rph) + ' ₽' : '—')+'</td><td>'+(g.arts || 0)+'</td><td>'+foEcN(g.fns_per, 1)+'</td><td>'+foEcN(g.months_avg, 1)+'</td></tr>'+
         '<tr class="fo-ec-sub"><td colspan="15">'+((g.clients || []).length ? esc(g.clients.join(" · ")) : '<span class="mute">кабинетов нет</span>')+'</td></tr>';
     }).join("")+'</tbody></table></div>'+
-    '<div class="fo-hint">Капитализация проджекта — сколько принесут его кабинеты за жизнь: платёж × (стаж + ожидаемый срок). Средний LTV — то же на один кабинет. Маржа группы = выручка − часы команды − оклад проджекта (его собственные задачи — внутри оклада). Сравнивайте рентабельность и ₽ за час между проджектами: кому достаются низкие чеки и какой ценой.</div>'+
+    '<div class="fo-hint">Капитализация проджекта — сколько принесут его кабинеты за жизнь: платёж × (стаж + ожидаемый срок). Средний LTV — то же на один кабинет. Маржа группы = выручка группы − часы команды − весь оклад проджекта (его собственные задачи — внутри оклада). «До оклада» — маржа по трудозатратам, как у клиентов. Сравнивайте рентабельность и ₽ за час между проджектами: кому достаются низкие чеки и какой ценой.</div>'+
     '<div class="fo-ec-act"><button class="bt sm" data-ec-go="meet">Распределение в команде →</button></div>';
 }
 
 function foEcCheckHTML(E){
   var T = E.total || {}, B = E.buckets || [], cph = (T.hours > 0) ? T.cost / T.hours : 0;
-  var C = FO_EC.calc, maxH = cph ? C.check * (1 - C.pct / 100) / cph : 0;
+  var pmCab = T.pm_cabs ? (T.pm_pay || 0) / T.pm_cabs : 0;            /* оклад проджекта на один его кабинет */
+  var C = FO_EC.calc, maxH = cph ? (C.check * (1 - C.pct / 100) - pmCab) / cph : 0;
   function verdict(b){
     if(!b.n) return '<span class="mute">клиентов нет</span>';
     var p = b.margin_pct;
@@ -32120,7 +32121,8 @@ function foEcCheckHTML(E){
     '<div class="fo-ec-calc"><h5>Брать ли клиента за такой чек?</h5>'+
       '<div class="fo-ec-cf"><label>Чек клиента <input class="fi sm" type="number" min="1000" step="1000" data-ec-calc="check" value="'+C.check+'"> ₽</label>'+
       '<label>Хочу маржу не ниже <input class="fi sm" type="number" min="0" max="90" data-ec-calc="pct" value="'+C.pct+'"> %</label></div>'+
-      (cph ? '<p>Час команды стоит агентству в среднем <b>'+foEcR(cph)+'</b> (оклады и доли проджектов). Чтобы клиент за <b>'+foEcR(C.check)+'</b> дал '+C.pct+'% маржи, на него можно тратить <b>не больше '+foEcN(maxH, 0)+' ч в месяц</b>.</p>'+
+      (cph ? '<p>Час команды стоит агентству в среднем <b>'+foEcR(cph)+'</b> (оклады исполнителей по их часам)'+(pmCab ? ', проджект — <b>'+foEcR(pmCab)+'</b> на кабинет (оклад / его кабинеты)' : '')+'. '+
+        (maxH > 0 ? 'Чтобы клиент за <b>'+foEcR(C.check)+'</b> дал '+C.pct+'% маржи после проджекта, на него можно тратить <b>не больше '+foEcN(maxH, 0)+' ч в месяц</b>.' : 'При чеке <b>'+foEcR(C.check)+'</b> доля проджекта на кабинет уже съедает '+C.pct+'% маржи — такой чек не окупается при текущей нагрузке проджекта.')+'</p>'+
         '<p>'+(fit.length ? 'Наборы функций, которые у вас укладываются в эти часы: '+fit.slice(0, 6).map(function(c){ return '<b>'+esc(c.set)+'</b> ('+foEcN(c.hours_per, 0)+' ч, '+c.arts_per+' арт.)'; }).join("; ")+'.' : 'Ни один ваш текущий набор функций в эти часы не укладывается — нужен облегчённый пакет.')+'</p>'
       : '<p class="mute">Часов по задачам пока нет — посчитать нельзя.</p>')+
     '</div>';
@@ -32160,7 +32162,7 @@ function foEconHTML(){
       '<div class="pss"><div class="l">Принесли за всё время</div><div class="v">'+foEcK(T.ltv_fact)+'</div><div class="d">платёж × стаж каждого клиента</div></div>'+
       '<div class="pss"><div class="l">Средний чек</div><div class="v">'+foEcR(T.check)+'</div><div class="d">стаж в среднем '+foEcN(T.months_avg, 1)+' мес.</div></div>'+
       '<div class="pss"><div class="l">Средний LTV</div><div class="v">'+foEcK(T.ltv_avg)+'</div><div class="d">чек × (стаж + ещё ~'+foEcN(E.life, 1)+' мес.)</div></div>'+
-      '<div class="pss"><div class="l">Маржа в месяц</div><div class="v '+((T.margin || 0) < 0 ? 'critv' : 'okv')+'">'+foEcR(T.margin)+'</div><div class="d">'+(T.margin_pct !== null && T.margin_pct !== undefined ? foEcN(T.margin_pct, 0) + '% · ' : '')+'выручка − часы команды − оклады проджектов</div></div>'+
+      '<div class="pss"><div class="l">Маржа в месяц</div><div class="v '+((T.margin || 0) < 0 ? 'critv' : 'okv')+'">'+foEcR(T.margin)+'</div><div class="d">'+(T.margin_pct !== null && T.margin_pct !== undefined ? foEcN(T.margin_pct, 0) + '% · ' : '')+'выручка − часы команды − оклады проджектов'+(T.labor_margin !== undefined ? ' · до окладов проджектов '+foEcR(T.labor_margin) : '')+'</div></div>'+
       '<div class="pss"><div class="l">₽ за час команды</div><div class="v">'+(T.rph ? foEcN(T.rph) + ' ₽' : '—')+'</div><div class="d">'+foEcN(T.hours, 0)+' ч в месяц на всех клиентов</div></div>'+
     '</div>'+
     (miss.length ? '<div class="fo-ec-miss">Не хватает данных: '+esc(miss.join(" · "))+'.</div>' : '')+
@@ -32343,6 +32345,43 @@ function foDistFillSelects(){
       return line ? h.replace('<div class="ccdet">', '<div class="ccdet">' + line) : h;
     }catch(e){ return h; }
   };
+})();
+/* ===== add132 (286, Виталий 05.10): «У Игоря стояла ЗП 45 000 — посмотри, почему не сохранилась» =====
+   Причина: в сервисе было три поля оклада сотрудника. «Данные сотрудника» (data-ed="man") писали на сервер,
+   а старые карточки — «Моя команда» → карточка менеджера (data-sk2: «Зарплата, ₽ в месяц», день выплаты, часы в день,
+   telegram, почта, телефон) и карточка в «Команде» (data-sk) — меняли только вкладку: после перезагрузки значение
+   пропадало, на сервере оставалось старое (у Игоря — 0). Теперь любое из этих полей уходит в карточку сотрудника
+   на сервере — одно место хранения, как у «Данных сотрудника». Суммы сервер принимает только от собственника и директора. */
+(function(){
+  var KEYS = {pay: "num", payDay: "num", hoursDay: "num", tg: "tg", mail: "str", wphone: "str"};
+  function idOf(el){
+    var hs = el.closest && el.closest("[data-staff]");
+    if(hs) return hs.getAttribute("data-staff");
+    if(el.hasAttribute("data-sk2")){
+      try{ if(typeof manCardOpen !== "undefined" && manCardOpen) return manCardOpen; }catch(e){}
+      var b = el.closest(".mcard") && el.closest(".mcard").querySelector("[data-mcsave]");
+      if(b) return b.getAttribute("data-mcsave");
+    }
+    return null;
+  }
+  function norm(kind, v){
+    v = String(v == null ? "" : v).trim();
+    if(kind === "num"){ v = v.replace(/[\s  ₽]/g, "").replace(",", "."); return v === "" ? null : Math.max(0, Math.round(+v || 0)); }
+    if(kind === "tg") return v.replace(/^@+/, "");
+    return v;
+  }
+  function save(e){
+    var el = e.target; if(!el || !el.matches || !el.matches("[data-sk], [data-sk2]")) return;
+    var k = el.getAttribute("data-sk") || el.getAttribute("data-sk2"); if(!KEYS[k]) return;
+    if(typeof foLive === "function" && !foLive()) return;
+    if(typeof cardSave !== "function") return;
+    var id = idOf(el); if(!id) return;
+    var p = {}; p[k] = norm(KEYS[k], el.value);
+    cardSave("employee", id, p);
+    try{ var m = person(id); if(m) m[k] = p[k]; }catch(x){}
+    try{ if(typeof FO_ECON !== "undefined") FO_ECON = null; }catch(x){}
+  }
+  document.addEventListener("change", save, true);
 })();
 
 })();
