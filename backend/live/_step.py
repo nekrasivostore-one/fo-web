@@ -4187,6 +4187,10 @@ async def _fo_econ_people(c, org_id):
         pay = _fo_econ_num(cd.get("pay"))
         wd = int(d.get("workday_min") or 480) or 480
         is_pm = (d.get("lvl") == 4) or grade == "pm"
+        if d.get("lvl") is not None and d.get("lvl") <= 1 and not pay:
+            out[str(d["id"])] = {"id": str(d["id"]), "name": d.get("name") or "", "pay": 0.0, "pay_set": True, "wd": wd,
+                                 "pm": False, "lvl": d.get("lvl"), "owner": True}
+            continue
         out[str(d["id"])] = {"id": str(d["id"]), "name": d.get("name") or "", "pay": pay or _FO_GRADE_MID.get(grade) or (110000 if is_pm else 50000),
                              "pay_set": bool(pay), "wd": wd, "pm": is_pm, "lvl": d.get("lvl")}
     return out
@@ -4325,19 +4329,18 @@ async def _fo_econ(c, org_id):
         pm, pm_src = assign.get(cid, (None, ""))
         x = mins.get(cid) or {"t": 0.0, "e": {}, "f": {}}
         hours = x["t"] * k_month / 60.0
-        team_cost, pm_hours = 0.0, 0.0
+        # 285: у клиента — только трудозатраты; оклад проджекта целиком — в экономике его группы кабинетов
+        team_cost, pm_hours, pm_cost = 0.0, 0.0, 0.0
         for e, m in x["e"].items():
             mm = m * k_month
-            if pm and e == pm:
-                pm_hours += mm / 60.0
-                continue
             pe = people.get(e)
-            if pe:
-                team_cost += mm * pe["pay"] / (pe["wd"] * 21.0)
+            c1 = (mm * pe["pay"] / (pe["wd"] * 21.0)) if pe else 0.0
+            if pm and e == pm:
+                pm_hours += mm / 60.0; pm_cost += c1
+            else:
+                team_cost += c1
         pm_share = 0.0
-        if pm and pm in people and pm_n.get(pm):
-            pm_share = people[pm]["pay"] * (x["t"] / pm_h[pm] if pm_h.get(pm) else 1.0 / pm_n[pm])
-        cost = team_cost + pm_share
+        cost = team_cost + pm_cost
         margin = amount - cost
         fl = sorted(fns.get(cid) or [], key=lambda f: fn_names.get(f, ""))
         fh = sorted([(f, m * k_month / 60.0) for f, m in x["f"].items()], key=lambda kv: -kv[1])
@@ -4345,7 +4348,7 @@ async def _fo_econ(c, org_id):
         rows.append({"client_id": cid, "client": cl.get("name") or "", "amount": round(amount), "confirm": cd.get("confirm") or "",
                      "since": "%04d-%02d" % sv, "since_src": since_src, "months": months,
                      "pm": pm, "pm_name": (people.get(pm) or {}).get("name") if pm else None, "pm_src": pm_src,
-                     "hours": round(hours, 1), "pm_hours": round(pm_hours, 1), "team_cost": round(team_cost), "pm_share": round(pm_share),
+                     "hours": round(hours, 1), "pm_hours": round(pm_hours, 1), "team_cost": round(team_cost), "pm_share": round(pm_share), "pm_cost": round(pm_cost),
                      "cost": round(cost), "margin": round(margin), "margin_pct": round(margin / amount * 100, 1) if amount else None,
                      "rph": round(amount / hours) if hours > 0.05 else None,
                      "fns": [fn_names.get(f, "функция") for f in fl], "fn_ids": fl, "fn_hours": [{"fn": fn_names.get(f, "разовые"), "h": round(h, 1)} for f, h in fh[:8]],
@@ -4376,8 +4379,12 @@ async def _fo_econ(c, org_id):
             continue
         lst = [r for r in rows if r["pm"] == e]
         a = agg(lst)
-        if not lst:
-            a["margin"] = -round(pe["pay"])
+        team = sum(r["team_cost"] for r in lst)          # 285: часы команды без собственных часов проджекта
+        a["labor_margin"] = a["margin"]                  # по трудозатратам, как у клиентов
+        a["margin"] = round(a["rev"] - team - pe["pay"])
+        a["margin_pct"] = round(a["margin"] / a["rev"] * 100, 1) if a["rev"] else None
+        a["team_cost"] = round(team); a["cost"] = round(team + pe["pay"])
+        a["pm_hours"] = round(sum(r["pm_hours"] for r in lst), 1)
         a.update({"employee_id": e, "name": pe["name"], "pay": round(pe["pay"]), "pay_set": pe["pay_set"],
                   "pay_share": round(pe["pay"] / a["rev"] * 100, 1) if a["rev"] else None,
                   "clients": [r["client"] for r in lst]})
@@ -4406,6 +4413,13 @@ async def _fo_econ(c, org_id):
     combos = sorted([dict(agg(v), set=k, size=len(v[0]["fns"]), names=[r["client"] for r in v]) for k, v in sets.items()],
                     key=lambda z: -(z["margin_pct"] if z["margin_pct"] is not None else -999))
     tot = agg(rows)
+    # 285: итог агентства — выручка − часы команды − оклады всех проджектов (их задачи — внутри оклада)
+    pm_pay_all = sum(v["pay"] for v in people.values() if v["pm"])
+    tot["labor_margin"] = tot["margin"]
+    tot["pm_pay"] = round(pm_pay_all)
+    tot["pm_cabs"] = sum(1 for r in rows if r["pm"])
+    tot["margin"] = round(sum(r["amount"] - r["team_cost"] for r in rows) - pm_pay_all)
+    tot["margin_pct"] = round(tot["margin"] / tot["rev"] * 100, 1) if tot["rev"] else None
     return {"today": today.isoformat(), "window": {"from": w_from.isoformat(), "to": w_to.isoformat(), "workdays": wdays},
             "life": life, "life_auto": life_auto, "life_set": bool(_fo_econ_num(cfg.get("life"))),
             "total": tot, "clients": rows, "pms": pms, "noone": agg(noone), "noone_names": [r["client"] for r in noone],
