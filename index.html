@@ -4652,6 +4652,54 @@ html.dark .fo-plan-team{ background:rgba(255,255,255,.03) }
 .fo-pt-st{ font-size:12.5px; margin-top:6px; color:var(--ink-2) } .fo-pt-st i{ font-style:normal; color:var(--ink-3) }
 .fo-pt-ppl{ margin-top:10px; display:flex; flex-direction:column; gap:4px; font-size:12.5px; line-height:1.5 }
 .fo-pt-ppl i{ font-style:normal; color:var(--ink-3) } .fo-pt-ppl .ok{ color:#00B39A; font-weight:600 } .fo-pt-ppl .bad{ color:#DB4A5F; font-weight:600 }
+/* add130 (282): «Экономика клиентов и проджектов» */
+.fo-econ .gl-t .seg{ margin-left:auto; flex-wrap:wrap }
+.fo-econ .gl-t .m{ font-size:12px; color:var(--ink-3); margin-left:10px }
+.fo-ec-miss{ font-size:12.5px; color:#9A6200; background:rgba(255,176,32,.12); border-radius:10px; padding:8px 12px; margin:0 0 12px }
+html.dark .fo-ec-miss{ color:#FFC766 }
+.fo-ec-wrap{ overflow-x:auto; border:1px solid var(--neu-b,#e6e8ef); border-radius:12px; margin-bottom:10px }
+.fo-ec-t{ width:100%; border-collapse:collapse; font-size:12.5px; font-variant-numeric:tabular-nums }
+.fo-ec-t th{ text-align:left; font-weight:600; font-size:11.5px; color:var(--ink-2); padding:8px 10px; background:var(--neu,#f3f4f8); white-space:nowrap; vertical-align:bottom }
+html.dark .fo-ec-t th{ background:rgba(255,255,255,.05) }
+.fo-ec-t th i{ display:block; font-style:normal; font-weight:400; font-size:10.5px; color:var(--ink-3) }
+.fo-ec-t td{ padding:7px 10px; border-top:1px solid var(--neu-b,#e6e8ef); vertical-align:top; white-space:nowrap }
+.fo-ec-t td i{ display:block; font-style:normal; font-size:11px; color:var(--ink-3); white-space:normal }
+.fo-ec-t td.n{ color:var(--ink-3); width:28px }
+.fo-ec-t .mute{ color:var(--ink-3) }
+.fo-ec-t tr.pos td:first-child{ box-shadow:inset 3px 0 0 #12A150 } .fo-ec-t tr.neg td:first-child{ box-shadow:inset 3px 0 0 #DB4A5F }
+.fo-ec-r{ cursor:pointer } .fo-ec-r:hover td{ background:rgba(124,92,255,.05) }
+.fo-ec-det td{ background:var(--neu,#f3f4f8); white-space:normal } html.dark .fo-ec-det td{ background:rgba(255,255,255,.04) }
+.fo-ec-dg{ display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:10px 16px }
+.fo-ec-dg h5, .fo-ec-concl h5, .fo-ec-calc h5{ margin:0 0 4px; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-3) }
+.fo-ec-dg p{ margin:0; font-size:12.5px; line-height:1.45 }
+.fo-ec-sub td{ border-top:0; padding-top:0; font-size:11.5px; color:var(--ink-3); white-space:normal }
+.fo-ec-concl{ display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:10px 18px; margin:0 0 12px }
+.fo-ec-concl > div{ padding:10px 12px; border-radius:12px; background:var(--neu,#f3f4f8) } html.dark .fo-ec-concl > div{ background:rgba(255,255,255,.04) }
+.fo-ec-concl p{ margin:4px 0; font-size:12.5px; line-height:1.45 } .fo-ec-concl p i{ font-style:normal; color:var(--ink-3) }
+.fo-ec-v{ white-space:normal !important; min-width:220px }
+.fo-ec-calc{ margin-top:12px; padding:12px 14px; border-radius:12px; border:1px solid var(--neu-b,#e6e8ef) }
+.fo-ec-calc p{ margin:6px 0 0; font-size:12.5px; line-height:1.5 }
+.fo-ec-cf{ display:flex; gap:14px; flex-wrap:wrap; font-size:12.5px } .fo-ec-cf label{ display:inline-flex; align-items:center; gap:6px } .fo-ec-cf .fi{ width:110px }
+.fo-ec-h{ margin:14px 0 6px; font-size:13px }
+.fo-ec-names{ white-space:normal !important; color:var(--ink-3); font-size:11.5px; min-width:180px }
+.fo-ec-foot{ display:flex; flex-direction:column; gap:4px; font-size:11.5px; color:var(--ink-3); margin-top:12px }
+.fo-ec-foot label{ display:inline-flex; align-items:center; gap:6px; color:var(--ink-2); font-size:12.5px } .fo-ec-foot .fi{ width:80px }
+.fo-ec-act{ margin-top:6px }
+/* add131 (283): распределение в команде, проджект в карточке клиента */
+.fo-dist{ margin:0 0 12px }
+.fo-dist-bar{ display:flex; gap:8px; align-items:center; margin:0 0 10px }
+.fo-dist-badge{ display:inline-block; margin-left:6px; padding:1px 8px; border-radius:20px; background:#FFE3B3; color:#8A5200; font-size:11px; font-weight:600 }
+.fo-dist-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:12px; align-items:start }
+.fo-dist-col{ border:1px solid var(--neu-b,#e6e8ef); border-radius:14px; padding:10px 12px; background:var(--card,#fff); display:flex; flex-direction:column; gap:6px }
+html.dark .fo-dist-col{ background:rgba(255,255,255,.03) }
+.fo-dist-col.none{ border-color:rgba(255,176,32,.55); background:rgba(255,176,32,.06) }
+.fo-dist-h{ display:flex; flex-direction:column; gap:1px; margin-bottom:4px } .fo-dist-h b{ font-size:14px } .fo-dist-h span{ font-size:11.5px; color:var(--ink-3) }
+.fo-dist-c{ display:flex; flex-direction:column; gap:4px; padding:6px 0; border-top:1px dashed var(--neu-b,#e6e8ef); font-size:12.5px }
+.fo-dist-c span{ display:flex; flex-direction:column } .fo-dist-c i{ font-style:normal; font-size:11px; color:var(--ink-3) }
+.fo-dist-c .sel{ width:100% }
+.fo-dist .empty.sm{ font-size:12px; padding:6px 0 }
+.fo-pmline{ font-size:12.5px; padding:6px 10px; margin:0 0 8px; border-radius:10px; background:rgba(124,92,255,.08) }
+.fo-pmline.none{ background:rgba(255,176,32,.12); color:#8A5200 } html.dark .fo-pmline.none{ color:#FFC766 }
 </style>
 </head>
 <body>
@@ -31976,6 +32024,322 @@ document.addEventListener("click", function(e){
       FO_PLAN = null; try{ foMtRender(); }catch(x){}
     }).catch(function(err){ b.disabled = false; try{ toast("Не ушло: " + (err && err.message || "сервер не ответил")); }catch(x){} });
   }, true);
+})();
+/* ===== add130 (282, Виталий 05.10): «Экономика клиентов и проджектов» на «Рейтинге» — перед «LTV» =====
+   Только собственник. Всё считает сервер (GET /refs/econ) по ВСЕМ клиентам агентства: платёж и «работаем с» —
+   карточка клиента, проджект — карточка клиента (иначе по функциям), часы — задачи сервиса, цена часа — оклады.
+   Вкладки: топ клиентов (маржа за жизнь клиента — стаж учитывается), проджекты (выручка/GMV, средний чек, LTV,
+   капитализация, ЗП проджекта, маржа), чек и рентабельность (+ калькулятор «брать ли клиента за N ₽»), функции и
+   наборы функций (с какими настройками услуги выгоднее).                                                        */
+var FO_ECON = null, FO_EC = {tab: "top", open: {}, calc: {check: 30000, pct: 30}};
+function foEcOwner(){ try{ return typeof FO_PERMS !== "undefined" && FO_PERMS && FO_PERMS.level === 1; }catch(e){ return false; } }
+function foEcLoad(){
+  return api("/refs/econ").then(function(r){ FO_ECON = r || {}; }).catch(function(e){ FO_ECON = {error: (e && e.message) || "сервер не ответил"}; });
+}
+function foEcR(x){ return (x === null || x === undefined || !isFinite(x)) ? "—" : rub(x); }
+function foEcN(x, d){ if(x === null || x === undefined || !isFinite(x)) return "—"; var k = Math.pow(10, d || 0); return (Math.round(x * k) / k).toLocaleString("ru-RU"); }
+function foEcPct(x){ return (x === null || x === undefined) ? '<span class="mute">—</span>' : '<b class="'+(x >= 30 ? 'okv' : x >= 10 ? 'warnv' : 'critv')+'">'+foEcN(x, 0)+'%</b>'; }
+function foEcK(x){ if(!isFinite(x)) return "—"; var a = Math.abs(x); return (x < 0 ? "−" : "") + (a >= 1e6 ? (Math.round(a / 1e5) / 10).toLocaleString("ru-RU") + " млн" : a >= 1e3 ? Math.round(a / 1e3).toLocaleString("ru-RU") + " тыс" : Math.round(a).toLocaleString("ru-RU")) + " ₽"; }
+function foEcMonths(n){ n = Math.round(n || 0); var m10 = n % 10, m100 = n % 100; return n + " " + (m10 === 1 && m100 !== 11 ? "месяц" : (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) ? "месяца" : "месяцев"); }
+
+function foEcWhy(r, avgRph){
+  /* коротко — почему клиент выгоден или нет */
+  var w = [];
+  if(r.margin_pct !== null && r.margin_pct < 0) w.push("в минус " + foEcK(-r.margin) + " в месяц");
+  if(r.rph && avgRph){ if(r.rph < avgRph * 0.7) w.push(foEcN(r.hours, 0) + " ч за " + foEcK(r.amount) + " — " + foEcN(r.rph) + " ₽/ч, ниже среднего"); else if(r.rph > avgRph * 1.3) w.push(foEcN(r.rph) + " ₽/ч — выше среднего"); }
+  if(r.months >= 12) w.push("платит " + foEcMonths(r.months));
+  else if(r.months <= 2) w.push("новый — " + foEcMonths(r.months));
+  if(r.arts > 300) w.push(r.arts + " артикулов в управлении");
+  return w.join(" · ");
+}
+
+function foEcTopHTML(E){
+  var T = E.total || {}, rows = (E.clients || []).filter(function(r){ return r.amount > 0; }), nop = (E.clients || []).filter(function(r){ return !(r.amount > 0); });
+  var best = rows.slice(0, 3), worst = rows.slice(-3).reverse().filter(function(r){ return best.indexOf(r) < 0; });
+  var concl = rows.length ? '<div class="fo-ec-concl">'+
+      '<div><h5>Выгоднее всего</h5>'+best.map(function(r){ return '<p><b>'+esc(r.client)+'</b> — маржа '+foEcK(r.margin)+' в месяц ('+foEcN(r.margin_pct, 0)+'%), за жизнь '+foEcK(r.life_value)+'. <i>'+esc(foEcWhy(r, T.rph))+'</i></p>'; }).join("")+'</div>'+
+      (worst.length ? '<div><h5>Невыгоднее всего</h5>'+worst.map(function(r){ return '<p><b>'+esc(r.client)+'</b> — маржа '+foEcK(r.margin)+' в месяц'+(r.margin_pct !== null ? ' ('+foEcN(r.margin_pct, 0)+'%)' : '')+', за жизнь '+foEcK(r.life_value)+'. <i>'+esc(foEcWhy(r, T.rph))+'</i></p>'; }).join("")+'</div>' : '')+
+    '</div>' : '';
+  function row(r){
+    var open = !!FO_EC.open[r.client_id], cls = r.amount > 0 ? (r.margin < 0 ? 'neg' : r.margin_pct >= 30 ? 'pos' : '') : 'mute';
+    var h = '<tr class="fo-ec-r '+cls+'" data-ec-open="'+esc(r.client_id)+'"><td class="n">'+(r.amount > 0 ? r.rank : '—')+'</td>'+
+      '<td><b>'+esc(r.client)+'</b><i>'+(r.pm_name ? esc(r.pm_name) + (r.pm_src !== "card" ? ' · авто' : '') : 'без проджекта')+'</i></td>'+
+      '<td>'+foEcR(r.amount)+'</td><td>'+foEcN(r.hours, 0)+' ч</td><td>'+(r.rph ? foEcN(r.rph) + ' ₽' : '—')+'</td>'+
+      '<td>'+foEcR(r.cost)+'</td><td>'+(r.amount > 0 ? foEcR(r.margin) + ' ' + foEcPct(r.margin_pct) : '<span class="mute">платёж не указан</span>')+'</td>'+
+      '<td>'+(r.fns || []).length+'</td><td>'+(r.arts || 0)+(r.arts_card ? '<i>из '+r.arts_card+'</i>' : '')+'</td>'+
+      '<td>'+r.months+(r.since_src !== "card" ? '<i>≈ с '+esc(r.since)+'</i>' : '')+'</td><td>'+foEcK(r.ltv_fact)+'</td>'+
+      '<td><b class="'+(r.life_value < 0 ? 'critv' : '')+'">'+foEcK(r.life_value)+'</b></td></tr>';
+    if(open) h += '<tr class="fo-ec-det"><td></td><td colspan="11">'+
+      '<div class="fo-ec-dg"><div><h5>Себестоимость в месяц</h5><p>Часы команды: '+foEcR(r.team_cost)+' · доля оклада проджекта: '+foEcR(r.pm_share)+(r.pm_hours ? ' (его задачи — '+foEcN(r.pm_hours, 0)+' ч — внутри оклада)' : '')+'</p></div>'+
+      '<div><h5>Куда уходят часы</h5><p>'+((r.fn_hours || []).length ? r.fn_hours.map(function(f){ return esc(f.fn)+' — '+foEcN(f.h, 1)+' ч'; }).join(" · ") : 'задач по клиенту за период нет')+'</p></div>'+
+      '<div><h5>Набор функций</h5><p>'+((r.fns || []).length ? esc(r.fns.join(", ")) : 'функции не стоят')+'</p></div>'+
+      '<div><h5>Стаж</h5><p>с '+esc(r.since)+(r.since_src !== "card" ? ' — по дате заведения в сервис; поставьте «Работаем с» в карточке клиента' : '')+' · принёс '+foEcR(r.ltv_fact)+' · ожидаем ещё ~'+foEcN(E.life, 1)+' мес.</p></div></div></td></tr>';
+    return h;
+  }
+  return concl+
+    '<div class="fo-ec-wrap"><table class="fo-ec-t"><thead><tr><th>№</th><th>Клиент<i>проджект</i></th><th>Платёж<i>в месяц</i></th><th>Часы<i>в месяц</i></th><th>₽ за час</th><th>Себестоимость<i>часы + проджект</i></th><th>Маржа<i>в месяц</i></th><th>Функций</th><th>Артикулов<i>в управлении</i></th><th>Стаж<i>мес.</i></th><th>Принёс<i>за всё время</i></th><th>Маржа за жизнь<i>сортировка</i></th></tr></thead><tbody>'+
+    rows.concat(nop).map(row).join("")+'</tbody></table></div>'+
+    '<div class="fo-hint">Маржа за жизнь клиента = маржа в месяц × (сколько месяцев уже платит + ожидаемый срок '+foEcN(E.life, 1)+' мес.). Поэтому клиент со средней маржой, который платит год, стоит выше нового с высокой; убыточный и долгий — внизу. Нажмите на строку — разбор клиента.</div>';
+}
+
+function foEcPmHTML(E){
+  var list = (E.pms || []).slice(), no = E.noone || {};
+  if(no.n) list.push(Object.assign({name: "Без проджекта", pay: 0, nobody: true, clients: E.noone_names || []}, no));
+  if(!list.length) return '<div class="empty">В агентстве нет сотрудников с ролью «Проджект».</div>';
+  return '<div class="fo-ec-wrap"><table class="fo-ec-t"><thead><tr><th>Проджект</th><th>Кабинетов</th><th>Выручка в месяц<i>GMV группы</i></th><th>Средний чек</th><th>Средний LTV</th><th>Капитализация<i>за жизнь кабинетов</i></th><th>Принесли<i>за всё время</i></th><th>Часы команды<i>в месяц</i></th><th>Себестоимость команды</th><th>ЗП проджекта<i>доля выручки</i></th><th>Маржа<i>в месяц</i></th><th>₽ за час</th><th>Артикулов</th><th>Функций на кабинет</th><th>Стаж<i>средний</i></th></tr></thead><tbody>'+
+    list.map(function(g){
+      return '<tr class="'+(g.margin < 0 ? 'neg' : '')+'"><td><b>'+esc(g.name)+'</b>'+(g.nobody ? '<i>закрепите на «Планёрке» → «Распределение в команде»</i>' : (!g.pay_set ? '<i>оклад не заполнен — взята вилка грейда</i>' : ''))+'</td>'+
+        '<td>'+g.n+'</td><td>'+foEcR(g.rev)+'</td><td>'+foEcR(g.check)+'</td><td>'+foEcK(g.ltv_avg)+'</td><td><b>'+foEcK(g.cap)+'</b></td><td>'+foEcK(g.ltv_fact)+'</td>'+
+        '<td>'+foEcN(g.hours, 0)+' ч</td><td>'+foEcR(g.team_cost)+'</td><td>'+(g.nobody ? '—' : foEcR(g.pay) + (g.pay_share !== null && g.pay_share !== undefined ? '<i>'+foEcN(g.pay_share, 0)+'%</i>' : ''))+'</td>'+
+        '<td>'+foEcR(g.margin)+' '+foEcPct(g.margin_pct)+'</td><td>'+(g.rph ? foEcN(g.rph) + ' ₽' : '—')+'</td><td>'+(g.arts || 0)+'</td><td>'+foEcN(g.fns_per, 1)+'</td><td>'+foEcN(g.months_avg, 1)+'</td></tr>'+
+        '<tr class="fo-ec-sub"><td colspan="15">'+((g.clients || []).length ? esc(g.clients.join(" · ")) : '<span class="mute">кабинетов нет</span>')+'</td></tr>';
+    }).join("")+'</tbody></table></div>'+
+    '<div class="fo-hint">Капитализация проджекта — сколько принесут его кабинеты за жизнь: платёж × (стаж + ожидаемый срок). Средний LTV — то же на один кабинет. Маржа группы = выручка − часы команды − оклад проджекта (его собственные задачи — внутри оклада). Сравнивайте рентабельность и ₽ за час между проджектами: кому достаются низкие чеки и какой ценой.</div>'+
+    '<div class="fo-ec-act"><button class="bt sm" data-ec-go="meet">Распределение в команде →</button></div>';
+}
+
+function foEcCheckHTML(E){
+  var T = E.total || {}, B = E.buckets || [], cph = (T.hours > 0) ? T.cost / T.hours : 0;
+  var C = FO_EC.calc, maxH = cph ? C.check * (1 - C.pct / 100) / cph : 0;
+  function verdict(b){
+    if(!b.n) return '<span class="mute">клиентов нет</span>';
+    var p = b.margin_pct;
+    if(p === null) return '—';
+    if(p >= 30) return '<b class="okv">выгодно</b> — такой чек можно продавать с этим набором';
+    if(p >= 10) return '<b class="warnv">на грани</b> — продавать с меньшим числом функций или артикулов';
+    return '<b class="critv">невыгодно</b> — при таком объёме работы чек не окупает команду';
+  }
+  var fit = (E.combos || []).filter(function(c){ return c.hours_per <= maxH; });
+  return '<div class="fo-ec-wrap"><table class="fo-ec-t"><thead><tr><th>Чек</th><th>Клиентов</th><th>Средний чек</th><th>Часы на клиента<i>в месяц</i></th><th>Функций<i>на клиента</i></th><th>Артикулов<i>на клиента</i></th><th>₽ за час</th><th>Маржа на клиента<i>в месяц</i></th><th>Рентабельность</th><th>Стаж<i>средний</i></th><th>Вывод</th></tr></thead><tbody>'+
+    B.map(function(b){
+      return '<tr class="'+(b.n && b.margin < 0 ? 'neg' : '')+'"><td><b>'+esc(b.name)+'</b></td><td>'+b.n+'</td><td>'+(b.n ? foEcR(b.check) : '—')+'</td><td>'+(b.n ? foEcN(b.hours_per, 0) + ' ч' : '—')+'</td><td>'+(b.n ? foEcN(b.fns_per, 1) : '—')+'</td><td>'+(b.n ? b.arts_per : '—')+'</td>'+
+        '<td>'+(b.rph ? foEcN(b.rph) + ' ₽' : '—')+'</td><td>'+(b.n ? foEcR(b.margin / b.n) : '—')+'</td><td>'+foEcPct(b.margin_pct)+'</td><td>'+(b.n ? foEcN(b.months_avg, 1) : '—')+'</td><td class="fo-ec-v">'+verdict(b)+'</td></tr>';
+    }).join("")+'</tbody></table></div>'+
+    '<div class="fo-ec-calc"><h5>Брать ли клиента за такой чек?</h5>'+
+      '<div class="fo-ec-cf"><label>Чек клиента <input class="fi sm" type="number" min="1000" step="1000" data-ec-calc="check" value="'+C.check+'"> ₽</label>'+
+      '<label>Хочу маржу не ниже <input class="fi sm" type="number" min="0" max="90" data-ec-calc="pct" value="'+C.pct+'"> %</label></div>'+
+      (cph ? '<p>Час команды стоит агентству в среднем <b>'+foEcR(cph)+'</b> (оклады и доли проджектов). Чтобы клиент за <b>'+foEcR(C.check)+'</b> дал '+C.pct+'% маржи, на него можно тратить <b>не больше '+foEcN(maxH, 0)+' ч в месяц</b>.</p>'+
+        '<p>'+(fit.length ? 'Наборы функций, которые у вас укладываются в эти часы: '+fit.slice(0, 6).map(function(c){ return '<b>'+esc(c.set)+'</b> ('+foEcN(c.hours_per, 0)+' ч, '+c.arts_per+' арт.)'; }).join("; ")+'.' : 'Ни один ваш текущий набор функций в эти часы не укладывается — нужен облегчённый пакет.')+'</p>'
+      : '<p class="mute">Часов по задачам пока нет — посчитать нельзя.</p>')+
+    '</div>';
+}
+
+function foEcFnHTML(E){
+  var T = E.total || {}, cph = (T.hours > 0) ? T.cost / T.hours : 0;
+  var F = E.funcs || [], K = E.combos || [];
+  return '<h5 class="fo-ec-h">Функции — сколько стоят на один кабинет</h5>'+
+    '<div class="fo-ec-wrap"><table class="fo-ec-t"><thead><tr><th>Функция</th><th>Кабинетов</th><th>Часов в месяц<i>на кабинет</i></th><th>Себестоимость<i>на кабинет</i></th><th>Рентабельность<i>кабинетов с функцией</i></th></tr></thead><tbody>'+
+    (F.length ? F.map(function(f){ return '<tr><td><b>'+esc(f.fn)+'</b></td><td>'+f.n+'</td><td>'+foEcN(f.h_per, 1)+' ч</td><td>'+(cph ? foEcR(f.h_per * cph) : '—')+'</td><td>'+foEcPct(f.margin_pct)+'</td></tr>'; }).join("") : '<tr><td colspan="5" class="mute">Функции в кабинетах не стоят</td></tr>')+
+    '</tbody></table></div>'+
+    '<h5 class="fo-ec-h">Наборы функций — от выгодного к невыгодному</h5>'+
+    '<div class="fo-ec-wrap"><table class="fo-ec-t"><thead><tr><th>Набор</th><th>Кабинетов</th><th>Средний чек</th><th>Часы<i>на кабинет</i></th><th>Артикулов<i>на кабинет</i></th><th>₽ за час</th><th>Рентабельность</th><th>Клиенты</th></tr></thead><tbody>'+
+    (K.length ? K.map(function(k){ return '<tr class="'+(k.margin < 0 ? 'neg' : '')+'"><td><b>'+esc(k.set)+'</b></td><td>'+k.n+'</td><td>'+foEcR(k.check)+'</td><td>'+foEcN(k.hours_per, 0)+' ч</td><td>'+k.arts_per+'</td><td>'+(k.rph ? foEcN(k.rph) + ' ₽' : '—')+'</td><td>'+foEcPct(k.margin_pct)+'</td><td class="fo-ec-names">'+esc((k.names || []).join(", "))+'</td></tr>'; }).join("") : '<tr><td colspan="8" class="mute">Нет клиентов с платежом и функциями</td></tr>')+
+    '</tbody></table></div>'+
+    '<div class="fo-hint">Отвечает на вопрос «с каким клиентом при каких настройках услуги выгоднее работать»: одинаковый набор функций у разных клиентов — одна строка. Себестоимость функции = её часы × средняя цена часа команды.</div>';
+}
+
+function foEconHTML(){
+  if(!FO_ECON) return '<div class="gl fo-econ"><div class="gl-t"><h2>Экономика клиентов и проджектов</h2></div><div class="empty">Считаю на сервере по всем клиентам…</div></div>';
+  if(FO_ECON.error) return '<div class="gl fo-econ"><div class="gl-t"><h2>Экономика клиентов и проджектов</h2></div><div class="empty">'+esc(FO_ECON.error)+' (сервер мог ещё обновляться — откройте через пару минут)</div></div>';
+  var E = FO_ECON, T = E.total || {}, M = E.missing || {};
+  var tabs = [["top", "Топ клиентов"], ["pm", "Проджекты"], ["check", "Чек и рентабельность"], ["fn", "Функции и наборы"]];
+  var miss = [];
+  if(M.amount) miss.push('платёж не указан у ' + M.amount);
+  if(M.since) miss.push('«Работаем с» не заполнено у ' + M.since + ' — стаж считаем от даты заведения в сервис');
+  if(M.pm) miss.push('проджект не закреплён у ' + M.pm + ' — взят по функциям');
+  if((M.pay || []).length) miss.push('оклад не указан: ' + M.pay.join(", ") + ' — взята середина вилки грейда');
+  if(M.no_hours) miss.push('нет задач за период у ' + M.no_hours);
+  var body = FO_EC.tab === "pm" ? foEcPmHTML(E) : FO_EC.tab === "check" ? foEcCheckHTML(E) : FO_EC.tab === "fn" ? foEcFnHTML(E) : foEcTopHTML(E);
+  return '<div class="gl fo-econ"><div class="gl-t"><h2>Экономика клиентов и проджектов</h2><span class="m">все клиенты агентства · считает сервер · видит только собственник</span>'+
+      '<div class="seg sm">'+tabs.map(function(t){ return '<button data-ec-tab="'+t[0]+'" aria-pressed="'+(FO_EC.tab === t[0])+'">'+t[1]+'</button>'; }).join("")+'</div></div>'+
+    '<div class="fo-grow4">'+
+      '<div class="pss"><div class="l">Оборот агентства (GMV)</div><div class="v">'+foEcR(T.rev)+'</div><div class="d">в месяц · платят '+(T.paying || 0)+' из '+(T.n || 0)+' клиентов</div></div>'+
+      '<div class="pss"><div class="l">Принесли за всё время</div><div class="v">'+foEcK(T.ltv_fact)+'</div><div class="d">платёж × стаж каждого клиента</div></div>'+
+      '<div class="pss"><div class="l">Средний чек</div><div class="v">'+foEcR(T.check)+'</div><div class="d">стаж в среднем '+foEcN(T.months_avg, 1)+' мес.</div></div>'+
+      '<div class="pss"><div class="l">Средний LTV</div><div class="v">'+foEcK(T.ltv_avg)+'</div><div class="d">чек × (стаж + ещё ~'+foEcN(E.life, 1)+' мес.)</div></div>'+
+      '<div class="pss"><div class="l">Маржа в месяц</div><div class="v '+((T.margin || 0) < 0 ? 'critv' : 'okv')+'">'+foEcR(T.margin)+'</div><div class="d">'+(T.margin_pct !== null && T.margin_pct !== undefined ? foEcN(T.margin_pct, 0) + '% · ' : '')+'выручка − часы команды − оклады проджектов</div></div>'+
+      '<div class="pss"><div class="l">₽ за час команды</div><div class="v">'+(T.rph ? foEcN(T.rph) + ' ₽' : '—')+'</div><div class="d">'+foEcN(T.hours, 0)+' ч в месяц на всех клиентов</div></div>'+
+    '</div>'+
+    (miss.length ? '<div class="fo-ec-miss">Не хватает данных: '+esc(miss.join(" · "))+'.</div>' : '')+
+    body+
+    '<div class="fo-ec-foot"><label>Ожидаемый срок клиента <input class="fi sm" type="number" min="1" max="60" step="0.5" data-ec-life value="'+(E.life_set ? E.life : "")+'" placeholder="'+foEcN(E.life_auto, 1)+'"> мес.</label>'+
+      '<span>'+(E.life_set ? 'задан вами; авто — '+foEcN(E.life_auto, 1) : 'авто: '+foEcN(E.life_auto, 1)+' — по доле клиентов с ответом «не продлевает», иначе 12')+'</span>'+
+      '<span>Часы — по задачам сервиса '+esc(String((E.window || {}).from || "").slice(8, 10)+"."+String((E.window || {}).from || "").slice(5, 7))+'–'+esc(String((E.window || {}).to || "").slice(8, 10)+"."+String((E.window || {}).to || "").slice(5, 7))+' ('+((E.window || {}).workdays || 0)+' раб. дней с задачами), пересчёт на месяц — 21 рабочий день. Цена часа — оклад / (рабочий день × 21).</span></div>'+
+  '</div>';
+}
+function foEcRepaint(){
+  var el = document.querySelector(".fo-econ"); if(!el) return;
+  var w = document.createElement("div"); w.innerHTML = foEconHTML();
+  el.replaceWith(w.firstChild);
+}
+(function(){
+  if(typeof renderRate !== "function") return;
+  var _r = renderRate;
+  renderRate = function(){
+    _r.apply(this, arguments);
+    try{
+      if(!foEcOwner()) return;
+      var host = document.getElementById("sect"); if(!host || host.querySelector(".fo-econ")) return;
+      var ltv = host.querySelector(".fo-ltv");
+      if(ltv) ltv.insertAdjacentHTML("beforebegin", foEconHTML()); else host.insertAdjacentHTML("beforeend", foEconHTML());
+      if(!FO_ECON) foEcLoad().then(foEcRepaint);
+    }catch(e){}
+  };
+  if(typeof SEC_RENDER !== "undefined") SEC_RENDER.rate = renderRate;
+})();
+document.addEventListener("click", function(e){
+  if(!document.querySelector(".fo-econ")) return;
+  var t = e.target.closest && e.target.closest("[data-ec-tab], [data-ec-open], [data-ec-go]"); if(!t || !t.closest(".fo-econ")) return;
+  if(t.hasAttribute("data-ec-tab")){ FO_EC.tab = t.getAttribute("data-ec-tab"); foEcRepaint(); return; }
+  if(t.hasAttribute("data-ec-go")){ try{ if(typeof FO_DIST !== "undefined") FO_DIST.open = true; setView(t.getAttribute("data-ec-go")); }catch(x){} return; }
+  var id = t.getAttribute("data-ec-open"); FO_EC.open[id] = !FO_EC.open[id]; foEcRepaint();
+});
+document.addEventListener("change", function(e){
+  var el = e.target; if(!el || !el.matches || !el.closest || !el.closest(".fo-econ")) return;
+  if(el.matches("[data-ec-calc]")){ var k = el.getAttribute("data-ec-calc"), v = +el.value || 0; if(v > 0 || k === "pct") FO_EC.calc[k] = v; foEcRepaint(); return; }
+  if(el.matches("[data-ec-life]")){
+    var v2 = el.value === "" ? null : +el.value;
+    api("/refs/econ/settings", {method: "POST", body: {life: v2}}).then(function(){ try{ toast(v2 ? "Срок клиента: " + v2 + " мес." : "Срок клиента — авто"); }catch(x){} FO_ECON = null; foEcRepaint(); foEcLoad().then(foEcRepaint); })
+      .catch(function(err){ try{ toast("Не сохранилось: " + (err && err.message || "")); }catch(x){} });
+  }
+});
+/* ===== add131 (283, Виталий 05.10): проджект клиента — одно поле, видно везде =====
+   «В организации есть роль Проджект: может вести всех клиентов, может одного. В карточке клиента — этот пункт.
+   В блоке „Планёрка“ сверху кнопка „Распределение в команде“: проджекты и закреплённые за ними проекты, отдельно —
+   проекты без проджекта, чтобы закрепить. Всё связано: закрепил на „Планёрке“ — видно в карточке клиента, и у
+   клиента (роль клиент) тоже. Изменение вносится в разных местах, а фиксируется в одном».
+   Одно место хранения — карточка клиента на сервере (fo_card client.pm). Пишут: «Распределение в команде»
+   (POST /refs/econ/pm) и поле «Проджект» в карточке клиента (POST /refs/cards) — только собственник и директор.
+   Читают: карточка клиента (все, кто её видит, в т. ч. клиент), «Экономика» на «Рейтинге».
+   Плюс поле «Работаем с» (месяц) — для стажа клиента в экономике.                                           */
+var FO_DIST = {open: false, data: null, loading: false};
+function foDistLvl(){ try{ return (typeof FO_PERMS !== "undefined" && FO_PERMS && typeof FO_PERMS.level === "number") ? FO_PERMS.level : 9; }catch(e){ return 9; } }
+function foDistLoad(){
+  if(FO_DIST.loading) return Promise.resolve();
+  FO_DIST.loading = true;
+  return api("/refs/econ/team").then(function(r){ FO_DIST.data = r || {pms: [], clients: []}; })
+    .catch(function(e){ FO_DIST.data = {error: (e && e.message) || "сервер не ответил", pms: [], clients: []}; })
+    .then(function(){ FO_DIST.loading = false; foDistPaint(); foDistFillSelects(); });
+}
+function foDistPmName(id){
+  if(!id) return "";
+  var D = FO_DIST.data; var p = D && (D.pms || []).filter(function(x){ return String(x.employee_id) === String(id); })[0];
+  if(p) return p.name;
+  var m = (S.people || []).filter(function(x){ return String(x.id) === String(id); })[0];
+  return m ? m.name : "";
+}
+/* ── «Распределение в команде» на «Планёрке» ── */
+function foDistHTML(){
+  var D = FO_DIST.data, n0 = D && !D.error ? (D.clients || []).filter(function(c){ return !c.pm; }).length : null;
+  var bar = '<div class="fo-dist-bar"><button class="bt sm'+(FO_DIST.open ? ' pri' : '')+'" data-dist-toggle>👥 Распределение в команде'+(n0 ? ' <span class="fo-dist-badge">без проджекта: '+n0+'</span>' : '')+'</button></div>';
+  if(!FO_DIST.open) return '<div class="fo-dist">'+bar+'</div>';
+  if(!D){ foDistLoad(); return '<div class="fo-dist">'+bar+'<div class="gl"><div class="empty">Загружаю проджектов и клиентов…</div></div></div>'; }
+  if(D.error) return '<div class="fo-dist">'+bar+'<div class="gl"><div class="empty">'+esc(D.error)+' (сервер мог ещё обновляться)</div></div></div>';
+  var pms = D.pms || [], cls = D.clients || [], can = !!D.can_edit;
+  function sel(c, label){
+    if(!can) return '';
+    return '<select class="sel sm" data-dist-cl="'+esc(c.client_id)+'"><option value="">'+label+'</option>'+
+      pms.filter(function(p){ return String(p.employee_id) !== String(c.pm || ""); }).map(function(p){ return '<option value="'+esc(p.employee_id)+'">'+esc(p.name)+'</option>'; }).join("")+
+      (c.pm ? '<option value="-">— снять проджекта</option>' : '')+'</select>';
+  }
+  var none = cls.filter(function(c){ return !c.pm; });
+  var cols = pms.map(function(p){
+    var mine = cls.filter(function(c){ return String(c.pm) === String(p.employee_id); });
+    return '<div class="fo-dist-col"><div class="fo-dist-h"><b>'+esc(p.name)+'</b><span>проджект · кабинетов: '+mine.length+'</span></div>'+
+      (mine.length ? mine.map(function(c){ return '<div class="fo-dist-c"><span>'+esc(c.name)+'</span>'+sel(c, "перезакрепить…")+'</div>'; }).join("") : '<div class="empty sm">Пока никого не закрепили.</div>')+'</div>';
+  }).join("");
+  var noneCol = '<div class="fo-dist-col none"><div class="fo-dist-h"><b>Без проджекта</b><span>'+none.length+' — закрепите</span></div>'+
+    (none.length ? none.map(function(c){ return '<div class="fo-dist-c"><span>'+esc(c.name)+(c.auto_name ? '<i>сейчас в экономике считается за '+esc(c.auto_name)+' — по функциям</i>' : '')+'</span>'+sel(c, "закрепить за…")+'</div>'; }).join("") : '<div class="empty sm">Все проекты закреплены ✓</div>')+'</div>';
+  return '<div class="fo-dist">'+bar+'<div class="gl fo-dist-panel"><div class="gl-t"><h2>Распределение в команде</h2><span class="m">'+pms.length+' проджект(ов) · '+cls.length+' клиентов'+(can ? '' : ' · закрепляют собственник и директор')+'</span></div>'+
+    (pms.length ? '<div class="fo-dist-grid">'+noneCol+cols+'</div>' : '<div class="empty">В агентстве нет сотрудников с ролью «Проджект». Роль ставится в «Доступах» или грейдом «Проджект» в карточке сотрудника.</div>'+noneCol)+
+    '<div class="fo-hint">Закрепление хранится в карточке клиента на сервере: изменили здесь — видно в карточке клиента, у самого клиента в сервисе и в «Экономике» на «Рейтинге». И наоборот: поле «Проджект» в карточке клиента меняет это распределение.</div></div></div>';
+}
+function foDistPaint(){
+  var el = document.querySelector(".fo-dist"); if(!el) return;
+  var w = document.createElement("div"); w.innerHTML = foDistHTML();
+  el.replaceWith(w.firstChild);
+  try{ if(typeof enhanceSelects === "function") enhanceSelects(document.querySelector(".fo-dist")); }catch(e){}
+}
+(function(){
+  if(typeof foMtHead !== "function") return;
+  var _h = foMtHead;
+  foMtHead = function(){ var h = _h.apply(this, arguments); try{ if(foDistLvl() <= 4) h += foDistHTML(); }catch(e){} return h; };
+})();
+function foDistApply(cid, pm){
+  /* одно изменение — везде: распределение, карточка клиента во вкладке, экономика */
+  try{ var c = (FO_DIST.data && FO_DIST.data.clients || []).filter(function(x){ return String(x.client_id) === String(cid); })[0]; if(c){ c.pm = pm || null; c.auto = null; c.auto_name = null; } }catch(e){}
+  try{ var pr = (S.projects || []).filter(function(x){ return String(x.id) === String(cid); })[0]; if(pr) pr.pm = pm || ""; }catch(e){}
+  try{ if(typeof SRV_CARDS !== "undefined" && SRV_CARDS){ var k = "client:" + cid; SRV_CARDS[k] = Object.assign(SRV_CARDS[k] || {}, {pm: pm || ""}); } }catch(e){}
+  try{ if(typeof FO_ECON !== "undefined") FO_ECON = null; }catch(e){}
+}
+document.addEventListener("click", function(e){
+  var b = e.target.closest && e.target.closest("[data-dist-toggle]"); if(!b) return;
+  e.preventDefault(); e.stopPropagation();
+  FO_DIST.open = !FO_DIST.open;
+  if(FO_DIST.open) FO_DIST.data = null;      /* открыли — свежие данные с сервера */
+  foDistPaint();
+}, true);
+document.addEventListener("change", function(e){
+  var el = e.target; if(!el || !el.matches) return;
+  if(el.matches("[data-dist-cl]")){
+    var cid = el.getAttribute("data-dist-cl"), v = el.value; if(!v) return;
+    var pm = v === "-" ? null : v;
+    el.disabled = true;
+    api("/refs/econ/pm", {method: "POST", body: {client_id: cid, employee_id: pm}}).then(function(){
+      foDistApply(cid, pm);
+      try{ toast(pm ? "Закреплено за " + foDistPmName(pm) : "Проджект снят"); }catch(x){}
+      foDistPaint();
+    }).catch(function(err){ el.disabled = false; try{ toast("Не сохранилось: " + (err && err.message || "")); }catch(x){} });
+    return;
+  }
+  if(el.matches('[data-ed="cli"][data-edk="pm"]')){ foDistApply(el.getAttribute("data-edid"), el.value || ""); return; }
+});
+/* ── карточка клиента: поля «Проджект» и «Работаем с» ── */
+function foDistSelectHTML(pr){
+  var can = foDistLvl() <= 2, D = FO_DIST.data, cur = String(pr.pm || "");
+  var pms = (D && D.pms) || [];
+  if(cur && !pms.some(function(p){ return String(p.employee_id) === cur; })) pms = pms.concat([{employee_id: cur, name: foDistPmName(cur) || "сотрудник"}]);
+  return '<label class="edf"><span>Проджект</span><select class="fi sm" data-ed="cli" data-edid="'+esc(pr.id)+'" data-edk="pm" data-dist-sel'+(can ? '' : ' disabled title="Закрепляют собственник и директор"')+'>'+
+    '<option value="">— не закреплён —</option>'+pms.map(function(p){ return '<option value="'+esc(p.employee_id)+'"'+(String(p.employee_id) === cur ? ' selected' : '')+'>'+esc(p.name)+'</option>'; }).join("")+'</select></label>';
+}
+function foDistFillSelects(){
+  document.querySelectorAll("select[data-dist-sel]").forEach(function(s){
+    var id = s.getAttribute("data-edid"), pr = (S.projects || []).filter(function(x){ return String(x.id) === String(id); })[0];
+    if(!pr || s === document.activeElement) return;
+    var w = document.createElement("div"); w.innerHTML = foDistSelectHTML(pr);
+    var ns = w.querySelector("select"); if(ns) s.innerHTML = ns.innerHTML;
+  });
+}
+(function(){
+  if(typeof edCliForm !== "function") return;
+  var _f = edCliForm;
+  edCliForm = function(pr){
+    var h = _f.apply(this, arguments);
+    try{
+      if(!h) return h;
+      if(!FO_DIST.data) foDistLoad();
+      var can = foDistLvl() <= 2;
+      var sec = '<div class="edg">Проджект и стаж</div>'+
+        '<div class="edr">'+foDistSelectHTML(pr)+
+          '<label class="edf"><span>Работаем с</span><input class="fi sm" type="month" data-ed="cli" data-edid="'+esc(pr.id)+'" data-edk="since" value="'+esc(String(pr.since || "").slice(0, 7))+'"'+(can ? '' : ' disabled title="Ставят собственник и директор"')+'></label>'+
+        '</div>';
+      return h.replace(/<\/div>\s*$/, sec + '</div>');
+    }catch(e){ return h; }
+  };
+})();
+/* ── строка «Проджект: …» в карточке клиента — видят все, кто открывает карточку, в том числе клиент ── */
+(function(){
+  if(typeof ccDetail !== "function") return;
+  var _cd = ccDetail;
+  ccDetail = function(pr){
+    var h = _cd.apply(this, arguments);
+    try{
+      var nm = foDistPmName(pr && pr.pm);
+      var line = nm ? '<div class="fo-pmline">👤 Проджект: <b>'+esc(nm)+'</b></div>'
+                    : (foDistLvl() <= 4 ? '<div class="fo-pmline none">👤 Проджект не закреплён'+(foDistLvl() <= 2 ? ' — закрепите в «Данных клиента» или на «Планёрке» → «Распределение в команде»' : '')+'</div>' : '');
+      return line ? h.replace('<div class="ccdet">', '<div class="ccdet">' + line) : h;
+    }catch(e){ return h; }
+  };
 })();
 
 })();
