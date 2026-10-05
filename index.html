@@ -4687,6 +4687,10 @@ html.dark .fo-ec-t th{ background:rgba(255,255,255,.05) }
 .fo-ec-act{ margin-top:6px }
 
 .fo-ec-set{ white-space:normal !important; min-width:240px; max-width:380px }
+.fo-ec-time{ font-size:13px; padding:8px 12px; border-radius:10px; background:rgba(124,92,255,.08); margin:0 0 10px }
+.fo-ec-fns{ display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:4px 14px; margin:8px 0; font-size:12.5px }
+.fo-ec-fns label{ display:flex; gap:6px; align-items:center } .fo-ec-fns i{ font-style:normal; color:var(--ink-3); margin-left:auto }
+.fo-ec-cf .fi{ width:90px }
 /* add131 (283): распределение в команде, проджект в карточке клиента */
 .fo-dist{ margin:0 0 12px }
 .fo-dist-bar{ display:flex; gap:8px; align-items:center; margin:0 0 10px }
@@ -32033,7 +32037,8 @@ document.addEventListener("click", function(e){
    Вкладки: топ клиентов (маржа за жизнь клиента — стаж учитывается), проджекты (выручка/GMV, средний чек, LTV,
    капитализация, ЗП проджекта, маржа), чек и рентабельность (+ калькулятор «брать ли клиента за N ₽»), функции и
    наборы функций (с какими настройками услуги выгоднее).                                                        */
-var FO_ECON = null, FO_EC = {tab: "top", open: {}, calc: {check: 30000, pct: 30}};
+var FO_ECON = null, FO_EC = {tab: "top", open: {}, calc: {check: 30000, pct: 30}, cons: {fns: {}, A: 0, B: 0, C: 0, pct: 30, check: 30000}};
+var FO_EC_SPLIT = {equal: "поровну на кабинет", hours: "по часам команды", revenue: "по выручке"};
 function foEcOwner(){ try{ return typeof FO_PERMS !== "undefined" && FO_PERMS && FO_PERMS.level === 1; }catch(e){ return false; } }
 function foEcLoad(){
   return api("/refs/econ").then(function(r){ FO_ECON = r || {}; }).catch(function(e){ FO_ECON = {error: (e && e.message) || "сервер не ответил"}; });
@@ -32055,10 +32060,22 @@ function foEcWhy(r, avgRph){
   return w.join(" · ");
 }
 
+function foEcFair(r, E){ var t = (E.target || 30) / 100; return t < 1 ? r.cost / (1 - t) : 0; }
+function foEcPriceCell(r, E){
+  if(!(r.amount > 0) || !(r.hours > 0)) return '<span class="mute">—</span>';
+  var fair = Math.ceil(foEcFair(r, E) / 1000) * 1000, d = r.amount - fair;
+  if(d >= 5000) return foEcR(fair) + '<i class="okv">можно скидку до ' + foEcK(d) + '</i>';
+  if(d <= -1000) return foEcR(fair) + '<i class="critv">поднять на ' + foEcK(-d) + '</i>';
+  return foEcR(fair) + '<i>цена в норме</i>';
+}
 function foEcTopHTML(E){
   var T = E.total || {}, rows = (E.clients || []).filter(function(r){ return r.amount > 0; }), nop = (E.clients || []).filter(function(r){ return !(r.amount > 0); });
   var best = rows.slice(0, 3), worst = rows.slice(-3).reverse().filter(function(r){ return best.indexOf(r) < 0; });
-  var concl = rows.length ? '<div class="fo-ec-concl">'+
+  var hs = rows.slice().sort(function(a, b){ return b.hours - a.hours; }), hAll = rows.reduce(function(a, r){ return a + (r.hours || 0); }, 0);
+  var disc = rows.filter(function(r){ return r.hours > 0 && r.amount - foEcFair(r, E) >= 5000; }), raise = rows.filter(function(r){ return r.hours > 0 && r.amount - foEcFair(r, E) <= -1000; });
+  var dec = rows.length ? '<div class="fo-ec-concl"><div><h5>Кому можно сделать скидку</h5>'+(disc.length ? disc.map(function(r){ return '<p><b>'+esc(r.client)+'</b> — до '+foEcK(r.amount - Math.ceil(foEcFair(r, E) / 1000) * 1000)+' в месяц, маржа останется не ниже '+foEcN(E.target || 30, 0)+'%</p>'; }).join("") : '<p class="mute">Никому — запаса над целевой маржой нет.</p>')+'</div>'+
+    '<div><h5>Кому поднять цену</h5>'+(raise.length ? raise.map(function(r){ return '<p><b>'+esc(r.client)+'</b> — на '+foEcK(Math.ceil(foEcFair(r, E) / 1000) * 1000 - r.amount)+': сейчас '+foEcN(r.margin_pct, 0)+'% при цели '+foEcN(E.target || 30, 0)+'% ('+foEcN(r.hours, 0)+' ч в месяц)</p>'; }).join("") : '<p class="mute">Никому — все в целевой марже.</p>')+'</div></div>' : '';
+  var concl = rows.length ? '<div class="fo-ec-time">⏱ Время на проекты: <b>'+foEcN(hAll, 0)+' ч в месяц</b> на '+rows.length+' — в среднем <b>'+foEcN(hAll / rows.length, 0)+' ч</b> на проект; больше всего — '+esc(hs[0].client)+' ('+foEcN(hs[0].hours, 0)+' ч), меньше всего — '+esc(hs[hs.length - 1].client)+' ('+foEcN(hs[hs.length - 1].hours, 0)+' ч).</div><div class="fo-ec-concl">'+
       '<div><h5>Выгоднее всего</h5>'+best.map(function(r){ return '<p><b>'+esc(r.client)+'</b> — маржа '+foEcK(r.margin)+' в месяц ('+foEcN(r.margin_pct, 0)+'%), за жизнь '+foEcK(r.life_value)+'. <i>'+esc(foEcWhy(r, T.rph))+'</i></p>'; }).join("")+'</div>'+
       (worst.length ? '<div><h5>Невыгоднее всего</h5>'+worst.map(function(r){ return '<p><b>'+esc(r.client)+'</b> — маржа '+foEcK(r.margin)+' в месяц'+(r.margin_pct !== null ? ' ('+foEcN(r.margin_pct, 0)+'%)' : '')+', за жизнь '+foEcK(r.life_value)+'. <i>'+esc(foEcWhy(r, T.rph))+'</i></p>'; }).join("")+'</div>' : '')+
     '</div>' : '';
@@ -32067,21 +32084,23 @@ function foEcTopHTML(E){
     var h = '<tr class="fo-ec-r '+cls+'" data-ec-open="'+esc(r.client_id)+'"><td class="n">'+(r.amount > 0 ? r.rank : '—')+'</td>'+
       '<td><b>'+esc(r.client)+'</b><i>'+(r.pm_name ? esc(r.pm_name) + (r.pm_src !== "card" ? ' · авто' : '') : 'без проджекта')+'</i></td>'+
       '<td>'+foEcR(r.amount)+'</td><td>'+foEcN(r.hours, 0)+' ч</td><td>'+(r.rph ? foEcN(r.rph) + ' ₽' : '—')+'</td>'+
-      '<td>'+foEcR(r.cost)+'</td><td>'+(r.amount > 0 ? foEcR(r.margin) + ' ' + foEcPct(r.margin_pct) : '<span class="mute">платёж не указан</span>')+'</td>'+
+      '<td>'+foEcR(r.labor)+(r.labor_pct !== null && r.labor_pct !== undefined ? '<i>маржа '+foEcN(r.labor_pct, 0)+'%</i>' : '')+'</td><td>'+(r.pm ? foEcR(r.pm_share) : '<span class="mute">—</span>')+'</td>'+
+      '<td>'+(r.amount > 0 ? foEcR(r.margin) + ' ' + foEcPct(r.margin_pct) : '<span class="mute">платёж не указан</span>')+'</td>'+
+      '<td>'+foEcPriceCell(r, E)+'</td>'+
       '<td>'+(r.fns || []).length+'</td><td>'+(r.arts || 0)+(r.arts_card ? '<i>из '+r.arts_card+'</i>' : '')+'</td>'+
       '<td>'+r.months+(r.since_src !== "card" ? '<i>≈ с '+esc(r.since)+'</i>' : '')+'</td><td>'+foEcK(r.ltv_fact)+'</td>'+
       '<td><b class="'+(r.life_value < 0 ? 'critv' : '')+'">'+foEcK(r.life_value)+'</b></td></tr>';
-    if(open) h += '<tr class="fo-ec-det"><td></td><td colspan="11">'+
-      '<div class="fo-ec-dg"><div><h5>Трудозатраты в месяц</h5><p>'+foEcN(r.hours, 0)+' ч · '+foEcR(r.cost)+(r.pm_hours ? ' — из них задачи проджекта '+foEcN(r.pm_hours, 0)+' ч по его ставке: '+foEcR(r.pm_cost) : '')+'. Оклад проджекта сюда не входит — он в экономике его группы.</p></div>'+
+    if(open) h += '<tr class="fo-ec-det"><td></td><td colspan="13">'+
+      '<div class="fo-ec-dg"><div><h5>Время и деньги в месяц</h5><p>'+foEcN(r.hours, 0)+' ч'+(r.arts_hours ? ' (из них артикулы '+foEcN(r.arts_hours, 0)+' ч)' : '')+' · трудозатраты '+foEcR(r.labor)+(r.pm_hours ? ', в т. ч. задачи проджекта '+foEcN(r.pm_hours, 0)+' ч' : '')+' · ЗП проджекта на клиента ('+esc(FO_EC_SPLIT[E.pm_split] || "")+'): '+foEcR(r.pm_share)+' · маржа после проджекта '+foEcR(r.margin)+'</p></div>'+
       '<div><h5>Куда уходят часы</h5><p>'+((r.fn_hours || []).length ? r.fn_hours.map(function(f){ return esc(f.fn)+' — '+foEcN(f.h, 1)+' ч'; }).join(" · ") : 'задач по клиенту за период нет')+'</p></div>'+
       '<div><h5>Набор функций</h5><p>'+((r.fns || []).length ? esc(r.fns.join(", ")) : 'функции не стоят')+'</p></div>'+
       '<div><h5>Стаж</h5><p>с '+esc(r.since)+(r.since_src !== "card" ? ' — по дате заведения в сервис; поставьте «Работаем с» в карточке клиента' : '')+' · принёс '+foEcR(r.ltv_fact)+' · ожидаем ещё ~'+foEcN(E.life, 1)+' мес.</p></div></div></td></tr>';
     return h;
   }
-  return concl+
-    '<div class="fo-ec-wrap"><table class="fo-ec-t"><thead><tr><th>№</th><th>Клиент<i>проджект</i></th><th>Платёж<i>в месяц</i></th><th>Часы<i>в месяц</i></th><th>₽ за час</th><th>Себестоимость<i>часы команды</i></th><th>Маржа<i>в месяц</i></th><th>Функций</th><th>Артикулов<i>в управлении</i></th><th>Стаж<i>мес.</i></th><th>Принёс<i>за всё время</i></th><th>Маржа за жизнь<i>сортировка</i></th></tr></thead><tbody>'+
+  return concl+dec+
+    '<div class="fo-ec-wrap"><table class="fo-ec-t"><thead><tr><th>№</th><th>Клиент<i>проджект</i></th><th>Платёж<i>в месяц</i></th><th>Часы<i>в месяц</i></th><th>₽ за час</th><th>Трудозатраты<i>часы × ставки</i></th><th>ЗП проджекта<i>доля на клиента</i></th><th>Маржа<i>после проджекта</i></th><th>Цена при '+foEcN(E.target || 30, 0)+'%<i>скидка / поднять</i></th><th>Функций</th><th>Артикулов<i>в управлении</i></th><th>Стаж<i>мес.</i></th><th>Принёс<i>за всё время</i></th><th>Маржа за жизнь<i>сортировка</i></th></tr></thead><tbody>'+
     rows.concat(nop).map(row).join("")+'</tbody></table></div>'+
-    '<div class="fo-hint">Трудозатраты клиента = часы каждого, кто работает по клиенту (задачи и артикулы), × его ставка. Оклад проджекта — не здесь, а на вкладке «Проджекты», на всю его группу кабинетов. Маржа за жизнь клиента = маржа в месяц × (сколько месяцев уже платит + ожидаемый срок '+foEcN(E.life, 1)+' мес.). Поэтому клиент со средней маржой, который платит год, стоит выше нового с высокой; убыточный и долгий — внизу. Нажмите на строку — разбор клиента.</div>';
+    '<div class="fo-hint">Время — часы всех, кто работает по клиенту: задачи-функции, разовые и артикулы по графику АОД. Трудозатраты — эти часы × ставка каждого. ЗП проджекта видна и здесь (доля на клиента — '+esc(FO_EC_SPLIT[E.pm_split] || "")+', меняется внизу блока), и на вкладке «Проджекты» — целиком на группу; сумма долей = его оклад. Маржа за жизнь клиента = маржа в месяц × (сколько месяцев уже платит + ожидаемый срок '+foEcN(E.life, 1)+' мес.). Поэтому клиент со средней маржой, который платит год, стоит выше нового с высокой; убыточный и долгий — внизу. Нажмите на строку — разбор клиента.</div>';
 }
 
 function foEcPmHTML(E){
@@ -32118,16 +32137,40 @@ function foEcCheckHTML(E){
       return '<tr class="'+(b.n && b.margin < 0 ? 'neg' : '')+'"><td><b>'+esc(b.name)+'</b></td><td>'+b.n+'</td><td>'+(b.n ? foEcR(b.check) : '—')+'</td><td>'+(b.n ? foEcN(b.hours_per, 0) + ' ч' : '—')+'</td><td>'+(b.n ? foEcN(b.fns_per, 1) : '—')+'</td><td>'+(b.n ? b.arts_per : '—')+'</td>'+
         '<td>'+(b.rph ? foEcN(b.rph) + ' ₽' : '—')+'</td><td>'+(b.n ? foEcR(b.margin / b.n) : '—')+'</td><td>'+foEcPct(b.margin_pct)+'</td><td>'+(b.n ? foEcN(b.months_avg, 1) : '—')+'</td><td class="fo-ec-v">'+verdict(b)+'</td></tr>';
     }).join("")+'</tbody></table></div>'+
-    '<div class="fo-ec-calc"><h5>Брать ли клиента за такой чек?</h5>'+
-      '<div class="fo-ec-cf"><label>Чек клиента <input class="fi sm" type="number" min="1000" step="1000" data-ec-calc="check" value="'+C.check+'"> ₽</label>'+
-      '<label>Хочу маржу не ниже <input class="fi sm" type="number" min="0" max="90" data-ec-calc="pct" value="'+C.pct+'"> %</label></div>'+
-      (cph ? '<p>Час команды стоит агентству в среднем <b>'+foEcR(cph)+'</b> (оклады исполнителей по их часам)'+(pmCab ? ', проджект — <b>'+foEcR(pmCab)+'</b> на кабинет (оклад / его кабинеты)' : '')+'. '+
-        (maxH > 0 ? 'Чтобы клиент за <b>'+foEcR(C.check)+'</b> дал '+C.pct+'% маржи после проджекта, на него можно тратить <b>не больше '+foEcN(maxH, 0)+' ч в месяц</b>.' : 'При чеке <b>'+foEcR(C.check)+'</b> доля проджекта на кабинет уже съедает '+C.pct+'% маржи — такой чек не окупается при текущей нагрузке проджекта.')+'</p>'+
-        '<p>'+(fit.length ? 'Наборы функций, которые у вас укладываются в эти часы: '+fit.slice(0, 6).map(function(c){ return '<b>'+esc(c.set)+'</b> ('+foEcN(c.hours_per, 0)+' ч, '+c.arts_per+' арт.)'; }).join("; ")+'.' : 'Ни один ваш текущий набор функций в эти часы не укладывается — нужен облегчённый пакет.')+'</p>'
-      : '<p class="mute">Часов по задачам пока нет — посчитать нельзя.</p>')+
-    '</div>';
+    '<div class="fo-ec-act"><button class="bt sm" data-ec-tab="ideal">Брать ли клиента за такой чек — конструктор во вкладке «Идеальный проект» →</button></div>';
 }
 
+function foEcIdealHTML(E){
+  var T = E.total || {}, rows = (E.clients || []).filter(function(r){ return r.amount > 0 && r.hours > 0; });
+  var cph = T.cph || 0, pmCab = T.pm_cabs ? (T.pm_pay || 0) / T.pm_cabs : 0, AT = E.art_touch || {A: [3, 5], B: [2, 4], C: [1, 3]};
+  rows.forEach(function(r){ r._mph = r.margin / r.hours; });
+  var byMph = rows.slice().sort(function(a, b){ return b._mph - a._mph; });
+  var half = Math.max(1, Math.ceil(byMph.length / 2)), top = byMph.slice(0, half), low = byMph.slice(half);
+  function prof(l){ var n = l.length || 1; function av(f){ return l.reduce(function(a, r){ return a + f(r); }, 0) / n; }
+    return {n: l.length, check: av(function(r){ return r.amount; }), hours: av(function(r){ return r.hours; }), fns: av(function(r){ return (r.fns || []).length; }),
+            arts: av(function(r){ return r.arts || 0; }), mph: av(function(r){ return r._mph; }), pct: av(function(r){ return r.margin_pct || 0; })}; }
+  var P1 = prof(top), P2 = prof(low), best = byMph[0];
+  var h = '<div class="fo-ec-wrap"><table class="fo-ec-t"><thead><tr><th>Проект</th><th>Время<i>ч в месяц</i></th><th>Функций</th><th>Артикулов</th><th>Платёж</th><th>₽ за час<i>выручка</i></th><th>Маржа в час<i>после проджекта</i></th><th>Маржа</th></tr></thead><tbody>'+
+    byMph.map(function(r, i){ return '<tr class="'+(i === 0 ? 'pos' : r.margin < 0 ? 'neg' : '')+'"><td><b>'+esc(r.client)+'</b>'+(i === 0 ? '<i>идеальный сейчас</i>' : '')+'</td><td>'+foEcN(r.hours, 0)+' ч<i>'+(r.arts_hours ? 'артикулы '+foEcN(r.arts_hours, 0)+' ч' : '')+'</i></td><td>'+(r.fns || []).length+'</td><td>'+(r.arts || 0)+'</td><td>'+foEcR(r.amount)+'</td><td>'+(r.rph ? foEcN(r.rph) + ' ₽' : '—')+'</td><td><b>'+foEcN(r._mph)+' ₽</b></td><td>'+foEcPct(r.margin_pct)+'</td></tr>'; }).join("")+
+    '</tbody></table></div>';
+  if(best) h += '<div class="fo-ec-concl"><div><h5>Идеальный проект по деньгам сейчас</h5><p><b>'+esc(best.client)+'</b>: '+foEcR(best.amount)+' в месяц за '+foEcN(best.hours, 0)+' ч — '+(best.fns || []).length+' функций и '+(best.arts || 0)+' артикулов; маржа '+foEcN(best._mph)+' ₽ с каждого часа команды.</p></div>'+
+    (low.length ? '<div><h5>Чем выгодные отличаются от остальных</h5><p>Выгодная половина: чек '+foEcK(P1.check)+', '+foEcN(P1.hours, 0)+' ч, '+foEcN(P1.fns, 0)+' функций, '+foEcN(P1.arts, 0)+' артикулов → '+foEcN(P1.mph)+' ₽ маржи в час.</p><p>Остальные: чек '+foEcK(P2.check)+', '+foEcN(P2.hours, 0)+' ч, '+foEcN(P2.fns, 0)+' функций, '+foEcN(P2.arts, 0)+' артикулов → '+foEcN(P2.mph)+' ₽ в час.</p></div>' : '')+'</div>';
+  /* конструктор: набор функций + артикулы → время → цена */
+  var C = FO_EC.cons, F = (E.funcs || []).filter(function(f){ return f.fn !== "Артикулы (АОД)"; });
+  var hF = F.reduce(function(a, f){ return a + (C.fns[f.fn] ? (+f.h_per || 0) : 0); }, 0), nF = F.filter(function(f){ return C.fns[f.fn]; }).length;
+  var hA = ["A", "B", "C"].reduce(function(a, k){ return a + (+C[k] || 0) * AT[k][0] * AT[k][1] * 52 / 12 / 60; }, 0);
+  var hT = hF + hA, cost = hT * cph + pmCab, price = C.pct < 100 ? cost / (1 - C.pct / 100) : 0, mar = C.check - cost;
+  h += '<div class="fo-ec-calc"><h5>Конструктор проекта: функции + артикулы → время → цена</h5>'+
+    '<div class="fo-ec-fns">'+(F.length ? F.map(function(f){ return '<label><input type="checkbox" data-ec-cfn="'+esc(f.fn)+'"'+(C.fns[f.fn] ? ' checked' : '')+'> '+esc(f.fn)+' <i>'+foEcN(f.h_per, 1)+' ч</i></label>'; }).join("") : '<span class="mute">функций с часами пока нет</span>')+'</div>'+
+    '<div class="fo-ec-cf"><label>Артикулов A <input class="fi sm" type="number" min="0" data-ec-cons="A" value="'+(C.A || 0)+'"></label><label>B <input class="fi sm" type="number" min="0" data-ec-cons="B" value="'+(C.B || 0)+'"></label><label>C <input class="fi sm" type="number" min="0" data-ec-cons="C" value="'+(C.C || 0)+'"></label>'+
+      '<label>Маржа не ниже <input class="fi sm" type="number" min="0" max="90" data-ec-cons="pct" value="'+C.pct+'"> %</label><label>Чек клиента <input class="fi sm" type="number" min="0" step="1000" data-ec-cons="check" value="'+C.check+'"> ₽</label></div>'+
+    (cph ? '<p>Время: <b>'+foEcN(hT, 0)+' ч в месяц</b> ('+nF+' функций — '+foEcN(hF, 0)+' ч, артикулы — '+foEcN(hA, 0)+' ч; касаний в неделю A '+AT.A[0]+', B '+AT.B[0]+', C '+AT.C[0]+'). Трудозатраты '+foEcR(hT * cph)+' (час исполнителя '+foEcR(cph)+') + ЗП проджекта на кабинет '+foEcR(pmCab)+' = <b>'+foEcR(cost)+'</b>.</p>'+
+      '<p>Минимальная цена для '+C.pct+'% маржи — <b>'+foEcR(price)+'</b> в месяц. При чеке '+foEcR(C.check)+': маржа с долей проджекта <b class="'+(mar < 0 ? 'critv' : mar / (C.check || 1) * 100 >= C.pct ? 'okv' : 'warnv')+'">'+foEcR(mar)+(C.check ? ' ('+foEcN(mar / C.check * 100, 0)+'%)' : '')+'</b>'+(hT ? ', '+foEcN(mar / hT)+' ₽ в час' : '')+'.</p>'+
+      '<p>Если проджект берёт такой кабинет без найма (оклад уже платится), прибыль агентства вырастет на <b class="'+(C.check - hT * cph < 0 ? 'critv' : 'okv')+'">'+foEcR(C.check - hT * cph)+'</b> в месяц: чек минус только часы исполнителей. Средняя доля проджекта на кабинет тогда снизится до '+foEcR(T.pm_cabs ? (T.pm_pay || 0) / (T.pm_cabs + 1) : 0)+'.</p>'
+      : '<p class="mute">Часов по задачам пока нет — посчитать нельзя.</p>')+
+    '<div class="fo-hint">Часы функции — средние по вашим кабинетам, где она стоит; артикулы — касания по графику АОД. Отметьте набор функций и объём артикулов — увидите время и цену такого проекта.</div></div>';
+  return h;
+}
 function foEcFnHTML(E){
   var T = E.total || {}, cph = (T.hours > 0) ? T.cost / T.hours : 0;
   var F = E.funcs || [], K = E.combos || [];
@@ -32147,14 +32190,14 @@ function foEconHTML(){
   if(!FO_ECON) return '<div class="gl fo-econ"><div class="gl-t"><h2>Экономика клиентов и проджектов</h2></div><div class="empty">Считаю на сервере по всем клиентам…</div></div>';
   if(FO_ECON.error) return '<div class="gl fo-econ"><div class="gl-t"><h2>Экономика клиентов и проджектов</h2></div><div class="empty">'+esc(FO_ECON.error)+' (сервер мог ещё обновляться — откройте через пару минут)</div></div>';
   var E = FO_ECON, T = E.total || {}, M = E.missing || {};
-  var tabs = [["top", "Топ клиентов"], ["pm", "Проджекты"], ["check", "Чек и рентабельность"], ["fn", "Функции и наборы"]];
+  var tabs = [["top", "Топ клиентов"], ["ideal", "Время и идеальный проект"], ["pm", "Проджекты"], ["check", "Чек и рентабельность"], ["fn", "Функции и наборы"]];
   var miss = [];
   if(M.amount) miss.push('платёж не указан у ' + M.amount);
   if(M.since) miss.push('«Работаем с» не заполнено у ' + M.since + ' — стаж считаем от даты заведения в сервис');
   if(M.pm) miss.push('проджект не закреплён у ' + M.pm + ' — взят по функциям');
   if((M.pay || []).length) miss.push('оклад не указан: ' + M.pay.join(", ") + ' — взята середина вилки грейда');
   if(M.no_hours) miss.push('нет задач за период у ' + M.no_hours);
-  var body = FO_EC.tab === "pm" ? foEcPmHTML(E) : FO_EC.tab === "check" ? foEcCheckHTML(E) : FO_EC.tab === "fn" ? foEcFnHTML(E) : foEcTopHTML(E);
+  var body = FO_EC.tab === "pm" ? foEcPmHTML(E) : FO_EC.tab === "check" ? foEcCheckHTML(E) : FO_EC.tab === "fn" ? foEcFnHTML(E) : FO_EC.tab === "ideal" ? foEcIdealHTML(E) : foEcTopHTML(E);
   return '<div class="gl fo-econ"><div class="gl-t"><h2>Экономика клиентов и проджектов</h2><span class="m">все клиенты агентства · считает сервер · видит только собственник</span>'+
       '<div class="seg sm">'+tabs.map(function(t){ return '<button data-ec-tab="'+t[0]+'" aria-pressed="'+(FO_EC.tab === t[0])+'">'+t[1]+'</button>'; }).join("")+'</div></div>'+
     '<div class="fo-grow4">'+
@@ -32167,7 +32210,8 @@ function foEconHTML(){
     '</div>'+
     (miss.length ? '<div class="fo-ec-miss">Не хватает данных: '+esc(miss.join(" · "))+'.</div>' : '')+
     body+
-    '<div class="fo-ec-foot"><label>Ожидаемый срок клиента <input class="fi sm" type="number" min="1" max="60" step="0.5" data-ec-life value="'+(E.life_set ? E.life : "")+'" placeholder="'+foEcN(E.life_auto, 1)+'"> мес.</label>'+
+    '<div class="fo-ec-foot"><label>Целевая маржа <input class="fi sm" type="number" min="0" max="90" data-ec-target value="'+foEcN(E.target || 30, 0)+'"> % — от неё «скидка / поднять цену»</label><label>ЗП проджекта на клиента <select class="sel sm" data-ec-split>'+["equal", "hours", "revenue"].map(function(k){ return '<option value="'+k+'"'+(E.pm_split === k ? ' selected' : '')+'>'+FO_EC_SPLIT[k]+'</option>'; }).join("")+'</select></label>'+
+      '<label>Ожидаемый срок клиента <input class="fi sm" type="number" min="1" max="60" step="0.5" data-ec-life value="'+(E.life_set ? E.life : "")+'" placeholder="'+foEcN(E.life_auto, 1)+'"> мес.</label>'+
       '<span>'+(E.life_set ? 'задан вами; авто — '+foEcN(E.life_auto, 1) : 'авто: '+foEcN(E.life_auto, 1)+' — по доле клиентов с ответом «не продлевает», иначе 12')+'</span>'+
       '<span>Часы — по задачам сервиса '+esc(String((E.window || {}).from || "").slice(8, 10)+"."+String((E.window || {}).from || "").slice(5, 7))+'–'+esc(String((E.window || {}).to || "").slice(8, 10)+"."+String((E.window || {}).to || "").slice(5, 7))+' ('+((E.window || {}).workdays || 0)+' раб. дней с задачами), пересчёт на месяц — 21 рабочий день; плюс работа с артикулами по графику АОД (касание: A 5 мин, B 4, C 3). Цена часа — оклад / (рабочий день × 21).</span></div>'+
   '</div>';
@@ -32201,6 +32245,18 @@ document.addEventListener("click", function(e){
 });
 document.addEventListener("change", function(e){
   var el = e.target; if(!el || !el.matches || !el.closest || !el.closest(".fo-econ")) return;
+  if(el.matches("[data-ec-cfn]")){ FO_EC.cons.fns[el.getAttribute("data-ec-cfn")] = !!el.checked; foEcRepaint(); return; }
+  if(el.matches("[data-ec-cons]")){ FO_EC.cons[el.getAttribute("data-ec-cons")] = Math.max(0, +el.value || 0); foEcRepaint(); return; }
+  if(el.matches("[data-ec-split]")){
+    api("/refs/econ/settings", {method: "POST", body: {pm_split: el.value}}).then(function(){ try{ toast("ЗП проджекта на клиента: " + FO_EC_SPLIT[el.value]); }catch(x){} FO_ECON = null; foEcRepaint(); foEcLoad().then(foEcRepaint); })
+      .catch(function(err){ try{ toast("Не сохранилось: " + (err && err.message || "")); }catch(x){} });
+    return;
+  }
+  if(el.matches("[data-ec-target]")){
+    api("/refs/econ/settings", {method: "POST", body: {target: +el.value || 0}}).then(function(){ try{ toast("Целевая маржа: " + (+el.value || 0) + "%"); }catch(x){} FO_ECON = null; foEcRepaint(); foEcLoad().then(foEcRepaint); })
+      .catch(function(err){ try{ toast("Не сохранилось: " + (err && err.message || "")); }catch(x){} });
+    return;
+  }
   if(el.matches("[data-ec-calc]")){ var k = el.getAttribute("data-ec-calc"), v = +el.value || 0; if(v > 0 || k === "pct") FO_EC.calc[k] = v; foEcRepaint(); return; }
   if(el.matches("[data-ec-life]")){
     var v2 = el.value === "" ? null : +el.value;
