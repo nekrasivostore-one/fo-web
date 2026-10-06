@@ -1994,20 +1994,25 @@ def _fo_rp_me():
     return _FO_RP_ME
 
 
-async def _fo_rp_send_telegram(chat_id, text):
+async def _fo_rp_send_telegram(chat_id, text, _noimg=False):
     """Замена notify.send_telegram: шлёт бот отчётов (если подключён), иначе бот сервиса; сообщение ложится
     в историю чата (ИИ задач видит, что клиенту отправили)."""
     tok = _fo_rp_tok() or _fo_env("TG_BOT_TOKEN")
     if not tok:
         return False
     res = None
-    try:
-        _fi = await _fo_fi_for_text(chat_id, text)          # 289: выполненная функция — картинкой с подписью
-    except Exception as _e:
-        print("бот отчётов, картинка:", str(_e)[:200])
-        _fi = None
+    _fi = None
+    if not _noimg:
+        try:
+            _fi = await _fo_fi_for_text(chat_id, text)      # 289: выполненная функция — картинкой с подписью
+        except Exception as _e:
+            print("бот отчётов, картинка:", str(_e)[:200])
     if _fi:
-        res = await _fo_aio.to_thread(_fo_fi_photo_sync, tok, chat_id, _fi, str(text))
+        _fid = await _fo_fi_fid(tok, _fi[0])
+        if not _fid:                                          # первая отправка этой картинки — в фоне, галочка не ждёт
+            _fo_aio.get_running_loop().create_task(_fo_fi_bg(tok, chat_id, _fi, str(text)))
+            return True
+        res = await _fo_aio.to_thread(_fo_fi_photo_sync, tok, chat_id, _fi, str(text), _fid)
         if not res.get("ok"):
             print("бот отчётов, картинка не ушла:", str(res.get("description") or res)[:200])
             res = None
@@ -4733,8 +4738,7 @@ async def _fo_fi_for_text(chat_id, text):
 
 
 def _fo_fi_pub_url(title):
-    """Публичная ссылка на картинку: Telegram забирает её сам (загрузка файла с сервера в Telegram висит).
-    Ссылка без входа, подписана — подделать заголовок нельзя."""
+    """Публичная ссылка на картинку (Telegram её не забирает: сервер для него недоступен — оставлена на будущее)."""
     import base64 as _b64, hmac as _hm
     key = (_fo_env("TG_REPORT_BOT_TOKEN") or _fo_env("TG_BOT_TOKEN") or "fo").encode()
     t = _b64.urlsafe_b64encode(str(title).encode("utf-8")).decode().rstrip("=")
@@ -4742,9 +4746,13 @@ def _fo_fi_pub_url(title):
     return "https://fo.flater.pro/refs/fnimg/pub/%s/%s.jpg" % (sig, t)
 
 
-def _fo_fi_photo_sync(tok, chat_id, fi, text):
-    """Картинка функции + подпись (текст отчёта). Сначала file_id, потом ссылка — без загрузки файла.
-    Длинная подпись: начало под картинкой, остальное следом. Не вышло — вернёт ok=false (уйдёт текстом)."""
+_FO_FI_LAST = {}
+
+
+def _fo_fi_photo_sync(tok, chat_id, fi, text, fid=None):
+    """Картинка функции + подпись. fid — уже загруженная картинка (мгновенно); без него — загрузка файла
+    (с сервера в Telegram идёт медленно, поэтому только в фоне). Длинная подпись: остаток следом."""
+    import uuid as _uu
     title, data = fi
     text = str(text or "")
     cap, rest = text, ""
@@ -4752,25 +4760,117 @@ def _fo_fi_photo_sync(tok, chat_id, fi, text):
         cut = text.rfind("\n", 0, 1000)
         cut = cut if cut > 0 else 1000
         cap, rest = text[:cut], text[cut:].strip()
-    key = (tok[:14], title)
     prm = {"chat_id": str(chat_id), "caption": cap}
-    res = {}
-    if _FO_FI_TG.get(key):
-        res = _fo_tg_api_sync("sendPhoto", dict(prm, photo=_FO_FI_TG[key]), tok, 15)
-    if not res.get("ok"):
-        res = _fo_tg_api_sync("sendPhoto", dict(prm, photo=_fo_fi_pub_url(title)), tok, 25)
-        if res.get("ok"):
-            ph = ((res.get("result") or {}).get("photo") or [{}])[-1]
-            if ph.get("file_id"):
-                _FO_FI_TG[key] = ph["file_id"]
+    if fid:
+        res = _fo_tg_api_sync("sendPhoto", dict(prm, photo=fid), tok, 20)
+    else:
+        b = "----fo" + _uu.uuid4().hex
+        body = b"".join([("--%s\r\nContent-Disposition: form-data; name=\"%s\"\r\n\r\n%s\r\n" % (b, k, v)).encode("utf-8")
+                         for k, v in prm.items()])
+        body += ("--%s\r\nContent-Disposition: form-data; name=\"photo\"; filename=\"function.jpg\"\r\n"
+                 "Content-Type: image/jpeg\r\n\r\n" % b).encode() + data + ("\r\n--%s--\r\n" % b).encode()
+        rq = _fo_ur.Request("https://api.telegram.org/bot%s/sendPhoto" % tok, data=body,
+                            headers={"Content-Type": "multipart/form-data; boundary=" + b})
+        try:
+            with _fo_ur.urlopen(rq, timeout=150) as r:
+                res = _fo_json.loads(r.read().decode())
+        except Exception as e:
+            txt = ""
+            try:
+                txt = e.read().decode()[:300]
+            except Exception:
+                pass
+            try:
+                res = _fo_json.loads(txt)
+            except Exception:
+                res = {"ok": False, "description": (str(e) + " " + txt).replace(tok, "***")[:300]}
     if res.get("ok") and rest:
         _fo_tg_api_sync("sendMessage", {"chat_id": str(chat_id), "text": rest[:4000], "disable_web_page_preview": True}, tok, 15)
     return res
 
 
+def _fo_fi_ref(tok):
+    return "fnimg_tg:" + _fo_hl.sha1(str(tok).encode()).hexdigest()[:12]
+
+
+async def _fo_fi_fid(tok, title):
+    """file_id уже загруженной картинки этого бота: память процесса, потом база (переживает перезапуск)."""
+    k = (tok[:14], title)
+    if _FO_FI_TG.get(k):
+        return _FO_FI_TG[k]
+    try:
+        async with pool().acquire() as c:
+            v = await c.fetchval("SELECT data->>$2 FROM fo_card WHERE kind='sys' AND ref_id=$1", _fo_fi_ref(tok), title)
+        if v:
+            _FO_FI_TG[k] = v
+        return v
+    except Exception:
+        return None
+
+
+async def _fo_fi_fid_save(tok, chat_id, title, fid):
+    _FO_FI_TG[(tok[:14], title)] = fid
+    try:
+        async with pool().acquire() as c:
+            org = await c.fetchval("SELECT org_id FROM chat WHERE chat_id=$1 LIMIT 1", str(chat_id))
+            if org:
+                await c.execute(
+                    "INSERT INTO fo_card (kind, ref_id, org_id, data) VALUES ('sys', $1, $2, $3::jsonb) "
+                    "ON CONFLICT (kind, ref_id) DO UPDATE SET data = fo_card.data || EXCLUDED.data, updated_at = now()",
+                    _fo_fi_ref(tok), org, _fo_json.dumps({title: fid}))
+    except Exception:
+        pass
+
+
+async def _fo_fi_log(chat_id, mid, text):
+    """Отправленное ложится в историю чата (как у текстового отчёта)."""
+    try:
+        async with pool().acquire() as c:
+            ch = await c.fetchrow("SELECT ch.id, ch.org_id, cc.client_id, cc.kind FROM chat ch "
+                                  "JOIN client_chat cc ON cc.chat_pk = ch.id WHERE ch.chat_id=$1 "
+                                  "ORDER BY (cc.kind='client') DESC LIMIT 1", str(chat_id))
+            if ch and mid:
+                await c.execute(
+                    "INSERT INTO fo_chat_msg (org_id, client_id, chat_pk, kind, tg_chat_id, msg_id, author, author_tg, text, msg_at, ai_state, ai_note) "
+                    "VALUES ($1,$2::uuid,$3,$4,$5,$6,'Бот отчётов','',$7,now(),'skip','сообщение бота отчётов (с картинкой)') "
+                    "ON CONFLICT (tg_chat_id, msg_id) DO NOTHING",
+                    ch["org_id"], str(ch["client_id"]), ch["id"], ch["kind"], str(chat_id), -(1000000 + int(mid)), str(text)[:4000])
+    except Exception:
+        pass
+
+
+async def _fo_fi_bg(tok, chat_id, fi, text, fallback=True):
+    """Первая отправка картинки функции — в фоне (галочка не ждёт). Не вышло — отчёт уходит текстом."""
+    t0 = _fo_time.time()
+    try:
+        res = await _fo_aio.to_thread(_fo_fi_photo_sync, tok, chat_id, fi, text, None)
+    except Exception as e:
+        res = {"ok": False, "description": str(e)[:200]}
+    _FO_FI_LAST.clear()
+    _FO_FI_LAST.update({"когда": _fo_dt.datetime.now().strftime("%d.%m %H:%M:%S"), "секунд": round(_fo_time.time() - t0, 1),
+                        "ok": bool(res.get("ok")), "заголовок": fi[0],
+                        "ошибка": None if res.get("ok") else str(res.get("description") or res)[:200]})
+    if res.get("ok"):
+        r = res.get("result") or {}
+        ph = (r.get("photo") or [{}])[-1]
+        if ph.get("file_id"):
+            await _fo_fi_fid_save(tok, chat_id, fi[0], ph["file_id"])
+        await _fo_fi_log(chat_id, r.get("message_id"), text)
+    elif fallback:
+        print("бот отчётов, картинка не ушла:", _FO_FI_LAST.get("ошибка"))
+        await _fo_rp_send_telegram(chat_id, text, _noimg=True)
+    return res
+
+
+@router.get("/fnimg/last")
+async def fo_fnimg_last(p: Principal = Depends(max_level(2))):
+    """Последняя фоновая отправка картинки: сколько шла, ушла ли."""
+    return dict(_FO_FI_LAST) or {"нет": "ещё не отправлялось"}
+
+
 @router.get("/fnimg/pub/{sig}/{name}")
 async def fo_fnimg_pub(sig: str, name: str):
-    """Картинка по подписанной ссылке — для Telegram (без входа)."""
+    """Картинка по подписанной ссылке (без входа)."""
     import base64 as _b64, hmac as _hm
     from fastapi.responses import Response as _FoResp
     t = name[:-4] if name.endswith(".jpg") else name
@@ -4866,9 +4966,14 @@ async def fo_fnimg_test(body: FoFiTestIn, p: Principal = Depends(max_level(2))):
             raise HTTPException(404, "нет функции или чата клиента")
         title = await _fo_fi_title(c, p.org_id, body.fn_id, name)
     data = await _fo_aio.to_thread(_fo_fi_render, title)
-    res = await _fo_aio.to_thread(_fo_fi_photo_sync, tok, ch, (title, data),
-                                  (body.text or "").strip()[:1500] or ("Проверка картинки: ✅ Выполнено: %s" % name))
-    return {"ok": bool(res.get("ok")), "title": title, "error": None if res.get("ok") else str(res.get("description"))[:200]}
+    txt = (body.text or "").strip()[:1500] or ("Проверка картинки: ✅ Выполнено: %s" % name)
+    fid = await _fo_fi_fid(tok, title)
+    if fid:
+        res = await _fo_aio.to_thread(_fo_fi_photo_sync, tok, ch, (title, data), txt, fid)
+        return {"ok": bool(res.get("ok")), "title": title, "как": "по file_id",
+                "error": None if res.get("ok") else str(res.get("description"))[:200]}
+    _fo_aio.get_running_loop().create_task(_fo_fi_bg(tok, ch, (title, data), txt, fallback=False))
+    return {"ok": True, "title": title, "как": "загружается в фоне — результат: GET /refs/fnimg/last"}
 
 
 @router.get("/plan")
@@ -9266,6 +9371,33 @@ try:
                           "im = Image.open('/opt/fo/fnimg/bg.jpg'); print(im.size, int(f.getlength('Проверка')))"],
                          capture_output=True, text=True, timeout=60)
     p("картинки функций: фон и шрифт", ((_r3.stdout or "") + (_r3.stderr or "")).strip()[-300:])
+    # 289д: скорость загрузки файла в Telegram (сам файл никуда не уходит: POST 45 КБ на getMe)
+    try:
+        import time as _t289, urllib.request as _u289
+        _E289 = {}
+        for _ln in open("/opt/fo/.env", encoding="utf-8"):
+            _ln = _ln.strip()
+            if "=" in _ln and not _ln.startswith("#"):
+                _a, _b = _ln.split("=", 1)
+                _E289[_a.strip()] = _b.strip().strip('"').strip("'")
+        for _nm in ("TG_REPORT_BOT_TOKEN", "TG_MEET_BOT_TOKEN"):
+            _tk = _E289.get(_nm, "")
+            if not _tk:
+                p("загрузка 45 КБ,", _nm, ": нет токена")
+                continue
+            _bd = "----fo289"
+            _body = ("--%s\r\nContent-Disposition: form-data; name=\"x\"; filename=\"x.jpg\"\r\nContent-Type: image/jpeg\r\n\r\n" % _bd).encode() \
+                + os.urandom(45000) + ("\r\n--%s--\r\n" % _bd).encode()
+            _t0 = _t289.time()
+            try:
+                _rq = _u289.Request("https://api.telegram.org/bot%s/getMe" % _tk, data=_body,
+                                    headers={"Content-Type": "multipart/form-data; boundary=" + _bd})
+                _u289.urlopen(_rq, timeout=120).read()
+                p("загрузка 45 КБ,", _nm, ": %.1f с" % (_t289.time() - _t0))
+            except Exception as _e:
+                p("загрузка 45 КБ,", _nm, ": ошибка за %.0f с" % (_t289.time() - _t0), str(_e).replace(_tk, "***")[:120])
+    except Exception as _e:
+        p("загрузка 45 КБ: ошибка", str(_e)[:150])
 except Exception as _e:
     p("картинки функций: ошибка", str(_e)[:200])
 
