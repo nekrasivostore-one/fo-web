@@ -4732,9 +4732,19 @@ async def _fo_fi_for_text(chat_id, text):
     return (title, data)
 
 
+def _fo_fi_pub_url(title):
+    """Публичная ссылка на картинку: Telegram забирает её сам (загрузка файла с сервера в Telegram висит).
+    Ссылка без входа, подписана — подделать заголовок нельзя."""
+    import base64 as _b64, hmac as _hm
+    key = (_fo_env("TG_REPORT_BOT_TOKEN") or _fo_env("TG_BOT_TOKEN") or "fo").encode()
+    t = _b64.urlsafe_b64encode(str(title).encode("utf-8")).decode().rstrip("=")
+    sig = _hm.new(key, t.encode(), "sha256").hexdigest()[:20]
+    return "https://fo.flater.pro/refs/fnimg/pub/%s/%s.jpg" % (sig, t)
+
+
 def _fo_fi_photo_sync(tok, chat_id, fi, text):
-    """Картинка функции + подпись (текст отчёта). Длинная подпись: начало под картинкой, остальное следом."""
-    import uuid as _uu
+    """Картинка функции + подпись (текст отчёта). Сначала file_id, потом ссылка — без загрузки файла.
+    Длинная подпись: начало под картинкой, остальное следом. Не вышло — вернёт ok=false (уйдёт текстом)."""
     title, data = fi
     text = str(text or "")
     cap, rest = text, ""
@@ -4746,35 +4756,33 @@ def _fo_fi_photo_sync(tok, chat_id, fi, text):
     prm = {"chat_id": str(chat_id), "caption": cap}
     res = {}
     if _FO_FI_TG.get(key):
-        res = _fo_tg_api_sync("sendPhoto", dict(prm, photo=_FO_FI_TG[key]), tok, 20)
+        res = _fo_tg_api_sync("sendPhoto", dict(prm, photo=_FO_FI_TG[key]), tok, 15)
     if not res.get("ok"):
-        b = "----fo" + _uu.uuid4().hex
-        body = b"".join([("--%s\r\nContent-Disposition: form-data; name=\"%s\"\r\n\r\n%s\r\n" % (b, k, v)).encode("utf-8")
-                         for k, v in prm.items()])
-        body += ("--%s\r\nContent-Disposition: form-data; name=\"photo\"; filename=\"function.jpg\"\r\n"
-                 "Content-Type: image/jpeg\r\n\r\n" % b).encode() + data + ("\r\n--%s--\r\n" % b).encode()
-        rq = _fo_ur.Request("https://api.telegram.org/bot%s/sendPhoto" % tok, data=body,
-                            headers={"Content-Type": "multipart/form-data; boundary=" + b})
-        try:
-            with _fo_ur.urlopen(rq, timeout=40) as r:
-                res = _fo_json.loads(r.read().decode())
-        except Exception as e:
-            txt = ""
-            try:
-                txt = e.read().decode()[:300]
-            except Exception:
-                pass
-            try:
-                res = _fo_json.loads(txt)
-            except Exception:
-                res = {"ok": False, "description": (str(e) + " " + txt).replace(tok, "***")[:300]}
+        res = _fo_tg_api_sync("sendPhoto", dict(prm, photo=_fo_fi_pub_url(title)), tok, 25)
         if res.get("ok"):
             ph = ((res.get("result") or {}).get("photo") or [{}])[-1]
             if ph.get("file_id"):
                 _FO_FI_TG[key] = ph["file_id"]
     if res.get("ok") and rest:
-        _fo_tg_api_sync("sendMessage", {"chat_id": str(chat_id), "text": rest[:4000], "disable_web_page_preview": True}, tok, 20)
+        _fo_tg_api_sync("sendMessage", {"chat_id": str(chat_id), "text": rest[:4000], "disable_web_page_preview": True}, tok, 15)
     return res
+
+
+@router.get("/fnimg/pub/{sig}/{name}")
+async def fo_fnimg_pub(sig: str, name: str):
+    """Картинка по подписанной ссылке — для Telegram (без входа)."""
+    import base64 as _b64, hmac as _hm
+    from fastapi.responses import Response as _FoResp
+    t = name[:-4] if name.endswith(".jpg") else name
+    key = (_fo_env("TG_REPORT_BOT_TOKEN") or _fo_env("TG_BOT_TOKEN") or "fo").encode()
+    if not _hm.compare_digest(_hm.new(key, t.encode(), "sha256").hexdigest()[:20], sig):
+        raise HTTPException(404, "нет такой картинки")
+    try:
+        title = _b64.urlsafe_b64decode(t + "=" * (-len(t) % 4)).decode("utf-8")[:140]
+        data = await _fo_aio.to_thread(_fo_fi_render, title)
+    except Exception:
+        raise HTTPException(404, "нет такой картинки")
+    return _FoResp(content=data, media_type="image/jpeg", headers={"Cache-Control": "public, max-age=86400"})
 
 
 class FoFiTitlesIn(_FoBM):
@@ -4784,6 +4792,7 @@ class FoFiTitlesIn(_FoBM):
 class FoFiTestIn(_FoBM):
     client_id: str
     fn_id: str
+    text: str | None = None
 
 
 @router.get("/fnimg")
@@ -4857,7 +4866,8 @@ async def fo_fnimg_test(body: FoFiTestIn, p: Principal = Depends(max_level(2))):
             raise HTTPException(404, "нет функции или чата клиента")
         title = await _fo_fi_title(c, p.org_id, body.fn_id, name)
     data = await _fo_aio.to_thread(_fo_fi_render, title)
-    res = await _fo_aio.to_thread(_fo_fi_photo_sync, tok, ch, (title, data), "Проверка картинки: ✅ Выполнено: %s" % name)
+    res = await _fo_aio.to_thread(_fo_fi_photo_sync, tok, ch, (title, data),
+                                  (body.text or "").strip()[:1500] or ("Проверка картинки: ✅ Выполнено: %s" % name))
     return {"ok": bool(res.get("ok")), "title": title, "error": None if res.get("ok") else str(res.get("description"))[:200]}
 
 
