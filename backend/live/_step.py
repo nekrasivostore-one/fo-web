@@ -4554,6 +4554,7 @@ _FO_FI_RANGES = ((32, 126), (160, 172), (174, 255), (1024, 1119), (8208, 8231), 
                  (8470, 8470), (8592, 8601), (10003, 10003))
 _FO_FI_SUR = ("ов", "ев", "ёв", "ин", "ын", "ян", "ова", "ева", "ина", "ына", "ский", "ская", "цкий", "цкая",
               "енко", "юк", "ук", "дзе", "швили")
+_FO_FI_SHORT = ("без", "для", "при", "над", "под", "про", "или", "как", "что", "через")
 _FO_FI_ORG = ("ИП", "ООО", "ОАО", "ЗАО", "ТОО", "АО", "ПАО")
 _FO_FI_MEM = {}          # заголовок → JPEG (в памяти процесса)
 _FO_FI_TG = {}           # (бот, заголовок) → file_id Telegram
@@ -4622,11 +4623,23 @@ def _fo_fi_render(title, q=90):
     fpath = _FO_FI_DIR + "/title.ttf"
     maxw, top, bottom = W - 220, 98, H - 34
 
-    def wrap(font):
+    # короткие слова («и», «с», «в», «без») не висят в конце строки — склеиваем со следующим неразрывным пробелом
+    words = [w for w in title.split(" ") if w]
+    glued = []
+    for w in words:
+        last = glued[-1].split("\u00a0")[-1] if glued else ""
+        if last and ((last.isalpha() and last.islower() and (len(last) <= 2 or last in _FO_FI_SHORT))
+                     or last in _FO_FI_ORG or w in ("—", "–", "-")):          # «ИП Сидякин», тире не в начале строки
+            glued[-1] = glued[-1] + "\u00a0" + w
+        else:
+            glued.append(w)
+
+    def wrap(font, width=None):
+        width = width or maxw
         lines, cur = [], ""
-        for w in title.split():
+        for w in glued:
             t = (cur + " " + w).strip()
-            if d.textlength(t, font=font) <= maxw or not cur:
+            if d.textlength(t, font=font) <= width or not cur:
                 cur = t
             else:
                 lines.append(cur)
@@ -4644,6 +4657,14 @@ def _fo_fi_render(title, q=90):
             break
     else:
         ls = ls[:3]
+    if len(ls) > 1:                                   # ровные строки: сужаем, пока число строк то же
+        wd = maxw
+        while wd > 300:
+            t2 = wrap(f, wd - 20)
+            if len(t2) != len(ls):
+                break
+            wd -= 20
+            ls = t2
     lh = int(f.size * 1.08)
     y0 = top + (bottom - top - lh * len(ls)) // 2
     # мягкое свечение под заголовком — как в «Планёрке»
@@ -4674,7 +4695,6 @@ def _fo_fi_render(title, q=90):
         _FO_FI_MEM.clear()
     _FO_FI_MEM[title] = data
     return data
-
 
 async def _fo_fi_titles(c, org_id):
     r = await c.fetchval("SELECT data FROM fo_card WHERE kind='org' AND ref_id=$1 AND org_id=$2", "fnimg:" + str(org_id), org_id)
