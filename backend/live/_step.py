@@ -3806,7 +3806,9 @@ async def _fo_bot_me(tok):
         return x[1]
     r = await _fo_aio.to_thread(_fo_tg_api_sync, "getMe", {}, tok, 10)
     me = (r.get("result") or {}) if r.get("ok") else {}
-    _FO_BOT_ME[tok] = (_fo_time.time(), me)
+    if not me and x and x[1]:
+        me = x[1]                      # 297: Telegram не ответил — последний удачный ответ, не «бот не на связи»
+    _FO_BOT_ME[tok] = (_fo_time.time() if (r.get("ok") and me) else _fo_time.time() - 3540, me)   # неудача — повтор через минуту
     return me
 
 
@@ -3976,12 +3978,7 @@ async def fo_bots_chats(bot: str = "main", p: Principal = Depends(max_level(1)))
     sem = _fo_aio.Semaphore(6)
 
     async def member(chat_id):
-        if not me.get("id"):
-            return None, "бот не на связи"
-        async with sem:
-            cm = await _fo_aio.to_thread(_fo_tg_api_sync, "getChatMember", {"chat_id": chat_id, "user_id": me["id"]}, tok, 10)
-        st = ((cm.get("result") or {}).get("status") or "") if cm and cm.get("ok") else ""
-        return st in ("member", "administrator", "creator"), (st or str((cm or {}).get("description") or "")[:60])
+        return await _fo_memb(bk, tok, me.get("id"), chat_id, sem)   # 297: таймаут ≠ «бота нет»
     items = [r for r in chs if r["kind"] in kinds]
     num = [r for r in items if re.match(r"^-?\d+$", str(r["chat_id"] or ""))]
     res = await _fo_aio.gather(*[member(str(r["chat_id"])) for r in num])
@@ -6153,6 +6150,84 @@ async def fo_chats_reconcile(p: Principal = Depends(max_level(4))):
     async with pool().acquire() as c:
         done = await _fo_chat_reconcile(c, p.org_id)
     return {"привязано": done}
+
+
+# ══ 297: сидит ли бот в группе — не путать «Telegram не ответил» с «бота нет» (Виталий 07.10) ══
+# «Стулли — я скопировал название, у тебя опять какая-то проблема… покажи идентификаторы прям в карточке, что бот
+# подключён, или сделай систему прямого подключения — без ссылок». Было: проверка getChatMember по таймауту
+# считалась «бота нет», а неудачный getMe кэшировался на час («бот не на связи»). Теперь: True / False / None,
+# последний удачный ответ помнится; в карточке — ID группы и три бота; группы, где уже есть бот, — списком.
+_FO_MEMB = {}
+
+
+async def _fo_memb(bk, tok, me_id, chat_id, sem=None):
+    key = (bk, str(chat_id))
+    old = _FO_MEMB.get(key)
+    if not tok or not me_id:
+        if old:
+            return old[0], "бот не на связи · последний ответ " + old[2] + " (" + (old[1] or "") + ")"
+        return None, "бот не на связи"
+
+    async def ask():
+        return await _fo_aio.to_thread(_fo_tg_api_sync, "getChatMember", {"chat_id": str(chat_id), "user_id": me_id}, tok, 10)
+    if sem is not None:
+        async with sem:
+            cm = await ask()
+    else:
+        cm = await ask()
+    now = _fo_mt_now().strftime("%d.%m %H:%M")
+    if cm and cm.get("ok"):
+        st = (cm.get("result") or {}).get("status") or ""
+        ok = st in ("member", "administrator", "creator")
+        _FO_MEMB[key] = (ok, st, now)
+        return ok, st
+    d = str((cm or {}).get("description") or "")
+    if re.search(r"chat not found|kicked|forbidden|not a member|participant", d, re.I):
+        _FO_MEMB[key] = (False, d[:60], now)
+        return False, d[:60]
+    if old:
+        return old[0], "не проверилось сейчас · последний ответ " + old[2] + " (" + (old[1] or "") + ")"
+    return None, "не проверилось — Telegram не ответил"
+
+
+@router.get("/clients/{client_id}/chats/state")
+async def fo_client_chats_state(client_id: str, p: Principal = Depends(max_level(4))):
+    """Чаты клиента: ID группы в Telegram и сидит ли в ней каждый из трёх ботов; группы, где бот уже есть, но к
+    клиентам не подключены, — для прямого подключения (PUT /chats/link/{клиент})."""
+    async with pool().acquire() as c:
+        try:
+            await _fo_chat_reconcile(c, p.org_id)
+        except Exception as e:
+            print("297 сверка чатов:", str(e)[:150])
+        rows = await c.fetch("SELECT ch.id AS pk, ch.title, ch.chat_id, cc.kind FROM client_chat cc JOIN chat ch ON ch.id = cc.chat_pk "
+                             "WHERE cc.client_id=$1::uuid AND ch.org_id=$2 ORDER BY (cc.kind='client') DESC, ch.id", client_id, p.org_id)
+        free = await c.fetch("SELECT ch.id AS pk, ch.title, ch.added_at FROM chat ch WHERE ch.org_id=$1 AND ch.is_active "
+                             "AND ch.chat_id ~ '^-?[0-9]+$' AND NOT EXISTS (SELECT 1 FROM client_chat cc WHERE cc.chat_pk = ch.id) "
+                             "ORDER BY ch.added_at DESC NULLS LAST LIMIT 50", p.org_id)
+    toks = _fo_bot_toks()
+    names = {"main": "бот задач", "meet": "бот планёрок", "report": "бот отчётов"}
+    mes = {}
+    for bk in ("main", "meet", "report"):
+        try:
+            mes[bk] = await _fo_bot_me(toks.get(bk)) if toks.get(bk) else {}
+        except Exception:
+            mes[bk] = {}
+    sem = _fo_aio.Semaphore(6)
+    out = []
+    for r in rows:
+        num = str(r["chat_id"] or "")
+        isnum = bool(re.match(r"^-?\d+$", num))
+        bots = []
+        if isnum:
+            res = await _fo_aio.gather(*[_fo_memb(bk, toks.get(bk), (mes.get(bk) or {}).get("id"), num, sem)
+                                         for bk in ("main", "meet", "report")])
+            for bk, (ok, st) in zip(("main", "meet", "report"), res):
+                bots.append({"bot": bk, "name": names[bk], "username": (mes.get(bk) or {}).get("username") or "",
+                             "in": ok, "status": st})
+        out.append({"pk": r["pk"], "title": r["title"] or "", "kind": r["kind"], "tg": num if isnum else None, "bots": bots})
+    return {"chats": out, "free": [{"pk": f["pk"], "title": f["title"] or "",
+                                    "added": f["added_at"].isoformat() if f["added_at"] else None} for f in free],
+            "bots": {bk: (mes.get(bk) or {}).get("username") or "" for bk in ("main", "meet", "report")}}
 
 
 async def _fo_tg_claim(c, tg, title):
