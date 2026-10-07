@@ -466,6 +466,16 @@ BEGIN
 EXCEPTION WHEN OTHERS THEN
   RAISE NOTICE 'chat id fix: %', SQLERRM;
 END $$;
+-- 301: уже подключённым чатам «подключились» в группу не пишем — только новым
+DO $$
+BEGIN
+  INSERT INTO fo_card (kind, ref_id, org_id, data)
+  SELECT 'sys', 'chat_hello:' || ch.id, ch.org_id, '{"old": true}'::jsonb FROM chat ch
+   WHERE ch.chat_id ~ '^-?[0-9]+$' AND EXISTS (SELECT 1 FROM client_chat cc WHERE cc.chat_pk = ch.id)
+  ON CONFLICT (kind, ref_id) DO NOTHING;
+EXCEPTION WHEN OTHERS THEN
+  RAISE NOTICE 'chat hello 301: %', SQLERRM;
+END $$;
 -- 296: бот записал группу раньше, чем её внесли в карточку — номер переносим в чат карточки (тот же id)
 DO $$
 DECLARE r record; n int;
@@ -6139,6 +6149,7 @@ async def _fo_chat_reconcile(c, org_id):
         try:
             if await _fo_chat_merge(c, r["cid"], r["nid"], r["num"]):
                 used.add(r["nid"]); used.add(r["cid"]); done.append(r["title"])
+                _fo_chat_hello_soon(r["cid"])             # 301
         except Exception as e:
             print("296 чат: не слилось", r["title"], str(e)[:120])
     return done
@@ -6225,6 +6236,8 @@ async def fo_client_chats_state(client_id: str, p: Principal = Depends(max_level
                 bots.append({"bot": bk, "name": names[bk], "username": (mes.get(bk) or {}).get("username") or "",
                              "in": ok, "status": st})
         out.append({"pk": r["pk"], "title": r["title"] or "", "kind": r["kind"], "tg": num if isnum else None, "bots": bots})
+        if isnum:
+            _fo_chat_hello_soon(r["pk"], 3)               # 301: подключили из карточки — в группу «подключились» (один раз)
     return {"chats": out, "free": [{"pk": f["pk"], "title": f["title"] or "",
                                     "added": f["added_at"].isoformat() if f["added_at"] else None} for f in free],
             "bots": {bk: (mes.get(bk) or {}).get("username") or "" for bk in ("main", "meet", "report")}}
@@ -6260,6 +6273,242 @@ async def fo_meet_fix(client_id: str, body: FoMtFixIn, p: Principal = Depends(ma
     return {"ok": True, "итог": res}
 
 
+# ══ 301: чат подключается сам (Виталий 07.10) ══
+# «Хочу, чтобы это делал не Клод, а сервис самостоятельно или боты самостоятельно». Квиз: по названию группы, иначе
+# кнопками; что подключились — пишет бот в саму группу.
+# · Бот задач увидел группу (добавили / новое сообщение), она ни к кому не подключена → ищем клиента агентства, чьё имя
+#   есть в названии группы («ООО Лифарм / Восток Плюс» → ООО Лифарм; без «ООО/ИП» тоже). Один клиент — подключаем
+#   (в названии «МПВ» — рабочим чатом команды, иначе чатом с клиентом). Не нашли / несколько — спрашиваем кнопками
+#   В ЛИЧКЕ того, кто добавил бота (собственник, директор, РМ), или собственника: в группе клиента список других
+#   клиентов агентства показывать нельзя.
+# · После подключения (любым путём) — в группу один раз: «✅ Чат подключён … Боты: задач ✓ · отчётов ✓ · планёрок ✓»
+#   (через 25 с — успеть добавить всех ботов); бота добавили позже — короткое «✓ … на месте».
+_FO_CHAT_MPV = re.compile(r"(?<![а-яa-z0-9])мпв(?![а-яa-z0-9])|рабоч\w*\s+чат|чат\s+команд", re.I)
+_FO_CHAT_SKIP = re.compile(r"план\s+работ", re.I)
+_FO_CHAT_FORMS = re.compile(r"^(ооо|ип|ао|зао|пао|оао|ип\.)\s+")
+_FO_HELLO_Q = set()
+
+
+def _fo_chat_norm(s):
+    s = str(s or "").lower().replace("ё", "е")
+    s = re.sub(r"[«»\"'`“”„]", " ", s)
+    return re.sub(r"\s+", " ", s).strip()
+
+
+def _fo_chat_kind(title):
+    return "mpv" if _FO_CHAT_MPV.search(_fo_chat_norm(title)) else "client"
+
+
+def _fo_chat_has(title_n, name):
+    nm = _fo_chat_norm(name)
+    if len(nm) < 3:
+        return 0
+    pat = r"(?<![а-яa-z0-9])%s(?![а-яa-z0-9])"
+    if re.search(pat % re.escape(nm), title_n):
+        return len(nm) + 100
+    core = _FO_CHAT_FORMS.sub("", nm).strip()
+    if len(core) >= 4 and core != nm and re.search(pat % re.escape(core), title_n):
+        return len(core)
+    return 0
+
+
+async def _fo_flag_take(c, org_id, key):
+    """Один раз: True — флаг поставили сейчас (можно делать), False — уже стоял."""
+    v = await c.fetchval("INSERT INTO fo_card (kind, ref_id, org_id, data) VALUES ('sys', $1, $2, $3::jsonb) "
+                         "ON CONFLICT (kind, ref_id) DO NOTHING RETURNING 1", key, org_id,
+                         _fo_json.dumps({"at": _fo_mt_now().strftime("%d.%m %H:%M"), "ts": _fo_time.time()}))
+    return bool(v)
+
+
+async def _fo_flag_drop(c, key):
+    await c.execute("DELETE FROM fo_card WHERE kind='sys' AND ref_id=$1", key)
+
+
+async def _fo_chat_tg(method, prm):
+    return await _fo_aio.to_thread(_fo_tg_api_sync, method, prm, _fo_bot_toks().get("main"), 15)
+
+
+async def _fo_chat_bots_line(chat_id):
+    toks = _fo_bot_toks()
+    parts, miss = [], []
+    for bk, nm in (("main", "задач"), ("report", "отчётов"), ("meet", "планёрок")):
+        tok = toks.get(bk)
+        me = await _fo_bot_me(tok) if tok else {}
+        ok, st = await _fo_memb(bk, tok, me.get("id"), chat_id)
+        if ok:
+            parts.append(nm + " ✓")
+        elif ok is False:
+            parts.append(nm + " — добавьте @" + (me.get("username") or "бота"))
+            miss.append(bk)
+        else:
+            parts.append(nm + " — не проверилось")
+    return " · ".join(parts), miss
+
+
+async def _fo_chat_hello(c, chat_pk):
+    r = await c.fetchrow("SELECT ch.id, ch.org_id, ch.chat_id, cl.name, cc.kind FROM chat ch "
+                         "JOIN client_chat cc ON cc.chat_pk = ch.id JOIN client cl ON cl.id = cc.client_id "
+                         "WHERE ch.id=$1 AND ch.chat_id ~ '^-?[0-9]+$' LIMIT 1", chat_pk)
+    if not r:
+        return None
+    key = "chat_hello:%s" % chat_pk
+    if not await _fo_flag_take(c, r["org_id"], key):
+        return None
+    line, miss = await _fo_chat_bots_line(r["chat_id"])
+    kind = {"client": "чат с клиентом", "mpv": "рабочий чат команды", "internal": "внутренний чат"}.get(r["kind"], r["kind"] or "")
+    txt = "✅ Чат подключён к сервису агентства: «%s», %s.\nБоты: %s" % (r["name"], kind, line)
+    res = await _fo_chat_tg("sendMessage", {"chat_id": str(r["chat_id"]), "text": txt, "disable_web_page_preview": True})
+    if not (res and res.get("ok")):
+        await _fo_flag_drop(c, key)                     # не ушло (бота задач ещё нет в группе) — повторим позже
+    print("301 чат подключён:", r["name"], kind, "· в группу:", "ушло" if res and res.get("ok") else str((res or {}).get("description"))[:80])
+    return res
+
+
+def _fo_chat_hello_soon(chat_pk, delay=25):
+    if not chat_pk or chat_pk in _FO_HELLO_Q:
+        return
+    _FO_HELLO_Q.add(chat_pk)
+
+    async def run():
+        try:
+            await _fo_aio.sleep(delay)
+            async with pool().acquire() as c2:
+                await _fo_chat_hello(c2, chat_pk)
+        except Exception as e:
+            print("301 приветствие:", str(e)[:150])
+        finally:
+            _FO_HELLO_Q.discard(chat_pk)
+    try:
+        _fo_aio.get_running_loop().create_task(run())
+    except Exception:
+        _FO_HELLO_Q.discard(chat_pk)
+
+
+async def _fo_chat_newbots(c, chat_id, members):
+    toks = _fo_bot_toks()
+    ours = {}
+    for bk in ("main", "report", "meet"):
+        me = await _fo_bot_me(toks.get(bk)) if toks.get(bk) else {}
+        if me.get("id"):
+            ours[int(me["id"])] = bk
+    if not any(int((m or {}).get("id") or 0) in ours for m in (members or [])):
+        return
+    r = await c.fetchrow("SELECT ch.id, ch.org_id FROM chat ch JOIN client_chat cc ON cc.chat_pk = ch.id WHERE ch.chat_id=$1 LIMIT 1",
+                         str(chat_id))
+    if not r:
+        return
+    h = _fo_mt_load(await c.fetchval("SELECT data FROM fo_card WHERE kind='sys' AND ref_id=$1", "chat_hello:%s" % r["id"]), None)
+    if not isinstance(h, dict) or h.get("old"):
+        _fo_chat_hello_soon(r["id"])                      # приветствия ещё не было — оно и покажет всех ботов
+        return
+    if _fo_time.time() - float(h.get("ts") or 0) < 90:
+        return                                            # приветствие только что ушло
+    line, miss = await _fo_chat_bots_line(chat_id)
+    await _fo_chat_tg("sendMessage", {"chat_id": str(chat_id), "text": ("Все боты на месте ✅\n" if not miss else "") + "Боты: " + line})
+
+
+async def _fo_tg_level(c, tg_id):
+    r = await c.fetchrow("SELECT ref_id, org_id FROM fo_card WHERE kind='employee' AND data->>'tg_id'=$1 LIMIT 1", str(tg_id))
+    if not r:
+        return None, None
+    u = await c.fetchrow("SELECT r.level FROM employee e JOIN app_user u ON u.id = e.user_id JOIN role r ON r.code = u.role_code "
+                         "WHERE e.id::text = $1", str(r["ref_id"])) or \
+        await c.fetchrow("SELECT r.level FROM app_user u JOIN role r ON r.code = u.role_code WHERE u.id::text = $1", str(r["ref_id"]))
+    return (int(u["level"]) if u else None), r["org_id"]
+
+
+async def _fo_chat_link(c, pk, client_id, kind):
+    if not await c.fetchval("SELECT 1 FROM client_chat WHERE client_id=$1::uuid AND chat_pk=$2", str(client_id), pk):
+        await c.execute("INSERT INTO client_chat (client_id, chat_pk, kind, format, send_plans, send_facts) "
+                        "VALUES ($1::uuid, $2, $3, 'by_employee', true, true)", str(client_id), pk, kind)
+
+
+async def _fo_chat_auto(c, org, tg, title, ev):
+    """Группа ни к кому не подключена → по названию, иначе кнопки в личку собственнику / тому, кто добавил бота."""
+    pk = await c.fetchval("SELECT id FROM chat WHERE org_id=$1 AND channel='telegram' AND chat_id=$2", org, tg)
+    if not pk or await c.fetchval("SELECT 1 FROM client_chat WHERE chat_pk=$1", pk):
+        return
+    if _FO_CHAT_SKIP.search(_fo_chat_norm(title)):
+        return
+    tn = _fo_chat_norm(title)
+    cls = await c.fetch("SELECT id, name FROM client WHERE org_id=$1 ORDER BY name", org)
+    sc = sorted(((_fo_chat_has(tn, cl["name"]), cl) for cl in cls), key=lambda x: -x[0])
+    sc = [x for x in sc if x[0] > 0]
+    kind = _fo_chat_kind(title)
+    if sc and (len(sc) == 1 or sc[0][0] > sc[1][0]):
+        await _fo_chat_link(c, pk, sc[0][1]["id"], kind)
+        print("301 чат подключён по названию:", title, "→", sc[0][1]["name"], kind)
+        _fo_chat_hello_soon(pk)
+        return
+    if not await _fo_flag_take(c, org, "chat_ask:%s" % pk):
+        return
+    to = []
+    frm = (ev.get("from") or {}).get("id")
+    if frm:
+        lv, o2 = await _fo_tg_level(c, frm)
+        if lv is not None and lv <= 4 and str(o2) == str(org):
+            to = [str(frm)]
+    if not to:
+        for r in await c.fetch("SELECT cd.data->>'tg_id' AS tg FROM fo_card cd WHERE cd.kind='employee' AND cd.org_id=$1 "
+                               "AND coalesce(cd.data->>'tg_id','') ~ '^[0-9]+$'", org):
+            lv, _o = await _fo_tg_level(c, r["tg"])
+            if lv is not None and lv <= 1:
+                to.append(str(r["tg"]))
+    first = [x[1] for x in sc] + [cl for cl in cls if all(cl["id"] != y[1]["id"] for y in sc)]
+    rows = [[{"text": str(cl["name"])[:60], "callback_data": "fol:%s:%s" % (pk, cl["id"])}] for cl in first[:30]]
+    rows.append([{"text": "Не подключать", "callback_data": "fol:%s:-" % pk}])
+    txt = ("Бот добавлен в группу «%s». Это чат какого клиента? Подключу как %s.\nЕсли ничего не нажимать — группа "
+           "останется в карточке клиента в списке «Подключить группу, где уже есть бот»." %
+           (title, "рабочий чат команды (МПВ)" if kind == "mpv" else "чат с клиентом"))
+    sent = 0
+    for t in to[:3]:
+        res = await _fo_chat_tg("sendMessage", {"chat_id": t, "text": txt, "reply_markup": {"inline_keyboard": rows}})
+        sent += 1 if res and res.get("ok") else 0
+    if not sent:
+        await _fo_flag_drop(c, "chat_ask:%s" % pk)
+    print("301 спросили, чей чат:", title, "· кому:", len(to), "· ушло:", sent)
+
+
+async def _fo_chat_cb(cq):
+    """Кнопка «чат какого клиента» в личке."""
+    data = str(cq.get("data") or "")
+    m = re.fullmatch(r"fol:(\d+):([0-9a-f-]{36}|-)", data)
+    msg = cq.get("message") or {}
+    frm = (cq.get("from") or {}).get("id")
+    ans = "Готово"
+    try:
+        async with pool().acquire() as c:
+            if not m or not frm:
+                ans = "Не разобрал кнопку"
+            else:
+                pk, cid = int(m.group(1)), m.group(2)
+                lv, org = await _fo_tg_level(c, frm)
+                ch = await c.fetchrow("SELECT id, org_id, chat_id, title FROM chat WHERE id=$1", pk)
+                if lv is None or lv > 4 or not ch or str(ch["org_id"]) != str(org):
+                    ans = "Подключать может собственник, директор или РМ"
+                elif cid == "-":
+                    ans = "Хорошо, не подключаю"
+                    await _fo_chat_tg("editMessageText", {"chat_id": str(msg.get("chat", {}).get("id")), "message_id": msg.get("message_id"),
+                                                          "text": "Группа «%s» — не подключаем." % (ch["title"] or "")})
+                else:
+                    cl = await c.fetchrow("SELECT id, name FROM client WHERE id=$1::uuid AND org_id=$2", cid, ch["org_id"])
+                    if not cl:
+                        ans = "Клиент не найден"
+                    elif await c.fetchval("SELECT 1 FROM client_chat WHERE chat_pk=$1", pk):
+                        ans = "Эта группа уже подключена"
+                    else:
+                        kind = _fo_chat_kind(ch["title"])
+                        await _fo_chat_link(c, pk, cl["id"], kind)
+                        await _fo_chat_tg("editMessageText", {"chat_id": str(msg.get("chat", {}).get("id")), "message_id": msg.get("message_id"),
+                                                              "text": "✅ «%s» → %s (%s). В группу напишу, что подключились." %
+                                                                      (ch["title"] or "", cl["name"], "рабочий чат команды" if kind == "mpv" else "чат с клиентом")})
+                        _fo_chat_hello_soon(pk, 3)
+                        ans = "Подключено"
+    except Exception as e:
+        ans = "Ошибка: " + str(e)[:60]
+    await _fo_chat_tg("answerCallbackQuery", {"callback_query_id": str(cq.get("id")), "text": ans[:190]})
+
+
 async def _fo_tg_claim(c, tg, title):
     """Чат внесли в карточку ссылкой-приглашением (t.me/+…), а Telegram присылает номер группы.
     Находим такой чат по названию и ставим ему настоящий номер — тогда бот и читает, и пишет в него."""
@@ -6275,8 +6524,12 @@ async def _fo_tg_claim(c, tg, title):
         # 296: бот записал группу раньше карточки — переносим номер в чат карточки, если та запись ни к кому не привязана
         if await c.fetchval("SELECT 1 FROM client_chat WHERE chat_pk=$1", busy):
             return False
-        return await _fo_chat_merge(c, row["id"], busy, tg)
+        ok = await _fo_chat_merge(c, row["id"], busy, tg)
+        if ok:
+            _fo_chat_hello_soon(row["id"])                # 301: в группу — «подключились»
+        return ok
     await c.execute("UPDATE chat SET chat_id=$2, is_active=true WHERE id=$1", row["id"], tg)
+    _fo_chat_hello_soon(row["id"])
     return True
 
 
@@ -6291,7 +6544,14 @@ async def _fo_tg_register(upd):
     async with pool().acquire() as c:
         linked = await c.fetchval("SELECT 1 FROM chat ch JOIN client_chat cc ON cc.chat_pk = ch.id WHERE ch.chat_id=$1 LIMIT 1",
                                   str(chat["id"]))
-        if linked or await _fo_tg_claim(c, str(chat["id"]), chat.get("title") or ""):
+        if linked:
+            try:
+                if ev.get("new_chat_members"):
+                    await _fo_chat_newbots(c, str(chat["id"]), ev.get("new_chat_members"))   # 301
+            except Exception as _e301:
+                print("301 новые боты:", str(_e301)[:150])
+            return
+        if await _fo_tg_claim(c, str(chat["id"]), chat.get("title") or ""):
             return
         org = await c.fetchval("SELECT org_id FROM chat WHERE chat_id=$1 ORDER BY added_at LIMIT 1", str(chat["id"]))
         if not org:
@@ -6313,6 +6573,10 @@ async def _fo_tg_register(upd):
             "INSERT INTO chat (org_id, channel, chat_id, title) VALUES ($1, 'telegram', $2, $3) "
             "ON CONFLICT (org_id, channel, chat_id) DO UPDATE SET title=EXCLUDED.title, is_active=true",
             org, str(chat["id"]), title)
+        try:
+            await _fo_chat_auto(c, org, str(chat["id"]), title, ev)   # 301: подключить самому
+        except Exception as _e301:
+            print("301 автоподключение:", str(_e301)[:150])
 
 
 async def _fo_ai_on_msg(msg, src=""):
@@ -6379,6 +6643,10 @@ async def fo_tg_hook(request: _FoReq):
     if not secret or request.headers.get("x-telegram-bot-api-secret-token", "") != secret:
         raise HTTPException(403, "нет")
     upd = await request.json()
+    cq = upd.get("callback_query")
+    if cq and str(cq.get("data") or "").startswith("fol:") and request.headers.get("x-fo-bot", "") != "meet":
+        _fo_aio.get_running_loop().create_task(_fo_chat_cb(cq))     # 301: «чат какого клиента» — кнопка в личке
+        return {"ok": True}
     try:
         await _fo_tg_register(upd)
     except Exception:
@@ -10100,7 +10368,7 @@ print("fo-tgpoll: старт", flush=True)
 while True:
     try:
         res = call("getUpdates", {"offset": off, "timeout": 10,
-                                  "allowed_updates": json.dumps(["message", "my_chat_member", "edited_message"])}, timeout=20)
+                                  "allowed_updates": json.dumps(["message", "my_chat_member", "edited_message", "callback_query"])}, timeout=20)
         for u in res.get("result", []):
             off = u["update_id"] + 1
             rq = urllib.request.Request("http://127.0.0.1:8000/refs/tg/hook", data=json.dumps(u).encode(),
