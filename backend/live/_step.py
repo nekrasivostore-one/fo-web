@@ -466,6 +466,9 @@ BEGIN
 EXCEPTION WHEN OTHERS THEN
   RAISE NOTICE 'chat id fix: %', SQLERRM;
 END $$;
+-- 307: приглашение человека команды выписалось уровнем «Клиент сервиса» — по грейду «Менеджер главный»
+UPDATE org_invite SET role_code = 'manager_senior'
+ WHERE person_ref = 'p1_1jh1' AND role_code = 'client_org' AND used_at IS NULL AND revoked_at IS NULL;
 -- 301: уже подключённым чатам «подключились» в группу не пишем — только новым
 DO $$
 BEGIN
@@ -10432,6 +10435,9 @@ try:
     p("свои тексты событий:", sh("sudo -u postgres psql -d fo -Atc \"SELECT count(*) FROM fo_card WHERE kind='rtxt'\"").strip())
 except Exception as _e284:
     p("ошибка:", str(_e284)[:200])
+p("")
+p("== 307 ПРИГЛАШЕНИЯ ЛЮДЕЙ КОМАНДЫ ==")
+p(sh("sudo -u postgres psql -d fo -Atc \"SELECT person_ref||' · '||role_code||' · '||to_char(created_at AT TIME ZONE 'Europe/Moscow','DD.MM HH24:MI')||' · '||CASE WHEN used_at IS NOT NULL THEN 'использовано' WHEN revoked_at IS NOT NULL THEN 'отозвано' ELSE 'ждёт' END FROM org_invite WHERE person_ref ~ '^p[0-9]+_' ORDER BY created_at DESC LIMIT 10\"").strip() or "(нет)")
 p("")
 p("== КОД ==")
 p("дописано в refs.py и signup.py, копия в", bak)
