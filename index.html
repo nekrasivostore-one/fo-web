@@ -4737,6 +4737,20 @@ html.dark .fo-dist-col{ background:rgba(255,255,255,.03) }
 .fo-chatr i.fo-chwait{ color:var(--warn, #E0A13A); font-style:normal; white-space:normal }
 .fo-mtst.fo-mtwhy{ color:var(--warn, #E0A13A) }
 .fo-mtbch{ margin-top:14px }
+
+/* add140: чаты карточки — ID группы, три бота, прямое подключение */
+.fo-chatr{ flex-wrap:wrap }
+.fo-chatr i.fo-chok code{ font-size:12px; padding:1px 6px; border-radius:6px; background:var(--panel-2); border:1px solid var(--stroke-2) }
+.fo-chst{ flex-basis:100%; display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin:4px 0 2px }
+.fo-chb{ display:inline-block; font-size:11px; font-weight:600; padding:2px 8px; border-radius:8px; border:1px solid var(--stroke-2); color:var(--ink-2) }
+.fo-chb.ok{ color:var(--ok, #2BB673); border-color:currentColor }
+.fo-chb.bad{ color:var(--crit, #E5484D); border-color:currentColor }
+.fo-chb.mute{ color:var(--ink-3) }
+.fo-chlink{ margin:10px 0; padding:10px 12px; border-radius:12px; background:var(--panel-2); border:1px solid var(--stroke-2) }
+.fo-chlh{ display:flex; align-items:center; gap:10px; margin-bottom:6px }
+.fo-chlr{ display:flex; flex-wrap:wrap; gap:8px; align-items:center }
+.fo-chlr .sel{ min-width:200px }
+.fo-chlh .fo-lnk{ background:none; border:none; padding:0; color:#7C5CFF; cursor:pointer; font-size:12px; font-weight:600 }
 </style>
 </head>
 <body>
@@ -33283,6 +33297,132 @@ function foDistFillSelects(){
     if(t.hasAttribute("data-bch-f")){ try{ FO_BCH.f = t.getAttribute("data-bch-f"); }catch(x){} try{ foMtRender(); }catch(x){} return; }
     meetLoad(true); try{ foMtRender(); }catch(x){}
   }, true);
+})();
+
+/* ===== add140: 298 — чаты в карточке клиента: ID группы, три бота, прямое подключение (Виталий 07.10)
+   «Покажи мне идентификаторы прям в карточке, что бот подключён. Или сделай систему прямого подключения — без ссылок».
+   · У каждого чата клиента: ID группы в Telegram и отметки «бот задач / бот отчётов / бот планёрок»:
+     ✓ в чате · ✗ нет в чате · ? не проверилось (Telegram не ответил — показываем последний ответ). Сервер v107.
+   · «Подключить группу, где уже есть бот»: добавили бота в группу → группа сама появляется в этом списке →
+     выбрали, вид чата, «Подключить» (PUT /chats/link/{клиент}). Ни ссылок, ни набора названия.
+   · В «Чат-ботах» и на «Планёрке» «не проверилось» больше не показывается как «✗ бота нет».          */
+(function(){
+  var ST = {};     /* клиент → {loading, chats, free, bots, at, err} */
+  var KINDS = [["client", "Чат с клиентом"], ["mpv", "Рабочий чат МПВ"], ["internal", "Внутренний"]];
+  function liveMgr(){
+    try{ return (typeof foLive !== "function" || foLive()) && typeof A !== "undefined" && A && (+A.level || 9) <= 4; }
+    catch(e){ return false; }
+  }
+  function load(pid, force){
+    var d = ST[pid];
+    if(d && (d.loading || (d.at && !force))) return;
+    ST[pid] = d = d || {}; d.loading = true;
+    api("/refs/clients/" + encodeURIComponent(pid) + "/chats/state").then(function(r){
+      d.chats = (r && r.chats) || []; d.free = (r && r.free) || []; d.bots = (r && r.bots) || {}; d.err = null;
+    }, function(err){ d.err = (err && err.message) || "ошибка"; })
+      .then(function(){ d.loading = false; d.at = Date.now(); try{ renderCards(); }catch(x){} });
+  }
+  function badge(b){
+    var cls = b["in"] === true ? "ok" : b["in"] === false ? "bad" : "mute";
+    var mark = b["in"] === true ? "✓" : b["in"] === false ? "✗" : "?";
+    var tip = (b.username ? "@" + b.username + " · " : "") + (b.status || "");
+    return '<span class="fo-chb '+cls+'" title="'+esc(tip)+'">'+mark+' '+esc(b.name)+'</span>';
+  }
+
+  if(typeof foChatsBlock === "function"){
+    var _cb = foChatsBlock;
+    foChatsBlock = function(pr){
+      var h = _cb.apply(this, arguments);
+      if(!liveMgr() || !pr || !pr.id) return h;
+      try{
+        var d = ST[pr.id];
+        if(!d || !d.at) load(pr.id, false);
+        var box = document.createElement("div"); box.innerHTML = h;
+        var list = (typeof FO_CHATS !== "undefined" && FO_CHATS[pr.id]) || [];
+        box.querySelectorAll(".fo-chatr").forEach(function(r){
+          var del = r.querySelector("[data-fochatdel]"), pk = del ? del.getAttribute("data-fochatdel") : null;
+          var c = list.filter(function(x){ return String(x.pk) === String(pk); })[0];
+          var s = d && d.chats ? d.chats.filter(function(x){ return String(x.pk) === String(pk); })[0] : null;
+          var tg = (s && s.tg) || (c && /^-?\d+$/.test(String(c.chat_id || "").trim()) ? String(c.chat_id).trim() : "");
+          var i = r.querySelector("i");
+          if(i){
+            i.className = tg ? "fo-chok" : "fo-chwait";
+            i.innerHTML = tg ? 'ID в Telegram: <code>'+esc(tg)+'</code>' : 'номера нет — бот ещё не видел эту группу';
+          }
+          var line = document.createElement("div"); line.className = "fo-chst";
+          if(!tg) line.innerHTML = '<span class="fo-chb bad">✗ боты не видят группу</span><span class="fo-hint">Добавьте @'+esc((d && d.bots && d.bots.main) || "Flater_Team_Service_bot")+' в группу — она появится в списке «Подключить группу» ниже.</span>';
+          else if(!d || d.loading) line.innerHTML = '<span class="fo-chb mute">проверяю ботов…</span>';
+          else if(s && s.bots && s.bots.length) line.innerHTML = s.bots.map(badge).join("");
+          else line.innerHTML = '<span class="fo-chb mute">не проверилось'+(d.err ? ': ' + esc(d.err) : '')+'</span>';
+          r.appendChild(line);
+        });
+        /* прямое подключение */
+        var add = box.querySelector(".fo-chatadd");
+        var free = (d && d.free) || [];
+        var w = document.createElement("div"); w.className = "fo-chlink"; w.setAttribute("data-focli", pr.id);
+        w.innerHTML = '<div class="fo-chlh"><b>Подключить группу, где уже есть бот</b>'+
+            '<button class="fo-lnk" data-fochref="'+esc(pr.id)+'">Проверить снова</button></div>'+
+          (free.length
+            ? '<div class="fo-chlr"><select class="sel sm" data-fochfree>'+free.map(function(f){
+                return '<option value="'+esc(f.pk)+'">'+esc(f.title || ("группа " + f.pk))+'</option>'; }).join("")+'</select>'+
+              '<select class="sel sm" data-fochkind>'+KINDS.map(function(k){ return '<option value="'+k[0]+'">'+k[1]+'</option>'; }).join("")+'</select>'+
+              '<button class="bt sm pri" data-fochlink="'+esc(pr.id)+'">Подключить</button></div>'
+            : '<div class="fo-hint">'+(d && d.loading ? 'Ищу группы…' : 'Свободных групп с ботом нет.')+'</div>')+
+          '<div class="fo-hint">Порядок: добавьте @'+esc((d && d.bots && d.bots.main) || "Flater_Team_Service_bot")+
+            ' (и ботов отчётов и планёрок) в группу Telegram → нажмите «Проверить снова» → выберите группу → «Подключить». Ссылки и названия вписывать не нужно.</div>';
+        if(add) add.parentNode.insertBefore(w, add); else (box.querySelector(".fo-chats") || box).appendChild(w);
+        return box.innerHTML;
+      }catch(e){ return h; }
+    };
+  }
+
+  document.addEventListener("click", function(e){
+    var t = e.target.closest && e.target.closest("[data-fochlink], [data-fochref]");
+    if(!t) return;
+    e.preventDefault(); e.stopPropagation();
+    if(t.hasAttribute("data-fochref")){ var p0 = t.getAttribute("data-fochref"); load(p0, true); try{ renderCards(); }catch(x){} return; }
+    var pid = t.getAttribute("data-fochlink"), w = t.closest(".fo-chlink");
+    var pk = +((w.querySelector("[data-fochfree]") || {}).value || 0), kind = (w.querySelector("[data-fochkind]") || {}).value || "client";
+    if(!pk) return;
+    t.disabled = true; t.textContent = "Подключаю…";
+    api("/chats/link/" + encodeURIComponent(pid), {method: "PUT", body: {chat_pk: pk, kind: kind}}).then(function(){
+      try{ toast("Группа подключена к клиенту"); }catch(x){}
+      if(ST[pid]) ST[pid].at = 0;
+      return typeof foChatsLoad === "function" ? foChatsLoad(pid) : null;
+    }).then(function(){ load(pid, true); try{ renderCards(); }catch(x){} }, function(err){
+      t.disabled = false; t.textContent = "Подключить";
+      try{ toast("Не подключилось: " + ((err && err.message) || "ошибка")); }catch(x){}
+    });
+  }, true);
+  /* после «Добавить» / «×» в чатах — состояние перечитать */
+  document.addEventListener("click", function(e){
+    var t = e.target.closest && e.target.closest(".fo-chats [data-fochatadd], .fo-chats [data-fochatdel]");
+    if(!t) return;
+    var host = t.closest("[data-focli]"), pid = (host && host.getAttribute("data-focli")) || t.getAttribute("data-focli");
+    if(pid) setTimeout(function(){ if(ST[pid]) ST[pid].at = 0; load(pid, true); }, 2500);
+  }, true);
+
+  /* «Чат-боты» и «Планёрка»: «не проверилось» ≠ «бота нет» */
+  if(typeof foBchCell === "function"){
+    foBchCell = function(list, need){
+      list = list || [];
+      if(!list.length) return {bad: need, html: '<span class="fo-bch-st '+(need ? 'bad' : 'mute')+'">— чата нет</span>'};
+      var bad = false;
+      var html = list.map(function(x){
+        var st, cls, note = "";
+        if(!x.num){ st = 'внесён ссылкой — бот не видит'; cls = 'warn'; bad = true; }
+        else if(x["in"] === true){ st = '✓ бот в чате'; cls = 'ok'; if(/последний ответ/.test(x.status || "")) note = x.status; }
+        else if(x["in"] === false){ st = '✗ бота нет'; cls = 'bad'; bad = true; }
+        else { st = '? не проверилось'; cls = 'mute'; note = x.status || "Telegram не ответил"; }
+        var meta = [];
+        if(x.last) meta.push('посл. ' + foBchDate(x.last));
+        if(x.n7) meta.push(x.n7 + ' сообщ. за 7 дн.');
+        if(note) meta.push(note);
+        return '<div class="fo-bch-chat"><span class="fo-bch-st '+cls+'">'+st+'</span>'+(x.title ? '<i>'+esc(x.title)+'</i>' : '')+(meta.length ? '<u>'+esc(meta.join(' · '))+'</u>' : '')+'</div>';
+      }).join("");
+      return {bad: bad, html: html};
+    };
+  }
 })();
 
 })();
