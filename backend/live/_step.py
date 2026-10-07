@@ -2186,6 +2186,12 @@ def _fo_rp_install():
                 n += 1
             except Exception:
                 pass
+        if name.endswith(".routing") and hasattr(m, "dispatch") and getattr(m, "dispatch") is not _fo_rt_dispatch:
+            try:
+                _FO_RT_ORIG["f"] = getattr(m, "dispatch")      # 306: свой текст события клиента
+                setattr(m, "dispatch", _fo_rt_dispatch)
+            except Exception:
+                pass
     return n
 
 
@@ -2229,6 +2235,9 @@ async def _fo_rp_task_done(c, t, p, link, note):
     if rt is None:
         return "модуль «Куда сообщать» не найден"
     _fi_tok = _FO_FI_CTX.set({"org": t["org_id"], "fn": t["fn_id"], "name": fn}) if t["fn_id"] and fn else None
+    _rt_tok = _FO_RT_VARS.set({"функция": fn or t["title"] or "задача", "клиент": cab, "дата": when,
+                               "сотрудник": who.split(" ")[0] if who else "", "ссылка": link, "комментарий": note[:1500],
+                               "задача": t["title"] or "", "текст": txt_client})      # 306: метки своего текста
     try:
         res = await rt.dispatch(t["org_id"], t["client_id"], "task_form", {"client": txt_client, "mpv": txt_mpv, "internal": txt_mpv})
     except Exception as e:
@@ -2236,6 +2245,7 @@ async def _fo_rp_task_done(c, t, p, link, note):
     finally:
         if _fi_tok is not None:
             _FO_FI_CTX.reset(_fi_tok)
+        _FO_RT_VARS.reset(_rt_tok)
     return "клиенту: отправлено %s, отложено %s" % (res.get("отправлено"), res.get("отложено"))
 
 
@@ -4874,9 +4884,10 @@ def _fo_fi_why(chat_id, name, how, ok):
 async def _fo_fi_for_text(chat_id, text):
     """Отчёт «✅ Выполнено: <функция>» → (заголовок, JPEG); не функция — None (уйдёт текстом, причина — в журнал)."""
     m = re.match(r"\s*✅ Выполнено: ([^\n]+)", str(text or ""))
-    if not m:
+    ctx0 = _FO_FI_CTX.get()
+    if not m and not (ctx0 and ctx0.get("fn")):
         return None
-    name = m.group(1).strip()
+    name = m.group(1).strip() if m else str(ctx0.get("name") or "").strip()      # 306: свой текст — картинка по галочке
     ctx = _FO_FI_CTX.get()
     async with pool().acquire() as c:
         if ctx and ctx.get("fn") and str(ctx.get("name") or "").strip() == name:
@@ -6215,6 +6226,14 @@ async def fo_client_chats_state(client_id: str, p: Principal = Depends(max_level
         free = await c.fetch("SELECT ch.id AS pk, ch.title, ch.added_at FROM chat ch WHERE ch.org_id=$1 AND ch.is_active "
                              "AND ch.chat_id ~ '^-?[0-9]+$' AND NOT EXISTS (SELECT 1 FROM client_chat cc WHERE cc.chat_pk = ch.id) "
                              "ORDER BY ch.added_at DESC NULLS LAST LIMIT 50", p.org_id)
+        cname = await c.fetchval("SELECT name FROM client WHERE id::text=$1", client_id) or ""
+        hs = {}
+        for x in await c.fetch("SELECT split_part(ref_id, ':', 2) AS pk, data FROM fo_card WHERE kind='sys' AND ref_id = ANY($1::text[])",
+                               ["chat_hello:%s" % r["pk"] for r in rows]):
+            hs[str(x["pk"])] = _fo_mt_load(x["data"], None)
+    free = sorted(({"pk": f["pk"], "title": f["title"] or "", "added": f["added_at"].isoformat() if f["added_at"] else None,
+                    "match": _fo_chat_has(_fo_chat_norm(f["title"]), cname)}
+                   for f in free if not _FO_CHAT_SKIP.search(_fo_chat_norm(f["title"]))), key=lambda x: -x["match"])
     toks = _fo_bot_toks()
     names = {"main": "бот задач", "meet": "бот планёрок", "report": "бот отчётов"}
     mes = {}
@@ -6238,8 +6257,11 @@ async def fo_client_chats_state(client_id: str, p: Principal = Depends(max_level
         out.append({"pk": r["pk"], "title": r["title"] or "", "kind": r["kind"], "tg": num if isnum else None, "bots": bots})
         if isnum:
             _fo_chat_hello_soon(r["pk"], 3)               # 301: подключили из карточки — в группу «подключились» (один раз)
-    return {"chats": out, "free": [{"pk": f["pk"], "title": f["title"] or "",
-                                    "added": f["added_at"].isoformat() if f["added_at"] else None} for f in free],
+            h = hs.get(str(r["pk"]))
+            if isinstance(h, dict) and isinstance(h.get("st"), dict) and bots and all(b["in"] is not None for b in bots):
+                if any(h["st"].get(b["bot"]) != b["in"] for b in bots):
+                    _fo_chat_status_soon(r["pk"], 1)      # 305: боты поменялись — правим «Чат подключён»
+    return {"chats": out, "free": free,
             "bots": {bk: (mes.get(bk) or {}).get("username") or "" for bk in ("main", "meet", "report")}}
 
 
@@ -6345,23 +6367,302 @@ async def _fo_chat_bots_line(chat_id):
     return " · ".join(parts), miss
 
 
+# ══ 304–306 (Виталий 07.10) ══
+# 305 «Я подключил недостающего бота, но ты не обновил статус… заменяй сообщение, а старое неактуальное удаляй у всех».
+# · «✅ Чат подключён…» в группе — одно сообщение: номер помним (флаг chat_hello:<чат> — mid, txt, st). Бота добавили или
+#   убрали → правим то же сообщение (editMessageText); не правится — пишем новое, старое удаляем.
+# · Приветствия до v112 без номера: номер ищем по истории чата (единственный пропуск в номерах сообщений людей вокруг
+#   времени приветствия). Нашли — правим его. Сверка всех приветствий — после запуска и POST /refs/chats/hello/sync.
+_FO_ST_Q = set()
+_FO_ST_LAST = {"at": "", "res": []}
+
+
+async def _fo_chat_bots_st(chat_id):
+    toks = _fo_bot_toks()
+    parts, miss, st = [], [], {}
+    for bk, nm in (("main", "задач"), ("report", "отчётов"), ("meet", "планёрок")):
+        tok = toks.get(bk)
+        me = await _fo_bot_me(tok) if tok else {}
+        ok, _s = await _fo_memb(bk, tok, me.get("id"), chat_id)
+        st[bk] = ok
+        if ok:
+            parts.append(nm + " ✓")
+        elif ok is False:
+            parts.append(nm + " — добавьте @" + (me.get("username") or "бота"))
+            miss.append(bk)
+        else:
+            parts.append(nm + " — не проверилось")
+    return " · ".join(parts), miss, st
+
+
+def _fo_chat_hello_txt(name, kind, line, miss):
+    kn = {"client": "чат с клиентом", "mpv": "рабочий чат команды", "internal": "внутренний чат"}.get(kind, kind or "")
+    return ("✅ Чат подключён к сервису агентства: «%s», %s.\nБоты: %s" % (name, kn, line)) + ("" if miss else "\nВсе боты на месте.")
+
+
+async def _fo_chat_row(c, chat_pk):
+    return await c.fetchrow("SELECT ch.id, ch.org_id, ch.chat_id, cl.name, cc.kind FROM chat ch "
+                            "JOIN client_chat cc ON cc.chat_pk = ch.id JOIN client cl ON cl.id = cc.client_id "
+                            "WHERE ch.id=$1 AND ch.chat_id ~ '^-?[0-9]+$' ORDER BY (cc.kind='client') DESC LIMIT 1", chat_pk)
+
+
+async def _fo_chat_hello_get(c, chat_pk):
+    return _fo_mt_load(await c.fetchval("SELECT data FROM fo_card WHERE kind='sys' AND ref_id=$1", "chat_hello:%s" % chat_pk), None)
+
+
+async def _fo_chat_hello_put(c, chat_pk, d):
+    await c.execute("UPDATE fo_card SET data = data || $2::jsonb, updated_at = now() WHERE kind='sys' AND ref_id=$1",
+                    "chat_hello:%s" % chat_pk, _fo_json.dumps(d, ensure_ascii=False))
+
+
 async def _fo_chat_hello(c, chat_pk):
-    r = await c.fetchrow("SELECT ch.id, ch.org_id, ch.chat_id, cl.name, cc.kind FROM chat ch "
-                         "JOIN client_chat cc ON cc.chat_pk = ch.id JOIN client cl ON cl.id = cc.client_id "
-                         "WHERE ch.id=$1 AND ch.chat_id ~ '^-?[0-9]+$' LIMIT 1", chat_pk)
+    r = await _fo_chat_row(c, chat_pk)
     if not r:
         return None
     key = "chat_hello:%s" % chat_pk
     if not await _fo_flag_take(c, r["org_id"], key):
         return None
-    line, miss = await _fo_chat_bots_line(r["chat_id"])
-    kind = {"client": "чат с клиентом", "mpv": "рабочий чат команды", "internal": "внутренний чат"}.get(r["kind"], r["kind"] or "")
-    txt = "✅ Чат подключён к сервису агентства: «%s», %s.\nБоты: %s" % (r["name"], kind, line)
+    line, miss, st = await _fo_chat_bots_st(r["chat_id"])
+    txt = _fo_chat_hello_txt(r["name"], r["kind"], line, miss)
     res = await _fo_chat_tg("sendMessage", {"chat_id": str(r["chat_id"]), "text": txt, "disable_web_page_preview": True})
     if not (res and res.get("ok")):
         await _fo_flag_drop(c, key)                     # не ушло (бота задач ещё нет в группе) — повторим позже
-    print("301 чат подключён:", r["name"], kind, "· в группу:", "ушло" if res and res.get("ok") else str((res or {}).get("description"))[:80])
+    else:
+        await _fo_chat_hello_put(c, chat_pk, {"mid": int((res.get("result") or {}).get("message_id") or 0), "txt": txt, "st": st})
+    print("301 чат подключён:", r["name"], r["kind"], "· в группу:", "ушло" if res and res.get("ok") else str((res or {}).get("description"))[:80])
     return res
+
+
+async def _fo_chat_find_mid(c, chat_id, h):
+    """Номер старого приветствия (до v112 не запоминали): единственный пропуск в номерах сообщений чата между
+    последним сообщением до приветствия и первым после."""
+    ts = float(h.get("ts") or 0)
+    if not ts:
+        return None, "нет времени приветствия"
+    at = _fo_dt.datetime.fromtimestamp(ts, tz=_fo_dt.timezone.utc)
+    lo = await c.fetchval("SELECT max(msg_id) FROM fo_chat_msg WHERE tg_chat_id=$1 AND msg_id > 0 AND msg_at <= $2", str(chat_id), at)
+    hi = await c.fetchval("SELECT min(msg_id) FROM fo_chat_msg WHERE tg_chat_id=$1 AND msg_id > 0 AND msg_at > $2", str(chat_id), at)
+    if not lo or not hi or int(hi) - int(lo) > 15:
+        return None, "в истории нет сообщений вокруг приветствия (до #%s, после #%s)" % (lo, hi)
+    lo, hi = int(lo), int(hi)
+    known = set()
+    for x in await c.fetch("SELECT msg_id FROM fo_chat_msg WHERE tg_chat_id=$1 AND ((msg_id > $2 AND msg_id < $3) "
+                           "OR (msg_id < -1000000 AND -msg_id - 1000000 > $2 AND -msg_id - 1000000 < $3))", str(chat_id), lo, hi):
+        m = int(x["msg_id"])
+        known.add(m if m > 0 else -m - 1000000)
+    cand = [i for i in range(lo + 1, hi) if i not in known]
+    if len(cand) != 1:
+        return None, "пропусков в номерах %d (между #%s и #%s)" % (len(cand), lo, hi)
+    return cand[0], "найдено по истории: #%s" % cand[0]
+
+
+async def _fo_chat_status(c, chat_pk, sweep=False):
+    """«✅ Чат подключён…» — по ботам сейчас: правим то же сообщение; не правится — новое, старое удаляем."""
+    r = await _fo_chat_row(c, chat_pk)
+    if not r:
+        return "чат не подключён"
+    h = await _fo_chat_hello_get(c, chat_pk)
+    if not isinstance(h, dict):
+        _fo_chat_hello_soon(chat_pk, 3)
+        return "приветствия ещё не было — отправится"
+    if h.get("old"):
+        return "чат подключён до 301 — приветствия не было"
+    lk = "chat_st_run:%s" % chat_pk
+    await c.execute("DELETE FROM fo_card WHERE kind='sys' AND ref_id=$1 AND coalesce((data->>'ts')::float, 0) < $2",
+                    lk, _fo_time.time() - 120)
+    if not await _fo_flag_take(c, r["org_id"], lk):
+        return "уже обновляется"
+    try:
+        line, miss, st = await _fo_chat_bots_st(r["chat_id"])
+        if any(v is None for v in st.values()):
+            return "Telegram не ответил — не трогаем"
+        txt = _fo_chat_hello_txt(r["name"], r["kind"], line, miss)
+        now = _fo_mt_now().strftime("%d.%m %H:%M")
+        mid, how, hist = h.get("mid"), "", False
+        if mid and h.get("txt") == txt:
+            return "без изменений"
+        if not mid:
+            mid, how = await _fo_chat_find_mid(c, r["chat_id"], h)
+            hist = bool(mid)
+            if not mid and (sweep or not isinstance(h.get("st"), dict)):
+                await _fo_chat_hello_put(c, chat_pk, {"st": st, "fix": how, "upd": now})
+                return "старое сообщение не нашлось: " + how
+        if mid:
+            res = await _fo_chat_tg("editMessageText", {"chat_id": str(r["chat_id"]), "message_id": int(mid), "text": txt,
+                                                         "disable_web_page_preview": True})
+            d = str((res or {}).get("description") or "")
+            if res and (res.get("ok") or "not modified" in d):
+                await _fo_chat_hello_put(c, chat_pk, {"mid": int(mid), "txt": txt, "st": st, "upd": now,
+                                                      "fix": (how + " · поправлено") if how else "поправлено"})
+                print("305 «чат подключён» поправлено:", r["name"], "·", line)
+                return ("поправлено (" + how + ")") if how else "поправлено"
+            print("305 не правится:", r["name"], d[:100])
+            if hist:                                     # по истории нашли не наше сообщение — не трогаем его
+                mid = None
+                if sweep:
+                    await _fo_chat_hello_put(c, chat_pk, {"st": st, "fix": how + " · не наше: " + d[:60], "upd": now})
+                    return "старое сообщение не нашлось: " + how + " · не наше"
+        res = await _fo_chat_tg("sendMessage", {"chat_id": str(r["chat_id"]), "text": txt, "disable_web_page_preview": True})
+        if not (res and res.get("ok")):
+            return "не ушло: " + str((res or {}).get("description"))[:80]
+        nm = int((res.get("result") or {}).get("message_id") or 0)
+        gone = False
+        if mid:
+            dl = await _fo_chat_tg("deleteMessage", {"chat_id": str(r["chat_id"]), "message_id": int(mid)})
+            gone = bool(dl and dl.get("ok"))
+        await _fo_chat_hello_put(c, chat_pk, {"mid": nm, "txt": txt, "st": st, "upd": now,
+                                              "fix": "новое сообщение" + (", старое удалено" if gone else "")})
+        print("305 «чат подключён» новым сообщением:", r["name"], "· старое удалено" if gone else "")
+        return "новое сообщение" + (", старое удалено" if gone else "")
+    finally:
+        await _fo_flag_drop(c, lk)
+
+
+def _fo_chat_status_soon(chat_pk, delay=8):
+    if not chat_pk or chat_pk in _FO_ST_Q:
+        return
+    _FO_ST_Q.add(chat_pk)
+
+    async def run():
+        try:
+            await _fo_aio.sleep(delay)
+            async with pool().acquire() as c2:
+                print("305 статус ботов:", chat_pk, await _fo_chat_status(c2, chat_pk))
+        except Exception as e:
+            print("305 статус ботов:", str(e)[:150])
+        finally:
+            _FO_ST_Q.discard(chat_pk)
+    try:
+        _fo_aio.get_running_loop().create_task(run())
+    except Exception:
+        _FO_ST_Q.discard(chat_pk)
+
+
+async def _fo_chat_sweep(delay=0):
+    if delay:
+        await _fo_aio.sleep(delay)
+    out = []
+    try:
+        async with pool().acquire() as c:
+            pks = [int(x["pk"]) for x in await c.fetch(
+                "SELECT split_part(ref_id, ':', 2) AS pk FROM fo_card WHERE kind='sys' AND ref_id LIKE 'chat_hello:%' "
+                "AND NOT (data ? 'old') AND split_part(ref_id, ':', 2) ~ '^[0-9]+$'")]
+            for pk in pks:
+                try:
+                    out.append("%s: %s" % (pk, await _fo_chat_status(c, pk, sweep=True)))
+                except Exception as e:
+                    out.append("%s: ошибка %s" % (pk, str(e)[:100]))
+    except Exception as e:
+        out.append("ошибка: " + str(e)[:150])
+    _FO_ST_LAST.update({"at": _fo_mt_now().strftime("%d.%m %H:%M"), "res": out})
+    print("305 сверка «чат подключён»:", "; ".join(out)[:600])
+    return out
+
+
+@router.on_event("startup")
+async def _fo_chat_sweep_boot():
+    try:
+        _fo_aio.get_running_loop().create_task(_fo_chat_sweep(75))
+    except Exception:
+        pass
+
+
+@router.post("/chats/hello/sync")
+async def fo_chats_hello_sync(p: Principal = Depends(max_level(2))):
+    """305: сверить «✅ Чат подключён…» во всех группах с ботами сейчас (правит устаревшие)."""
+    return {"итог": await _fo_chat_sweep(0), "прошлая сверка": _FO_ST_LAST}
+
+
+# 306 «Под каждым событием поле для ввода текста, каким уведомлять, и кнопку „Сохранить“ (на сервере)».
+# · Текст на событие × клиент: fo_card kind='rtxt', ref_id=<клиент>, data {событие: {text, at}}.
+# · Применяется при отправке по правилам «Куда сообщать» (обёртка над routing.dispatch) — в чат с клиентом;
+#   в рабочий чат МПВ и внутренний уходит стандартный. Метки {…} подставляются; строка, где все метки пустые, не уходит.
+_FO_RT_VARS = _fo_cv_fi.ContextVar("fo_rt_vars", default=None)
+_FO_RT_ORIG = {}
+_FO_RT_EVENTS = ("plan_day", "fact_day", "task_new", "task_form", "approve_req", "approve_res", "overdue", "handover", "meet_res")
+_FO_RT_KEYS = {"функция": "название функции", "клиент": "название клиента", "дата": "дата и день недели",
+               "сотрудник": "кто сделал (имя)", "ссылка": "ссылка на результат", "комментарий": "комментарий исполнителя",
+               "задача": "название задачи", "текст": "стандартное сообщение сервиса целиком"}
+_FO_RT_EVKEYS = {"task_form": ["функция", "клиент", "дата", "сотрудник", "ссылка", "комментарий", "задача", "текст"]}
+_FO_RT_STD = {"task_form": "✅ Выполнено: {функция}\n{клиент}\n📅 {дата} · {сотрудник}\n🔗 {ссылка}\n💬 {комментарий}"}
+
+
+def _fo_rt_render(tpl, vs):
+    out = []
+    for ln in str(tpl or "").replace("\r", "").split("\n"):
+        keys = [k for k in re.findall(r"\{([а-яё]+)\}", ln) if k in _FO_RT_KEYS]
+        if keys and all(not str(vs.get(k) or "").strip() for k in keys):
+            continue
+        ln2 = re.sub(r"\{([а-яё]+)\}", lambda m: str(vs.get(m.group(1)) or "") if m.group(1) in _FO_RT_KEYS else m.group(0), ln)
+        if keys:
+            ln2 = re.sub(r"(\s*·\s*)+$", "", re.sub(r"^(\s*·\s*)+", "", ln2)).rstrip()
+            if not ln2.strip():
+                continue
+        out.append(ln2)
+    return "\n".join(out).strip()
+
+
+async def _fo_rt_dispatch(org_id, client_id, event, text_by_kind):
+    """Обёртка routing.dispatch: свой текст события клиента — в чат с клиентом."""
+    orig = _FO_RT_ORIG.get("f")
+    try:
+        async with pool().acquire() as c:
+            d = _fo_mt_load(await c.fetchval("SELECT data FROM fo_card WHERE kind='rtxt' AND ref_id=$1", str(client_id)), None)
+            tpl = ((d.get(event) or {}).get("text") if isinstance(d, dict) and isinstance(d.get(event), dict) else None)
+            if tpl and str(tpl).strip():
+                vs = dict(_FO_RT_VARS.get() or {})
+                vs.setdefault("текст", (text_by_kind or {}).get("client") or "")
+                if not vs.get("клиент"):
+                    vs["клиент"] = await c.fetchval("SELECT name FROM client WHERE id::text=$1", str(client_id)) or ""
+                body = _fo_rt_render(tpl, vs)
+                if body:
+                    text_by_kind = dict(text_by_kind or {})
+                    text_by_kind["client"] = body[:3900]
+    except Exception as e:
+        print("306 текст события:", str(e)[:150])
+    return await orig(org_id, client_id, event, text_by_kind)
+
+
+@router.get("/clients/{client_id}/route-texts")
+async def fo_route_texts(client_id: str, p: Principal = Depends(max_level(5))):
+    """Свои тексты событий клиента, стандартные тексты и метки."""
+    async with pool().acquire() as c:
+        if not await c.fetchval("SELECT 1 FROM client WHERE id::text=$1 AND org_id=$2", client_id, p.org_id):
+            raise HTTPException(404, "клиент не найден")
+        d = _fo_mt_load(await c.fetchval("SELECT data FROM fo_card WHERE kind='rtxt' AND ref_id=$1", client_id), None)
+    d = d if isinstance(d, dict) else {}
+    return {"тексты": {k: v for k, v in d.items() if k in _FO_RT_EVENTS and isinstance(v, dict)},
+            "стандарт": {e: _FO_RT_STD.get(e, "{текст}") for e in _FO_RT_EVENTS},
+            "метки": {e: _FO_RT_EVKEYS.get(e, ["клиент", "текст"]) for e in _FO_RT_EVENTS},
+            "что_значат": _FO_RT_KEYS, "шлёт_сейчас": ["task_form"], "кому": "чат с клиентом"}
+
+
+class FoRtIn(_FoBM):
+    event: str
+    text: str | None = None
+
+
+@router.put("/clients/{client_id}/route-texts")
+async def fo_route_text_put(client_id: str, body: FoRtIn, p: Principal = Depends(max_level(5))):
+    """Сохранить текст события для клиента. Пустой — вернуть стандартный."""
+    if body.event not in _FO_RT_EVENTS:
+        raise HTTPException(400, "неизвестное событие")
+    txt = str(body.text or "").replace("\r", "").strip()
+    if len(txt) > 3500:
+        raise HTTPException(400, "длиннее 3500 знаков")
+    async with pool().acquire() as c:
+        if not await c.fetchval("SELECT 1 FROM client WHERE id::text=$1 AND org_id=$2", client_id, p.org_id):
+            raise HTTPException(404, "клиент не найден")
+        d = _fo_mt_load(await c.fetchval("SELECT data FROM fo_card WHERE kind='rtxt' AND ref_id=$1", client_id), None)
+        d = d if isinstance(d, dict) else {}
+        if txt:
+            d[body.event] = {"text": txt, "at": _fo_mt_now().strftime("%d.%m %H:%M"), "by": str(p.user_id)}
+        else:
+            d.pop(body.event, None)
+        await c.execute("INSERT INTO fo_card (kind, ref_id, org_id, data) VALUES ('rtxt', $1, $2, $3::jsonb) "
+                        "ON CONFLICT (kind, ref_id) DO UPDATE SET data = EXCLUDED.data, updated_at = now() "
+                        "WHERE fo_card.org_id = EXCLUDED.org_id", client_id, p.org_id, _fo_json.dumps(d, ensure_ascii=False))
+    return {"ok": True, "событие": body.event, "текст": d.get(body.event), "стандартный": not txt}
 
 
 def _fo_chat_hello_soon(chat_pk, delay=25):
@@ -6401,10 +6702,7 @@ async def _fo_chat_newbots(c, chat_id, members):
     if not isinstance(h, dict) or h.get("old"):
         _fo_chat_hello_soon(r["id"])                      # приветствия ещё не было — оно и покажет всех ботов
         return
-    if _fo_time.time() - float(h.get("ts") or 0) < 90:
-        return                                            # приветствие только что ушло
-    line, miss = await _fo_chat_bots_line(chat_id)
-    await _fo_chat_tg("sendMessage", {"chat_id": str(chat_id), "text": ("Все боты на месте ✅\n" if not miss else "") + "Боты: " + line})
+    _fo_chat_status_soon(r["id"], 8)                      # 305: правим то же сообщение «Чат подключён»
 
 
 async def _fo_tg_level(c, tg_id):
@@ -6457,8 +6755,8 @@ async def _fo_chat_auto(c, org, tg, title, ev):
     first = [x[1] for x in sc] + [cl for cl in cls if all(cl["id"] != y[1]["id"] for y in sc)]
     rows = [[{"text": str(cl["name"])[:60], "callback_data": "fol:%s:%s" % (pk, cl["id"])}] for cl in first[:30]]
     rows.append([{"text": "Не подключать", "callback_data": "fol:%s:-" % pk}])
-    txt = ("Бот добавлен в группу «%s». Это чат какого клиента? Подключу как %s.\nЕсли ничего не нажимать — группа "
-           "останется в карточке клиента в списке «Подключить группу, где уже есть бот»." %
+    txt = ("Бот добавлен в группу «%s». Это чат какого клиента? Подключу как %s.\nЕсли ничего не нажимать — группу можно "
+           "подключить в карточке клиента: «Чаты Telegram» → «Подключить вручную»." %
            (title, "рабочий чат команды (МПВ)" if kind == "mpv" else "чат с клиентом"))
     sent = 0
     for t in to[:3]:
@@ -6548,6 +6846,8 @@ async def _fo_tg_register(upd):
             try:
                 if ev.get("new_chat_members"):
                     await _fo_chat_newbots(c, str(chat["id"]), ev.get("new_chat_members"))   # 301
+                elif ev.get("left_chat_member"):
+                    await _fo_chat_newbots(c, str(chat["id"]), [ev.get("left_chat_member")])  # 305: бота убрали
             except Exception as _e301:
                 print("301 новые боты:", str(_e301)[:150])
             return
@@ -10123,6 +10423,15 @@ try:
     p(_h295(sh("grep -rn 'invite_code' /opt/fo/backend/app/routers/auth.py | cut -c1-200 | head -15").strip())[:2000] or "(нет)")
 except Exception as _e:
     p("разведка 295: ошибка", str(_e)[:200])
+p("")
+p("== 305 «ЧАТ ПОДКЛЮЧЁН» В ГРУППАХ ==")
+try:
+    p(sh("sudo -u postgres psql -d fo -Atc \"SELECT f.ref_id||' · '||coalesce(ch.title,'?')||' · '||f.data::text FROM fo_card f LEFT JOIN chat ch ON ch.id::text = split_part(f.ref_id, ':', 2) WHERE f.kind='sys' AND f.ref_id LIKE 'chat_hello:%' AND NOT (f.data ? 'old') ORDER BY f.ref_id\"").strip()[:3500] or "(нет)")
+    p("история вокруг приветствий (30 ч):")
+    p(sh("sudo -u postgres psql -d fo -Atc \"SELECT m.tg_chat_id||' #'||m.msg_id||' '||to_char(m.msg_at AT TIME ZONE 'Europe/Moscow','DD.MM HH24:MI:SS')||' '||left(m.author,20)||': '||left(replace(m.text,E'\\n',' '),40) FROM fo_chat_msg m WHERE m.chat_pk IN (SELECT split_part(ref_id,':',2)::int FROM fo_card WHERE kind='sys' AND ref_id LIKE 'chat_hello:%' AND NOT (data ? 'old') AND split_part(ref_id,':',2) ~ '^[0-9]+$') AND m.msg_at > now() - interval '30 hours' ORDER BY m.tg_chat_id, m.msg_at, m.msg_id\"").strip()[-3500:] or "(нет)")
+    p("свои тексты событий:", sh("sudo -u postgres psql -d fo -Atc \"SELECT count(*) FROM fo_card WHERE kind='rtxt'\"").strip())
+except Exception as _e284:
+    p("ошибка:", str(_e284)[:200])
 p("")
 p("== КОД ==")
 p("дописано в refs.py и signup.py, копия в", bak)
