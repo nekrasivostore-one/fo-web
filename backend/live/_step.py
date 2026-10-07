@@ -6435,7 +6435,7 @@ async def _fo_chat_auto(c, org, tg, title, ev):
     sc = sorted(((_fo_chat_has(tn, cl["name"]), cl) for cl in cls), key=lambda x: -x[0])
     sc = [x for x in sc if x[0] > 0]
     kind = _fo_chat_kind(title)
-    if sc and (len(sc) == 1 or sc[0][0] > sc[1][0]):
+    if sc and (len(sc) == 1 or (sc[0][0] >= 100 and sc[1][0] < 100)):   # два разных клиента в названии — спрашиваем
         await _fo_chat_link(c, pk, sc[0][1]["id"], kind)
         print("301 чат подключён по названию:", title, "→", sc[0][1]["name"], kind)
         _fo_chat_hello_soon(pk)
