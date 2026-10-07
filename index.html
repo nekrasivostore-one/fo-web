@@ -32486,6 +32486,57 @@ function foDistFillSelects(){
   window.foEnsureRk = ensureRk;
 })();
 
+/* ===== add134: 291 — артикулы из формы «Новый кабинет» уходят на сервер (Виталий 07.10)
+   «При создании карточки клиента вписал артикулы, нажал „Создать" — открыл карточку в „Мои клиенты":
+   без артикулов». Причина: в рабочем режиме форма заводит клиента и кабинет на сервере (add70/72/75),
+   а список артикулов оставался только в памяти браузера (старый демо-код раздела 28).
+   Решение скопировано с работающего: поиск клиента по имени с повтором — как add75, внесение —
+   тем же запросом, что «Добавить артикулы» в АОД (add91) и карточка клиента (add81):
+   POST /refs/cabinets/{кабинет}/articles/bulk {items, replace:false}.                              */
+(function(){
+  document.addEventListener("click", function(e){
+    if(!e.target.closest || !e.target.closest("#ncSave")) return;
+    if(typeof foLive === "function" && !foLive()) return;          /* в демо всё как было */
+    var nm = String((document.getElementById("ncName") || {}).value || "").trim();
+    if(!nm) return;
+    /* снимаем список сейчас — старый код очищает форму сразу после нажатия */
+    var raw = String((document.getElementById("ncArtList") || {}).value || "");
+    var list = (typeof foParseArts === "function") ? foParseArts(raw) : [];
+    if(!list.length && typeof ncArts !== "undefined" && ncArts && ncArts.length){
+      list = ncArts.map(function(a){ return {wb_sku: String(a.wb || ""), seller_sku: a.sku || "", cat: a.cat || ""}; })
+                   .filter(function(a){ return /^\d{5,}$/.test(a.wb_sku); });
+    }
+    if(!list.length) return;
+    var tries = 0;
+    (function poll(){
+      tries++;
+      if(tries > 25){
+        try{ toast("Артикулы не внеслись: кабинет «" + nm + "» не появился на сервере. Вставьте их в карточке клиента — блок «Артикулы»."); }catch(x){}
+        return;
+      }
+      api("/refs/clients").then(function(cl){
+        var hit = null;
+        (cl || []).forEach(function(c){ if(String(c.name || "").trim() === nm) hit = c; });
+        if(!hit){ setTimeout(poll, 1000); return; }
+        return api("/refs/clients/" + encodeURIComponent(hit.id) + "/cabinets").then(function(cabs){
+          cabs = Array.isArray(cabs) ? cabs : ((cabs && (cabs.items || cabs.cabinets)) || []);
+          var cab = cabs[0] && (cabs[0].id || cabs[0].cabinet_id);
+          if(!cab){ setTimeout(poll, 1000); return; }
+          return api("/refs/cabinets/" + encodeURIComponent(cab) + "/articles/bulk", {method: "POST", body: {items: list, replace: false}})
+            .then(function(r){
+              try{ if(typeof FO_ARTS !== "undefined") FO_ARTS[hit.id] = {rows: (r && r.items) || [], at: Date.now()}; }catch(x){}
+              try{ toast("Артикулы кабинета «" + nm + "» на сервере: добавлено " + ((r && r.добавлено) || 0) + " · всего " + ((r && r.всего) || 0)); }catch(x){}
+              try{ if(typeof loadLive === "function") loadLive().then(function(){ try{ render(); }catch(x){} }); }catch(x){}
+            });
+        });
+      }).catch(function(err){
+        if(tries < 25) setTimeout(poll, 1500);
+        else try{ toast("Артикулы не внеслись: " + (err && err.message || "ошибка")); }catch(x){}
+      });
+    })();
+  }, true);
+})();
+
 })();
 </script>
 </body>
