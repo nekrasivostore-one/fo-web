@@ -32966,6 +32966,15 @@ function foDistFillSelects(){
     '</div>';
   }
 
+  /* чат считается подключённым, когда у него есть номер Telegram: внесённый только ссылкой t.me/+… бот не видит */
+  function chatOk(chats, kind, label){
+    var mine = chats.filter(function(c){ return c.kind === kind; });
+    if(!mine.length) return [false, label];
+    var num = mine.filter(function(c){ return /^-?\d+$/.test(String(c.chat_id || "").trim()); });
+    if(num.length) return [true, label];
+    return [false, label + " — внесён ссылкой, номера Telegram нет: добавьте ботов в группу и напишите там сообщение"];
+  }
+
   /* ── 5. что дозаполнить ── */
   function secFill(pr, d){
     var f = {base: 0, miss: []};
@@ -32984,8 +32993,8 @@ function foDistFillSelects(){
       [fns.length > 0 && !noCyc, "У каждой функции задана цикличность" + (noCyc ? " (нет у " + noCyc + ")" : "")],
       [arts.length > 0, "Артикулы внесены"],
       [arts.length > 0 && !artBad, "У артикулов есть ответственный и категория" + (artBad ? " (не у " + artBad + ")" : "")],
-      [chats.some(function(c){ return c.kind === "client"; }), "Подключён чат с клиентом"],
-      [chats.some(function(c){ return c.kind === "mpv"; }), "Подключён рабочий чат МПВ"],
+      chatOk(chats, "client", "Подключён чат с клиентом"),
+      chatOk(chats, "mpv", "Подключён рабочий чат МПВ"),
       [!!botIn, "Бот отчётов в чате клиента"],
       [!!String(pr.pm || "").trim(), "Закреплён проджект"]
     ];
