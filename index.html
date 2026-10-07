@@ -4706,6 +4706,32 @@ html.dark .fo-dist-col{ background:rgba(255,255,255,.03) }
 .fo-dist .empty.sm{ font-size:12px; padding:6px 0 }
 .fo-pmline{ font-size:12.5px; padding:6px 10px; margin:0 0 8px; border-radius:10px; background:rgba(124,92,255,.08) }
 .fo-pmline.none{ background:rgba(255,176,32,.12); color:#8A5200 } html.dark .fo-pmline.none{ color:#FFC766 }
+
+/* add138: блок внизу карточки клиента — код, «Куда сообщать», тексты, события, что дозаполнить */
+.fo-cb{ display:flex; flex-direction:column; gap:16px }
+.fo-cb .fo-cbs{ border-top:1px solid var(--stroke-2); padding-top:12px }
+.fo-cb .fo-cbs:first-of-type{ border-top:none; padding-top:0 }
+.fo-cb .ccdh{ margin-bottom:8px }
+.fo-cbcode{ display:flex; flex-wrap:wrap; align-items:center; gap:8px }
+.fo-cbcode code{ font-size:15px; font-weight:800; letter-spacing:.08em; padding:5px 10px; border-radius:9px;
+  background:var(--panel-2); border:1px solid var(--stroke-2) }
+.fo-cbcode i{ font-style:normal; font-size:11.5px; color:var(--ink-3); word-break:break-all }
+.fo-cbm{ font-size:11.5px; color:var(--ink-3); margin-bottom:6px }
+.fo-cbm b{ color:var(--ink-2) }
+.fo-cblive{ display:inline-block; margin-left:6px; padding:1px 7px; border-radius:8px; font-size:10px; font-weight:700;
+  color:#fff; background:var(--ok, #2BB673); vertical-align:middle }
+.fo-cb .rtt .evd{ font-size:11px; color:var(--ink-3) }
+.fo-cb .rtt .chn{ font-size:11px; text-transform:none; letter-spacing:0; color:var(--ink-2) }
+.fo-cbtg{ margin-top:6px }
+.fo-cbpre{ white-space:pre-wrap; font-size:12px; line-height:1.45; color:var(--ink-2); margin-top:6px; max-height:220px; overflow:auto }
+.fo-cb .hrow.k-err .hd{ background:var(--crit, #E5484D) }
+.fo-cb .hrow .ht b{ font-weight:600; color:var(--ink-2) }
+.fo-cb .hrow .ht a{ color:#7C5CFF }
+.fo-cbf{ display:flex; align-items:center; gap:10px }
+@media (max-width:760px){ .fo-cb .fillg, .fo-cbtg{ grid-template-columns:1fr } }
+.fo-cb .bt{ width:auto; flex:none; align-self:flex-start }
+.fo-cbcode .bt{ min-width:84px }
+.fo-cb .whw .rtwhen{ width:156px }
 </style>
 </head>
 <body>
@@ -32785,6 +32811,291 @@ function foDistFillSelects(){
   window.addEventListener("click", function(e){
     if(!e.target.closest || !e.target.closest("#foTaskMenu [data-rkcb], #foTaskMenu [data-opencard]")) return;
     setTimeout(function(){ try{ if(typeof foTaskMenuClose === "function") foTaskMenuClose(); }catch(x){} }, 0);
+  }, true);
+})();
+
+/* ===== add138: 295 — внизу карточки клиента: код и ссылка, «Куда сообщать», тексты, события, что дозаполнить (Виталий 07.10)
+   «Сделай в карточке внизу блок со всеми этими пунктами». Всё с сервера, браузер ничего не хранит:
+   · Код и ссылка — код агентства из /refs/org (тот же, что в «Доступах»), ссылка fo.flater.pro/?invite=КОД, кнопки копирования.
+   · Куда сообщать — правила сервиса /routing/{клиент} (по ним бот отчётов шлёт «✅ Выполнено»): событие × чат × когда;
+     каждая галочка и время сразу уходят на сервер (PUT /routing/{клиент}), ответ — «сохранено на сервере ✓ / не сохранилось».
+   · Тексты сообщений — что на самом деле ушло в чаты клиента: последнее сообщение каждого бота в каждом чате (сервер v105).
+   · Последние события — выполненные функции, согласования, задачи ИИ из чата, сообщения ботов, очередь (GET /refs/clients/{id}/events).
+   · Что дозаполнить — база (данные клиента) и глубина (функции, ответственные, цикл, артикулы, чаты, бот, проджект) по данным сервера. */
+(function(){
+  var CB = {};            /* клиент → {org, route, ev, rep, at, loading, more} */
+  var DESC = {plan_day: "утром — что команда делает сегодня", fact_day: "вечером — что сделано, что перенеслось",
+    task_new: "как только задачу поставили", task_form: "галочка «выполнено» — отчёт с картинкой",
+    approve_req: "задача ушла на согласование", approve_res: "ответ по согласованию", overdue: "задачу не закрыли вовремя",
+    handover: "задачу отдали другому", meet_res: "решения и дата следующей встречи"};
+  var LIVE = {task_form: "уходит сейчас"};
+  var KIND = {client: "чат с клиентом", mpv: "МПВ — рабочий", internal: "внутренний"};
+
+  function liveMgr(){
+    try{ return (typeof foLive !== "function" || foLive()) && typeof A !== "undefined" && A && (+A.level || 9) <= 4; }
+    catch(e){ return false; }
+  }
+  function enc(x){ return encodeURIComponent(String(x || "")); }
+  function safe(p){ return api(p).then(function(r){ return r; }, function(e){ return {__err: (e && e.message) || "ошибка"}; }); }
+  function repaint(){ try{ renderCards(); }catch(e){} }
+  function when(iso){
+    if(!iso) return "";
+    var d = new Date(iso); if(isNaN(d)) return "";
+    var p = function(n){ return (n < 10 ? "0" : "") + n; };
+    return p(d.getDate()) + "." + p(d.getMonth() + 1) + " " + p(d.getHours()) + ":" + p(d.getMinutes());
+  }
+
+  function load(pid, force){
+    var d = CB[pid] || (CB[pid] = {});
+    if(d.loading || (d.at && !force)) return;
+    d.loading = true;
+    Promise.all([
+      safe("/refs/org"),
+      safe("/routing/" + enc(pid)),
+      safe("/refs/clients/" + enc(pid) + "/events?limit=40"),
+      safe("/refs/report/status"),
+      (typeof FO_CABFN !== "undefined" && FO_CABFN[pid] && !force) || typeof foCabFnLoad !== "function" ? null : foCabFnLoad(pid),
+      (typeof FO_CHATS !== "undefined" && FO_CHATS[pid] && !force) || typeof foChatsLoad !== "function" ? null : foChatsLoad(pid)
+    ]).then(function(x){
+      d.org = x[0]; d.route = x[1]; d.ev = x[2]; d.rep = x[3];
+      if(typeof FO_ARTS !== "undefined" && (!FO_ARTS[pid] || force) && typeof foArtsLoad === "function") return foArtsLoad(pid);
+    }).then(function(){ d.at = Date.now(); d.loading = false; repaint(); },
+            function(){ d.at = Date.now(); d.loading = false; repaint(); });
+  }
+
+  /* ── 1. код и ссылка ── */
+  function secCode(d){
+    var code = (d.org && !d.org.__err && d.org.invite_code) || (typeof foInviteCode === "function" ? foInviteCode() : "");
+    var link = code ? "https://fo.flater.pro/?invite=" + code : "";
+    return '<div class="fo-cbs"><div class="ccdh">Код и ссылка для сотрудника</div>'+
+      (code
+        ? '<div class="fo-cbcode"><code>'+esc(code)+'</code>'+
+            '<button class="bt sm gh2" data-focbcopy="'+esc(code)+'">Код</button>'+
+            '<button class="bt sm gh2" data-focbcopy="'+esc(link)+'">Ссылка</button>'+
+            '<i>'+esc(link)+'</i></div>'+
+          '<div class="fo-hint">Сотрудник открывает ссылку или вводит код при регистрации — и попадает в агентство. '+
+            'К этому клиенту его привязывает функция или артикул, где он ответственный.</div>'
+        : '<div class="empty">Код агентства не пришёл с сервера'+(d.org && d.org.__err ? ': ' + esc(d.org.__err) : '')+'</div>')+
+    '</div>';
+  }
+
+  /* ── 2. куда сообщать ── */
+  function secRoute(pr, d){
+    var r = d.route, head = '<div class="ccdh">Куда сообщать</div>';
+    if(!r || r.__err) return '<div class="fo-cbs">'+head+'<div class="empty">Правила не загрузились'+(r && r.__err ? ': ' + esc(r.__err) : '')+'</div></div>';
+    var mx = r["матрица"] || [];
+    var chats = (mx[0] && mx[0]["чаты"]) || [];
+    if(!chats.length) return '<div class="fo-cbs">'+head+'<div class="empty">Чатов у клиента нет — добавьте их в блоке «Чаты Telegram» выше, и здесь появятся правила.</div></div>';
+    var cnt = 0;
+    var th = '<tr><th class="evc">Событие</th>'+chats.map(function(c){
+      return '<th class="chc"><div class="chn">'+esc(c["название"] || "чат")+'</div><div class="chk">'+esc(KIND[c["роль"]] || c["роль"] || "")+'</div></th>';
+    }).join("")+'<th class="whc">Когда</th></tr>';
+    var rows = mx.map(function(m){
+      var ev = m["событие"], cs = m["чаты"] || [];
+      var c0 = cs[0] || {}, wm = c0["когда"] === "time" ? "time" : "ready", tm = c0["время"] || (ev === "fact_day" ? "19:00" : "10:00");
+      return '<tr><td class="evc"><div class="evn">'+esc(m["название"] || ev)+
+          (LIVE[ev] ? ' <span class="fo-cblive">'+esc(LIVE[ev])+'</span>' : '')+'</div>'+
+          '<div class="evd">'+esc(DESC[ev] || "")+'</div></td>'+
+        cs.map(function(c){
+          var on = !!c["включено"]; if(on) cnt++;
+          return '<td class="chc"><button class="ckb'+(on ? ' on' : '')+'" data-focbrt="'+esc(pr.id)+'|'+esc(ev)+'|'+esc(c["чат"])+
+            '" aria-pressed="'+on+'" title="'+(on ? 'Отправляем' : 'Не отправляем')+'"><i></i></button></td>';
+        }).join("")+
+        '<td class="whc"><div class="whw">'+
+          '<select class="fi sm rtwhen" data-focbwhen="'+esc(pr.id)+'|'+esc(ev)+'">'+
+            '<option value="ready"'+(wm === "ready" ? ' selected' : '')+'>по готовности</option>'+
+            '<option value="time"'+(wm === "time" ? ' selected' : '')+'>ко времени</option></select>'+
+          '<input class="fi sm rttime'+(wm === "ready" ? ' off2' : '')+'" type="time" value="'+esc(tm)+'" data-focbtime="'+esc(pr.id)+'|'+esc(ev)+'">'+
+        '</div></td></tr>';
+    }).join("");
+    return '<div class="fo-cbs">'+head+
+      '<div class="fo-cbm">'+chats.length+' чата · '+cnt+' правил включено · правила хранит сервис'+(d.saved ? ' · <b>'+esc(d.saved)+'</b>' : '')+'</div>'+
+      '<div class="paytw"><table class="rtt">'+th+rows+'</table></div>'+
+      '<div class="fo-hint">Вне рабочего окна агентства сообщение ждёт утра. «Уходит сейчас» — событие, по которому сервис уже шлёт; '+
+        'по остальным правило сохраняется и включится, когда сервис начнёт слать это событие.</div>'+
+    '</div>';
+  }
+
+  /* ── 3. тексты сообщений ── */
+  function secTexts(d){
+    var head = '<div class="ccdh">Тексты сообщений</div>';
+    var ev = d.ev;
+    if(!ev || ev.__err) return '<div class="fo-cbs">'+head+'<div class="empty">Не загрузились'+(ev && ev.__err ? ': ' + esc(ev.__err) : '')+'</div></div>';
+    var last = ev["последнее"] || [];
+    return '<div class="fo-cbs">'+head+
+      '<div class="fo-hint">Что на самом деле ушло в чаты клиента — последнее сообщение каждого бота в каждом чате. Тексты задают правила ботов.</div>'+
+      (last.length
+        ? '<div class="tplg fo-cbtg">'+last.slice(0, 6).map(function(x){
+            return '<div class="tplc"><div class="tplh">'+esc(x["бот"] || "Бот")+' → '+esc(x["чат"] || KIND[x["роль"]] || "чат клиента")+
+              '<span class="tpm">'+esc(when(x["когда"]))+'</span></div><div class="fo-cbpre">'+esc(x["текст"] || "")+'</div></div>';
+          }).join("")+'</div>'
+        : '<div class="empty">Боты ещё ничего не писали в чаты этого клиента</div>')+
+    '</div>';
+  }
+
+  /* ── 4. последние события ── */
+  function secEvents(pr, d){
+    var head = '<div class="ccdh">Последние события</div>';
+    var ev = d.ev;
+    if(!ev || ev.__err) return '<div class="fo-cbs histw">'+head+'<div class="empty">Не загрузились'+(ev && ev.__err ? ': ' + esc(ev.__err) : '')+'</div></div>';
+    var src = (ev["события"] || []).map(function(x){ var y = {}; for(var k in x) y[k] = x[k]; return y; });   /* копия: перерисовка не копит */
+    /* «✅ Выполнено» бота — то же событие, что галочка: не дублируем, а пишем у галочки, куда ушло */
+    var list = [], dones = src.filter(function(x){ return x.k === "done"; });
+    src.forEach(function(x){
+      if(x.k === "bot" && /: ✅ Выполнено: /.test(x.t || "")){
+        var nm = String(x.t).split(": ✅ Выполнено: ")[1] || "", t0 = +new Date(x.at);
+        var hit = dones.filter(function(d){ return (d.t || "") === "Выполнено: " + nm && Math.abs(+new Date(d.at) - t0) < 600000; })[0];
+        if(hit){ var ch = (String(x.t).match(/→ «([^»]*)»/) || [])[1] || "чат"; (hit.sent = hit.sent || []).push(ch); return; }
+      }
+      list.push(x);
+    });
+    var cls ={done: "k-done", bot: "k-chat", review: "k-task", review_res: "k-done", ai: "k-task", ai_res: "k-done", queue: "k-task", err: "k-err"};
+    var n = d.more ? 40 : 12;
+    return '<div class="fo-cbs histw">'+head+
+      (list.length
+        ? '<div class="hist">'+list.slice(0, n).map(function(x){
+            return '<div class="hrow '+(cls[x.k] || "")+'"><i class="hd"></i><span class="ht">'+esc(x.t || "")+
+              (x.who ? ' · <b>'+esc(x.who)+'</b>' : '')+
+              (x.link ? ' · <a href="'+esc(x.link)+'" target="_blank" rel="noopener">ссылка</a>' : '')+
+              (x.sent && x.sent.length ? ' · ушло в «'+esc(x.sent.join("», «"))+'»' : '')+'</span>'+
+              '<span class="hg">'+esc(when(x.at))+'</span></div>';
+          }).join("")+'</div>'+
+          (list.length > n ? '<button class="bt sm gh2" data-focbmore="'+esc(pr.id)+'">Показать ещё '+(Math.min(40, list.length) - n)+'</button>' : '')
+        : '<div class="empty">Событий пока нет</div>')+
+      ((ev["ошибки"] || []).length ? '<div class="fo-hint">Не прочиталось: '+esc(ev["ошибки"].join("; "))+'</div>' : '')+
+    '</div>';
+  }
+
+  /* ── 5. что дозаполнить ── */
+  function secFill(pr, d){
+    var f = {base: 0, miss: []};
+    try{ f = cardFill(pr); }catch(e){}
+    var fns = (typeof FO_CABFN !== "undefined" && FO_CABFN[pr.id] && FO_CABFN[pr.id].rows) || [];
+    var arts = (typeof FO_ARTS !== "undefined" && FO_ARTS[pr.id] && FO_ARTS[pr.id].rows) || [];
+    var chats = (typeof FO_CHATS !== "undefined" && FO_CHATS[pr.id]) || [];
+    var noEmp = fns.filter(function(r){ return !r.employee_id; }).length;
+    var noCyc = fns.filter(function(r){ return !r.cycle_kind || r.cycle_kind === "none"; }).length;
+    var artBad = arts.filter(function(a){ return !a.employee_id || !a.cat; }).length;
+    var rep = ((d.rep && d.rep["чаты"]) || []).filter(function(x){ return String(x["клиент"] || "").trim() === String(pr.name || "").trim(); })[0];
+    var botIn = rep && /member|administrator|creator/.test(String(rep["бот_в_чате"] || ""));
+    var deep = [
+      [fns.length > 0, "Функции в кабинете заведены"],
+      [fns.length > 0 && !noEmp, "У каждой функции есть ответственный" + (noEmp ? " (нет у " + noEmp + ")" : "")],
+      [fns.length > 0 && !noCyc, "У каждой функции задана цикличность" + (noCyc ? " (нет у " + noCyc + ")" : "")],
+      [arts.length > 0, "Артикулы внесены"],
+      [arts.length > 0 && !artBad, "У артикулов есть ответственный и категория" + (artBad ? " (не у " + artBad + ")" : "")],
+      [chats.some(function(c){ return c.kind === "client"; }), "Подключён чат с клиентом"],
+      [chats.some(function(c){ return c.kind === "mpv"; }), "Подключён рабочий чат МПВ"],
+      [!!botIn, "Бот отчётов в чате клиента"],
+      [!!String(pr.pm || "").trim(), "Закреплён проджект"]
+    ];
+    var dp = Math.round(deep.filter(function(x){ return x[0]; }).length / deep.length * 100);
+    return '<div class="fo-cbs fillw"><div class="ccdh">Что дозаполнить</div>'+
+      '<div class="fillg">'+
+        '<div class="fillc"><div class="fh">База · '+(f.base || 0)+'% · данные клиента</div>'+
+          ((f.miss || []).length ? f.miss.map(function(x){ return '<div class="fli miss">'+esc(x)+'</div>'; }).join("")
+                                 : '<div class="fli ok">Всё заполнено</div>')+'</div>'+
+        '<div class="fillc"><div class="fh">Глубина · '+dp+'% · как устроена работа</div>'+
+          deep.map(function(x){ return '<div class="fli '+(x[0] ? 'ok' : 'miss')+'">'+esc(x[1])+'</div>'; }).join("")+'</div>'+
+      '</div></div>';
+  }
+
+  function block(pr){
+    var d = CB[pr.id];
+    if(!d || !d.at){
+      load(pr.id);
+      return '<div class="ccdfn fo-cb" data-focb="'+esc(pr.id)+'"><div class="ccdh">Код, уведомления, тексты, события, что дозаполнить</div><div class="empty">Загружаю с сервера…</div></div>';
+    }
+    return '<div class="ccdfn fo-cb" data-focb="'+esc(pr.id)+'">'+
+      secCode(d)+secRoute(pr, d)+secTexts(d)+secEvents(pr, d)+secFill(pr, d)+
+      '<div class="fo-cbf"><button class="bt sm gh2" data-focbref="'+esc(pr.id)+'">Обновить с сервера</button>'+
+        '<span class="fo-hint">загружено '+esc(when(new Date(d.at).toISOString()))+'</span></div>'+
+    '</div>';
+  }
+
+  /* блок — внизу раскрытой карточки, над кнопками «Свернуть» */
+  if(typeof ccDetail === "function"){
+    var _cd = ccDetail;
+    ccDetail = function(pr){
+      var h = _cd.apply(this, arguments);
+      if(!liveMgr() || !pr || !pr.id) return h;
+      try{
+        var box = document.createElement("div"); box.innerHTML = h;
+        var det = box.querySelector(".ccdet");
+        var w = document.createElement("div"); w.innerHTML = block(pr);
+        var el = w.firstChild;
+        if(det){
+          var b2 = null;
+          Array.prototype.forEach.call(det.children, function(c){ if(c.classList && c.classList.contains("ccdb2")) b2 = c; });
+          if(b2) det.insertBefore(el, b2); else det.appendChild(el);
+          return box.innerHTML;
+        }
+        return h + el.outerHTML;
+      }catch(e){ return h; }
+    };
+  }
+
+  /* ── правила: правка → сразу на сервер ── */
+  function rule(pid, ev){
+    var d = CB[pid]; var mx = (d && d.route && d.route["матрица"]) || [];
+    return mx.filter(function(m){ return m["событие"] === ev; })[0] || null;
+  }
+  function saveRules(pid){
+    var d = CB[pid]; if(!d || !d.route) return;
+    var rules = [];
+    (d.route["матрица"] || []).forEach(function(m){
+      (m["чаты"] || []).forEach(function(c){
+        var tm = c["когда"] === "time";
+        rules.push({chat_pk: +c["чат"], event: m["событие"], enabled: !!c["включено"],
+                    when_mode: tm ? "time" : "ready", at_time: tm ? String(c["время"] || "10:00").slice(0, 5) : null});
+      });
+    });
+    d.saved = "сохраняю…"; repaint();
+    api("/routing/" + enc(pid), {method: "PUT", body: {rules: rules}}).then(function(){
+      return safe("/routing/" + enc(pid)).then(function(r){
+        if(r && !r.__err) d.route = r;
+        d.saved = "сохранено на сервере ✓"; repaint();
+        try{ toast("Куда сообщать: сохранено на сервере"); }catch(e){}
+      });
+    }, function(err){
+      d.saved = "не сохранилось: " + ((err && err.message) || "ошибка");
+      safe("/routing/" + enc(pid)).then(function(r){ if(r && !r.__err) d.route = r; repaint(); });
+      try{ toast("Куда сообщать: не сохранилось — " + ((err && err.message) || "ошибка")); }catch(e){}
+    });
+  }
+
+  document.addEventListener("click", function(e){
+    var t = e.target.closest && e.target.closest(".fo-cb [data-focbcopy], .fo-cb [data-focbrt], .fo-cb [data-focbref], .fo-cb [data-focbmore]");
+    if(!t) return;
+    e.stopPropagation(); e.preventDefault();
+    if(t.hasAttribute("data-focbcopy")){
+      var v = t.getAttribute("data-focbcopy");
+      try{
+        if(navigator.clipboard) navigator.clipboard.writeText(v).then(function(){ toast("Скопировано: " + v); }, function(){ toast(v); });
+        else toast(v);
+      }catch(x){}
+      return;
+    }
+    if(t.hasAttribute("data-focbref")){ load(t.getAttribute("data-focbref"), true); try{ toast("Обновляю с сервера…"); }catch(x){} return; }
+    if(t.hasAttribute("data-focbmore")){ var d0 = CB[t.getAttribute("data-focbmore")]; if(d0){ d0.more = true; repaint(); } return; }
+    var a = String(t.getAttribute("data-focbrt")).split("|");
+    var m = rule(a[0], a[1]); if(!m) return;
+    var c = (m["чаты"] || []).filter(function(x){ return String(x["чат"]) === a[2]; })[0]; if(!c) return;
+    c["включено"] = !c["включено"];
+    saveRules(a[0]);
+  }, true);
+
+  document.addEventListener("change", function(e){
+    var el = e.target; if(!el || !el.matches) return;
+    var w = el.matches(".fo-cb [data-focbwhen]"), tm = el.matches(".fo-cb [data-focbtime]");
+    if(!w && !tm) return;
+    var a = String(el.getAttribute(w ? "data-focbwhen" : "data-focbtime")).split("|");
+    var m = rule(a[0], a[1]); if(!m) return;
+    (m["чаты"] || []).forEach(function(c){
+      if(w){ c["когда"] = el.value === "time" ? "time" : "ready"; if(c["когда"] === "time" && !c["время"]) c["время"] = a[1] === "fact_day" ? "19:00" : "10:00"; }
+      else { c["когда"] = "time"; c["время"] = el.value || "10:00"; }
+    });
+    saveRules(a[0]);
   }, true);
 })();
 
