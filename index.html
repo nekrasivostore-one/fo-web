@@ -32600,6 +32600,103 @@ function foDistFillSelects(){
   }, true);
 })();
 
+/* ===== add136: 293 — «Мои клиенты» — один раздел: карточка клиента открывается на том же экране (Виталий 07.10)
+   «Ну конечно один раздел. Карточка открывается в том же экране и редактируется». Было: «Мои клиенты» — сводка
+   (только смотреть), кнопка «Карточка клиента» уводила на отдельный экран «Карточки клиентов» — список всех
+   клиентов (113%) с раскрытой карточкой. Теперь (рабочий режим, РМ и выше): кнопка «Карточка клиента» на виджете
+   раскрывает на «Моих клиентах» сам виджет (неделя по дням) и под ним — редактируемую карточку (та же, что была:
+   данные, функции, артикулы — всё на сервере). Отдельного экрана «Карточки клиентов» нет: все переходы туда и на
+   старую страницу кабинета ведут сюда. «Свернуть карточку» и «← Вернуться ко всем кабинетам» — закрывают.        */
+(function(){
+  function liveMgr(){
+    try{ return (typeof foLive !== "function" || foLive()) && typeof A !== "undefined" && A && (+A.level || 9) <= 4; }
+    catch(e){ return false; }
+  }
+  function prOf(id){
+    try{ return (S.projects || []).filter(function(p){ return String(p.id) === String(id); })[0] || null; }catch(e){ return null; }
+  }
+  function toCard(){
+    setTimeout(function(){
+      var el = document.querySelector(".fo-cc-inline .cc2");
+      if(el) try{ el.scrollIntoView({behavior: "smooth", block: "start"}); }catch(e){}
+    }, 240);
+  }
+
+  /* 1. «Мои клиенты»: под открытым виджетом — редактируемая карточка клиента */
+  if(typeof renderProjects === "function"){
+    var _rp = renderProjects;
+    renderProjects = function(){
+      var r = _rp.apply(this, arguments);
+      try{
+        if(!liveMgr() || typeof ccOpen === "undefined" || !ccOpen || typeof clientCard !== "function") return r;
+        var pr = prOf(ccOpen); if(!pr) return r;
+        /* открыли другой виджет — карточка прежнего клиента закрывается */
+        if(typeof openProj !== "undefined" && openProj && String(openProj) !== String(pr.id)){ ccOpen = null; return r; }
+        var host = document.getElementById("sect"); if(!host) return r;
+        var box = document.createElement("div");
+        box.className = "fo-cc-inline";
+        box.innerHTML = clientCard(pr);
+        var split = host.querySelector(".split");
+        if(split) split.parentNode.insertBefore(box, split.nextSibling);
+        else host.insertBefore(box, host.firstChild);
+        /* текст, вставленный в поле артикулов, переживает перерисовку (как в add84) */
+        try{
+          box.querySelectorAll("[data-foartpaste][data-fokeep]").forEach(function(ta){
+            var b = ta.closest("[data-focli]"), pid = b && b.getAttribute("data-focli");
+            if(pid && typeof FO_ART_TEXT !== "undefined" && FO_ART_TEXT[pid] && !ta.value) ta.value = FO_ART_TEXT[pid];
+          });
+        }catch(e){}
+      }catch(e){}
+      return r;
+    };
+    try{ if(typeof SEC_RENDER !== "undefined" && SEC_RENDER) SEC_RENDER.projects = renderProjects; }catch(e){}
+  }
+
+  /* 2. всё, что перерисовывало «Карточки клиентов», на «Моих клиентах» перерисовывает этот экран */
+  if(typeof renderCards === "function"){
+    var _rc = renderCards;
+    renderCards = function(){
+      if(liveMgr() && typeof view !== "undefined" && view === "projects"){
+        var r = renderProjects();
+        try{ if(typeof paintBars === "function") paintBars(document.getElementById("sect")); }catch(e){}
+        return r;
+      }
+      return _rc.apply(this, arguments);
+    };
+  }
+
+  /* 3. переходы на «Карточки клиентов» и на старую страницу кабинета — сюда, с раскрытой карточкой */
+  if(typeof setView === "function"){
+    var _sv = setView;
+    setView = function(v){
+      if((v === "cards" || v === "cab") && liveMgr()){
+        var id = null;
+        try{ id = (v === "cab" && typeof cabOpen !== "undefined") ? cabOpen : ccOpen; }catch(e){}
+        var pr = prOf(id);
+        try{ ccOpen = pr ? pr.id : null; }catch(e){}
+        try{ openProj = pr ? pr.id : null; }catch(e){}
+        var r = _sv.call(this, "projects", true);
+        if(pr) toCard();
+        return r;
+      }
+      return _sv.apply(this, arguments);
+    };
+  }
+
+  /* 4. «← Вернуться ко всем кабинетам» закрывает и карточку */
+  document.addEventListener("click", function(e){
+    if(!e.target.closest || !e.target.closest("#backAll")) return;
+    if(!liveMgr()) return;
+    try{ ccOpen = null; }catch(x){}
+  }, true);
+  /* «Свернуть карточку» на «Моих клиентах» — закрыть и виджет (add40 переключит ccOpen и вызовет перерисовку) */
+  document.addEventListener("click", function(e){
+    var t = e.target.closest && e.target.closest(".fo-cc-inline [data-ccopen]");
+    if(!t || !liveMgr()) return;
+    try{ if(String(ccOpen) === String(t.getAttribute("data-ccopen"))) openProj = null; }catch(x){}
+  }, true);
+})();
+
 })();
 </script>
 </body>
