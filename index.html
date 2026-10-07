@@ -4751,6 +4751,11 @@ html.dark .fo-dist-col{ background:rgba(255,255,255,.03) }
 .fo-chlr{ display:flex; flex-wrap:wrap; gap:8px; align-items:center }
 .fo-chlr .sel{ min-width:200px }
 .fo-chlh .fo-lnk{ background:none; border:none; padding:0; color:#7C5CFF; cursor:pointer; font-size:12px; font-weight:600 }
+
+/* add141: «Не хватает» — ссылки к полям */
+.fo-misslnk{ background:none; border:none; padding:0; font:inherit; color:inherit; text-decoration:underline dotted; text-underline-offset:3px; cursor:pointer }
+.fo-misslnk:hover{ color:#7C5CFF }
+.fo-flash{ outline:2px solid #7C5CFF; outline-offset:3px; border-radius:10px; transition:outline-color .3s }
 </style>
 </head>
 <body>
@@ -33423,6 +33428,71 @@ function foDistFillSelects(){
       return {bad: bad, html: html};
     };
   }
+})();
+
+/* ===== add141: 302 — «Не хватает: Рабочее пространство» ведёт к полю (Виталий 07.10)
+   «Пишет в двух местах, что не хватает рабочего пространства. Перекидывает с кнопки на кнопку, но не даёт никуда вставить».
+   Причина: в проверке поле называлось «Рабочее пространство», а в карточке — «Таблица клиента»; остальные тоже
+   по-разному («Объём артикулов» / «Артикулов всего в кабинете», «Сумма в месяц» / «Платёж» …). Найти поле было нельзя.
+   · Названия в «Не хватает» и в «Что дозаполнить» — как у полей карточки; поле таблицы — «Таблица клиента · рабочее пространство».
+   · Каждый пункт «не хватает» — ссылка: нажали → карточка прокручивается к полю, курсор в поле, поле подсвечено.
+     Пункты «глубины» ведут к своим блокам: функции, артикулы, чаты, проджект.                                   */
+(function(){
+  var NAMES = {name: "Название", owner: "Собственник", tg: "Telegram", phone: "Телефон", payDate: "Дата платежа",
+               amount: "Платёж в месяц", articles: "Артикулов в кабинете", sheet: "Таблица клиента · рабочее пространство"};
+  try{ if(typeof CARD_BASE !== "undefined" && CARD_BASE) CARD_BASE.forEach(function(f){ if(NAMES[f[0]]) f[1] = NAMES[f[0]]; }); }catch(e){}
+  var BYLABEL = {}; Object.keys(NAMES).forEach(function(k){ BYLABEL[NAMES[k]] = k; });
+  var DEEP = [[/функци/i, ".fo-cabfn"], [/артикул/i, ".fo-arts"], [/чат|бот/i, ".fo-chats"], [/проджект/i, '[data-edk="pm"]']];
+
+  function liveMgr(){
+    try{ return (typeof foLive !== "function" || foLive()) && typeof A !== "undefined" && A && (+A.level || 9) <= 4; }
+    catch(e){ return false; }
+  }
+  function link(key, text){
+    return '<button type="button" class="fo-misslnk" data-fomiss="'+esc(key)+'">'+esc(text)+'</button>';
+  }
+
+  if(typeof ccDetail === "function"){
+    var _cd = ccDetail;
+    ccDetail = function(pr){
+      var h = _cd.apply(this, arguments);
+      if(!liveMgr() || !pr) return h;
+      try{
+        var box = document.createElement("div"); box.innerHTML = h;
+        /* поле таблицы — тем же словом, что в проверке */
+        var sh = box.querySelector('[data-edk="sheet"]'), lab = sh && sh.closest("label"), sp = lab && lab.querySelector("span");
+        if(sp) sp.textContent = NAMES.sheet;
+        /* «Не хватает: …» вверху — ссылки на поля */
+        var f = null; try{ f = cardFill(pr); }catch(x){}
+        var keys = [];
+        try{ CARD_BASE.forEach(function(c){ var v = pr[c[0]]; if(!(v != null && String(v).trim() !== "" && String(v) !== "0")) keys.push(c[0]); }); }catch(x){}
+        box.querySelectorAll(".ccdet .ccn.warn2").forEach(function(w){
+          if(!keys.length) return;
+          w.innerHTML = 'Не хватает: ' + keys.map(function(k){ return link(k, NAMES[k] || k); }).join(", ");
+        });
+        /* «Что дозаполнить» внизу (add138) — тоже ссылки */
+        box.querySelectorAll(".fo-cb .fillw .fli.miss").forEach(function(li){
+          var t = li.textContent.trim(), k = BYLABEL[t];
+          if(!k){ var d = DEEP.filter(function(x){ return x[0].test(t); })[0]; if(d) k = "sel:" + d[1]; }
+          if(k) li.innerHTML = link(k, t);
+        });
+        return box.innerHTML;
+      }catch(e){ return h; }
+    };
+  }
+
+  document.addEventListener("click", function(e){
+    var b = e.target.closest && e.target.closest("[data-fomiss]"); if(!b) return;
+    e.preventDefault(); e.stopPropagation();
+    var card = b.closest(".fo-cc-inline, .cc2, .ccdet") || document, k = b.getAttribute("data-fomiss");
+    var el = k.indexOf("sel:") === 0 ? card.querySelector(k.slice(4)) : card.querySelector('[data-edk="' + k + '"]');
+    if(!el){ try{ toast("Поле не нашлось в карточке"); }catch(x){} return; }
+    try{ el.scrollIntoView({behavior: "smooth", block: "center"}); }catch(x){}
+    var hl = (el.matches && el.matches("input, select, textarea")) ? (el.closest("label") || el) : el;
+    hl.classList.add("fo-flash");
+    setTimeout(function(){ hl.classList.remove("fo-flash"); }, 2200);
+    if(el.focus && el.matches("input, select, textarea")) setTimeout(function(){ try{ el.focus({preventScroll: true}); }catch(x){ el.focus(); } }, 350);
+  }, true);
 })();
 
 })();
