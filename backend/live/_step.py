@@ -8703,6 +8703,23 @@ async def _fo_mt_request(c, org_id, client_id, r, text, msg_id, pk, test):
             _fo_aio.get_running_loop().create_task(_fo_mt_ai_handoff(pk))
         return {"state": "не про планёрку — агенту задач"}
     if it == "confirm":
+        # 300: «Планёрку нужно на четверг 10:00» при графике «чт 10:00» — фиксируем, а не молчим (Виталий 07.10)
+        try:
+            sl0 = _fo_mt_slots(r["slots"]) if r else {}
+            dd = js.get("day")
+            tt = _fo_mt_m(js.get("time")) if js.get("time") else None
+            ok = bool(sl0) and (dd is None or int(dd) in sl0) and (tt is None or any(
+                _fo_mt_m(v.get("time")) == tt for k, v in sl0.items() if dd is None or k == int(dd)))
+            if ok and r and r["status"] != "agreed":
+                return await _fo_mt_agree(c, org_id, client_id, sl0, reply_to=msg_id, test=test, how="клиент подтвердил в чате")
+            if ok and r:
+                nx = next((x for x in items if not past(x)), None)
+                if nx:
+                    await _fo_mt_send(c, org_id, client_id, "Да, всё в силе ✓ Планёрка %s в %s." % (_fo_mt_dw(nx["day"]), nx["time"]),
+                                      reply_to=msg_id, test=test)
+                    return {"state": "подтвердил — ответили, что в силе"}
+        except Exception as _e300:
+            print("300 подтверждение:", str(_e300)[:150])
         return {"state": "подтвердил, ничего не меняем"}
     if it == "unclear" and _FO_MT_SOFT.get():
         if not test:
