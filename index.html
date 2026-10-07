@@ -32697,6 +32697,97 @@ function foDistFillSelects(){
   }, true);
 })();
 
+/* ===== add137: 294 — блок «Работа с РК» в ганте нажимается (Виталий 07.10)
+   «На главном экране гант не нажимается на РК». Было: клик по блоку РК (add92) давал только всплывашку
+   на пару секунд — ни артикулов, ни отметки. Теперь клик открывает такую же карточку, как у задачи (add88):
+   клиент · менеджер · день · минуты, какие артикулы в этот день (ВБ, артикул продавца, категория),
+   как посчитано время, кнопка «Отметить выполненной / Снять отметку» — та же отметка, что галочка
+   в списке дня (add122, на сервере), и «Карточка клиента» (РМ и выше). В списке дня — то же самое.   */
+(function(){
+  var DAYS = ["понедельник", "вторник", "среда", "четверг", "пятница", "суббота", "воскресенье"];
+  function rkArts(t){
+    var out = [];
+    try{
+      (typeof artsAll === "function" ? artsAll() : []).forEach(function(a){
+        if(!a || String(a.person || "") !== String(t.person || "")) return;
+        if(String(a.cab || a.project || "") !== String(t.project || "")) return;
+        var d = (typeof foRkDays === "function") ? foRkDays(a) : (a.days || []);
+        if(d.indexOf(+t.dow) < 0) return;
+        out.push(a);
+      });
+    }catch(e){}
+    var ord = {A: 0, B: 1, C: 2};
+    out.sort(function(x, y){ return (ord[x.cat] != null ? ord[x.cat] : 3) - (ord[y.cat] != null ? ord[y.cat] : 3); });
+    return out;
+  }
+  function canCard(){
+    try{ return !(typeof foBelowPm === "function" && foBelowPm()); }catch(e){ return false; }
+  }
+  function rkMenu(t, anchor){
+    try{ if(typeof foTaskMenuClose === "function") foTaskMenuClose(); }catch(e){}
+    var m = null, pr = null;
+    try{ m = t.person ? person(t.person) : null; }catch(e){}
+    try{ pr = t.project ? project(t.project) : null; }catch(e){}
+    var k = t.rkKey || (typeof foRkKey === "function" ? foRkKey(t) : "");
+    var on = false; try{ on = !!(typeof foRkMap === "function" && foRkMap()[k]); }catch(e){}
+    var tick = false; try{ tick = typeof foRkCanTick === "function" ? foRkCanTick(t) : true; }catch(e){}
+    var arts = rkArts(t);
+    var list = arts.length
+      ? arts.slice(0, 60).map(function(a){
+          return '<div style="display:flex;gap:10px;align-items:baseline;padding:3px 0;border-bottom:1px solid var(--line,rgba(0,0,0,.06))">' +
+            '<code style="font-size:12px">' + esc(a.wb || a.wb_sku || "") + '</code>' +
+            '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink-2,#666);font-size:12px">' + esc(a.sku || a.seller_sku || "") + '</span>' +
+            '<b style="font-size:12px">' + esc(a.cat || "—") + '</b></div>';
+        }).join("") + (arts.length > 60 ? '<div style="font-size:12px;color:var(--ink-2,#666);padding-top:4px">и ещё ' + (arts.length - 60) + '</div>' : '')
+      : '<div style="font-size:12px;color:var(--ink-2,#666)">Артикулы этого дня ещё не загрузились — откройте карточку клиента.</div>';
+    var box = document.createElement("div"); box.id = "foTaskMenu"; box.className = "fo-tmenu";
+    box.innerHTML =
+      '<div class="fo-tmh"><b>Работа с РК</b>' +
+        '<i>' + (pr ? esc(pr.name) + ' · ' : '') + (m ? esc(m.name) : 'без ответственного') + ' · ' + (DAYS[+t.dow] || "") + ' · ' +
+        (t.minutes || 0) + ' мин' + (on ? ' · <u>выполнено</u>' : '') + '</i></div>' +
+      '<div style="margin:8px 0 6px;font-size:12px;font-weight:600">Артикулы на этот день: ' + arts.length + '</div>' +
+      '<div style="max-height:220px;overflow:auto;padding-right:4px">' + list + '</div>' +
+      (t.comment ? '<div class="fo-tmn" style="margin-top:8px">Время: ' + esc(t.comment) + '</div>' : '') +
+      '<div class="fo-tmb" style="margin-top:10px">' +
+        (tick && k ? '<button class="bt sm' + (on ? ' gh2' : '') + '" data-rkcb="' + esc(k) + '" aria-pressed="' + on + '">' +
+          (on ? 'Снять отметку' : 'Отметить выполненной') + '</button>' : '') +
+        (canCard() && t.project ? '<button class="bt sm gh2" data-opencard="' + esc(t.project) + '">Карточка клиента</button>' : '') +
+        '<button class="bt sm gh2" data-fotclose="1">Закрыть</button>' +
+      '</div>' +
+      (tick ? '' : '<div class="fo-tmn">Отметить работу с РК может сам менеджер или РМ и выше.</div>');
+    document.body.appendChild(box);
+    try{
+      var r = anchor.getBoundingClientRect();
+      var w = Math.min(380, window.innerWidth - 20);
+      var left = Math.max(10, Math.min(r.left, window.innerWidth - w - 10));
+      box.style.left = left + "px"; box.style.width = w + "px";
+      var h = box.getBoundingClientRect().height || 320;
+      var top = r.bottom + 6; if(top + h > window.innerHeight - 10) top = Math.max(10, r.top - h - 6);
+      box.style.top = top + "px";
+    }catch(e){}
+  }
+  if(typeof foTaskMenu === "function"){
+    var _tm = foTaskMenu;
+    foTaskMenu = function(t, anchor){
+      if(t && t.rk) return rkMenu(t, anchor);
+      return _tm.apply(this, arguments);
+    };
+    window.foTaskMenu = foTaskMenu;
+  }
+  if(typeof window.foTaskExpand === "function"){
+    var _te = window.foTaskExpand;
+    window.foTaskExpand = function(t, row){
+      if(t && t.rk) return rkMenu(t, row || document.body);
+      return _te.apply(this, arguments);
+    };
+  }
+  /* после отметки или перехода в карточку — карточка блока закрывается (данные уже перерисованы) */
+  window.addEventListener("click", function(e){
+    if(!e.target.closest || !e.target.closest("#foTaskMenu [data-rkcb], #foTaskMenu [data-opencard]")) return;
+    setTimeout(function(){ try{ if(typeof foTaskMenuClose === "function") foTaskMenuClose(); }catch(x){} }, 0);
+  }, true);
+})();
+
 })();
 </script>
 </body>
