@@ -6230,6 +6230,36 @@ async def fo_client_chats_state(client_id: str, p: Principal = Depends(max_level
             "bots": {bk: (mes.get(bk) or {}).get("username") or "" for bk in ("main", "meet", "report")}}
 
 
+# ══ 299: зафиксировать согласованную с клиентом дополнительную планёрку (Виталий 07.10) ══
+# «Я согласился на планёрку в 10:55 — ты должен зафиксировать». Тот же путь, что ответ клиента «да»
+# (_fo_mt_pend_apply): итог в чат клиента, закрепление, задача ведущему.
+class FoMtFixIn(_FoBM):
+    day: str
+    time: str
+    minutes: int | None = None
+    host: str | None = None
+
+
+@router.post("/meet/{client_id}/fix")
+async def fo_meet_fix(client_id: str, body: FoMtFixIn, p: Principal = Depends(max_level(4))):
+    async with pool().acquire() as c:
+        r = await _fo_mt_row(c, p.org_id, client_id)
+        if not r:
+            raise HTTPException(404, "у клиента нет графика планёрок")
+        d = _fo_mt_date(body.day)
+        tm = _fo_mt_m(body.time)
+        if d is None or tm is None:
+            raise HTTPException(400, "день или время не разобраны")
+        sl = _fo_mt_slots(r["slots"])
+        base = sl.get(d.weekday()) or (next(iter(sl.values())) if sl else {}) or {}
+        host = body.host or base.get("host")
+        mins = int(body.minutes or base.get("minutes") or 40)
+        pend = {"type": "extra", "to": {"day": d.isoformat(), "time": _fo_mt_hm(tm), "minutes": mins, "host": host,
+                                        "kind": "extra", "id": None}}
+        res = await _fo_mt_pend_apply(c, p.org_id, client_id, pend, None, False)
+    return {"ok": True, "итог": res}
+
+
 async def _fo_tg_claim(c, tg, title):
     """Чат внесли в карточку ссылкой-приглашением (t.me/+…), а Telegram присылает номер группы.
     Находим такой чат по названию и ставим ему настоящий номер — тогда бот и читает, и пишет в него."""
@@ -8948,6 +8978,30 @@ async def _fo_mt_pend_answer(c, org_id, client_id, r, pend, text, msg_id, pk, te
     offer = {to["day"].weekday(): {"time": to["time"], "minutes": int(to["minutes"]), "host": to["host"]}}
     js = await _fo_mt_parse(text, offer, org_id)
     kind = js.get("answer")
+    # 299: «Фиксируем на 10:55» на предложенные 10:55 — согласие, а не своё время (Виталий 07.10)
+    if kind in ("other", "unclear") and pend.get("type") != "cancel":
+        try:
+            rxa = _fo_mt_rx(text)
+            sl = list(js.get("slots") or [])
+            if not sl and rxa["time"]:
+                sl = [{"day": (rxa["days"][0] if rxa["days"] else None), "time": rxa["time"]}]
+            cands = [to] + [_fo_mt_unjs(a) for a in (pend.get("alts") or []) if isinstance(a, dict)]
+            hit = None
+            if sl and not rxa["neg"]:
+                for cd in cands:
+                    if cd.get("day") and cd.get("time") and all(
+                            sx.get("time") and _fo_mt_m(sx["time"]) == _fo_mt_m(cd["time"]) and
+                            (sx.get("day") is None or int(sx["day"]) == cd["day"].weekday()) for sx in sl):
+                        hit = cd
+                        break
+            if hit is not None:
+                kind = "yes"
+                js["answer"], js["by"] = "yes", (js.get("by") or "правило") + " · то же время, что предложили"
+                if hit is not to:
+                    pend = dict(pend)
+                    pend["to" if pend.get("to") else "from"] = _fo_mt_js(dict(hit, kind=hit.get("kind") or "extra", id=hit.get("id")))
+        except Exception as _e299:
+            print("299 согласие по времени:", str(_e299)[:150])
     await c.execute("UPDATE fo_meet SET answered_at=now(), answer=$3, log=log||$4::jsonb WHERE org_id=$1::uuid AND client_id=$2::uuid",
                     str(org_id), str(client_id), str(text or "")[:500],
                     _fo_mt_item("ответ клиента", text=str(text or "")[:300], понял=kind, by=js.get("by")))
@@ -9110,6 +9164,20 @@ async def _fo_mt_offhours(c, org_id, client_id, tgt, host, mins, day, t, wkend, 
                     "WHERE org_id=$1::uuid AND client_id=$2::uuid", str(org_id), str(client_id),
                     (sent or {}).get("msg_id"), 1 if proposed else 0,
                     _fo_mt_item("выходные / нерабочее время — предложили будни", text=(head + " " + body)[:400], send=err or None))
+    # 299: то, что бот здесь предложил, — то, на что клиент ответит «да» / «фиксируем на …»
+    try:
+        if opts and rr and rr["pend"]:
+            pd = _fo_mt_load(rr["pend"], None)
+            if isinstance(pd, dict) and pd.get("type") != "cancel" and (pd.get("to") or pd.get("from")):
+                key = "to" if pd.get("to") else "from"
+                base = dict(pd.get(key) or {})
+                alts = [dict(base, day=dd.isoformat(), time=tm) for dd, tm, _o in opts]
+                pd[key], pd["alts"] = alts[0], alts[1:]
+                pd.pop("opts", None)
+                await c.execute("UPDATE fo_meet SET pend=$3::jsonb WHERE org_id=$1::uuid AND client_id=$2::uuid",
+                                str(org_id), str(client_id), _fo_json.dumps(pd))
+    except Exception as _e299:
+        print("299 нерабочее время → предложение:", str(_e299)[:150])
     return {"state": "нерабочее время — предложили будни", "варианты": ["%s %s" % (dd.isoformat(), tm) for dd, tm, _o in opts]}
 
 
