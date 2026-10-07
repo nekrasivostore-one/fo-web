@@ -32542,8 +32542,8 @@ function foDistFillSelects(){
    показывал изначально». Причина: после «Завести кабинет» (и по ссылкам «кабинет») приложение открывало старую
    демо-страницу кабинета — её блок «Задачи кабинета» читает план из памяти браузера, а не с сервера: после
    загрузки с сервера он пустой, а функции, добавленные там, на сервер не уходят. Единая карточка клиента в
-   «Мои клиенты» (add40 + add79) работает с сервером — теперь (РМ и выше, рабочий режим) переход на старую
-   страницу открывает её, как кнопка «Раскрыть карточку». Новый кабинет — раскрывается, как только загрузился. */
+   «Карточки клиентов» (add40 + add79) работает с сервером — теперь (РМ и выше, рабочий режим) переход на старую
+   страницу открывает её так же, как кнопка «Карточка клиента» на «Мои клиенты» (add56). Новый кабинет — раскрывается, как только загрузился. */
 (function(){
   var UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   function liveMgr(){
@@ -32554,21 +32554,29 @@ function foDistFillSelects(){
     try{ return !!id && UUID.test(String(id)) && (S.projects || []).some(function(p){ return String(p.id) === String(id); }); }
     catch(e){ return false; }
   }
+  /* как кнопка «Карточка клиента» на «Мои клиенты» (add56): раздел «Карточки клиентов», клиент раскрыт */
   function showCard(id){
     try{ ccOpen = id; }catch(e){}
-    try{ if(typeof view !== "undefined" && view === "projects" && typeof renderCards === "function") renderCards(); }catch(e){}
+    try{
+      if(typeof view !== "undefined" && view === "cards" && typeof renderCards === "function") renderCards();
+      else { try{ navPush("projects"); }catch(x){} setView("cards", true); }
+    }catch(e){}
     setTimeout(function(){
       var el = document.querySelector(".cc2.ccx");
       if(el) try{ el.scrollIntoView({behavior: "smooth", block: "start"}); }catch(e){}
-    }, 90);
+    }, 220);
   }
   if(typeof setView === "function"){
     var _sv = setView;
     setView = function(v){
       if(v === "cab" && liveMgr()){
         var id = (typeof cabOpen !== "undefined") ? cabOpen : null;
-        var r = _sv.apply(this, ["projects"].concat([].slice.call(arguments, 1)));
-        if(serverProject(id)) showCard(id);
+        try{ if(serverProject(id)) ccOpen = id; }catch(e){}
+        var r = _sv.call(this, "cards", true);
+        setTimeout(function(){
+          var el = document.querySelector(".cc2.ccx");
+          if(el) try{ el.scrollIntoView({behavior: "smooth", block: "start"}); }catch(e){}
+        }, 220);
         return r;
       }
       return _sv.apply(this, arguments);
