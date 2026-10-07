@@ -466,6 +466,27 @@ BEGIN
 EXCEPTION WHEN OTHERS THEN
   RAISE NOTICE 'chat id fix: %', SQLERRM;
 END $$;
+-- 296: бот записал группу раньше, чем её внесли в карточку — номер переносим в чат карточки (тот же id)
+DO $$
+DECLARE r record; n int;
+BEGIN
+  FOR r IN SELECT c.id AS cid, x.id AS nid, x.chat_id AS num FROM chat c
+             JOIN chat x ON x.org_id = c.org_id AND x.channel = c.channel AND x.id <> c.id
+              AND lower(regexp_replace(btrim(x.title), '\\s+', ' ', 'g')) = lower(regexp_replace(btrim(c.title), '\\s+', ' ', 'g'))
+            WHERE c.chat_id !~ '^-?[0-9]+$' AND x.chat_id ~ '^-?[0-9]+$'
+              AND EXISTS (SELECT 1 FROM client_chat cc WHERE cc.chat_pk = c.id)
+              AND NOT EXISTS (SELECT 1 FROM client_chat cc WHERE cc.chat_pk = x.id)
+            ORDER BY c.id
+  LOOP
+    UPDATE chat SET chat_id = chat_id || ':слит:' || id::text, is_active = false WHERE id = r.nid AND chat_id = r.num;
+    GET DIAGNOSTICS n = ROW_COUNT;
+    IF n = 1 THEN
+      UPDATE chat SET chat_id = r.num, is_active = true WHERE id = r.cid AND chat_id !~ '^-?[0-9]+$';
+    END IF;
+  END LOOP;
+EXCEPTION WHEN OTHERS THEN
+  RAISE NOTICE 'chat merge 296: %', SQLERRM;
+END $$;
 
 ALTER TABLE app_user ADD COLUMN IF NOT EXISTS phone text;
 ALTER TABLE app_user ADD COLUMN IF NOT EXISTS display_name text;
@@ -3914,6 +3935,11 @@ async def fo_bots_chats(bot: str = "main", p: Principal = Depends(max_level(1)))
     me = await _fo_bot_me(tok) if tok else {}
     since = _fo_dt.datetime.now(_fo_dt.timezone.utc) - _fo_dt.timedelta(days=7)
     kinds = ("client",) if bk == "meet" else ("client", "mpv")
+    try:
+        async with pool().acquire() as _c296:
+            await _fo_chat_reconcile(_c296, p.org_id)   # 296: карточка ↔ группа бота
+    except Exception as _e296:
+        print("296 сверка чатов:", str(_e296)[:150])
     team, team_on = [], False
     async with pool().acquire() as c:
         cls = await c.fetch("SELECT id, name FROM client WHERE org_id=$1 ORDER BY name", p.org_id)
@@ -6083,6 +6109,52 @@ async def _fo_ai_process(msg_pk, dry=False, use_prev=True):
     return {"state": "task", "ai_task_id": str(rid), "ai": js, "реакция": react}
 
 
+# ══ 296: чат карточки и группа бота связываются в любом порядке (Виталий 07.10) ══
+# «Правила такие: я добавляю ботов в чаты, вписываю название группы в карточку — и всё коннектится».
+# Было: если бот увидел группу раньше, чем её внесли в карточку, группа ложилась отдельной записью с номером,
+# а чат карточки (ссылка или одно название) номер не получал — «номер занят» (так застрял ООО Лифарм).
+# Теперь номер переносится в чат карточки (тот же id — правила «Куда сообщать» и настройки на месте), запись бота
+# гасится. Сверка — когда бот видит группу, при открытии «Планёрки» и «Чат-ботов», при добавлении чата в карточку.
+async def _fo_chat_merge(c, card_id, num_id, num):
+    async with c.transaction():
+        st = await c.execute("UPDATE chat SET chat_id = chat_id || ':слит:' || id::text, is_active = false "
+                             "WHERE id=$1 AND chat_id=$2", num_id, num)
+        if not str(st).endswith(" 1"):
+            return False
+        await c.execute("UPDATE chat SET chat_id=$2, is_active=true WHERE id=$1", card_id, num)
+    print("296 чат: номер группы бота перенесён в чат карточки", card_id)
+    return True
+
+
+async def _fo_chat_reconcile(c, org_id):
+    rows = await c.fetch(
+        "SELECT c.id AS cid, n.id AS nid, n.chat_id AS num, c.title FROM chat c "
+        "JOIN chat n ON n.org_id = c.org_id AND n.channel = c.channel AND n.id <> c.id "
+        " AND lower(regexp_replace(btrim(n.title), '\\s+', ' ', 'g')) = lower(regexp_replace(btrim(c.title), '\\s+', ' ', 'g')) "
+        "WHERE c.org_id = $1 AND c.chat_id !~ '^-?[0-9]+$' AND n.chat_id ~ '^-?[0-9]+$' "
+        "  AND EXISTS (SELECT 1 FROM client_chat cc WHERE cc.chat_pk = c.id) "
+        "  AND NOT EXISTS (SELECT 1 FROM client_chat cc WHERE cc.chat_pk = n.id) "
+        "ORDER BY c.id", org_id)
+    done, used = [], set()
+    for r in rows:
+        if r["nid"] in used or r["cid"] in used:
+            continue
+        try:
+            if await _fo_chat_merge(c, r["cid"], r["nid"], r["num"]):
+                used.add(r["nid"]); used.add(r["cid"]); done.append(r["title"])
+        except Exception as e:
+            print("296 чат: не слилось", r["title"], str(e)[:120])
+    return done
+
+
+@router.post("/chats/reconcile")
+async def fo_chats_reconcile(p: Principal = Depends(max_level(4))):
+    """Чаты, внесённые в карточку названием или ссылкой, получают номер группы, где уже сидит бот."""
+    async with pool().acquire() as c:
+        done = await _fo_chat_reconcile(c, p.org_id)
+    return {"привязано": done}
+
+
 async def _fo_tg_claim(c, tg, title):
     """Чат внесли в карточку ссылкой-приглашением (t.me/+…), а Telegram присылает номер группы.
     Находим такой чат по названию и ставим ему настоящий номер — тогда бот и читает, и пишет в него."""
@@ -6093,9 +6165,12 @@ async def _fo_tg_claim(c, tg, title):
         "WHERE lower(btrim(ch.title)) = lower(btrim($1)) AND ch.chat_id !~ '^-?[0-9]+$' ORDER BY ch.id LIMIT 1", title)
     if not row:
         return False
-    busy = await c.fetchval("SELECT 1 FROM chat WHERE org_id=$1 AND channel='telegram' AND chat_id=$2", row["org_id"], tg)
+    busy = await c.fetchval("SELECT id FROM chat WHERE org_id=$1 AND channel='telegram' AND chat_id=$2", row["org_id"], tg)
     if busy:
-        return False
+        # 296: бот записал группу раньше карточки — переносим номер в чат карточки, если та запись ни к кому не привязана
+        if await c.fetchval("SELECT 1 FROM client_chat WHERE chat_pk=$1", busy):
+            return False
+        return await _fo_chat_merge(c, row["id"], busy, tg)
     await c.execute("UPDATE chat SET chat_id=$2, is_active=true WHERE id=$1", row["id"], tg)
     return True
 
@@ -7795,6 +7870,10 @@ async def fo_meet_get(p: Principal = Depends(max_level(4))):
     _fo_mt_kick()
     async with pool().acquire() as c:
         await _fo_mt_migrate(c, p.org_id)
+        try:
+            await _fo_chat_reconcile(c, p.org_id)      # 296: карточка ↔ группа бота
+        except Exception as _e296:
+            print("296 сверка чатов:", str(_e296)[:150])
         lv = await _fo_mt_levels(c, p.org_id)
         rows = {str(r["client_id"]): r for r in await c.fetch("SELECT * FROM fo_meet WHERE org_id=$1::uuid", str(p.org_id))}
         chats = {}
