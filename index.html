@@ -4732,6 +4732,11 @@ html.dark .fo-dist-col{ background:rgba(255,255,255,.03) }
 .fo-cb .bt{ width:auto; flex:none; align-self:flex-start }
 .fo-cbcode .bt{ min-width:84px }
 .fo-cb .whw .rtwhen{ width:156px }
+/* add139: чаты карточки — есть ли номер; «Планёрка» — точная причина и блок «где сидит бот» */
+.fo-chatr i.fo-chok{ color:var(--ok, #2BB673); font-style:normal }
+.fo-chatr i.fo-chwait{ color:var(--warn, #E0A13A); font-style:normal; white-space:normal }
+.fo-mtst.fo-mtwhy{ color:var(--warn, #E0A13A) }
+.fo-mtbch{ margin-top:14px }
 </style>
 </head>
 <body>
@@ -33105,6 +33110,178 @@ function foDistFillSelects(){
       else { c["когда"] = "time"; c["время"] = el.value || "10:00"; }
     });
     saveRules(a[0]);
+  }, true);
+})();
+
+/* ===== add139: 296–297 — чаты, «Планёрка», «Каждый день» с днями (Виталий 07.10)
+   296 «Я добавляю ботов в чаты, вписываю название группы в карточку — и всё коннектится».
+     · Карточка → «Чаты Telegram»: ссылка не обязательна, достаточно названия группы; после «Добавить» сервис сразу
+       ищет группу, где уже сидит бот (POST /refs/chats/reconcile, сервер v106), и ставит её номер.
+       У каждого чата видно: «номер Telegram ✓» или «номера нет — бот ещё не видел группу с таким названием».
+     · «Планёрка»: под «Бот планёрок» — блок «Кабинеты: где сидит бот планёрок» (тот же, что в «Чат-ботах»);
+       в строке графика вместо «чат клиента не привязан» — точная причина.
+   297 «Юнитка FBO даёт дни, если выбираешь „Каждый день“, а FBS — не даёт» · «не предлагает дни на выбор».
+     · «Каждый день» в функциях карточки (строки и «Добавить») — с днями на выбор, по умолчанию Пн–Пт,
+       задачи только на отмеченные дни; без единого дня не сохраняем (как «Несколько раз в неделю», add95).     */
+(function(){
+  var WD = [0, 1, 2, 3, 4];
+
+  /* ── 297: «Каждый день» с днями ── */
+  function cycSel(row){ return row && row.querySelector('[data-fok="cycle_kind"], [data-foa="cycle_kind"]'); }
+  function dailyDays(row, reset){
+    var d = row.querySelector(".fo-days"); if(!d) return;
+    d.hidden = false; d.removeAttribute("hidden");
+    if(reset || !row.querySelector(".fo-day.on")){
+      d.querySelectorAll(".fo-day").forEach(function(b){ b.classList.toggle("on", WD.indexOf(+b.getAttribute("data-foday")) >= 0); });
+    }
+  }
+  /* часы в неделю: «Каждый день» — минуты × отмеченные дни (без дней — Пн–Пт) */
+  if(typeof foWeekMin === "function"){
+    var _wm = foWeekMin;
+    foWeekMin = function(r){
+      try{ if(foCycEff(r) === "daily"){ var n = (foDaysEff(r) || []).length; return foMinEff(r) * (n || 5); } }catch(e){}
+      return _wm.apply(this, arguments);
+    };
+  }
+  if(typeof foCabFnBlock === "function"){
+    var _fb = foCabFnBlock;
+    foCabFnBlock = function(pr){
+      var h = _fb.apply(this, arguments);
+      try{
+        var box = document.createElement("div"); box.innerHTML = h;
+        box.querySelectorAll(".fo-fnr, .fo-fnadd").forEach(function(row){
+          var sel = cycSel(row); if(!sel) return;
+          var on = sel.querySelector("option[selected]"), v = on ? on.value : sel.value;
+          if(v === "daily") dailyDays(row, false);
+        });
+        return box.innerHTML;
+      }catch(e){ return h; }
+    };
+  }
+  /* выбрали «Каждый день» — дни Пн–Пт, можно снять лишние; add79 прячет дни для не-недельных — возвращаем */
+  document.addEventListener("change", function(e){
+    var el = e.target; if(!el || !el.matches || !el.matches('.fo-fnr [data-fok="cycle_kind"], .fo-fnadd [data-foa="cycle_kind"]')) return;
+    var row = el.closest(".fo-fnr, .fo-fnadd"); if(!row) return;
+    if(el.value === "daily"){
+      dailyDays(row, true);
+      setTimeout(function(){ if(el.value === "daily") dailyDays(row, false); }, 0);
+    }
+  }, true);
+  /* последний день не снимаем, «Добавить» без дня — не отправляем (стоят раньше add79: на window) */
+  window.addEventListener("click", function(e){
+    var t = e.target.closest && e.target.closest(".fo-fnr .fo-day.on, .fo-fnadd .fo-day.on, .fo-fnadd [data-foadd]");
+    if(!t) return;
+    var row = t.closest(".fo-fnr, .fo-fnadd"), sel = cycSel(row);
+    if(!sel || sel.value !== "daily") return;
+    var n = row.querySelectorAll(".fo-day.on").length;
+    if((t.classList.contains("fo-day") && n <= 1) || (t.hasAttribute("data-foadd") && n < 1)){
+      e.preventDefault(); e.stopPropagation();
+      try{ toast("Оставьте хотя бы один день — задачи родятся на каждый отмеченный"); }catch(x){}
+    }
+  }, true);
+
+  /* ── 296: «Чаты Telegram» в карточке — название группы, ссылка не обязательна ── */
+  function isNum(v){ return /^-?\d+$/.test(String(v || "").trim()); }
+  if(typeof foChatsBlock === "function"){
+    var _cb = foChatsBlock;
+    foChatsBlock = function(pr){
+      var h = _cb.apply(this, arguments);
+      try{
+        var box = document.createElement("div"); box.innerHTML = h;
+        var list = (typeof FO_CHATS !== "undefined" && FO_CHATS[pr.id]) || [];
+        box.querySelectorAll(".fo-chatr").forEach(function(r){
+          var del = r.querySelector("[data-fochatdel]"), pk = del ? del.getAttribute("data-fochatdel") : null;
+          var c = list.filter(function(x){ return String(x.pk) === String(pk); })[0];
+          var i = r.querySelector("i"); if(!i) return;
+          var num = c ? isNum(c.chat_id) : isNum(i.textContent);
+          i.className = num ? "fo-chok" : "fo-chwait";
+          i.textContent = num ? "номер Telegram ✓ — бот видит группу" : "номера нет — бот ещё не видел группу с таким названием: добавьте бота или напишите в группе";
+        });
+        var t = box.querySelector('[data-foch="title"]'); if(t) t.setAttribute("placeholder", "Название группы — как в Telegram");
+        var l = box.querySelector('[data-foch="chat_id"]'); if(l) l.setAttribute("placeholder", "ссылка — не обязательно");
+        var hint = box.querySelector(".fo-chatadd .fo-hint");
+        if(hint) hint.textContent = "Порядок: добавьте ботов в группу → впишите сюда название группы буква в букву → «Добавить». Сервис сам найдёт группу и поставит её номер. Ссылка не нужна.";
+        return box.innerHTML;
+      }catch(e){ return h; }
+    };
+  }
+  window.addEventListener("click", function(e){
+    var b = e.target.closest && e.target.closest(".fo-chatadd [data-fochatadd]"); if(!b) return;
+    var box = b.closest(".fo-chatadd"), cid = box && box.getAttribute("data-focli");
+    var title = box.querySelector('[data-foch="title"]'), link = box.querySelector('[data-foch="chat_id"]');
+    var tv = title ? String(title.value || "").trim() : "";
+    if(tv && link && !String(link.value || "").trim()) link.value = "ждёт бота · " + tv;   /* место под номер: у каждого чата своё */
+    if(!tv || !cid) return;
+    var n = 0;
+    (function rec(){
+      n++;
+      setTimeout(function(){
+        api("/refs/chats/reconcile", {method: "POST"}).then(function(r){
+          var got = (r && r["привязано"]) || [];
+          if(got.length){ try{ toast("Группа найдена — чат привязан: " + got.join(", ")); }catch(x){} }
+          return (typeof foChatsLoad === "function" ? foChatsLoad(cid) : null);
+        }).then(function(){ try{ renderCards(); }catch(x){} }, function(){ if(n < 3) rec(); });
+      }, 1500 * n);
+    })();
+  }, true);
+
+  /* ── 296: «Планёрка» — где сидит бот, и точная причина в строке графика ── */
+  function meetLoad(force){
+    if(typeof FO_BOTS_CHATS === "undefined") return;
+    var d = FO_BOTS_CHATS.meet;
+    if(d && !force && (d.loading || d.rows || d.error || d.chats)) return;
+    FO_BOTS_CHATS.meet = {loading: true};
+    api("/refs/bots/chats?bot=meet").then(function(r){ FO_BOTS_CHATS.meet = r || {rows: []}; },
+      function(err){ FO_BOTS_CHATS.meet = {error: "Не проверилось: " + ((err && err.message) || "")}; })
+      .then(function(){
+        try{ if(view === "meet") foMtRenderSoft(); else if(view === "bots" && typeof foBotsRender === "function") foBotsRender(); }catch(x){}
+      });
+  }
+  function why(cid){
+    var d = (typeof FO_BOTS_CHATS !== "undefined") && FO_BOTS_CHATS.meet;
+    if(!d || !d.rows) return "";
+    var r = d.rows.filter(function(x){ return String(x.client_id) === String(cid); })[0];
+    var ch = (r && r.chats && r.chats.client) || [];
+    if(!ch.length) return "чата с клиентом нет — внесите группу в карточке клиента";
+    if(!ch.some(function(x){ return x.num; })) return "чат внесён, но бот его не видит — название в карточке не совпадает с группой или бота нет в группе";
+    if(!ch.some(function(x){ return x["in"]; })) return "бота планёрок нет в чате — добавьте @planerka_flater_team_bot участником";
+    return "";
+  }
+  if(typeof foMtEdHTML === "function"){
+    var _ed = foMtEdHTML;
+    foMtEdHTML = function(){
+      var h = _ed.apply(this, arguments);
+      try{
+        if(!h || h.indexOf("чат клиента не привязан") < 0) return h;
+        meetLoad(false);
+        var box = document.createElement("div"); box.innerHTML = h;
+        box.querySelectorAll("[data-mtrow]").forEach(function(row){
+          var st = row.querySelector(".fo-mtst"); if(!st || st.textContent.indexOf("чат клиента не привязан") < 0) return;
+          var w = why(row.getAttribute("data-mtrow"));
+          if(w){ st.textContent = st.textContent.replace("чат клиента не привязан", w); st.classList.add("fo-mtwhy"); }
+        });
+        return box.innerHTML;
+      }catch(e){ return h; }
+    };
+  }
+  if(typeof foMtBotHTML === "function"){
+    var _mb = foMtBotHTML;
+    foMtBotHTML = function(){
+      var h = _mb.apply(this, arguments);
+      try{
+        if(typeof foBotsChatsHTML !== "function") return h;
+        meetLoad(false);
+        return h + '<section class="gl fo-mtbch"><div class="gl-t"><h2>Кабинеты: где сидит бот планёрок</h2>'+
+          '<span class="m">у каждого кабинета — чат с клиентом, бот планёрок в нём участником</span></div>' + foBotsChatsHTML("meet") + '</section>';
+      }catch(e){ return h; }
+    };
+  }
+  document.addEventListener("click", function(e){
+    var t = e.target.closest && e.target.closest(".fo-mtbch [data-bch-f], .fo-mtbch [data-bots-chats]");
+    if(!t) return;
+    e.preventDefault(); e.stopPropagation();
+    if(t.hasAttribute("data-bch-f")){ try{ FO_BCH.f = t.getAttribute("data-bch-f"); }catch(x){} try{ foMtRender(); }catch(x){} return; }
+    meetLoad(true); try{ foMtRender(); }catch(x){}
   }, true);
 })();
 
