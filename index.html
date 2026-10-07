@@ -4756,6 +4756,31 @@ html.dark .fo-dist-col{ background:rgba(255,255,255,.03) }
 .fo-misslnk{ background:none; border:none; padding:0; font:inherit; color:inherit; text-decoration:underline dotted; text-underline-offset:3px; cursor:pointer }
 .fo-misslnk:hover{ color:#7C5CFF }
 .fo-flash{ outline:2px solid #7C5CFF; outline-offset:3px; border-radius:10px; transition:outline-color .3s }
+
+/* add142: «Подключить вручную», свой текст события */
+.fo-chlink.fo-chman-w{ padding:0; background:none; border:none }
+.fo-chman{ border:1px solid var(--stroke-2); border-radius:12px; background:var(--panel-2) }
+.fo-chman > summary{ cursor:pointer; list-style:none; display:flex; align-items:baseline; gap:10px; padding:9px 12px; font-size:13px }
+.fo-chman > summary::-webkit-details-marker{ display:none }
+.fo-chman > summary::before{ content:"▸"; color:var(--ink-3); font-size:11px }
+.fo-chman[open] > summary::before{ content:"▾" }
+.fo-chman > summary span{ font-size:11.5px; color:var(--ink-3) }
+.fo-chmanb{ padding:0 12px 12px; display:flex; flex-direction:column; gap:8px }
+.fo-chmanb .fo-chlr .bt, .fo-chlr .bt{ width:auto; flex:none }
+.fo-chmanf .fo-lnk{ background:none; border:none; padding:0; color:#7C5CFF; cursor:pointer; font-size:12px; font-weight:600 }
+.fo-rtxb{ display:inline-block; margin-top:6px; background:none; border:none; padding:0; font:inherit; font-size:11.5px; font-weight:600; color:#7C5CFF; cursor:pointer }
+.fo-rtxb.own{ color:var(--ok, #2BB673) }
+.fo-rtxr > td{ padding-top:0 !important }
+.fo-rtx{ margin:2px 0 10px; padding:12px; border-radius:12px; background:var(--panel-2); border:1px solid var(--stroke-2); display:flex; flex-direction:column; gap:8px }
+.fo-rtxh{ display:flex; flex-wrap:wrap; align-items:baseline; gap:10px }
+.fo-rtxta{ width:100%; min-height:120px; resize:vertical; font-size:13px; line-height:1.45; white-space:pre-wrap }
+.fo-rtxk{ display:flex; flex-wrap:wrap; gap:6px; align-items:center }
+.fo-rtxin{ font:inherit; font-size:11.5px; padding:2px 8px; border-radius:8px; border:1px solid var(--stroke-2); background:var(--panel); color:var(--ink-2); cursor:pointer }
+.fo-rtxin:hover{ border-color:#7C5CFF; color:#7C5CFF }
+.fo-rtxf{ display:flex; flex-wrap:wrap; gap:8px; align-items:center }
+.fo-rtxf .bt{ width:auto; flex:none }
+.fo-rtxs{ font-size:11.5px; color:var(--ink-3) }
+.fo-rtxp .fo-cbpre{ background:var(--panel); border:1px solid var(--stroke-2); border-radius:10px; padding:8px 10px }
 </style>
 </head>
 <body>
@@ -33493,6 +33518,343 @@ function foDistFillSelects(){
     setTimeout(function(){ hl.classList.remove("fo-flash"); }, 2200);
     if(el.focus && el.matches("input, select, textarea")) setTimeout(function(){ try{ el.focus({preventScroll: true}); }catch(x){ el.focus(); } }, 350);
   }, true);
+})();
+
+/* ===== add142: 303–307 (Виталий 07.10)
+   303 «Это зачем написано в карточке клиента? Убери во всех карточках» — подсказки «По скриншоту пока не читаем…» нет.
+   304 «Зачем ты предлагаешь подключить группу с планами работы?» — «Подключить группу, где уже есть бот» свёрнуто в
+       «Подключить вручную» (запасной путь: обычно группа подключается сама); группа планов и служебные не предлагаются
+       (сервер v112), похожие на клиента — сверху, остальные — отдельно; кнопка не на всю ширину.
+   306 «Под каждым событием поле для ввода текста, каким уведомлять, и кнопку „Сохранить“ (на сервере)» — в «Куда сообщать»
+       у события «▸ Текст сообщения»: поле, метки {…}, «Сохранить», «Вернуть стандартный», пример. Сервер v112:
+       GET/PUT /refs/clients/{id}/route-texts, текст уходит в чат с клиентом. Блок «Тексты сообщений» (только чтение) убран.
+   307 «Нового члена команды завожу — не переключает на „Только новые задачи“» · «нажал „Только новые задачи“, а ты ей
+       перенёс какие-то задачи». Причина: выбор режима не перерисовывал экран «Новый менеджер», а заведение человека
+       в браузере дописывало ему демо-неделю задач (genWeekFor). Теперь: режим переключается сразу; в живом агентстве
+       новичку ничего не рисуется и не переносится (на сервере задачи и так не менялись); уровень доступа по умолчанию —
+       по грейду (Главный менеджер → «Менеджер главный»), не «Клиент сервиса».                                        */
+
+/* ── 303 ── */
+(function(){
+  if(typeof foArtsBlock !== "function") return;
+  var _ab = foArtsBlock;
+  foArtsBlock = function(){
+    var h = _ab.apply(this, arguments);
+    try{ return String(h).replace(/<span class="fo-hint">По скриншоту пока не читаем[^<]*<\/span>/g, ""); }catch(e){ return h; }
+  };
+})();
+
+/* ── 304 ── */
+(function(){
+  var OPEN = {};
+  function norm(s){ return String(s || "").toLowerCase().replace(/ё/g, "е").replace(/[«»"'`“”„]/g, " ").replace(/\s+/g, " ").trim(); }
+  function rx(s){ return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }
+  function has(tn, name){
+    var nm = norm(name); if(nm.length < 3) return 0;
+    var re = function(x){ return new RegExp("(^|[^а-яa-z0-9])" + rx(x) + "(?![а-яa-z0-9])"); };
+    if(re(nm).test(tn)) return nm.length + 100;
+    var core = nm.replace(/^(ооо|ип|ао|зао|пао|оао|ип\.)\s+/, "").trim();
+    if(core.length >= 4 && core !== nm && re(core).test(tn)) return core.length;
+    return 0;
+  }
+  if(typeof foChatsBlock !== "function") return;
+  var _cb = foChatsBlock;
+  foChatsBlock = function(pr){
+    var h = _cb.apply(this, arguments);
+    if(!pr || !pr.id) return h;
+    try{
+      var box = document.createElement("div"); box.innerHTML = h;
+      var w = box.querySelector(".fo-chlink"); if(!w) return h;
+      var pid = w.getAttribute("data-focli") || pr.id;
+      var ref = w.querySelector("[data-fochref]"), row = w.querySelector(".fo-chlr"), sel = w.querySelector("[data-fochfree]");
+      var like = 0;
+      if(sel){
+        var opts = Array.prototype.map.call(sel.options, function(o){ return {v: o.value, t: o.textContent, s: has(norm(o.textContent), pr.name)}; })
+          .filter(function(o){ return !/план\s+работ/i.test(o.t); });
+        var a = opts.filter(function(o){ return o.s > 0; }).sort(function(x, y){ return y.s - x.s; });
+        var b = opts.filter(function(o){ return !o.s; });
+        var op = function(o){ return '<option value="'+esc(o.v)+'">'+esc(o.t)+'</option>'; };
+        like = a.length;
+        sel.innerHTML = (a.length ? '<optgroup label="Похоже на «'+esc(pr.name || "")+'»">'+a.map(op).join("")+'</optgroup>' : '')+
+                        (b.length ? '<optgroup label="Другие группы с ботом">'+b.map(op).join("")+'</optgroup>' : '');
+        if(!opts.length) row = null;
+      }
+      var ok = !!box.querySelector(".fo-chatr .fo-chok");
+      var open = (pid in OPEN) ? OPEN[pid] : (!ok && like > 0);
+      w.classList.add("fo-chman-w");
+      w.innerHTML = '<details class="fo-chman" data-fochman="'+esc(pid)+'"'+(open ? ' open' : '')+'>'+
+          '<summary><b>Подключить вручную</b><span>если группа не подключилась сама'+(like ? ' · есть похожая группа' : '')+'</span></summary>'+
+          '<div class="fo-chmanb">'+
+            '<div class="fo-hint">Обычно ничего делать не нужно: добавьте ботов в группу Telegram — сервис подключит её сам по названию группы, '+
+              'а если не поймёт, чья она, пришлёт вам в личку кнопки с клиентами. Здесь — запасной путь: группа → вид чата → «Подключить».</div>'+
+            (row ? row.outerHTML : '<div class="fo-hint">Свободных групп с ботом нет — все группы, где есть бот, уже подключены. Служебные группы («План работы») здесь не показываются.</div>')+
+            (ref ? '<div class="fo-chmanf">'+ref.outerHTML+'</div>' : '')+
+          '</div></details>';
+      return box.innerHTML;
+    }catch(e){ return h; }
+  };
+  document.addEventListener("toggle", function(e){
+    var d = e.target; if(!d || !d.matches || !d.matches("details[data-fochman]")) return;
+    OPEN[d.getAttribute("data-fochman")] = d.open;
+  }, true);
+})();
+
+/* ── 306: свой текст события в «Куда сообщать» ── */
+(function(){
+  var RT = {};          /* клиент → {d, at, loading, err, open, draft, msg} */
+  var FOC = null;
+  var SAMPLE = {"функция": "Ежедневный мониторинг цен", "дата": "08.10 · Четверг", "сотрудник": "Анна",
+                "ссылка": "https://docs.google.com/…", "комментарий": "Цены проверены, по трём артикулам поправили",
+                "задача": "Мониторинг цен"};
+  function liveMgr(){
+    try{ return (typeof foLive !== "function" || foLive()) && typeof A !== "undefined" && A && (+A.level || 9) <= 4; }
+    catch(e){ return false; }
+  }
+  function enc(x){ return encodeURIComponent(String(x || "")); }
+  function sq(x){ try{ return CSS.escape(x); }catch(e){ return String(x).replace(/"/g, '\\"'); } }
+  function hm(){ var d = new Date(), p = function(n){ return (n < 10 ? "0" : "") + n; }; return p(d.getHours()) + ":" + p(d.getMinutes()); }
+  function st(pid){ return RT[pid] || (RT[pid] = {open: {}, draft: {}, msg: {}}); }
+  function load(pid, force){
+    var d = st(pid);
+    if(d.loading || (d.at && !force)) return;
+    d.loading = true;
+    api("/refs/clients/" + enc(pid) + "/route-texts").then(function(r){ d.d = r || {}; d.err = null; },
+      function(e){ d.err = (e && e.message) || "ошибка"; })
+      .then(function(){ d.loading = false; d.at = Date.now(); try{ renderCards(); }catch(x){} });
+  }
+  function render(tpl, vs){
+    var KEYS = ["функция", "клиент", "дата", "сотрудник", "ссылка", "комментарий", "задача", "текст"];
+    var out = [];
+    String(tpl || "").replace(/\r/g, "").split("\n").forEach(function(ln){
+      var keys = (ln.match(/\{([а-яё]+)\}/g) || []).map(function(k){ return k.slice(1, -1); }).filter(function(k){ return KEYS.indexOf(k) >= 0; });
+      if(keys.length && keys.every(function(k){ return !String(vs[k] || "").trim(); })) return;
+      var l2 = ln.replace(/\{([а-яё]+)\}/g, function(m, k){ return KEYS.indexOf(k) >= 0 ? String(vs[k] || "") : m; });
+      if(keys.length){ l2 = l2.replace(/^(\s*·\s*)+/, "").replace(/(\s*·\s*)+$/, "").replace(/\s+$/, ""); if(!l2.trim()) return; }
+      out.push(l2);
+    });
+    return out.join("\n").trim();
+  }
+  function stdOf(d, ev){ return (d.d && d.d["стандарт"] && d.d["стандарт"][ev]) || "{текст}"; }
+  function ownOf(d, ev){ var t = d.d && d.d["тексты"] && d.d["тексты"][ev]; return t && t.text ? t : null; }
+  function cur(d, ev){ if(ev in d.draft) return d.draft[ev]; var o = ownOf(d, ev); return o ? o.text : stdOf(d, ev); }
+  function preview(name, d, ev, txt){
+    var vs = {}; Object.keys(SAMPLE).forEach(function(k){ vs[k] = SAMPLE[k]; });
+    vs["клиент"] = name || "Клиент";
+    vs["текст"] = ev === "task_form" ? render(stdOf(d, ev), vs) : "(стандартное сообщение сервиса по этому событию)";
+    return render(txt, vs) || "(пусто — уйдёт стандартный текст)";
+  }
+  function editor(pr, d, ev, name, cols){
+    var key = pr.id + "|" + ev;
+    if(!d.at) return '<tr class="fo-rtxr"><td colspan="'+cols+'"><div class="fo-rtx"><div class="empty">Загружаю тексты с сервера…</div></div></td></tr>';
+    if(d.err) return '<tr class="fo-rtxr"><td colspan="'+cols+'"><div class="fo-rtx"><div class="empty">Тексты не загрузились: '+esc(d.err)+'</div></div></td></tr>';
+    var keys = (d.d["метки"] && d.d["метки"][ev]) || ["клиент", "текст"];
+    var mean = d.d["что_значат"] || {};
+    var own = ownOf(d, ev), live = (d.d["шлёт_сейчас"] || []).indexOf(ev) >= 0, txt = cur(d, ev);
+    var msg = d.msg[ev] || (own ? "свой текст · сохранён на сервере " + (own.at || "") : "сейчас уходит стандартный текст");
+    return '<tr class="fo-rtxr"><td colspan="'+cols+'"><div class="fo-rtx">'+
+      '<div class="fo-rtxh"><b>Текст клиенту — «'+esc(name)+'»</b><span class="fo-hint">уходит в чат с клиентом; в рабочий чат МПВ — стандартный</span></div>'+
+      '<textarea class="fi fo-rtxta" rows="6" data-fortta="'+esc(key)+'">'+esc(txt)+'</textarea>'+
+      '<div class="fo-rtxk"><span class="fo-hint">Вставить:</span>'+keys.map(function(k){
+        return '<button type="button" class="fo-rtxin" data-fortins="'+esc(key)+'|'+esc(k)+'" title="'+esc(mean[k] || "")+'">{'+esc(k)+'}</button>';
+      }).join("")+'</div>'+
+      '<div class="fo-rtxf"><button type="button" class="bt sm pri" data-fortsave="'+esc(key)+'">Сохранить</button>'+
+        (own ? '<button type="button" class="bt sm gh2" data-fortstd="'+esc(key)+'">Вернуть стандартный</button>' : '')+
+        '<span class="fo-rtxs">'+esc(msg)+'</span></div>'+
+      '<div class="fo-rtxp"><div class="fo-hint">Как увидит клиент (пример):</div><div class="fo-cbpre" data-fortpv="'+esc(key)+'">'+esc(preview(pr.name, d, ev, txt))+'</div></div>'+
+      (live ? '' : '<div class="fo-hint">Это событие сервис пока не шлёт — текст сохранится и пойдёт, как только событие начнёт уходить.</div>')+
+      '<div class="fo-hint">Метки {…} подставляются сами; строка, где все метки пустые (например, нет ссылки), не уходит.</div>'+
+    '</div></td></tr>';
+  }
+  function refocus(){
+    if(!FOC) return;
+    var ta = document.querySelector('[data-fortta="'+sq(FOC.key)+'"]');
+    if(!ta || document.activeElement === ta) return;
+    try{ ta.focus({preventScroll: true}); ta.selectionStart = FOC.s; ta.selectionEnd = FOC.e; }catch(e){}
+  }
+
+  if(typeof ccDetail === "function"){
+    var _cd = ccDetail;
+    ccDetail = function(pr){
+      var h = _cd.apply(this, arguments);
+      if(!liveMgr() || !pr || !pr.id) return h;
+      try{
+        var box = document.createElement("div"); box.innerHTML = h;
+        var cb = box.querySelector(".fo-cb"); if(!cb) return h;
+        cb.querySelectorAll(".fo-cbs").forEach(function(s){
+          var hd = s.querySelector(".ccdh"); if(hd && hd.textContent.trim() === "Тексты сообщений") s.parentNode.removeChild(s);
+        });
+        var tbl = cb.querySelector(".rtt");
+        if(tbl){
+          var d = st(pr.id); if(!d.at) load(pr.id, false);
+          var cols = (tbl.querySelector("tr") || {cells: []}).cells.length || 3;
+          tbl.querySelectorAll("[data-focbwhen]").forEach(function(s){
+            var ev = String(s.getAttribute("data-focbwhen")).split("|")[1];
+            var tr = s.closest("tr"); if(!tr || !ev) return;
+            var nmEl = tr.querySelector(".evn"), nm = nmEl ? nmEl.childNodes[0] && nmEl.childNodes[0].textContent || nmEl.textContent : ev;
+            nm = String(nm).replace("уходит сейчас", "").trim();
+            var own = ownOf(d, ev), open = !!d.open[ev];
+            var b = document.createElement("button"); b.type = "button";
+            b.className = "fo-rtxb" + (open ? " on" : "") + (own ? " own" : "");
+            b.setAttribute("data-forttog", pr.id + "|" + ev);
+            b.textContent = (open ? "▾ " : "▸ ") + "Текст сообщения" + (own ? " · свой" : "");
+            var td = tr.querySelector(".evc"); if(td) td.appendChild(b);
+            if(open){
+              var tmp = document.createElement("table"); tmp.innerHTML = editor(pr, d, ev, nm, cols);
+              var nr = tmp.querySelector("tr"); if(nr) tr.parentNode.insertBefore(nr, tr.nextSibling);
+            }
+          });
+          var hint = tbl.closest(".fo-cbs") && tbl.closest(".fo-cbs").querySelector(":scope > .fo-hint");
+          if(hint) hint.textContent += " «▸ Текст сообщения» у события — свой текст клиенту, хранится на сервере.";
+        }
+        if(FOC) setTimeout(refocus, 0);
+        return box.innerHTML;
+      }catch(e){ return h; }
+    };
+  }
+
+  function onInput(ta){
+    var key = ta.getAttribute("data-fortta"), a = key.split("|"), d = RT[a[0]]; if(!d) return;
+    d.draft[a[1]] = ta.value; d.msg[a[1]] = "не сохранено — нажмите «Сохранить»";
+    FOC = {key: key, s: ta.selectionStart, e: ta.selectionEnd};
+    var pv = document.querySelector('[data-fortpv="'+sq(key)+'"]');
+    var pr = null; try{ pr = project(a[0]); }catch(x){}
+    if(pv) pv.textContent = preview(pr && pr.name, d, a[1], ta.value);
+    var box = ta.closest(".fo-rtx"), s = box && box.querySelector(".fo-rtxs"); if(s) s.textContent = d.msg[a[1]];
+  }
+  document.addEventListener("input", function(e){ var t = e.target; if(t && t.matches && t.matches("[data-fortta]")) onInput(t); }, true);
+  document.addEventListener("focusin", function(e){
+    var t = e.target; if(t && t.matches && t.matches("[data-fortta]")) FOC = {key: t.getAttribute("data-fortta"), s: t.selectionStart, e: t.selectionEnd};
+  }, true);
+  document.addEventListener("focusout", function(e){
+    var t = e.target; if(!t || !t.matches || !t.matches("[data-fortta]")) return;
+    setTimeout(function(){ if(t.isConnected && document.activeElement !== t) FOC = null; }, 0);
+  }, true);
+  document.addEventListener("keyup", function(e){ var t = e.target; if(t && t.matches && t.matches("[data-fortta]") && FOC) { FOC.s = t.selectionStart; FOC.e = t.selectionEnd; } }, true);
+
+  document.addEventListener("click", function(e){
+    var t = e.target.closest && e.target.closest("[data-forttog], [data-fortsave], [data-fortstd], [data-fortins]");
+    if(!t) return;
+    e.preventDefault(); e.stopPropagation();
+    if(t.hasAttribute("data-forttog")){
+      var a0 = t.getAttribute("data-forttog").split("|"), d0 = st(a0[0]);
+      d0.open[a0[1]] = !d0.open[a0[1]];
+      if(!d0.at) load(a0[0], false);
+      try{ renderCards(); }catch(x){}
+      return;
+    }
+    if(t.hasAttribute("data-fortins")){
+      var a1 = t.getAttribute("data-fortins").split("|"), k1 = a1[0] + "|" + a1[1];
+      var ta = document.querySelector('[data-fortta="'+sq(k1)+'"]'); if(!ta) return;
+      var ins = "{" + a1[2] + "}";
+      var s1 = (FOC && FOC.key === k1) ? FOC.s : ta.value.length, e1 = (FOC && FOC.key === k1) ? FOC.e : s1;
+      ta.value = ta.value.slice(0, s1) + ins + ta.value.slice(e1);
+      try{ ta.focus({preventScroll: true}); }catch(x){ ta.focus(); }
+      ta.selectionStart = ta.selectionEnd = s1 + ins.length;
+      onInput(ta);
+      return;
+    }
+    var std = t.hasAttribute("data-fortstd");
+    var a2 = String(t.getAttribute(std ? "data-fortstd" : "data-fortsave")).split("|"), pid = a2[0], ev = a2[1], d2 = RT[pid];
+    if(!d2 || !d2.d) return;
+    var ta2 = document.querySelector('[data-fortta="'+sq(pid + "|" + ev)+'"]');
+    var txt = std ? "" : String(ta2 ? ta2.value : cur(d2, ev)).trim();
+    if(!std && txt === String(stdOf(d2, ev)).trim()) txt = "";        /* совпал со стандартным — значит стандартный */
+    t.disabled = true; d2.msg[ev] = "сохраняю…";
+    var s0 = ta2 && ta2.closest(".fo-rtx") && ta2.closest(".fo-rtx").querySelector(".fo-rtxs"); if(s0) s0.textContent = d2.msg[ev];
+    api("/refs/clients/" + enc(pid) + "/route-texts", {method: "PUT", body: {event: ev, text: txt}}).then(function(r){
+      d2.d["тексты"] = d2.d["тексты"] || {};
+      if(r && r["текст"]) d2.d["тексты"][ev] = r["текст"]; else delete d2.d["тексты"][ev];
+      delete d2.draft[ev]; FOC = null;
+      d2.msg[ev] = (txt ? "свой текст · сохранено на сервере ✓ " : "стандартный текст · сохранено на сервере ✓ ") + hm();
+      try{ toast(txt ? "Текст сообщения сохранён на сервере" : "Вернул стандартный текст — сохранено на сервере"); }catch(x){}
+      try{ renderCards(); }catch(x){}
+    }, function(err){
+      t.disabled = false;
+      d2.msg[ev] = "не сохранилось: " + ((err && err.message) || "ошибка");
+      try{ toast("Текст не сохранился: " + ((err && err.message) || "ошибка")); }catch(x){}
+      try{ renderCards(); }catch(x){}
+    });
+  }, true);
+})();
+
+/* ── 307: «Новый менеджер» — режим загрузки, без демо-задач, уровень доступа по грейду ── */
+(function(){
+  var MAPG = {assist: "assistant", jun: "manager_junior", mid: "manager_senior", head: "manager_senior", pm: "project"};
+  var accTouched = false;
+  function live(){ try{ return typeof foLive === "function" && foLive(); }catch(e){ return false; } }
+
+  /* выбор «Только новые задачи / Гибрид / Только разгрузить» — экран перерисовывается сразу */
+  document.addEventListener("click", function(e){
+    if(e.target.closest && e.target.closest("#raccAddMan")){ accTouched = false; return; }
+    var t = e.target.closest && e.target.closest("[data-simmode]"); if(!t) return;
+    var want = t.getAttribute("data-simmode");
+    setTimeout(function(){
+      try{
+        if(typeof view === "undefined" || view !== "newman") return;
+        try{ nmCollect(); }catch(x){}
+        simMode = want;
+        if(simMode === "new"){ nmState.moved = []; nmState.cand = []; nmPicked = {}; nmRedist = null; }
+        nmState.mode = simMode;
+        renderNewMan();
+      }catch(x){}
+    }, 0);
+  });
+
+  /* в живом агентстве человек появляется на сервере, когда зайдёт по ссылке: в браузере ему ничего не рисуем и не переносим */
+  if(typeof nmModeExtra === "function"){
+    var _me = nmModeExtra;
+    nmModeExtra = function(){
+      if(!live()) return _me.apply(this, arguments);
+      if(simMode === "new")
+        return '<div class="nmextra"><div class="nxh">Только новые задачи</div><div class="hint2">У текущей команды ничего не забираем. '+
+          'Задачи у нового человека появятся, когда за ним закрепят функции в кабинетах — после того как он зайдёт по ссылке-приглашению.</div></div>';
+      return '<div class="nmextra"><div class="nxh">Задачи, которые заберём у команды</div><div class="hint2">Сейчас ничего не переносим: '+
+        'человек появится в агентстве, когда зайдёт по ссылке-приглашению. После этого — «Разгрузить менеджера»: выбираете, какие задачи '+
+        'и кому передать, и подтверждаете.</div></div>';
+    };
+  }
+  document.addEventListener("click", function(e){
+    if(!(e.target.closest && e.target.closest("#nmSave")) || !live()) return;
+    try{ nmState.moved = []; nmState.tasks = []; nmRedist = null; }catch(x){}
+  }, true);
+  if(typeof demoAddEmp === "function"){
+    var _da = demoAddEmp;
+    demoAddEmp = function(){
+      var p = _da.apply(this, arguments);
+      try{ if(live() && p && p.id) S.tasks = (S.tasks || []).filter(function(t){ return t.person !== p.id; }); }catch(e){}
+      return p;
+    };
+  }
+
+  /* уровень доступа нового человека — по грейду, а не последний в списке («Клиент сервиса») */
+  if(typeof foInviteBlock === "function"){
+    var _ib = foInviteBlock;
+    foInviteBlock = function(m, forNew){
+      var h = _ib.apply(this, arguments);
+      if(!forNew || accTouched) return h;
+      try{
+        var want = MAPG[(typeof nmState !== "undefined" && nmState && nmState.grade) || "mid"] || "manager_junior";
+        var box = document.createElement("div"); box.innerHTML = h;
+        var sel = box.querySelector("#nmAcc"); if(!sel) return h;
+        if(!Array.prototype.some.call(sel.options, function(o){ return o.value === want; })) return h;
+        Array.prototype.forEach.call(sel.options, function(o){ if(o.value === want) o.setAttribute("selected", ""); else o.removeAttribute("selected"); });
+        return box.innerHTML;
+      }catch(e){ return h; }
+    };
+  }
+  document.addEventListener("change", function(e){
+    var t = e.target; if(!t) return;
+    if(t.id === "nmAcc"){ accTouched = true; return; }
+    if(t.id === "nmGrade" && !accTouched && typeof view !== "undefined" && view === "newman"){
+      setTimeout(function(){ try{ nmCollect(); renderNewMan(); }catch(x){} }, 0);
+    }
+  }, true);
+  /* обещанный уровень «клиент» человеку команды не выдаём */
+  try{
+    var pr0 = JSON.parse(localStorage.getItem("fo_promised") || "{}"), ch = false;
+    Object.keys(pr0).forEach(function(k){ if(/^client_/.test(String(pr0[k]))){ delete pr0[k]; ch = true; } });
+    if(ch) localStorage.setItem("fo_promised", JSON.stringify(pr0));
+  }catch(e){}
 })();
 
 })();
