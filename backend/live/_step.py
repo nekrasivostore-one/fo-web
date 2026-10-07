@@ -2007,6 +2007,7 @@ async def _fo_rp_send_telegram(chat_id, text, _noimg=False):
             _fi = await _fo_fi_for_text(chat_id, text)      # 289: выполненная функция — картинкой с подписью
         except Exception as _e:
             print("бот отчётов, картинка:", str(_e)[:200])
+            _fo_fi_why(chat_id, str(text)[:60], "ошибка: " + str(_e)[:120], False)
     if _fi:
         _fid = await _fo_fi_fid(tok, _fi[0])
         if not _fid:                                          # первая отправка этой картинки — в фоне, галочка не ждёт
@@ -2097,10 +2098,14 @@ async def _fo_rp_task_done(c, t, p, link, note):
     rt = _fo_rp_routing()
     if rt is None:
         return "модуль «Куда сообщать» не найден"
+    _fi_tok = _FO_FI_CTX.set({"org": t["org_id"], "fn": t["fn_id"], "name": fn}) if t["fn_id"] and fn else None
     try:
         res = await rt.dispatch(t["org_id"], t["client_id"], "task_form", {"client": txt_client, "mpv": txt_mpv, "internal": txt_mpv})
     except Exception as e:
         return "не отправилось: " + str(e)[:150]
+    finally:
+        if _fi_tok is not None:
+            _FO_FI_CTX.reset(_fi_tok)
     return "клиенту: отправлено %s, отложено %s" % (res.get("отправлено"), res.get("отложено"))
 
 
@@ -4719,22 +4724,72 @@ async def _fo_fi_title(c, org_id, fn_id, name, custom=None):
     return t or _fo_fi_clean(name)
 
 
+import contextvars as _fo_cv_fi
+_FO_FI_CTX = _fo_cv_fi.ContextVar("fo_fi_ctx", default=None)   # 290: галочка знает свою функцию — без угадывания по тексту
+_FO_FI_WHY = []                                                 # 290: последние решения «с картинкой / текстом и почему»
+
+
+def _fo_fi_why(chat_id, name, how, ok):
+    try:
+        _FO_FI_WHY.insert(0, {"когда": _fo_dt.datetime.now().strftime("%d.%m %H:%M:%S"), "чат": str(chat_id)[-6:],
+                              "функция": str(name)[:80], "как": how, "картинка": bool(ok)})
+        del _FO_FI_WHY[30:]
+        print("290 картинка:", "да" if ok else "НЕТ", "·", how, "·", str(name)[:60])
+    except Exception:
+        pass
+
+
 async def _fo_fi_for_text(chat_id, text):
-    """Отчёт «✅ Выполнено: <функция>» → (заголовок, JPEG); не функция или нет Pillow — None (уйдёт текстом)."""
+    """Отчёт «✅ Выполнено: <функция>» → (заголовок, JPEG); не функция — None (уйдёт текстом, причина — в журнал)."""
     m = re.match(r"\s*✅ Выполнено: ([^\n]+)", str(text or ""))
     if not m:
         return None
     name = m.group(1).strip()
+    ctx = _FO_FI_CTX.get()
     async with pool().acquire() as c:
-        org = await c.fetchval("SELECT org_id FROM chat WHERE chat_id=$1 LIMIT 1", str(chat_id))
-        if not org:
-            return None
-        fid = await c.fetchval("SELECT id FROM fn WHERE org_id=$1 AND lower(btrim(name))=lower(btrim($2)) LIMIT 1", org, name)
-        if not fid:
-            return None
+        if ctx and ctx.get("fn") and str(ctx.get("name") or "").strip() == name:
+            org, fid, how = ctx["org"], ctx["fn"], "функция из галочки"
+        else:
+            r = await c.fetchrow("SELECT f.id, f.org_id FROM fn f JOIN chat ch ON ch.org_id = f.org_id "
+                                 "WHERE ch.chat_id=$1 AND lower(btrim(f.name))=lower(btrim($2)) LIMIT 1", str(chat_id), name)
+            if not r:
+                _fo_fi_why(chat_id, name, "не нашёл функцию по названию в организации чата", False)
+                return None
+            org, fid, how = r["org_id"], r["id"], "функция по названию"
         title = await _fo_fi_title(c, org, fid, name)
     data = await _fo_aio.to_thread(_fo_fi_render, title)
+    _fo_fi_why(chat_id, name, how, True)
     return (title, data)
+
+
+@router.get("/fnimg/why")
+async def fo_fnimg_why(p: Principal = Depends(max_level(2))):
+    """290: почему отчёт ушёл без картинки — решения этого процесса и разбор последнего отчёта бота старым способом."""
+    import sys as _s
+    inst = []
+    for nm, mod in list(_s.modules.items()):
+        if mod is not None and (nm.endswith(".routing") or nm.endswith(".notify")) and hasattr(mod, "send_telegram"):
+            f = getattr(mod, "send_telegram")
+            inst.append({"модуль": nm, "наша": f is _fo_rp_send_telegram,
+                         "с картинкой": "_noimg" in getattr(getattr(f, "__code__", None), "co_varnames", ())})
+    old = {}
+    async with pool().acquire() as c:
+        r = await c.fetchrow("SELECT tg_chat_id, text, msg_at FROM fo_chat_msg WHERE org_id=$1 AND author='Бот отчётов' "
+                             "AND kind='client' AND text LIKE '✅ Выполнено:%' ORDER BY msg_at DESC LIMIT 1", p.org_id)
+        if r:
+            m = re.match(r"\s*✅ Выполнено: ([^\n]+)", r["text"])
+            name = m.group(1).strip() if m else None
+            orgs = [str(x["org_id"]) for x in await c.fetch("SELECT org_id FROM chat WHERE chat_id=$1", r["tg_chat_id"])]
+            first = await c.fetchval("SELECT org_id FROM chat WHERE chat_id=$1 LIMIT 1", r["tg_chat_id"])
+            fn_first = await c.fetchval("SELECT id FROM fn WHERE org_id=$1 AND lower(btrim(name))=lower(btrim($2)) LIMIT 1",
+                                        first, name) if first and name else None
+            fn_mine = await c.fetchval("SELECT id FROM fn WHERE org_id=$1 AND lower(btrim(name))=lower(btrim($2)) LIMIT 1",
+                                       p.org_id, name) if name else None
+            old = {"отчёт": str(r["msg_at"])[:16], "функция": name, "текст начинается верно": bool(m),
+                   "организаций у чата": len(orgs), "моя организация среди них": str(p.org_id) in orgs,
+                   "старый способ: первая организация = моя": str(first) == str(p.org_id),
+                   "старый способ нашёл функцию": bool(fn_first), "функция есть в моей организации": bool(fn_mine)}
+    return {"установлено": inst, "старый способ на последнем отчёте": old, "решения этого процесса": list(_FO_FI_WHY)}
 
 
 def _fo_fi_pub_url(title):
