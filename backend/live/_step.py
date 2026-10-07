@@ -9402,6 +9402,29 @@ except Exception as _e:
     p("картинки функций: ошибка", str(_e)[:200])
 
 p("")
+p("== ОТЧЁТЫ С КАРТИНКОЙ: ПОЧЕМУ УШЛИ ТЕКСТОМ (290, только чтение) ==")
+try:
+    p("службы:", sh("systemctl list-units 'fo*' --no-pager --plain --no-legend | awk '{print $1, $3, $4}'").strip().replace("\n", " | ")[:600])
+    p("журнал fo (картинки, бот отчётов, ошибки):")
+    p(sh("journalctl -u fo --since '-20h' --no-pager -o cat | grep -E 'бот отчётов|картинк|fnimg|_fo_fi|Traceback|Error|error' | tail -40").strip()[:4000] or "(пусто)")
+    p("история чата — сообщения бота отчётов за сутки:")
+    p(sh("sudo -u postgres psql -d fo -Atc \"SELECT to_char(msg_at AT TIME ZONE 'Europe/Moscow','DD.MM HH24:MI'), coalesce(ai_note,''), length(text), "
+         "encode(convert_to(left(text, 14), 'UTF8'), 'hex') FROM fo_chat_msg WHERE author='Бот отчётов' AND msg_at > now() - interval '30 hours' "
+         "ORDER BY msg_at DESC LIMIT 15\"").strip()[:2500])
+    p("outbox — последние записи:")
+    p(sh("sudo -u postgres psql -d fo -Atc \"SELECT left(row_to_json(o)::text, 400) FROM outbox o ORDER BY 1 DESC LIMIT 6\"").strip()[:3000])
+    p("routing.py — как шлёт:")
+    p(sh("grep -n 'send_telegram\\|def dispatch\\|async def\\|outbox\\|import' /opt/fo/backend/app/routers/routing.py | head -60").strip()[:3500])
+    _rp276 = open("/opt/fo/backend/app/routers/routing.py", encoding="utf-8").read()
+    _i276 = _rp276.find("async def dispatch")
+    p("routing.dispatch:")
+    p(_rp276[_i276:_i276 + 3500] if _i276 >= 0 else "(не найдено)")
+    p("кто ещё шлёт отчёты (send_telegram в app):")
+    p(sh("grep -rn 'send_telegram' /opt/fo/backend/app --include=*.py | grep -v FO-STEP | head -30").strip()[:3000])
+except Exception as _e:
+    p("разбор 290: ошибка", str(_e)[:200])
+
+p("")
 p("== КОД ==")
 p("дописано в refs.py и signup.py, копия в", bak)
 
