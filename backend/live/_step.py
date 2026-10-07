@@ -1414,6 +1414,105 @@ async def fo_client_cabs(client_id: str, p: Principal = Depends(current)):
     return [{"id": str(r["id"]), "name": r["name"], "client_id": str(r["client_id"])} for r in rows]
 
 
+# ══ 295: КАРТОЧКА КЛИЕНТА — «Последние события» с сервера (Виталий 07.10) ══
+# Раньше журнал событий кабинета вёлся только в браузере. Теперь он собирается из того, что сервис записал сам:
+# выполненные функции (fo_task_report), согласования (fo_task_review), задачи ИИ из чата клиента (fo_ai_task),
+# сообщения ботов в чатах клиента (fo_chat_msg), отложенная очередь «Куда сообщать» (outbox).
+# «последнее» — последнее сообщение каждого бота в каждом чате клиента: что на самом деле уходит.
+@router.get("/clients/{client_id}/events")
+async def fo_client_events(client_id: str, limit: int = 40, p: Principal = Depends(max_level(4))):
+    lim = max(5, min(int(limit or 40), 100))
+    ev, errs, last = [], [], []
+
+    def _iso(x):
+        try:
+            return x.isoformat() if x is not None else ""
+        except Exception:
+            return str(x or "")
+
+    async with pool().acquire() as c:
+        if not await c.fetchval("SELECT 1 FROM client WHERE id=$1::uuid AND org_id=$2", client_id, p.org_id):
+            raise HTTPException(404, "клиент не найден")
+
+        async def q(name, sql, *a):
+            try:
+                return await c.fetch(sql, *a)
+            except Exception as e:
+                errs.append(name + ": " + str(e)[:160])
+                return []
+
+        for r in await q("выполнено",
+                         "SELECT r.made_at, r.link, f.name AS fn, e.name AS who, t.title FROM fo_task_report r "
+                         "LEFT JOIN task t ON t.id = r.task_id "
+                         "JOIN cabinet cb ON cb.id = COALESCE(r.cabinet_id, t.cabinet_id) "
+                         "LEFT JOIN fn f ON f.id = COALESCE(r.fn_id, t.fn_id) "
+                         "LEFT JOIN employee e ON e.id = r.employee_id "
+                         "WHERE r.org_id=$1 AND cb.client_id=$2::uuid ORDER BY r.made_at DESC LIMIT $3",
+                         p.org_id, client_id, lim):
+            ev.append({"at": _iso(r["made_at"]), "k": "done", "t": "Выполнено: " + (r["fn"] or r["title"] or "задача"),
+                       "who": r["who"] or "", "link": r["link"] or ""})
+
+        for r in await q("согласования",
+                         "SELECT rv.asked_at, rv.decided_at, rv.verdict, rv.approver_label, ea.name AS appr, t.title, f.name AS fn "
+                         "FROM fo_task_review rv JOIN task t ON t.id = rv.task_id "
+                         "JOIN cabinet cb ON cb.id = t.cabinet_id "
+                         "LEFT JOIN fn f ON f.id = t.fn_id "
+                         "LEFT JOIN employee ea ON ea.id = rv.approver_employee_id "
+                         "WHERE rv.org_id=$1 AND cb.client_id=$2::uuid ORDER BY rv.asked_at DESC LIMIT $3",
+                         p.org_id, client_id, lim):
+            nm = r["fn"] or r["title"] or "задача"
+            ap = r["appr"] or r["approver_label"] or ""
+            ev.append({"at": _iso(r["asked_at"]), "k": "review", "t": "На согласование: " + nm, "who": ap})
+            vd = str(r["verdict"] or "")
+            if r["decided_at"] and vd in ("ok", "back"):
+                ev.append({"at": _iso(r["decided_at"]), "k": "review_res",
+                           "t": ("Согласовано: " if vd == "ok" else "Возвращено на доработку: ") + nm, "who": ap})
+
+        for r in await q("задачи ИИ",
+                         "SELECT a.created_at, a.decided_at, a.status, a.title, e.name AS who FROM fo_ai_task a "
+                         "LEFT JOIN employee e ON e.id = a.employee_id "
+                         "WHERE a.org_id=$1 AND a.client_id=$2::uuid ORDER BY a.created_at DESC LIMIT $3",
+                         p.org_id, client_id, lim):
+            ev.append({"at": _iso(r["created_at"]), "k": "ai", "t": "ИИ увидел задачу в чате: " + (r["title"] or ""), "who": r["who"] or ""})
+            st = str(r["status"] or "")
+            if r["decided_at"] and st in ("accepted", "rejected"):
+                ev.append({"at": _iso(r["decided_at"]), "k": "ai_res",
+                           "t": ("Задача ИИ согласована: " if st == "accepted" else "Задача ИИ отклонена: ") + (r["title"] or ""),
+                           "who": r["who"] or ""})
+
+        for r in await q("сообщения ботов",
+                         "SELECT m.msg_at, m.author, m.kind, m.text, ch.title FROM fo_chat_msg m "
+                         "LEFT JOIN chat ch ON ch.id = m.chat_pk "
+                         "WHERE m.org_id=$1 AND m.client_id=$2::uuid AND m.author LIKE 'Бот %' "
+                         "ORDER BY m.msg_at DESC LIMIT $3", p.org_id, client_id, lim):
+            first = (str(r["text"] or "").strip().split("\n") or [""])[0][:140]
+            ev.append({"at": _iso(r["msg_at"]), "k": "bot", "t": (r["author"] or "Бот") + " → «" + (r["title"] or r["kind"] or "чат") + "»: " + first,
+                       "who": ""})
+
+        for r in await q("очередь",
+                         "SELECT o.send_after, o.sent_at, o.error, o.event, ch.title FROM outbox o "
+                         "JOIN client_chat cc ON cc.chat_pk = o.chat_pk AND cc.client_id = $2::uuid "
+                         "LEFT JOIN chat ch ON ch.id = o.chat_pk "
+                         "WHERE o.org_id=$1 ORDER BY o.send_after DESC LIMIT $3", p.org_id, client_id, lim):
+            if r["sent_at"]:
+                continue                       # ушедшее уже есть в сообщениях ботов
+            ev.append({"at": _iso(r["send_after"]), "k": "queue" if not r["error"] else "err",
+                       "t": ("Ждёт отправки в «" if not r["error"] else "Не ушло в «") + (r["title"] or "чат") + "»: " + str(r["event"] or "")
+                            + (("· " + str(r["error"])[:100]) if r["error"] else ""), "who": ""})
+
+        for r in await q("последние сообщения ботов",
+                         "SELECT DISTINCT ON (m.author, m.chat_pk) m.author, m.kind, m.text, m.msg_at, ch.title FROM fo_chat_msg m "
+                         "LEFT JOIN chat ch ON ch.id = m.chat_pk "
+                         "WHERE m.org_id=$1 AND m.client_id=$2::uuid AND m.author LIKE 'Бот %' "
+                         "ORDER BY m.author, m.chat_pk, m.msg_at DESC", p.org_id, client_id):
+            last.append({"бот": r["author"], "чат": r["title"] or "", "роль": r["kind"] or "", "когда": _iso(r["msg_at"]),
+                         "текст": str(r["text"] or "")[:1500]})
+
+    ev.sort(key=lambda x: x["at"] or "", reverse=True)
+    last.sort(key=lambda x: x["когда"] or "", reverse=True)
+    return {"события": ev[:lim], "последнее": last, "ошибки": errs}
+
+
 # ── задачи: снять и пересобрать (сценарий 5, С4) ──────────────────
 # В API нет ни удаления, ни отмены сгенерированной задачи - только
 # «сделано» и «передать». Отстранение от задачи было невозможно.
@@ -9479,6 +9578,44 @@ try:
 except Exception as _e:
     p("разбор 290: ошибка", str(_e)[:200])
 
+p("")
+p("== 295 РАЗВЕДКА: «КУДА СООБЩАТЬ», ТЕКСТЫ, СОБЫТИЯ (только чтение) ==")
+try:
+    import re as _re295
+
+    def _h295(x):
+        return _re295.sub(r"\d{6,}:[A-Za-z0-9_-]{25,}", "***", str(x))
+    p("кто зовёт dispatch:")
+    p(_h295(sh("grep -rn 'dispatch(' /opt/fo/backend/app --include=*.py | grep -v 'def dispatch' | cut -c1-220 | head -30").strip())[:3000] or "(никто)")
+    _rp295 = open("/opt/fo/backend/app/routers/routing.py", encoding="utf-8").read()
+    _i295 = _rp295.find("templates/all")
+    p("routing.py — шаблоны:")
+    p(_h295(_rp295[max(0, _i295 - 200):_i295 + 2200]) if _i295 >= 0 else "(нет)")
+    p("кто читает шаблоны:")
+    p(_h295(sh("grep -rn -i 'template' /opt/fo/backend/app --include=*.py | grep -v FO-STEP | cut -c1-200 | head -25").strip())[:2500] or "(никто)")
+    p("таблицы:")
+    p(sh("sudo -u postgres psql -d fo -Atc \"SELECT table_name||': '||string_agg(column_name, ', ' ORDER BY ordinal_position) "
+         "FROM information_schema.columns WHERE table_name ILIKE '%templ%' OR table_name IN ('outbox','chat_route','client_chat') "
+         "GROUP BY table_name\"").strip()[:2000])
+    p("ошибки службы за 8 ч (routing / шаблоны):")
+    p(_h295(sh("journalctl -u fo --since '-8h' --no-pager -o cat | grep -E 'routing.py|templat|UndefinedTable|UndefinedColumn|KeyError|TypeError|ValueError' | tail -25").strip())[:3000] or "(пусто)")
+    p("digest.py:")
+    p(_h295(sh("grep -n 'def \\|template\\|chat_route\\|dispatch\\|send_plans\\|send_facts\\|outbox' /opt/fo/backend/app/services/digest.py | head -30").strip())[:2500])
+    p("кто зовёт digest:", sh("grep -rln 'digest' /opt/fo/backend/app --include=*.py | head -10").strip().replace("\n", " | ")[:600])
+    p("таймеры fo:", sh("systemctl list-timers --no-pager --all 2>/dev/null | grep -i fo | awk '{print $NF, $(NF-1)}'").strip().replace("\n", " | ")[:800])
+    p("outbox по событиям:")
+    p(sh("sudo -u postgres psql -d fo -Atc \"SELECT event||': всего '||count(*)||', ушло '||count(sent_at)||', ошибок '||count(error)||', последнее '||"
+         "coalesce(to_char(max(send_after) AT TIME ZONE 'Europe/Moscow','DD.MM HH24:MI'),'—') FROM outbox GROUP BY event\"").strip()[:1500] or "(пусто)")
+    p("сообщения ботов в чатах клиентов:")
+    p(sh("sudo -u postgres psql -d fo -Atc \"SELECT author||' · '||coalesce(kind,'?')||': '||count(*)||', последнее '||"
+         "to_char(max(msg_at) AT TIME ZONE 'Europe/Moscow','DD.MM HH24:MI') FROM fo_chat_msg WHERE author LIKE 'Бот %' GROUP BY author, kind\"").strip()[:1200])
+    p("правила chat_route:", sh("sudo -u postgres psql -d fo -Atc \"SELECT count(*)||' правил, клиентов '||count(DISTINCT client_id) FROM chat_route\"").strip())
+    p("коды приглашений:", sh("sudo -u postgres psql -d fo -Atc \"SELECT 'клиентов '||count(*)||', с кодом '||count(invite_code) FROM client\"").strip(),
+      "·", sh("sudo -u postgres psql -d fo -Atc \"SELECT 'агентств с кодом '||count(invite_code) FROM org\"").strip())
+    p("auth — код клиента:")
+    p(_h295(sh("grep -rn 'invite_code' /opt/fo/backend/app/routers/auth.py | cut -c1-200 | head -15").strip())[:2000] or "(нет)")
+except Exception as _e:
+    p("разведка 295: ошибка", str(_e)[:200])
 p("")
 p("== КОД ==")
 p("дописано в refs.py и signup.py, копия в", bak)
