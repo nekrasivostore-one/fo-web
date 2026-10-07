@@ -32537,6 +32537,61 @@ function foDistFillSelects(){
   }, true);
 })();
 
+/* ===== add135: 292 — в рабочем режиме «кабинет» открывается единой карточкой клиента (Виталий 07.10)
+   «Добавил функцию — после сохранения выдаёт это (старая страница кабинета: „Задач пока нет"), не то, что
+   показывал изначально». Причина: после «Завести кабинет» (и по ссылкам «кабинет») приложение открывало старую
+   демо-страницу кабинета — её блок «Задачи кабинета» читает план из памяти браузера, а не с сервера: после
+   загрузки с сервера он пустой, а функции, добавленные там, на сервер не уходят. Единая карточка клиента в
+   «Мои клиенты» (add40 + add79) работает с сервером — теперь (РМ и выше, рабочий режим) переход на старую
+   страницу открывает её, как кнопка «Раскрыть карточку». Новый кабинет — раскрывается, как только загрузился. */
+(function(){
+  var UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  function liveMgr(){
+    try{ return (typeof foLive !== "function" || foLive()) && typeof A !== "undefined" && A && (+A.level || 9) <= 4; }
+    catch(e){ return false; }
+  }
+  function serverProject(id){
+    try{ return !!id && UUID.test(String(id)) && (S.projects || []).some(function(p){ return String(p.id) === String(id); }); }
+    catch(e){ return false; }
+  }
+  function showCard(id){
+    try{ ccOpen = id; }catch(e){}
+    try{ if(typeof view !== "undefined" && view === "projects" && typeof renderCards === "function") renderCards(); }catch(e){}
+    setTimeout(function(){
+      var el = document.querySelector(".cc2.ccx");
+      if(el) try{ el.scrollIntoView({behavior: "smooth", block: "start"}); }catch(e){}
+    }, 90);
+  }
+  if(typeof setView === "function"){
+    var _sv = setView;
+    setView = function(v){
+      if(v === "cab" && liveMgr()){
+        var id = (typeof cabOpen !== "undefined") ? cabOpen : null;
+        var r = _sv.apply(this, ["projects"].concat([].slice.call(arguments, 1)));
+        if(serverProject(id)) showCard(id);
+        return r;
+      }
+      return _sv.apply(this, arguments);
+    };
+  }
+  /* «Завести кабинет»: как только клиент пришёл с сервера — раскрыть его карточку */
+  document.addEventListener("click", function(e){
+    if(!e.target.closest || !e.target.closest("#ncSave")) return;
+    if(!liveMgr()) return;
+    var nm = String((document.getElementById("ncName") || {}).value || "").trim();
+    if(!nm) return;
+    var tries = 0;
+    (function poll(){
+      tries++;
+      if(tries > 30) return;
+      var hit = null;
+      try{ (S.projects || []).forEach(function(p){ if(String(p.name || "").trim() === nm && serverProject(p.id)) hit = p; }); }catch(x){}
+      if(!hit){ setTimeout(poll, 1000); return; }
+      showCard(hit.id);
+    })();
+  }, true);
+})();
+
 })();
 </script>
 </body>
