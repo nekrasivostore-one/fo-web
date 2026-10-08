@@ -34554,6 +34554,53 @@ function foDistFillSelects(){
   }, true);
 })();
 
+/* ── 314 (2): страховка для старых экранов — любое изменение карточки сотрудника, клиента или функции в памяти
+   экрана догоняет сервер. Старый код сентября (рекомендации по грейду, замеры, регламенты функций и т. п.) правил поля
+   «на лету» и звал saveState(), которое в рабочем режиме ничего не пишет. Теперь после каждого saveState() поля
+   сравниваются с тем, что известно о сервере (SRV_CARDS), и разница уходит в карточку на сервере (cardSave, с тостом
+   при сбое). Только для собственника и директора — у остальных сервер часть полей не принимает по правам.          */
+(function(){
+  if(typeof saveState !== "function") return;
+  function live(){ try{ return typeof foLive === "function" && foLive(); }catch(e){ return false; } }
+  function lvl(){ try{ return +A.level || 9; }catch(e){ return 9; } }
+  var SKIP = {employee: {id:1, name:1, av:1, color:1, ord:1, workday:1, user_id:1, email:1, hidden:1, tasks:1, cand:1, moved:1, userId:1, target:1},
+              client:   {id:1, name:1, av:1, color:1, ord:1, cabinets:1, code:1, chats:1, cab:1, rows:1}};
+  function j(v){ try{ return JSON.stringify(v === undefined ? null : v); }catch(e){ return "?"; } }
+  function diff(kind, o){
+    var cur = SRV_CARDS["" + kind + ":" + o.id] || {}, patch = {}, n = 0;
+    Object.keys(o).forEach(function(k){
+      if(SKIP[kind][k] || k.charAt(0) === "_") return;
+      var v = o[k];
+      if(typeof v === "function" || v === undefined) return;
+      if(v !== null && typeof v === "object" && j(v).length > 4000) return;
+      if(j(v) !== j(cur[k])){ patch[k] = v; n++; }
+    });
+    return n ? patch : null;
+  }
+  var t = null, n = 0;
+  function sync(){
+    if(!live() || lvl() > 2 || typeof SRV_CARDS === "undefined" || !SRV_CARDS || typeof cardSave !== "function") return;
+    var sent = 0;
+    try{ (S.people || []).forEach(function(m){ var p = diff("employee", m); if(p){ cardSave("employee", m.id, p); sent++; } }); }catch(e){}
+    try{ (S.projects || []).forEach(function(pr){ var p = diff("client", pr); if(p){ cardSave("client", pr.id, p); sent++; } }); }catch(e){}
+    try{
+      Object.keys((S.fnCfg || {})).forEach(function(id){
+        var cur = SRV_CARDS["fn:" + id] || {}, cfg = S.fnCfg[id] || {}, patch = {}, k2 = 0;
+        Object.keys(cfg).forEach(function(k){ if(j(cfg[k]) !== j(cur[k]) && j(cfg[k]).length <= 4000){ patch[k] = cfg[k]; k2++; } });
+        if(k2){ cardSave("fn", id, patch); sent++; }
+      });
+    }catch(e){}
+    if(sent){ n += sent; try{ console.log("[FO] 314: карточки догнали сервер — " + sent); }catch(e){} }
+  }
+  var _ss = saveState;
+  saveState = function(){
+    var r = _ss.apply(this, arguments);
+    if(live()){ clearTimeout(t); t = setTimeout(sync, 1200); }
+    return r;
+  };
+  window.foCardSyncNow = sync;
+})();
+
 })();
 </script>
 </body>
