@@ -34589,21 +34589,23 @@ function foDistFillSelects(){
     }catch(e){}
   }
   wrapLoad("loadLive"); wrapLoad("cardsLoad");
-  function sync(){
-    if(loading > 0){ clearTimeout(t); t = setTimeout(sync, 1500); return; }
-    if(typeof SRV_STORE_OK !== "undefined" && SRV_STORE_OK !== true) return;
-    if(!live() || lvl() > 2 || typeof SRV_CARDS === "undefined" || !SRV_CARDS || typeof cardSave !== "function") return;
-    var sent = 0;
-    try{ (S.people || []).forEach(function(m){ var p = diff("employee", m); if(p){ cardSave("employee", m.id, p); sent++; } }); }catch(e){}
-    try{ (S.projects || []).forEach(function(pr){ var p = diff("client", pr); if(p){ cardSave("client", pr.id, p); sent++; } }); }catch(e){}
+  function sync(dry){
+    var out = [];
+    if(loading > 0){ if(dry) return "loading"; clearTimeout(t); t = setTimeout(sync, 1500); return; }
+    if(typeof SRV_STORE_OK !== "undefined" && SRV_STORE_OK !== true) return dry ? "no-cards" : undefined;
+    if(!live() || lvl() > 2 || typeof SRV_CARDS === "undefined" || !SRV_CARDS || typeof cardSave !== "function") return dry ? "skip" : undefined;
+    function put(kind, id, p){ out.push([kind, String(id).slice(0, 8), Object.keys(p)]); if(!dry) cardSave(kind, id, p); }
+    try{ (S.people || []).forEach(function(m){ var p = diff("employee", m); if(p) put("employee", m.id, p); }); }catch(e){}
+    try{ (S.projects || []).forEach(function(pr){ var p = diff("client", pr); if(p) put("client", pr.id, p); }); }catch(e){}
     try{
       Object.keys((S.fnCfg || {})).forEach(function(id){
         var cur = SRV_CARDS["fn:" + id] || {}, cfg = S.fnCfg[id] || {}, patch = {}, k2 = 0;
         Object.keys(cfg).forEach(function(k){ if(j(cfg[k]) !== j(cur[k]) && j(cfg[k]).length <= 4000){ patch[k] = cfg[k]; k2++; } });
-        if(k2){ cardSave("fn", id, patch); sent++; }
+        if(k2) put("fn", id, patch);
       });
     }catch(e){}
-    if(sent){ n += sent; try{ console.log("[FO] 314: карточки догнали сервер — " + sent); }catch(e){} }
+    if(out.length && !dry){ n += out.length; try{ console.log("[FO] 314: карточки догнали сервер — " + out.length); }catch(e){} }
+    return out;
   }
   var _ss = saveState;
   saveState = function(){
