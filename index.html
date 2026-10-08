@@ -4781,6 +4781,19 @@ html.dark .fo-dist-col{ background:rgba(255,255,255,.03) }
 .fo-rtxf .bt{ width:auto; flex:none }
 .fo-rtxs{ font-size:11.5px; color:var(--ink-3) }
 .fo-rtxp .fo-cbpre{ background:var(--panel); border:1px solid var(--stroke-2); border-radius:10px; padding:8px 10px }
+
+/* add143: площадки у сотрудника, подсказка режима найма */
+.fo-mps{ display:flex; gap:8px; flex-wrap:wrap }
+.fo-mps .ck{ display:inline-flex; align-items:center; gap:8px; padding:7px 12px; border-radius:10px; border:1px solid var(--stroke-2); background:var(--panel); cursor:pointer; font:inherit; font-size:13px; color:var(--ink) }
+.fo-mps .ck i{ width:16px; height:16px; border-radius:5px; border:1.5px solid var(--stroke-2); display:inline-block; position:relative }
+.fo-mps .ck.on{ border-color:#7C5CFF; background:rgba(124,92,255,.08) }
+.fo-mps .ck.on i{ background:#7C5CFF; border-color:#7C5CFF }
+.fo-mps .ck.on i::after{ content:""; position:absolute; left:4px; top:1px; width:5px; height:9px; border:solid #fff; border-width:0 2px 2px 0; transform:rotate(45deg) }
+.fo-mprow{ margin:10px 0 4px }
+.fo-mpedit{ display:flex; flex-wrap:wrap; align-items:center; gap:12px }
+.fo-mpedit .fnote2{ font-size:11.5px; color:var(--ink-3) }
+.simn.fo-simmode{ margin-bottom:10px }
+input[data-sk2="role"].edok, input[data-edk="role"].edok{ border-color:var(--ok, #2BB673) }
 </style>
 </head>
 <body>
@@ -33855,6 +33868,273 @@ function foDistFillSelects(){
     Object.keys(pr0).forEach(function(k){ if(/^client_/.test(String(pr0[k]))){ delete pr0[k]; ch = true; } });
     if(ch) localStorage.setItem("fo_promised", JSON.stringify(pr0));
   }catch(e){}
+})();
+
+/* ===== add143: 308–312 (Виталий 08.10)
+   308 «Я зарегистрировал Юлю, она появилась в Ганте, а после того как походил по кнопкам — пропала. Ты опять делал
+       разработку в браузере?» — да: «Добавить в команду» заводило человека только в браузере (на сервере не было
+       POST /refs/employees — 404), список команды сервер отдаёт из своей таблицы — человек исчезал при первом
+       обновлении. Теперь: человек заводится на сервере сразу (v114), с полями карточки; ссылка-приглашение
+       выписывается на его серверный id; по ссылке он привязывается к своей записи. Хоть 100 человек подряд.
+   309 «Должность не нажимается, нажимается и убегает» — выпадашка с «Своя должность…» убрана: простое поле,
+       стандартные должности подсказываются при вводе (и в «Кто это», и в «Данных сотрудника»).
+   310 «Кнопка „Копировать“ не нажимается» — копирование ссылки-приглашения переписано: срабатывает первым,
+       с запасным способом, если браузер не даёт буфер.
+   311 «Нажимаю „Только разгрузить / Гибрид / Только новые“ — чистый прирост не меняется». Раньше разгрузка снимала
+       только перегруз выше 100%; перегруза нет — все режимы одинаковые. Теперь «Только разгрузить» снимает все часы
+       новичка с самых загруженных (команда работает свободнее, новых клиентов новичок не берёт), «Гибрид» — половину;
+       снятые часы не продаются. Прирост денег считается по режиму.
+   312 У сотрудника — с какими площадками работает (WB / Ozon): в форме «Новый менеджер» и в карточке.
+       Ответственным и проджектом в кабинете предлагаются только те, кто работает с его площадкой (кабинеты — add144). */
+(function(){
+  function live(){ try{ return typeof foLive === "function" && foLive(); }catch(e){ return false; } }
+  var MPS = [["wb", "WB"], ["ozon", "Ozon"]];
+  function mpOf(m){ var v = m && m.mp; return Array.isArray(v) ? v.filter(function(x){ return x === "wb" || x === "ozon"; }) : ["wb"]; }
+  window.foMpOf = mpOf;
+  function mpBoxes(sel, attr){
+    return '<div class="fo-mps">'+MPS.map(function(x){
+      return '<button type="button" class="ck fo-mp'+(sel.indexOf(x[0]) >= 0 ? ' on' : '')+'" '+attr+'="'+x[0]+'"><i></i>'+x[1]+'</button>';
+    }).join("")+'</div>';
+  }
+
+  /* ── 308: «Добавить в команду» — на сервер ── */
+  var busy = false;
+  window.addEventListener("click", function(e){
+    var b = e.target.closest && e.target.closest("#nmSave"); if(!b || !live()) return;
+    var f = document.getElementById("nmName"), name = f ? String(f.value || "").replace(/\s+/g, " ").trim() : "";
+    if(!name) return;                                  /* add59 покажет «Без имени человека не завести» */
+    e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();
+    if(busy) return; busy = true;
+    try{ nmCollect(); }catch(x){}
+    var st = (typeof nmState !== "undefined" && nmState) || {};
+    var accEl = document.getElementById("nmAcc"), acc = accEl ? accEl.value : "";
+    var mp = (st.mp && st.mp.length) ? st.mp.slice() : ["wb"];
+    var body = {name: name, tg: String(st.tg || "").replace(/^@+/, "").trim(), role: String(st.role || "Менеджер").trim() || "Менеджер",
+      pay: +st.pay || 0, grade: st.grade || "mid", load: +st.load || 100, maxArt: +st.maxArt || 0,
+      cat: {A: +((st.cat || {}).A) || 0, B: +((st.cat || {}).B) || 0, C: +((st.cat || {}).C) || 0},
+      fnWork: !!st.fnWork, rk: !!st.rk, orgWork: !!st.orgWork, assist: !!st.assist,
+      mode: (typeof simMode !== "undefined" ? simMode : "new"), acc: acc || null, mp: mp};
+    var t0 = b.textContent; b.disabled = true; b.textContent = "Сохраняю на сервере…";
+    var p = null;
+    api("/refs/employees", {method: "POST", body: body}).then(function(r){
+      var id = r && r.id ? String(r.id) : "";
+      if(!id) throw new Error("сервер не вернул id сотрудника");
+      var i = (S.people || []).length;
+      p = {id: id, name: name, role: body.role, av: initials(name).toUpperCase(), color: col(i), ord: i, target: body.load,
+           workday: 480, user_id: null, email: ""};
+      Object.keys(body).forEach(function(k){ if(k !== "name") p[k] = body[k]; });
+      if(!body.pay) delete p.pay;
+      S.people.push(p);
+      try{ if(typeof SRV_CARDS !== "undefined" && SRV_CARDS) SRV_CARDS["employee:" + id] = Object.assign({}, r.card || {}); }catch(x){}
+      /* приглашение — на серверный id */
+      var pre = (typeof invMade !== "undefined" && invMade) ? invMade["__new"] : null;
+      if(pre){
+        invMade[id] = pre; delete invMade["__new"];
+        p.inviteToken = pre.token; p.inviteUrl = pre.url; p.invitedAt = Date.now(); p.acc = pre.role || acc;
+        try{ cardSave("employee", id, {inviteToken: pre.token, inviteUrl: pre.url, invitedAt: p.invitedAt, acc: p.acc}); }catch(x){}
+        return p;
+      }
+      if(acc && typeof foCanGrant === "function" && foCanGrant()){
+        return api("/refs/invites", {method: "POST", body: {role_code: acc, name: name, person_ref: id}}).then(function(r2){
+          try{ invMade[id] = {url: r2.url, token: r2.token, role: acc}; }catch(x){}
+          p.inviteToken = r2.token; p.inviteUrl = r2.url; p.invitedAt = Date.now(); p.acc = acc;
+          try{ cardSave("employee", id, {inviteToken: r2.token, inviteUrl: r2.url, invitedAt: p.invitedAt, acc: acc}); }catch(x){}
+          return p;
+        }, function(err){ try{ toast("Ссылку не выписал: " + ((err && err.message) || "сервер не ответил")); }catch(x){} return p; });
+      }
+      return p;
+    }).then(function(){
+      nmState = {}; try{ nmRedist = null; nmPicked = {}; nmErr = ""; }catch(x){}
+      try{ openPerson = p.id; peDay = null; peGantt = false; }catch(x){}
+      try{ manCardOpen = p.id; }catch(x){}
+      try{ NAV = []; }catch(x){}
+      setView("people", true);
+      try{ toast(p.name + " записан в агентство — на сервере ✓" + (p.inviteUrl ? " · ссылка-приглашение в карточке" : "")); }catch(x){}
+    }).catch(function(err){
+      b.disabled = false; b.textContent = t0;
+      var msg = (err && err.message) || "сервер не ответил";
+      try{ nmErr = "Не сохранилось на сервере: " + msg; renderNewMan(); }catch(x){}
+      try{ toast("Не сохранилось на сервере: " + msg); }catch(x){}
+    }).then(function(){ busy = false; });
+  }, true);
+
+  /* ── 312: площадки в форме «Новый менеджер» и в карточке ── */
+  if(typeof renderNewMan === "function"){
+    var _rn = renderNewMan;
+    renderNewMan = function(){
+      var v = _rn.apply(this, arguments);
+      try{
+        var host = document.getElementById("sect"), fl = host && host.querySelector(".nmflags");
+        if(fl && !host.querySelector(".fo-mprow")){
+          var sel = (nmState && nmState.mp) || ["wb"];
+          var w = document.createElement("div"); w.className = "fo-mprow";
+          w.innerHTML = '<div class="sfh">С какими площадками работает</div>'+mpBoxes(sel, "data-nmmp")+
+            '<div class="hint2">Ответственным и проджектом в кабинете предлагаются только те, кто работает с его площадкой.</div>';
+          var hint = fl.nextElementSibling; (hint && hint.classList.contains("hint2") ? hint : fl).insertAdjacentElement("afterend", w);
+        }
+      }catch(e){}
+      return v;
+    };
+  }
+  document.addEventListener("click", function(e){
+    var t = e.target.closest && e.target.closest("[data-nmmp], [data-edmp]"); if(!t) return;
+    e.preventDefault(); e.stopPropagation();
+    var k = t.getAttribute("data-nmmp") || t.getAttribute("data-edmp");
+    var box = t.closest(".fo-mps"), on = !t.classList.contains("on");
+    var sel = Array.prototype.filter.call(box.querySelectorAll(".fo-mp"), function(b){ return b === t ? on : b.classList.contains("on"); })
+      .map(function(b){ return b.getAttribute("data-nmmp") || b.getAttribute("data-edmp"); });
+    if(!sel.length){ try{ toast("Хотя бы одна площадка"); }catch(x){} return; }
+    t.classList.toggle("on", on);
+    if(t.hasAttribute("data-nmmp")){ try{ nmDefaults(); nmState.mp = sel; }catch(x){} return; }
+    var id = t.closest("[data-edmpid]") && t.closest("[data-edmpid]").getAttribute("data-edmpid"); if(!id) return;
+    try{ var m = person(id); if(m) m.mp = sel; }catch(x){}
+    try{ cardSave("employee", id, {mp: sel}); }catch(x){}
+    try{ toast("Площадки: " + sel.map(function(x){ return x === "wb" ? "WB" : "Ozon"; }).join(" и ") + " — сохранено"); }catch(x){}
+  }, true);
+  if(typeof edManForm === "function"){
+    var _ef = edManForm;
+    edManForm = function(m){
+      var h = _ef.apply(this, arguments);
+      try{
+        var add = '<div class="edg">С какими площадками работает</div><div class="edrow fo-mpedit" data-edmpid="'+esc(m.id)+'">'+
+          mpBoxes(mpOf(m), "data-edmp")+'<span class="fnote2">ответственным в кабинете WB или Ozon предлагаются те, кто с ним работает</span></div>';
+        var i = h.lastIndexOf("</div>");
+        return i > 0 ? h.slice(0, i) + add + h.slice(i) : h + add;
+      }catch(e){ return h; }
+    };
+  }
+  /* подбор людей по площадке: кто подходит кабинету с площадкой mp */
+  window.foMpFits = function(m, mp){ if(!mp) return true; return mpOf(m).indexOf(mp) >= 0; };
+
+  /* ── 309: должность — простое поле с подсказками ── */
+  function dl(){
+    var posts = [];
+    try{ posts = (typeof ED_POSTS !== "undefined" && ED_POSTS.length) ? ED_POSTS : (typeof POSTS !== "undefined" ? POSTS : []); }catch(e){}
+    return '<datalist id="fo-posts-dl">'+posts.map(function(x){ return '<option value="'+esc(x)+'">'; }).join("")+'</datalist>';
+  }
+  if(typeof manBase === "function"){
+    var _mb = manBase;
+    manBase = function(m){
+      var h = _mb.apply(this, arguments);
+      try{
+        return String(h).replace(/<label><span>Должность<\/span><select class="sel" data-sk2="role">[\s\S]*?<\/select>(?:<input class="fi sm mcown"[^>]*>)?<\/label>/,
+          '<label><span>Должность</span><input class="fi sm" data-sk2="role" list="fo-posts-dl" autocomplete="off" placeholder="Например, Проджект" value="'+esc(m.role || "")+'">'+dl()+'</label>');
+      }catch(e){ return h; }
+    };
+  }
+  if(typeof edManForm === "function"){
+    var _ef2 = edManForm;
+    edManForm = function(m){
+      var h = _ef2.apply(this, arguments);
+      try{
+        return String(h).replace(/<select class="sel sm" data-ed="man" data-edid="([^"]*)" data-edk="role">[\s\S]*?<\/select>/,
+          function(_, id){ return '<input class="fi sm" data-ed="man" data-edid="'+id+'" data-edk="role" list="fo-posts-dl" autocomplete="off" placeholder="Например, Проджект" value="'+esc(m.role || "")+'">'+dl(); });
+      }catch(e){ return h; }
+    };
+  }
+  /* поле «Кто это» (data-sk2=role) — на сервер, в шапку карточки сразу; без перерисовки экрана на каждую букву */
+  document.addEventListener("input", function(e){
+    var t = e.target; if(!t || !t.matches || !t.matches('input[data-sk2="role"]')) return;
+    var id = null; try{ id = manCardOpen; }catch(x){}
+    if(!id) return;
+    var m = null; try{ m = person(id); }catch(x){}
+    if(m) m.role = t.value;
+    var w = document.querySelector('[data-openperson="'+id+'"] .pcn .r, [data-openperson="'+id+'"] .r'); if(w) w.textContent = t.value || "Сотрудник";
+  }, true);
+  document.addEventListener("change", function(e){
+    var t = e.target; if(!t || !t.matches || !t.matches('input[data-sk2="role"]')) return;
+    e.stopImmediatePropagation();                       /* старый обработчик select — не нужен (render на каждую смену) */
+    var id = null; try{ id = manCardOpen; }catch(x){}
+    if(!id) return;
+    var v = String(t.value || "").trim();
+    try{ var m = person(id); if(m) m.role = v; }catch(x){}
+    try{ saveState(); }catch(x){}
+    if(live()){ try{ cardSave("employee", id, {role: v}); }catch(x){} }
+    t.classList.add("edok"); setTimeout(function(){ t.classList.remove("edok"); }, 1200);
+  }, true);
+
+  /* ── 310: «Копировать» ── */
+  function copyText(v){
+    return new Promise(function(res, rej){
+      if(navigator.clipboard && window.isSecureContext){ navigator.clipboard.writeText(v).then(res, function(){ fallback(); }); } else fallback();
+      function fallback(){
+        try{
+          var ta = document.createElement("textarea"); ta.value = v; ta.setAttribute("readonly", ""); ta.style.position = "fixed"; ta.style.opacity = "0";
+          document.body.appendChild(ta); ta.focus(); ta.select(); ta.setSelectionRange(0, v.length);
+          var ok = document.execCommand("copy"); document.body.removeChild(ta);
+          ok ? res() : rej(new Error("буфер недоступен"));
+        }catch(e){ rej(e); }
+      }
+    });
+  }
+  window.addEventListener("click", function(e){
+    var t = e.target.closest && e.target.closest("[data-copy]"); if(!t) return;
+    e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();
+    var v = t.getAttribute("data-copy") || "";
+    if(!v){ try{ toast("Копировать нечего"); }catch(x){} return; }
+    var t0 = t.textContent;
+    copyText(v).then(function(){ try{ toast("Скопировано: " + (v.length > 60 ? v.slice(0, 57) + "…" : v)); }catch(x){} t.textContent = "Скопировано ✓"; setTimeout(function(){ t.textContent = t0; }, 1500); },
+      function(){ try{ window.prompt("Скопируйте вручную:", v); }catch(x){} });
+  }, true);
+
+  /* ── 311: модель найма — режимы считаются по-разному ── */
+  if(typeof simEffect === "function"){
+    var _se = simEffect;
+    simEffect = function(add, mode){
+      var e = _se.apply(this, arguments);
+      try{
+        var t = e.before; add = Math.max(0, add || 0);
+        var share = mode === "relief" ? 1 : mode === "hybrid" ? 0.5 : 0;
+        var reliefH = Math.min(add * WEEK_H * share, t.totalH);
+        var growH = add * WEEK_H - reliefH;
+        /* снимаем с самых загруженных, выравнивая сверху */
+        var after = t.per.map(function(x){ return {p: x.p, h: x.h, pct: x.pct}; }).sort(function(a, b){ return b.h - a.h; });
+        var left = reliefH, guard = 0;
+        while(left > 0.01 && after.length && guard++ < 50){
+          var top = after[0].h;
+          var grp = after.filter(function(x){ return x.h >= top - 0.01; });
+          var nxt = after.filter(function(x){ return x.h < top - 0.01; })[0];
+          var floor = nxt ? nxt.h : 0, can = (top - floor) * grp.length;
+          if(can <= 0) break;
+          var take = Math.min(left, can);
+          grp.forEach(function(x){ x.h -= take / grp.length; });
+          left -= take; after.sort(function(a, b){ return b.h - a.h; });
+        }
+        after.forEach(function(x){ x.pct = Math.round(x.h / WEEK_H * 100); });
+        var teamAfterH = Math.max(0, t.totalH - reliefH);
+        var idleBefore = Math.max(0, t.cap - t.totalH);
+        var pa = simProjectAvg();
+        var capacityH = growH + idleBefore * 0.6;         /* снятые часы не продаём — это и есть разгрузка */
+        e.reliefH = reliefH; e.growH = growH;
+        e.afterNeed = Math.max(0, t.needH - reliefH);
+        e.overAfter = after.filter(function(x){ return x.pct > 110; }).length;
+        e.avgAfter = t.cap ? Math.round(teamAfterH / t.cap * 100) : 0;   /* загрузка нынешней команды после разгрузки */
+        e.teamAfterH = teamAfterH; e.after = after;
+        e.freeAfter = Math.max(0, t.cap + add * WEEK_H - t.totalH);
+        e.freeSell = capacityH;
+        e.canTake = pa.h ? Math.floor(capacityH / pa.h) : 0;
+      }catch(x){}
+      return e;
+    };
+  }
+  if(typeof simWidget === "function"){
+    var _sw = simWidget;
+    simWidget = function(opts){
+      var h = _sw.apply(this, arguments);
+      try{
+        var e = simEffect(simAdd, simMode), b = e.before;
+        h = h.replace(/<div class="simn">Перегруза всего[^<]*<\/div>/, "");
+        var note = "";
+        if(e.mode === "relief") note = 'Разгрузка: '+e.reliefH.toFixed(0)+' ч снимаем с самых загруженных — нынешняя команда '+b.avg+'% → '+e.avgAfter+'%. Новых клиентов новичок не берёт; '+
+          (e.canTake ? 'ещё '+e.canTake+' '+(e.canTake === 1 ? 'кабинет' : e.canTake < 5 ? 'кабинета' : 'кабинетов')+' — только за счёт нынешнего простоя команды.' : 'новых кабинетов не прибавится.');
+        else if(e.mode === "hybrid") note = 'Гибрид: '+e.reliefH.toFixed(0)+' ч снимаем с самых загруженных (команда '+b.avg+'% → '+e.avgAfter+'%), '+e.growH.toFixed(0)+' ч новичка — под новых клиентов.';
+        else note = 'Только новые: все '+e.growH.toFixed(0)+' ч новичка — под новых клиентов, нынешняя команда работает как работала ('+b.avg+'%).';
+        h = h.replace('<div class="simg">', '<div class="simn fo-simmode">'+note+'</div><div class="simg">');
+        h = h.replace(/норма 100% при (\d+) ч в неделю/, 'нынешняя команда после разгрузки · норма 100% при $1 ч в неделю');
+      }catch(x){}
+      return h;
+    };
+  }
 })();
 
 })();
