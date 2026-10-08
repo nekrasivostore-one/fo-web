@@ -33994,7 +33994,7 @@ function foDistFillSelects(){
           var sel = (nmState && nmState.mp) || ["wb"];
           var w = document.createElement("div"); w.className = "fo-mprow";
           w.innerHTML = '<div class="sfh">С какими площадками работает</div>'+mpBoxes(sel, "data-nmmp")+
-            '<div class="hint2">Ответственным и проджектом в кабинете предлагаются только те, кто работает с его площадкой.</div>';
+            '<div class="hint2">Человек увидит только кабинеты своих площадок (Ozon — только Ozon-кабинеты); ответственным в кабинете предлагаются те, кто работает с его площадкой.</div>';
           var hint = fl.nextElementSibling; (hint && hint.classList.contains("hint2") ? hint : fl).insertAdjacentElement("afterend", w);
         }
       }catch(e){}
@@ -34023,7 +34023,7 @@ function foDistFillSelects(){
       var h = _ef.apply(this, arguments);
       try{
         var add = '<div class="edg">С какими площадками работает</div><div class="edrow fo-mpedit" data-edmpid="'+esc(m.id)+'">'+
-          mpBoxes(mpOf(m), "data-edmp")+'<span class="fnote2">ответственным в кабинете WB или Ozon предлагаются те, кто с ним работает</span></div>';
+          mpBoxes(mpOf(m), "data-edmp")+'<span class="fnote2">проджект и менеджеры видят только кабинеты своих площадок; ответственным в кабинете предлагаются те, кто работает с его площадкой</span></div>';
         var i = h.lastIndexOf("</div>");
         return i > 0 ? h.slice(0, i) + add + h.slice(i) : h + add;
       }catch(e){ return h; }
