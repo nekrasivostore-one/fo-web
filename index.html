@@ -4819,6 +4819,13 @@ input[data-sk2="role"].edok, input[data-edk="role"].edok{ border-color:var(--ok,
 
 /* add146: ссылка-приглашение — как есть, без заглавных */
 .invlink .invl code{ text-transform:none !important; letter-spacing:0 !important }
+
+/* add147: маркетплейс в карточке клиента */
+.fo-cmp{ display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin:2px 0 12px }
+.fo-cmpl{ font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-3); margin-right:2px }
+.fo-cmp .fo-chip.on.dflt{ border-style:dashed; color:var(--ink-3) }
+.fo-cmp .fo-hint{ flex-basis:100%; font-size:11.5px; color:var(--ink-3) }
+.fo-mpb.dflt{ border-style:dashed; opacity:.7 }
 </style>
 </head>
 <body>
@@ -34654,6 +34661,78 @@ function foDistFillSelects(){
   }, 700);
   /* экран регистрации перерисовывается — держим замок */
   document.addEventListener("click", function(){ if(dead) setTimeout(function(){ lock(dead); }, 150); }, true);
+})();
+
+/* ===== add147: 318 — маркетплейс в карточке каждого клиента (Виталий 08.10)
+   «Если я как собственник смотрю клиентов, я вижу только ИП Аббясова с разделением на WB и Ozon. Нужно, чтобы
+   в текущей карточке можно было присвоить статус маркетплейса WB / Ozon».
+   · В карточке клиента сверху — «Маркетплейс: WB | Ozon» (собственник, директор). Выбор уходит в карточку на сервере
+     (mp) и сразу влияет на видимость: проджект «Ozon» видит Ozon-кабинеты (317), ответственные предлагаются по площадке.
+   · На плитке «Моих клиентов» у каждого клиента — отметка WB / Ozon (пока не выбрана — WB, серым: так считает сервис). */
+(function(){
+  var MPL = {wb: "WB", ozon: "Ozon"};
+  function live(){ try{ return typeof foLive === "function" && foLive(); }catch(e){ return false; } }
+  function canSet(){ try{ return live() && typeof A !== "undefined" && A && (+A.level || 9) <= 2; }catch(e){ return false; } }
+  function prOf(id){ try{ return (S.projects || []).filter(function(p){ return String(p.id) === String(id); })[0] || null; }catch(e){ return null; } }
+  function mpOf(pr){ return (typeof foCliMp === "function") ? foCliMp(pr) : ((pr && pr.mp) || "wb"); }
+  function explicit(pr){ return !!(pr && (pr.mp === "wb" || pr.mp === "ozon")); }
+  function rowHTML(pr){
+    var cur = mpOf(pr), ex = explicit(pr);
+    return '<div class="fo-cmp" data-focmpbox="'+esc(pr.id)+'"><span class="fo-cmpl">Маркетплейс</span>'+
+      Object.keys(MPL).map(function(k){
+        return '<button type="button" class="fo-chip'+(cur === k ? (ex ? ' on' : ' on dflt') : '')+'" data-focmp="'+esc(pr.id)+'|'+k+'">'+MPL[k]+'</button>';
+      }).join("")+
+      '<span class="fo-hint">'+(ex ? 'задан' : 'не выбран — сервис считает WB')+' · по площадке подбираются проджект и ответственные, проджект «Ozon» видит только Ozon-кабинеты</span></div>';
+  }
+  if(typeof clientCard === "function"){
+    var _cc = clientCard;
+    clientCard = function(pr){
+      var h = _cc.apply(this, arguments);
+      try{
+        if(!canSet() || !pr || !pr.id) return h;
+        var i = h.indexOf('<div class="ccnums">');
+        return i > 0 ? h.slice(0, i) + rowHTML(pr) + h.slice(i) : h;
+      }catch(e){ return h; }
+    };
+  }
+  if(typeof cabCard === "function"){
+    var _cab = cabCard;
+    cabCard = function(pr, mine, open){
+      var h = _cab.apply(this, arguments);
+      try{
+        if(!live() || !h || !pr) return h;
+        if(h.indexOf('class="fo-mpb"') >= 0) return h;                 /* у группы отметка уже есть (add144) */
+        var nm = '<div class="n">'+esc(pr.name)+'</div>';
+        if(h.indexOf(nm) < 0) return h;
+        return h.replace(nm, '<div class="n">'+esc(pr.name)+' <i class="fo-mpb'+(explicit(pr) ? '' : ' dflt')+'" title="'+(explicit(pr) ? 'маркетплейс кабинета' : 'маркетплейс не выбран — считаем WB')+'">'+MPL[mpOf(pr)]+'</i></div>');
+      }catch(e){ return h; }
+    };
+  }
+  document.addEventListener("click", function(e){
+    var t = e.target.closest && e.target.closest("[data-focmp]"); if(!t) return;
+    e.preventDefault(); e.stopPropagation(); if(e.stopImmediatePropagation) e.stopImmediatePropagation();
+    var a = t.getAttribute("data-focmp").split("|"), pr = prOf(a[0]), mp = a[1];
+    if(!pr || !canSet()) return;
+    try{
+      var g = (typeof foCliGroup === "function") ? foCliGroup(pr) : null;
+      if(g){
+        var sib = (S.projects || []).filter(function(p){ return p !== pr && foCliGroup(p) === g && mpOf(p) === mp; })[0];
+        if(sib){ try{ toast("У этого клиента уже есть кабинет " + MPL[mp] + " («" + sib.name + "»)"); }catch(x){} return; }
+      }
+    }catch(x){}
+    pr.mp = mp;
+    var box = t.closest(".fo-cmp");
+    if(box){ box.querySelectorAll("[data-focmp]").forEach(function(b){ b.classList.toggle("on", b === t); b.classList.remove("dflt"); }); var hn = box.querySelector(".fo-hint"); if(hn) hn.textContent = "сохраняю…"; }
+    api("/refs/cards", {method: "POST", body: {kind: "client", ref_id: String(pr.id), data: {mp: mp}}}).then(function(){
+      try{ if(typeof SRV_CARDS !== "undefined" && SRV_CARDS) SRV_CARDS["client:" + pr.id] = Object.assign(SRV_CARDS["client:" + pr.id] || {}, {mp: mp}); }catch(x){}
+      try{ toast("«" + pr.name + "»: маркетплейс " + MPL[mp] + " — сохранено на сервере"); }catch(x){}
+      try{ if(typeof view !== "undefined" && view === "projects") renderProjects(); else renderCards(); }catch(x){}
+      try{ if(typeof paintBars === "function") paintBars(document.getElementById("sect")); }catch(x){}
+    }, function(err){
+      try{ toast("Не сохранилось на сервере: " + ((err && err.message) || "ошибка")); }catch(x){}
+      try{ if(typeof view !== "undefined" && view === "projects") renderProjects(); else renderCards(); }catch(x){}
+    });
+  }, true);
 })();
 
 })();
