@@ -33997,6 +33997,7 @@ function foDistFillSelects(){
       }catch(e){}
       return v;
     };
+    try{ if(typeof SEC_RENDER !== "undefined" && SEC_RENDER) SEC_RENDER.newman = renderNewMan; }catch(e){}
   }
   document.addEventListener("click", function(e){
     var t = e.target.closest && e.target.closest("[data-nmmp], [data-edmp]"); if(!t) return;
@@ -34333,6 +34334,7 @@ function foDistFillSelects(){
       }catch(e){}
       return v;
     };
+    try{ if(typeof SEC_RENDER !== "undefined" && SEC_RENDER) SEC_RENDER.newcab = renderNewCab; }catch(e){}
   }
   document.addEventListener("input", function(e){
     var t = e.target; if(!t || t.id !== "ncName" || !live()) return;
