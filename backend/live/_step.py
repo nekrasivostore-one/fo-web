@@ -466,6 +466,16 @@ BEGIN
 EXCEPTION WHEN OTHERS THEN
   RAISE NOTICE 'chat id fix: %', SQLERRM;
 END $$;
+-- 312: площадки сотрудников (WB / Ozon) — где пометки ещё нет
+UPDATE fo_card f SET data = f.data || '{"mp": ["wb", "ozon"]}'::jsonb
+  FROM employee e WHERE f.kind='employee' AND f.ref_id = e.id::text AND NOT (f.data ? 'mp')
+   AND lower(e.name) IN ('виктория', 'лиза');
+INSERT INTO fo_card (kind, ref_id, org_id, data)
+  SELECT 'employee', e.id::text, e.org_id, '{"mp": ["wb"]}'::jsonb FROM employee e
+   WHERE NOT EXISTS (SELECT 1 FROM fo_card f WHERE f.kind='employee' AND f.ref_id = e.id::text)
+  ON CONFLICT (kind, ref_id) DO NOTHING;
+UPDATE fo_card f SET data = f.data || '{"mp": ["wb"]}'::jsonb
+  FROM employee e WHERE f.kind='employee' AND f.ref_id = e.id::text AND NOT (f.data ? 'mp');
 -- 307: приглашение человека команды выписалось уровнем «Клиент сервиса» — по грейду «Менеджер главный»
 UPDATE org_invite SET role_code = 'manager_senior'
  WHERE person_ref = 'p1_1jh1' AND role_code = 'client_org' AND used_at IS NULL AND revoked_at IS NULL;
@@ -1951,6 +1961,70 @@ async def _fo_sync_boot():
 # ── имя сотрудника выставляет РМ (С8, 129): везде имена, не почта ──
 class FoEmpNameIn(_FoBM):
     name: str
+
+
+# ══ 308 (Виталий 08.10): «Юля появилась в Ганте, но после того как я походил по кнопкам — пропала» ══
+# Причина: «Добавить в команду» заводило человека только в браузере — POST /refs/employees на сервере не было
+# (404), а список команды сервер отдаёт из таблицы employee. Теперь человек заводится на сервере сразу,
+# с полями карточки; по приглашению он привязывается к своей записи (person_ref = id сотрудника).
+class FoEmpNewIn(_FoBM):
+    name: str
+    tg: str | None = None
+    role: str | None = None
+    pay: int | None = None
+    grade: str | None = None
+    load: int | None = None
+    maxArt: int | None = None
+    cat: dict | None = None
+    fnWork: bool | None = None
+    rk: bool | None = None
+    orgWork: bool | None = None
+    assist: bool | None = None
+    mode: str | None = None
+    acc: str | None = None
+    mp: list | None = None
+
+
+@router.post("/employees")
+async def fo_employee_new(body: FoEmpNewIn, p: Principal = Depends(max_level(3))):
+    """Завести сотрудника на сервере: запись в команде + карточка. Собственник, директор, руководитель."""
+    nm = re.sub(r"\s+", " ", str(body.name or "")).strip()
+    if len(nm) < 2:
+        raise HTTPException(400, "Впишите имя")
+    async with pool().acquire() as c:
+        cols = set(r["column_name"] for r in await c.fetch(
+            "SELECT column_name FROM information_schema.columns WHERE table_name='employee'"))
+        q_act = " AND is_active" if "is_active" in cols else ""
+        dup = await c.fetchrow("SELECT id FROM employee WHERE org_id=$1 AND lower(name)=lower($2)" + q_act + " LIMIT 1", p.org_id, nm)
+        if dup:
+            raise HTTPException(409, "Сотрудник «%s» уже есть в команде" % nm)
+        names, vals = ["org_id", "name"], [p.org_id, nm]
+        if "is_active" in cols:
+            names.append("is_active"); vals.append(True)
+        if "workday_min" in cols:
+            names.append("workday_min"); vals.append(480)
+        eid = await c.fetchval("INSERT INTO employee (" + ", ".join(names) + ") VALUES (" +
+                               ", ".join("$%d" % (i + 1) for i in range(len(vals))) + ") RETURNING id", *vals)
+        d = {}
+        for k in ("tg", "role", "grade", "load", "maxArt", "cat", "fnWork", "rk", "orgWork", "assist", "mode", "acc", "mp"):
+            v = getattr(body, k, None)
+            if v is None:
+                continue
+            if k == "tg":
+                v = str(v).lstrip("@").strip()
+                if not v:
+                    continue
+            if k == "mp":
+                v = [str(x).lower() for x in v if str(x).lower() in ("wb", "ozon")]
+            d[k] = v
+        if body.pay and _fo_lvl(p) <= 2:
+            d["pay"] = int(body.pay)
+        d["createdAt"] = _fo_mt_now().strftime("%d.%m.%Y %H:%M")
+        await c.execute("INSERT INTO fo_card (kind, ref_id, org_id, data) VALUES ('employee', $1, $2, $3::jsonb) "
+                        "ON CONFLICT (kind, ref_id) DO UPDATE SET data = fo_card.data || EXCLUDED.data, updated_at = now() "
+                        "WHERE fo_card.org_id = EXCLUDED.org_id", str(eid), p.org_id, _fo_json.dumps(d, ensure_ascii=False))
+    print("308 сотрудник заведён:", nm, str(eid)[:8], "·", ", ".join(sorted(d.keys())))
+    return {"ok": True, "id": str(eid), "name": nm, "card": d}
 
 
 @router.post("/employees/{emp_id}/name")
@@ -10258,7 +10332,17 @@ async def fo_invite_accept(body: FoAcceptIn):
             code2, sent = await _issue_code(conn, uid, mail, "first_login")
         linked = None
         try:
-            linked = await _fo_link_employee(conn, inv["org_id"], uid, inv["name"] or "", mail)
+            _pr = str(inv["person_ref"] or "").strip()           # 308: заведён заранее — привязываем к своей записи
+            if len(_pr) == 36:
+                _er = await conn.fetchrow("SELECT id, user_id FROM employee WHERE id::text=$1 AND org_id=$2", _pr, inv["org_id"])
+                if _er and (not _er["user_id"] or str(_er["user_id"]) == str(uid)):
+                    await conn.execute("UPDATE employee SET user_id=$2 WHERE id=$1", _er["id"], uid)
+                    linked = _er["id"]
+        except Exception:
+            linked = None
+        try:
+            if not linked:
+                linked = await _fo_link_employee(conn, inv["org_id"], uid, inv["name"] or "", mail)
         except Exception:
             linked = None
     out = {"ok": True, "workspace": inv["org_name"], "role_code": inv["role_code"],
