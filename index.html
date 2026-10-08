@@ -4816,6 +4816,9 @@ input[data-sk2="role"].edok, input[data-edk="role"].edok{ border-color:var(--ok,
 .fo-ncdup{ padding:10px 12px; border-radius:12px; background:rgba(255,176,32,.08); border:1px solid rgba(255,176,32,.5); display:flex; flex-direction:column; gap:6px; font-size:13px }
 .fo-ncdupb{ display:flex; flex-wrap:wrap; gap:8px; margin-top:4px }
 .fo-ncdupb .bt{ width:auto; flex:none }
+
+/* add146: ссылка-приглашение — как есть, без заглавных */
+.invlink .invl code{ text-transform:none !important; letter-spacing:0 !important }
 </style>
 </head>
 <body>
@@ -34614,6 +34617,43 @@ function foDistFillSelects(){
     return r;
   };
   window.foCardSyncNow = sync;
+})();
+
+/* ===== add146: 316 — ссылка-приглашение не работает → никакого «создать своё агентство» (Виталий 08.10)
+   «Юля не смогла попасть по ссылке — просили код, при этом видела какие-то другие кабинеты».
+   Ссылка оказалась отозванной (выписана на запись из браузера, 308); экран сказал «приглашение больше не действует»
+   и предложил «У меня нет кода — создать своё агентство» — Юля создала своё агентство «Проект» и стала собственником.
+   Теперь, если человек пришёл по ссылке-приглашению (в адресе есть i=…) и она не работает: ясное сообщение, кнопка
+   «Продолжить» и ход «создать своё агентство» спрятаны — только «Войти» или новая ссылка от собственника.
+   Ссылка в карточке сотрудника показывается как есть (без заглавных), чтобы её можно было перепечатать.          */
+(function(){
+  var T = "";
+  try{ T = new URLSearchParams(location.search).get("i") || ""; }catch(e){}
+  if(!T) return;
+  function lock(why){
+    try{
+      var ws = document.getElementById("toWs"); if(ws) ws.style.display = "none";
+      ["btnUp2", "btnUp1"].forEach(function(id){ var b = document.getElementById(id); if(b){ b.disabled = true; b.style.opacity = ".5"; } });
+      var code = document.getElementById("upCode"); if(code){ var lab = code.closest("label") || code; lab.style.display = "none"; }
+      var box = document.querySelector("#stUp2 .invhello, #stUp1 .invhello");
+      if(box){
+        box.className = "invhello on bad";
+        box.innerHTML = "Эта ссылка-приглашение не работает: " + esc(why) + ".<br><i>Попросите собственника агентства выписать новую — она в вашей карточке сотрудника, раздел «Доступ в сервис». " +
+          "Создавать своё агентство не нужно: вас уже завели в команду.</i>";
+      }
+    }catch(e){}
+  }
+  var dead = "";
+  setTimeout(function(){
+    api("/auth/invite-token/" + encodeURIComponent(T)).then(function(){}, function(e){
+      var msg = String((e && e.message) || "");
+      if(/Failed to fetch|NetworkError|Load failed/i.test(msg)) return;
+      dead = msg || "не найдена";
+      lock(dead); setTimeout(function(){ lock(dead); }, 800); setTimeout(function(){ lock(dead); }, 2500);
+    });
+  }, 700);
+  /* экран регистрации перерисовывается — держим замок */
+  document.addEventListener("click", function(){ if(dead) setTimeout(function(){ lock(dead); }, 150); }, true);
 })();
 
 })();
