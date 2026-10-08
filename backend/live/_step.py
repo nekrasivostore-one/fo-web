@@ -466,6 +466,9 @@ BEGIN
 EXCEPTION WHEN OTHERS THEN
   RAISE NOTICE 'chat id fix: %', SQLERRM;
 END $$;
+-- 308: две пустые записи «Я» от проверки команды — сняты
+UPDATE employee SET is_active=false WHERE name='Я' AND user_id IS NULL;
+DELETE FROM fo_card WHERE kind='employee' AND ref_id IN (SELECT id::text FROM employee WHERE name='Я' AND user_id IS NULL);
 -- 312: площадки сотрудников (WB / Ozon) — где пометки ещё нет
 UPDATE fo_card f SET data = f.data || '{"mp": ["wb", "ozon"]}'::jsonb
   FROM employee e WHERE f.kind='employee' AND f.ref_id = e.id::text AND NOT (f.data ? 'mp')
@@ -1985,7 +1988,7 @@ class FoEmpNewIn(_FoBM):
     mp: list | None = None
 
 
-@router.post("/employees")
+@router.post("/employees/new")
 async def fo_employee_new(body: FoEmpNewIn, p: Principal = Depends(max_level(3))):
     """Завести сотрудника на сервере: запись в команде + карточка. Собственник, директор, руководитель."""
     nm = re.sub(r"\s+", " ", str(body.name or "")).strip()
@@ -2025,6 +2028,26 @@ async def fo_employee_new(body: FoEmpNewIn, p: Principal = Depends(max_level(3))
                         "WHERE fo_card.org_id = EXCLUDED.org_id", str(eid), p.org_id, _fo_json.dumps(d, ensure_ascii=False))
     print("308 сотрудник заведён:", nm, str(eid)[:8], "·", ", ".join(sorted(d.keys())))
     return {"ok": True, "id": str(eid), "name": nm, "card": d}
+
+
+@router.post("/employees/{emp_id}/remove")
+async def fo_employee_remove(emp_id: str, p: Principal = Depends(max_level(2))):
+    """Снять сотрудника из команды (собственник, директор): запись остаётся, но в списках его нет.
+    Себя и того, у кого есть незакрытые задачи на этой неделе, — не снимаем."""
+    async with pool().acquire() as c:
+        r = await c.fetchrow("SELECT id, name, user_id FROM employee WHERE id::text=$1 AND org_id=$2", emp_id, p.org_id)
+        if not r:
+            raise HTTPException(404, "сотрудник не найден")
+        if r["user_id"] and str(r["user_id"]) == str(_fo_uid(p)):
+            raise HTTPException(400, "себя снять нельзя")
+        n = await c.fetchval("SELECT count(*) FROM task WHERE assignee_id=$1 AND status='planned' AND plan_date >= current_date", r["id"])
+        if n:
+            raise HTTPException(409, "у «%s» %d незакрытых задач — сначала передайте их («Разгрузить менеджера»)" % (r["name"], n))
+        await c.execute("UPDATE employee SET is_active=false WHERE id=$1", r["id"])
+        await c.execute("UPDATE org_invite SET revoked_at=now() WHERE org_id=$1 AND person_ref=$2 AND used_at IS NULL AND revoked_at IS NULL",
+                        p.org_id, str(r["id"]))
+    print("308 сотрудник снят:", r["name"], str(r["id"])[:8])
+    return {"ok": True, "снят": r["name"]}
 
 
 @router.post("/employees/{emp_id}/name")
