@@ -4472,7 +4472,7 @@ async def _fo_econ_people(c, org_id):
         grade = str(cd.get("grade") or "")
         pay = _fo_econ_num(cd.get("pay"))
         wd = int(d.get("workday_min") or 480) or 480
-        is_pm = (d.get("lvl") == 4) or grade == "pm"
+        is_pm = (d.get("lvl") == 4) or grade == "pm" or str(cd.get("acc") or "") == "project"   # 315: обещанный уровень
         if d.get("lvl") is not None and d.get("lvl") <= 1 and not pay:
             out[str(d["id"])] = {"id": str(d["id"]), "name": d.get("name") or "", "pay": 0.0, "pay_set": True, "wd": wd,
                                  "pm": False, "lvl": d.get("lvl"), "owner": True}
