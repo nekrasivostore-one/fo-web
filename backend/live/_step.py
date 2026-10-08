@@ -3322,6 +3322,63 @@ _FO_PRIV_CLIENT = {"amount", "owner", "payDate", "phone", "sheet", "tg", "telegr
 _FO_PRIV_PAY = re.compile(r"^(pay|salary|oklad|rate|prem|bonus|fine|shtraf|penalty)", re.I)
 
 
+# ══ 317 (Виталий 08.10): «когда добавляю менеджера — сделать проджекта по Ozon, чтобы она увидела только проекты по Ozon» ══
+# Пометка площадок в карточке сотрудника (312: WB / Ozon / обе) теперь решает, какие кабинеты он видит:
+# проджект и ниже с пометкой «Ozon» видит только Ozon-кабинеты, «WB» — только WB, «WB и Ozon» — все.
+# Собственник, директор, руководитель — видят всё. Фильтр стоит на списках: клиенты, карточки, задачи дня, планёрки.
+async def _fo_mp_scope(c, p):
+    """None — видно всё; иначе множество id клиентов на площадках сотрудника."""
+    lvl = _fo_st_lvl(p)
+    if lvl <= 3:
+        return None
+    me = await _fo_my_emp(c, p)
+    if not me:
+        return None
+    cd = _fo_st_load(await c.fetchval("SELECT data FROM fo_card WHERE kind='employee' AND ref_id=$1 AND org_id=$2", str(me), p.org_id)) or {}
+    mps = cd.get("mp") if isinstance(cd, dict) else None
+    mps = [str(x).lower() for x in (mps or []) if str(x).lower() in ("wb", "ozon")] or ["wb"]
+    if "wb" in mps and "ozon" in mps:
+        return None
+    out = set()
+    rows = await c.fetch("SELECT c.id, c.name, cd.data FROM client c LEFT JOIN fo_card cd ON cd.kind='client' AND cd.ref_id=c.id::text "
+                         "WHERE c.org_id=$1::uuid", str(p.org_id))
+    for r in rows:
+        d = _fo_st_load(r["data"]) or {}
+        mp = str((d.get("mp") if isinstance(d, dict) else "") or "").lower()
+        if mp not in ("wb", "ozon"):
+            try:
+                mp = _fo_chat_split(_fo_chat_norm(r["name"]))[1] or "wb"
+            except Exception:
+                mp = "wb"
+        if mp in mps:
+            out.add(str(r["id"]))
+    return out
+
+
+async def _fo_mp_apply(p, res, kind):
+    """Применить фильтр площадок к ответу маршрута: clients / cards / tasks / meet."""
+    try:
+        async with pool().acquire() as c:
+            ids = await _fo_mp_scope(c, p)
+    except Exception:
+        return res
+    if ids is None:
+        return res
+    try:
+        if kind == "clients" and isinstance(res, list):
+            return [x for x in res if str(_fo_row_get(x, "id")) in ids]
+        if kind == "tasks" and isinstance(res, list):
+            return [x for x in res if not _fo_row_get(x, "client_id") or str(_fo_row_get(x, "client_id")) in ids]
+        if kind == "cards" and isinstance(res, list):
+            return [x for x in res if _fo_row_get(x, "kind") not in ("client", "cab") or str(_fo_row_get(x, "ref_id")) in ids]
+        if kind == "meet" and isinstance(res, dict) and isinstance(res.get("rows"), list):
+            res = dict(res); res["rows"] = [x for x in res["rows"] if str(_fo_row_get(x, "client_id")) in ids]
+            return res
+    except Exception:
+        return res
+    return res
+
+
 async def _fo_scope_ids(c, p):
     """None — видно всё; иначе множество id сотрудников, чьи задачи можно отдать."""
     lvl = _fo_st_lvl(p)
@@ -10316,6 +10373,54 @@ try:
 except Exception as _fo_e:
     _FO_TASKS_DAY = "ошибка: %s" % _fo_e
 print("FO tasks/day:", _FO_TASKS_DAY, flush=True)
+
+# 317: списки — по площадкам сотрудника (клиенты, карточки, задачи дня, планёрки); фильтр живёт в refs (_fo_mp_apply)
+def _fo_wrap_mp_scope():
+    import inspect as _fo_i, sys as _fo_s
+    from fastapi.routing import APIRoute as _FoRoute
+    refs = next((m for m in list(_fo_s.modules.values()) if m is not None and hasattr(m, "_fo_mp_apply")), None)
+    if refs is None:
+        return "нет модуля с фильтром"
+    done = []
+    for path, kind in (("/refs/clients", "clients"), ("/refs/cards", "cards"), ("/tasks/day", "tasks"), ("/refs/meet", "meet")):
+        for r in list(app.router.routes):
+            if not (isinstance(r, _FoRoute) and r.path == path and "GET" in (r.methods or set())):
+                continue
+            if getattr(r.endpoint, "_fo_mpscoped", False):
+                done.append(path + " уже"); break
+            orig = r.endpoint
+
+            def make(orig, kind):
+                async def scoped(*a, **kw):
+                    res = orig(*a, **kw)
+                    if _fo_i.isawaitable(res):
+                        res = await res
+                    p = next((v for v in kw.values() if hasattr(v, "org_id") and hasattr(v, "level")), None)
+                    if p is None:
+                        return res
+                    return await refs._fo_mp_apply(p, res, kind)
+                scoped.__signature__ = _fo_i.signature(orig)
+                scoped.__name__ = getattr(orig, "__name__", "scoped")
+                scoped.__doc__ = getattr(orig, "__doc__", None)
+                scoped._fo_mpscoped = True
+                scoped._fo_scoped = getattr(orig, "_fo_scoped", False)
+                return scoped
+            sc = make(orig, kind)
+            idx = app.router.routes.index(r)
+            app.router.routes.remove(r)
+            app.add_api_route(path, sc, methods=["GET"], response_model=r.response_model,
+                              tags=r.tags, name=r.name, dependencies=r.dependencies)
+            app.router.routes.insert(idx, app.router.routes.pop())
+            done.append(path)
+            break
+    return ", ".join(done) or "маршруты не найдены"
+
+
+try:
+    _FO_MP_SCOPE = _fo_wrap_mp_scope()
+except Exception as _fo_e:
+    _FO_MP_SCOPE = "ошибка: %s" % _fo_e
+print("FO площадки:", _FO_MP_SCOPE, flush=True)
 '''
 
 ADD_SIGN = r'''
@@ -10624,6 +10729,10 @@ p(sh("sudo -u postgres psql -d fo -Atc \"SELECT 'org '||left(o.id::text,8)||' ·
 p("клиенты других агентств с тем же названием, что у Flater (утечка между агентствами?):")
 p(sh("sudo -u postgres psql -d fo -Atc \"SELECT c.name||' · '||o.name FROM client c JOIN org o ON o.id=c.org_id WHERE c.org_id<>'3b04b815-6ec2-4818-88cf-55db8163fd89' AND c.name IN (SELECT name FROM client WHERE org_id='3b04b815-6ec2-4818-88cf-55db8163fd89')\"").strip() or "(нет — утечки нет)")
 p("GET /refs/clients фильтрует по org_id:", "да" if "org_id" in sh("grep -n 'def list_clients\\|def clients' -A6 /opt/fo/backend/app/routers/refs.py | head -20") else "проверить вручную")
+p("")
+p("== 317 ПЛОЩАДКИ: КТО ЧТО ВИДИТ ==")
+p(sh("journalctl -u fo --since '-15min' --no-pager -o cat | grep -E 'FO площадки|FO tasks/day' | tail -3").strip() or "(служба ещё не перезапускалась)")
+p(sh("sudo -u postgres psql -d fo -Atc \"SELECT e.name||' · '||coalesce(f.data->>'mp','[wb по умолчанию]') FROM employee e LEFT JOIN fo_card f ON f.kind='employee' AND f.ref_id=e.id::text WHERE e.org_id='3b04b815-6ec2-4818-88cf-55db8163fd89' AND e.is_active ORDER BY e.name\"").strip())
 p("")
 p("== КОД ==")
 p("дописано в refs.py и signup.py, копия в", bak)
