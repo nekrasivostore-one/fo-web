@@ -469,6 +469,25 @@ END $$;
 -- 308: две пустые записи «Я» от проверки команды — сняты
 UPDATE employee SET is_active=false WHERE name='Я' AND user_id IS NULL;
 DELETE FROM fo_card WHERE kind='employee' AND ref_id IN (SELECT id::text FROM employee WHERE name='Я' AND user_id IS NULL);
+-- 316: Юля зарегистрировалась как новое агентство вместо входа по приглашению — переносим в Flater
+DO $$
+DECLARE uid uuid; eid uuid; forg uuid := '3b04b815-6ec2-4818-88cf-55db8163fd89';
+BEGIN
+  SELECT e.id INTO eid FROM employee e WHERE e.org_id = forg AND e.name = 'Юлия' AND e.id::text LIKE '9649cc50%' AND e.user_id IS NULL LIMIT 1;
+  SELECT u.id INTO uid FROM app_user u JOIN org o ON o.id = u.org_id
+   WHERE o.name = 'Проект' AND u.role_code = 'owner' AND u.is_active AND u.created_at > now() - interval '2 days'
+     AND u.org_id <> forg ORDER BY u.created_at DESC LIMIT 1;
+  IF uid IS NOT NULL AND eid IS NOT NULL THEN
+    UPDATE app_user SET org_id = forg, role_code = 'project' WHERE id = uid;
+    UPDATE employee SET user_id = uid WHERE id = eid;
+    UPDATE org_invite SET used_at = now(), used_by = uid WHERE person_ref = eid::text AND used_at IS NULL AND revoked_at IS NULL;
+    RAISE NOTICE '316: перенесена';
+  ELSE
+    RAISE NOTICE '316: не нашлось (uid %, eid %)', uid, eid;
+  END IF;
+EXCEPTION WHEN OTHERS THEN
+  RAISE NOTICE '316: %', SQLERRM;
+END $$;
 -- 312: площадки сотрудников (WB / Ozon) — где пометки ещё нет
 UPDATE fo_card f SET data = f.data || '{"mp": ["wb", "ozon"]}'::jsonb
   FROM employee e WHERE f.kind='employee' AND f.ref_id = e.id::text AND NOT (f.data ? 'mp')
@@ -10314,7 +10333,8 @@ async def fo_invite_peek(token: str):
             "SELECT o.name AS org_name, i.role_code, i.name, i.used_at, i.revoked_at, "
             "       rl.__ROLE_TITLE__ AS role_title "
             "FROM org_invite i JOIN org o ON o.id=i.org_id "
-            "LEFT JOIN role rl ON rl.code=i.role_code WHERE i.token=$1", token.strip())
+            "LEFT JOIN role rl ON rl.code=i.role_code WHERE lower(i.token)=lower($1) "
+            "ORDER BY (i.token=$1) DESC LIMIT 1", token.strip())
     if not r:
         raise HTTPException(404, "Приглашение не найдено")
     if r["revoked_at"]:
@@ -10376,7 +10396,7 @@ async def fo_invite_accept(body: FoAcceptIn):
     async with pool().acquire() as conn:
         inv = await conn.fetchrow(
             "SELECT i.*, o.name AS org_name FROM org_invite i "
-            "JOIN org o ON o.id=i.org_id WHERE i.token=$1", tok)
+            "JOIN org o ON o.id=i.org_id WHERE lower(i.token)=lower($1) ORDER BY (i.token=$1) DESC LIMIT 1", tok)
         if not inv:
             raise HTTPException(404, "Приглашение не найдено")
         if inv["revoked_at"]:
@@ -10397,7 +10417,7 @@ async def fo_invite_accept(body: FoAcceptIn):
                 uid = await _make_user(conn, inv["org_id"], mail, inv["role_code"],
                                        (inv["name"] or mail.split("@")[0]))
             await conn.execute(
-                "UPDATE org_invite SET used_at=now(), used_by=$2 WHERE token=$1", tok, uid)
+                "UPDATE org_invite SET used_at=now(), used_by=$2 WHERE token=$1", inv["token"], uid)
             code2, sent = await _issue_code(conn, uid, mail, "first_login")
         linked = None
         try:
@@ -10591,6 +10611,11 @@ except Exception as _e284:
 p("")
 p("== 307 ПРИГЛАШЕНИЯ ЛЮДЕЙ КОМАНДЫ ==")
 p(sh("sudo -u postgres psql -d fo -Atc \"SELECT person_ref||' · '||role_code||' · '||to_char(created_at AT TIME ZONE 'Europe/Moscow','DD.MM HH24:MI')||' · '||CASE WHEN used_at IS NOT NULL THEN 'использовано' WHEN revoked_at IS NOT NULL THEN 'отозвано' ELSE 'ждёт' END FROM org_invite WHERE person_ref ~ '^p[0-9]+_' ORDER BY created_at DESC LIMIT 10\"").strip() or "(нет)")
+p("")
+p("== 316 ЮЛЯ: АККАУНТ И ЗАПИСЬ ==")
+p(sh("sudo -u postgres psql -d fo -Atc \"SELECT e.name||' · запись '||left(e.id::text,8)||' · аккаунт '||coalesce(left(u.id::text,8),'нет')||' · агентство '||coalesce(o.name,'?')||' · уровень '||coalesce(u.role_code,'?') FROM employee e LEFT JOIN app_user u ON u.id=e.user_id LEFT JOIN org o ON o.id=u.org_id WHERE e.name='Юлия' AND e.is_active\"").strip() or "(нет)")
+p(sh("sudo -u postgres psql -d fo -Atc \"SELECT 'приглашения Юли: '||string_agg(role_code||' '||CASE WHEN used_at IS NOT NULL THEN 'использовано' WHEN revoked_at IS NOT NULL THEN 'отозвано' ELSE 'ждёт' END, ', ') FROM org_invite WHERE name='Юлия'\"").strip())
+p(sh("sudo -u postgres psql -d fo -Atc \"SELECT 'агентство «Проект»: собственников '||count(*) FROM app_user u JOIN org o ON o.id=u.org_id WHERE o.name='Проект' AND u.role_code='owner'\"").strip())
 p("")
 p("== КОД ==")
 p("дописано в refs.py и signup.py, копия в", bak)
