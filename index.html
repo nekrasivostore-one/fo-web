@@ -4794,6 +4794,28 @@ html.dark .fo-dist-col{ background:rgba(255,255,255,.03) }
 .fo-mpedit .fnote2{ font-size:11.5px; color:var(--ink-3) }
 .simn.fo-simmode{ margin-bottom:10px }
 input[data-sk2="role"].edok, input[data-edk="role"].edok{ border-color:var(--ok, #2BB673) }
+
+/* add144: клиент с кабинетами WB / Ozon */
+.fo-grptabs{ margin:4px 0 12px; padding:10px 12px; border-radius:12px; background:var(--panel-2); border:1px solid var(--stroke-2); display:flex; flex-direction:column; gap:8px }
+.fo-grph{ display:flex; align-items:baseline; gap:10px; flex-wrap:wrap }
+.fo-grpn{ font-weight:700 }
+.fo-grpm{ font-size:11.5px; color:var(--ink-3) }
+.fo-grpt{ display:flex; flex-wrap:wrap; gap:8px }
+.fo-grptab{ font:inherit; font-size:13px; font-weight:600; padding:7px 14px; border-radius:10px; border:1px solid var(--stroke-2); background:var(--panel); color:var(--ink-2); cursor:pointer }
+.fo-grptab.on{ border-color:#7C5CFF; color:#7C5CFF; background:rgba(124,92,255,.08) }
+.fo-grptab.add{ border-style:dashed; color:var(--ink-3) }
+.fo-grpsum{ font-size:12.5px; color:var(--ink-2); display:flex; flex-wrap:wrap; gap:6px 10px; align-items:baseline }
+.fo-grpsum b{ color:var(--ink) }
+.fo-grpchips{ display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin:2px 0 8px; font-size:11.5px; color:var(--ink-3) }
+.fo-chip{ font:inherit; font-size:11.5px; font-weight:600; padding:3px 10px; border-radius:8px; border:1px solid var(--stroke-2); background:var(--panel); color:var(--ink-2); cursor:pointer }
+.fo-chip.on{ border-color:#7C5CFF; color:#7C5CFF }
+.fo-mpb{ display:inline-block; font-style:normal; font-size:10px; font-weight:700; padding:1px 6px; border-radius:6px; background:var(--panel-2); border:1px solid var(--stroke-2); color:var(--ink-3); vertical-align:middle; margin-left:4px }
+.fo-ncx{ display:flex; flex-direction:column; gap:10px; margin:0 0 12px }
+.fo-ncmp{ display:flex; flex-wrap:wrap; align-items:center; gap:8px }
+.fo-ncmpl{ font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-3); margin-right:4px }
+.fo-ncdup{ padding:10px 12px; border-radius:12px; background:rgba(255,176,32,.08); border:1px solid rgba(255,176,32,.5); display:flex; flex-direction:column; gap:6px; font-size:13px }
+.fo-ncdupb{ display:flex; flex-wrap:wrap; gap:8px; margin-top:4px }
+.fo-ncdupb .bt{ width:auto; flex:none }
 </style>
 </head>
 <body>
@@ -34133,6 +34155,275 @@ function foDistFillSelects(){
         h = h.replace(/норма 100% при (\d+) ч в неделю/, 'нынешняя команда после разгрузки · норма 100% при $1 ч в неделю');
       }catch(x){}
       return h;
+    };
+  }
+})();
+
+/* ===== add144: 313 — клиент с кабинетами на разных маркетплейсах (Виталий 08.10)
+   «У моего клиента может быть кабинет на WB и кабинет на Ozon, функции выполняют разные менеджеры, планёрку ведёт
+   другой проджект (ИП Аббясова: WB — Вероника, Ozon — Юля). При заведении кабинета, если ввожу уже существующее
+   ИП/ООО, — подсказать, что клиент уже есть, и предложить другой маркетплейс. Один платёжеспособный клиент, два проекта».
+   Квиз: WB и Ozon; у каждого кабинета своя цена, у клиента — сумма; чат, планёрка, правила, артикулы — у кабинета свои;
+   проджект видит только свой кабинет; ответственными предлагаются только те, кто работает с площадкой кабинета.
+   Как устроено: каждый кабинет — своя запись клиента на сервере («ИП Аббясова · WB», «ИП Аббясова · Ozon») — поэтому
+   у него свои проджект, планёрка, чаты, правила, функции, артикулы (ничего не ломается в ботах). Связка «один клиент» —
+   в карточке клиента (group = id первого кабинета, mp = площадка). Экран: одна карточка с переключателем WB / Ozon,
+   в «Моих клиентах» — одна плитка; платёж — цена каждого кабинета, в шапке сумма. Показывается только у клиентов
+   с двумя кабинетами и в форме «Новый кабинет»; остальные клиенты — как были.                                     */
+(function(){
+  var MPL = {wb: "WB", ozon: "Ozon"};
+  var SUF = /\s*[·\-–—|/]\s*(WB|ВБ|Ozon|Озон)\s*$/i;
+  function live(){ try{ return typeof foLive === "function" && foLive(); }catch(e){ return false; } }
+  function liveMgr(){ try{ return live() && typeof A !== "undefined" && A && (+A.level || 9) <= 4; }catch(e){ return false; } }
+  function prs(){ try{ return S.projects || []; }catch(e){ return []; } }
+  function prOf(id){ return prs().filter(function(p){ return String(p.id) === String(id); })[0] || null; }
+  function base(n){ return String(n || "").replace(SUF, "").replace(/\s+/g, " ").trim(); }
+  function norm(n){ return base(n).toLowerCase().replace(/ё/g, "е").replace(/[«»"'`]/g, "").replace(/\s+/g, " ").trim(); }
+  function mpOf(pr){
+    if(!pr) return "wb";
+    if(pr.mp === "wb" || pr.mp === "ozon") return pr.mp;
+    var m = String(pr.name || "").match(SUF); if(m) return /^(wb|вб)$/i.test(m[1]) ? "wb" : "ozon";
+    return "wb";
+  }
+  function gid(pr){ return pr && pr.group ? String(pr.group) : null; }
+  function members(g){
+    var ms = prs().filter(function(p){ return gid(p) === String(g); });
+    return ms.sort(function(a, b){ return (mpOf(a) === "wb" ? 0 : 1) - (mpOf(b) === "wb" ? 0 : 1); });
+  }
+  function pmName(pr){ try{ var m = pr.pm ? person(pr.pm) : null; return m ? m.name : ""; }catch(e){ return ""; } }
+  function tabLabel(pr){ var pm = pmName(pr); return MPL[mpOf(pr)] + (pm ? " · " + esc(pm) : ""); }
+  function money(){ try{ return seesMoney(); }catch(e){ return false; } }
+  function fmt(x){ try{ return money0(x); }catch(e){ return String(x); } }
+  window.foCliMp = mpOf; window.foCliBase = base; window.foCliGroup = gid;
+
+  /* ── переключатель в карточке клиента + сумма платежа ── */
+  function tabsHTML(pr){
+    var g = gid(pr); if(!g) return "";
+    var ms = members(g); if(ms.length < 2 && String(pr.id) !== g) return "";
+    var sum = ms.reduce(function(a, p){ return a + (+p.amount || 0); }, 0);
+    var used = ms.map(mpOf), free = Object.keys(MPL).filter(function(k){ return used.indexOf(k) < 0; });
+    return '<div class="fo-grptabs" data-fogrpbox="'+esc(g)+'">'+
+      '<div class="fo-grph"><span class="fo-grpn">'+esc(base(pr.name))+'</span><span class="fo-grpm">один клиент · '+ms.length+' '+(ms.length === 1 ? 'кабинет' : ms.length < 5 ? 'кабинета' : 'кабинетов')+'</span></div>'+
+      '<div class="fo-grpt">'+ms.map(function(p){
+        return '<button type="button" class="fo-grptab'+(String(p.id) === String(pr.id) ? ' on' : '')+'" data-fogrp="'+esc(p.id)+'">'+tabLabel(p)+'</button>';
+      }).join("")+
+      (free.length && liveMgr() ? '<button type="button" class="fo-grptab add" data-fogrpadd="'+esc(g)+'" data-fogrpmp="'+esc(free[0])+'">+ кабинет '+MPL[free[0]]+'</button>' : '')+
+      '</div>'+
+      (money() ? '<div class="fo-grpsum">Платёж по клиенту: <b>'+fmt(sum)+'</b> в месяц'+
+        (ms.length > 1 ? ' · '+ms.map(function(p){ return MPL[mpOf(p)] + ' ' + fmt(+p.amount || 0); }).join(' + ') : '')+
+        '<span class="fo-hint">в «Финансах» и экономике — сумма по клиенту, цена каждого кабинета — в его вкладке</span></div>' : '')+
+    '</div>';
+  }
+  if(typeof clientCard === "function"){
+    var _cc = clientCard;
+    clientCard = function(pr){
+      var h = _cc.apply(this, arguments);
+      try{
+        var t = tabsHTML(pr); if(!t) return h;
+        var i = h.indexOf('<div class="ccnums">');
+        return i > 0 ? h.slice(0, i) + t + h.slice(i) : h.replace('</section>', t + '</section>');
+      }catch(e){ return h; }
+    };
+  }
+  /* в карточке — «Платёж» кабинета подписан площадкой */
+  if(typeof ccDetail === "function"){
+    var _cd = ccDetail;
+    ccDetail = function(pr){
+      var h = _cd.apply(this, arguments);
+      try{
+        if(!gid(pr)) return h;
+        return String(h).replace('<div class="ccdr"><span>Платёж</span>', '<div class="ccdr"><span>Цена кабинета '+MPL[mpOf(pr)]+'</span>');
+      }catch(e){ return h; }
+    };
+  }
+  document.addEventListener("click", function(e){
+    var t = e.target.closest && e.target.closest("[data-fogrp], [data-fogrpadd]"); if(!t) return;
+    e.preventDefault(); e.stopPropagation(); if(e.stopImmediatePropagation) e.stopImmediatePropagation();
+    if(t.hasAttribute("data-fogrpadd")){
+      var g = t.getAttribute("data-fogrpadd"), mp = t.getAttribute("data-fogrpmp") || "ozon", par = prOf(g);
+      NC_DUP = par ? {parent: par.id, mp: mp, base: base(par.name)} : null;
+      try{ ncTasks = []; ncErr = ""; }catch(x){}
+      try{ navPush("projects"); }catch(x){}
+      setView("newcab", true);
+      return;
+    }
+    var id = t.getAttribute("data-fogrp");
+    if(!prOf(id)) return;
+    try{ openProj = id; projDay = null; }catch(x){}
+    try{ ccOpen = id; }catch(x){}
+    try{ if(typeof view !== "undefined" && view === "projects") renderProjects(); else renderCards(); }catch(x){}
+    try{ if(typeof paintBars === "function") paintBars(document.getElementById("sect")); }catch(x){}
+    setTimeout(function(){ var el = document.querySelector(".fo-cc-inline .cc2, .cc2.ccx"); if(el) try{ el.scrollIntoView({behavior: "smooth", block: "start"}); }catch(x){} }, 200);
+  }, true);
+
+  /* ── «Мои клиенты»: одна плитка на клиента, в ней кабинеты ── */
+  if(typeof cabCard === "function"){
+    var _cab = cabCard;
+    cabCard = function(pr, mine, open){
+      try{
+        var g = gid(pr);
+        if(g && String(pr.id) !== g && !open && String(openProj || "") !== String(pr.id)) return "";   /* второй кабинет — внутри плитки первого */
+      }catch(e){}
+      var h = _cab.apply(this, arguments);
+      try{
+        var g2 = gid(pr); if(!g2) return h;
+        var ms = members(g2); if(ms.length < 2) return h;
+        var chips = '<div class="fo-grpchips"><span>кабинеты:</span>'+ms.map(function(p){
+          return '<button type="button" class="fo-chip'+(String(p.id) === String(pr.id) ? ' on' : '')+'" data-openpr="'+esc(p.id)+'">'+tabLabel(p)+'</button>';
+        }).join("")+'</div>';
+        var i = h.indexOf('<div class="pcs">');
+        h = i > 0 ? h.slice(0, i) + chips + h.slice(i) : h;
+        h = h.replace('<div class="n">'+esc(pr.name)+'</div>', '<div class="n">'+esc(base(pr.name))+' <i class="fo-mpb">'+MPL[mpOf(pr)]+'</i></div>');
+      }catch(e){}
+      return h;
+    };
+  }
+
+  /* ── форма «Новый кабинет»: маркетплейс, «клиент уже есть», второй кабинет ── */
+  var NC_DUP = null, NC_MP = "wb", NC_NO = "";
+  function dupFor(name){
+    var n = norm(name); if(n.length < 3) return [];
+    return prs().filter(function(p){ return norm(p.name) === n; });
+  }
+  function dupHTML(name){
+    var hits = dupFor(name);
+    if(!hits.length || (NC_NO && NC_NO === norm(name))) return "";
+    var g = gid(hits[0]) || String(hits[0].id);
+    var ms = gid(hits[0]) ? members(g) : hits;
+    var used = ms.map(mpOf), free = Object.keys(MPL).filter(function(k){ return used.indexOf(k) < 0; });
+    return '<div class="fo-ncdup">'+
+      '<b>Такой клиент уже есть: '+esc(base(hits[0].name))+'</b>'+
+      '<span>'+ms.map(function(p){ return 'кабинет '+MPL[mpOf(p)]+(pmName(p) ? ' · проджект '+esc(pmName(p)) : ''); }).join(', ')+'.</span>'+
+      (free.length
+        ? '<span>Это второй кабинет этого же клиента на другом маркетплейсе?</span><div class="fo-ncdupb">'+
+          free.map(function(k){ return '<button type="button" class="bt sm pri" data-ncdup="'+esc(g)+'|'+k+'">Да, добавить кабинет '+MPL[k]+'</button>'; }).join("")+
+          '<button type="button" class="bt sm gh2" data-ncdupno="1">Нет, это другой клиент</button></div>'
+        : '<span>У него уже есть кабинеты '+used.map(function(k){ return MPL[k]; }).join(' и ')+'. Если это другой клиент — назовите иначе.</span>')+
+    '</div>';
+  }
+  function mpRow(){
+    return '<div class="fo-ncmp"><span class="fo-ncmpl">Маркетплейс кабинета</span>'+Object.keys(MPL).map(function(k){
+      return '<button type="button" class="fo-chip'+(NC_MP === k ? ' on' : '')+'" data-ncmp="'+k+'">'+MPL[k]+'</button>'; }).join("")+
+      (NC_DUP ? '<span class="fo-hint">второй кабинет клиента «'+esc(NC_DUP.base)+'»: собственник, телефон и таблица общие, платёж — цена этого кабинета</span>' : '')+
+    '</div>';
+  }
+  if(typeof renderNewCab === "function"){
+    var _rnc = renderNewCab;
+    renderNewCab = function(){
+      var v = _rnc.apply(this, arguments);
+      try{
+        if(!live()) return v;
+        var host = document.getElementById("sect"), nameEl = host && host.querySelector("#ncName"); if(!nameEl) return v;
+        var lab = nameEl.closest("label");
+        var w = document.createElement("div"); w.className = "fo-ncx"; w.innerHTML = mpRow() + '<div class="fo-ncdupw"></div>';
+        var grid = lab && lab.parentNode; if(grid) grid.insertAdjacentElement("afterend", w); else host.appendChild(w);
+        if(NC_DUP){
+          var par = prOf(NC_DUP.parent);
+          nameEl.value = NC_DUP.base + " · " + MPL[NC_DUP.mp];
+          if(par){
+            [["ncOwner", "owner"], ["ncTg", "tg"], ["ncPhone", "phone"], ["ncPay", "payDate"], ["ncSheet", "sheet"]].forEach(function(x){
+              var el = host.querySelector("#" + x[0]); if(el && !el.value && par[x[1]]) el.value = par[x[1]];
+            });
+            var amt = host.querySelector("#ncAmt"), al = amt && amt.closest("label") && amt.closest("label").querySelector("span");
+            if(al) al.textContent = "Цена кабинета " + MPL[NC_DUP.mp] + ", ₽ в месяц";
+          }
+        } else {
+          var d = host.querySelector(".fo-ncdupw"); if(d) d.innerHTML = dupHTML(nameEl.value);
+        }
+      }catch(e){}
+      return v;
+    };
+  }
+  document.addEventListener("input", function(e){
+    var t = e.target; if(!t || t.id !== "ncName" || !live()) return;
+    if(NC_DUP && norm(t.value) !== norm(NC_DUP.base)){ NC_DUP = null; }
+    var d = document.querySelector(".fo-ncdupw"); if(d) d.innerHTML = NC_DUP ? "" : dupHTML(t.value);
+  }, true);
+  document.addEventListener("click", function(e){
+    var t = e.target.closest && e.target.closest("[data-ncmp], [data-ncdup], [data-ncdupno]"); if(!t) return;
+    e.preventDefault(); e.stopPropagation();
+    var host = document.getElementById("sect");
+    if(t.hasAttribute("data-ncmp")){
+      NC_MP = t.getAttribute("data-ncmp");
+      host.querySelectorAll("[data-ncmp]").forEach(function(b){ b.classList.toggle("on", b.getAttribute("data-ncmp") === NC_MP); });
+      return;
+    }
+    if(t.hasAttribute("data-ncdupno")){
+      NC_NO = norm((host.querySelector("#ncName") || {}).value); var d = host.querySelector(".fo-ncdupw"); if(d) d.innerHTML = "";
+      try{ toast("Хорошо — заведём как отдельного клиента. Чтобы не путать, назовите его иначе"); }catch(x){}
+      return;
+    }
+    var a = t.getAttribute("data-ncdup").split("|"), par = prOf(a[0]); if(!par) return;
+    NC_DUP = {parent: par.id, mp: a[1], base: base(par.name)}; NC_MP = a[1];
+    try{ renderNewCab(); }catch(x){}
+    try{ toast("Второй кабинет клиента «" + NC_DUP.base + "» — " + MPL[a[1]]); }catch(x){}
+  }, true);
+  /* после «Завести кабинет»: площадка и связка «один клиент» — на сервер */
+  document.addEventListener("click", function(e){
+    if(!e.target.closest || !e.target.closest("#ncSave") || !live()) return;
+    var nm = String((document.getElementById("ncName") || {}).value || "").trim(); if(!nm) return;
+    var dup = NC_DUP, mp = NC_MP; NC_DUP = null; NC_MP = "wb"; NC_NO = "";
+    var tries = 0;
+    (function poll(){
+      tries++; if(tries > 40) return;
+      var hit = prs().filter(function(p){ return String(p.name || "").trim() === nm; })[0];
+      if(!hit){ setTimeout(poll, 1000); return; }
+      var patch = {mp: mp};
+      if(dup){
+        var par = prOf(dup.parent);
+        patch.group = dup.parent;
+        hit.mp = mp; hit.group = dup.parent;
+        try{ cardSave("client", hit.id, patch); }catch(x){}
+        if(par){
+          var pmp = mpOf(par), want = dup.base + " · " + MPL[pmp];
+          var pp = {mp: pmp, group: String(par.id)}; par.mp = pmp; par.group = String(par.id);
+          try{ cardSave("client", par.id, pp); }catch(x){}
+          if(!SUF.test(String(par.name || ""))){
+            api("/refs/clients/" + encodeURIComponent(par.id) + "/name", {method: "POST", body: {name: want}}).then(function(){
+              par.name = want; try{ renderCards(); }catch(x){}
+              try{ toast("Клиент «" + dup.base + "»: кабинеты " + MPL[pmp] + " и " + MPL[mp]); }catch(x){}
+            }, function(err){ try{ toast("Первый кабинет не переименовался: " + ((err && err.message) || "ошибка")); }catch(x){} });
+          }
+        }
+      } else {
+        hit.mp = mp;
+        try{ cardSave("client", hit.id, patch); }catch(x){}
+      }
+    })();
+  }, true);
+
+  /* ── подбор людей по площадке кабинета ── */
+  function fits(empId, pr){
+    try{ var m = person(empId); return !m || typeof foMpFits !== "function" || foMpFits(m, mpOf(pr)); }catch(e){ return true; }
+  }
+  function filterSel(sel, pr){
+    var cur = sel.value;
+    Array.prototype.slice.call(sel.options).forEach(function(o){
+      if(!o.value || o.value === cur) return;
+      if(!fits(o.value, pr)) o.remove();
+    });
+  }
+  if(typeof foDistSelectHTML === "function"){
+    var _ds = foDistSelectHTML;
+    foDistSelectHTML = function(pr){
+      var h = _ds.apply(this, arguments);
+      try{
+        var box = document.createElement("div"); box.innerHTML = h;
+        var s = box.querySelector("select"); if(!s) return h;
+        filterSel(s, pr);
+        return box.innerHTML;
+      }catch(e){ return h; }
+    };
+  }
+  if(typeof foCabFnBlock === "function"){
+    var _fb = foCabFnBlock;
+    foCabFnBlock = function(pr){
+      var h = _fb.apply(this, arguments);
+      try{
+        var box = document.createElement("div"); box.innerHTML = h;
+        box.querySelectorAll('select[data-fok="employee_id"], select[data-foa="employee_id"]').forEach(function(s){ filterSel(s, pr); });
+        return box.innerHTML;
+      }catch(e){ return h; }
     };
   }
 })();
