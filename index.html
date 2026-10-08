@@ -34577,8 +34577,21 @@ function foDistFillSelects(){
     });
     return n ? patch : null;
   }
-  var t = null, n = 0;
+  var t = null, n = 0, loading = 0;
+  /* пока идёт загрузка с сервера (loadLive / cardsLoad), поля в памяти ещё не те — не сравниваем */
+  function wrapLoad(name){
+    try{
+      var _f = eval(name); if(typeof _f !== "function") return;
+      var w = function(){ loading++; var r; try{ r = _f.apply(this, arguments); }catch(e){ loading--; throw e; }
+        if(r && typeof r.then === "function") return r.then(function(v){ loading--; return v; }, function(e){ loading--; throw e; });
+        loading--; return r; };
+      eval(name + " = w");
+    }catch(e){}
+  }
+  wrapLoad("loadLive"); wrapLoad("cardsLoad");
   function sync(){
+    if(loading > 0){ clearTimeout(t); t = setTimeout(sync, 1500); return; }
+    if(typeof SRV_STORE_OK !== "undefined" && SRV_STORE_OK !== true) return;
     if(!live() || lvl() > 2 || typeof SRV_CARDS === "undefined" || !SRV_CARDS || typeof cardSave !== "function") return;
     var sent = 0;
     try{ (S.people || []).forEach(function(m){ var p = diff("employee", m); if(p){ cardSave("employee", m.id, p); sent++; } }); }catch(e){}
