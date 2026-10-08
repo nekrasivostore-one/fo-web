@@ -33916,7 +33916,7 @@ function foDistFillSelects(){
       mode: (typeof simMode !== "undefined" ? simMode : "new"), acc: acc || null, mp: mp};
     var t0 = b.textContent; b.disabled = true; b.textContent = "Сохраняю на сервере…";
     var p = null;
-    api("/refs/employees", {method: "POST", body: body}).then(function(r){
+    api("/refs/employees/new", {method: "POST", body: body}).then(function(r){
       var id = r && r.id ? String(r.id) : "";
       if(!id) throw new Error("сервер не вернул id сотрудника");
       var i = (S.people || []).length;
