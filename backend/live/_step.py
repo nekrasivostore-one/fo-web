@@ -905,6 +905,28 @@ async def _fo_tbl(c, names, need):
     return None
 
 
+class FoCliNameIn(_FoBM):
+    name: str
+
+
+@router.post("/clients/{client_id}/name")
+async def fo_client_rename(client_id: str, body: FoCliNameIn, p: Principal = Depends(max_level(2))):
+    """313: переименовать клиента (и его кабинет с тем же названием). Собственник, директор."""
+    nm = re.sub(r"\s+", " ", str(body.name or "")).strip()
+    if len(nm) < 2:
+        raise HTTPException(400, "Впишите название")
+    async with pool().acquire() as c:
+        r = await c.fetchrow("SELECT id, name FROM client WHERE id::text=$1 AND org_id=$2", client_id, p.org_id)
+        if not r:
+            raise HTTPException(404, "клиент не найден")
+        if await c.fetchval("SELECT 1 FROM client WHERE org_id=$1 AND lower(name)=lower($2) AND id<>$3", p.org_id, nm, r["id"]):
+            raise HTTPException(409, "Клиент «%s» уже есть" % nm)
+        await c.execute("UPDATE client SET name=$2 WHERE id=$1", r["id"], nm)
+        await c.execute("UPDATE cabinet SET name=$3 WHERE client_id=$1 AND name=$2", r["id"], r["name"], nm)
+    print("313 клиент переименован:", r["name"], "→", nm)
+    return {"ok": True, "было": r["name"], "стало": nm}
+
+
 @router.post("/clients/{client_id}/remove")
 async def fo_client_remove(client_id: str, p: Principal = Depends(max_level(4))):
     """Убрать клиента и его кабинеты. Если мешают связи — прячем в архив."""
@@ -6421,17 +6443,41 @@ def _fo_chat_kind(title):
     return "mpv" if _FO_CHAT_MPV.search(_fo_chat_norm(title)) else "client"
 
 
+_FO_CHAT_MPTOK = {"wb": re.compile(r"(?<![а-яa-z0-9])(wb|вб|wildberries|вайлдберр?из|вайлдбериз)(?![а-яa-z0-9])"),
+                  "ozon": re.compile(r"(?<![а-яa-z0-9])(ozon|озон)(?![а-яa-z0-9])")}
+_FO_CHAT_MPSUF = re.compile(r"^(.*?)\s*[·\-–—|/]\s*(wb|вб|ozon|озон)\s*$")
+
+
+def _fo_chat_split(nm):
+    """«ип аббясова · ozon» → («ип аббясова», «ozon»); без площадки → (имя, None)."""
+    m = _FO_CHAT_MPSUF.match(nm)
+    if not m:
+        return nm, None
+    mp = m.group(2)
+    return m.group(1).strip(), ("wb" if mp in ("wb", "вб") else "ozon")
+
+
 def _fo_chat_has(title_n, name):
     nm = _fo_chat_norm(name)
-    if len(nm) < 3:
+    base, mp = _fo_chat_split(nm)
+    if len(base) < 3:
         return 0
     pat = r"(?<![а-яa-z0-9])%s(?![а-яa-z0-9])"
-    if re.search(pat % re.escape(nm), title_n):
-        return len(nm) + 100
-    core = _FO_CHAT_FORMS.sub("", nm).strip()
-    if len(core) >= 4 and core != nm and re.search(pat % re.escape(core), title_n):
-        return len(core)
-    return 0
+    sc = 0
+    if re.search(pat % re.escape(base), title_n):
+        sc = len(base) + 100
+    else:
+        core = _FO_CHAT_FORMS.sub("", base).strip()
+        if len(core) >= 4 and core != base and re.search(pat % re.escape(core), title_n):
+            sc = len(core)
+    if not sc:
+        return 0
+    if mp:                                                   # 313: кабинет площадки — по слову WB / Ozon в названии группы
+        if _FO_CHAT_MPTOK[mp].search(title_n):
+            sc += 50
+        elif any(k != mp and rx.search(title_n) for k, rx in _FO_CHAT_MPTOK.items()):
+            return 0                                         # в названии другая площадка — не этот кабинет
+    return sc
 
 
 async def _fo_flag_take(c, org_id, key):
