@@ -4826,6 +4826,31 @@ input[data-sk2="role"].edok, input[data-edk="role"].edok{ border-color:var(--ok,
 .fo-cmp .fo-chip.on.dflt{ border-style:dashed; color:var(--ink-3) }
 .fo-cmp .fo-hint{ flex-basis:100%; font-size:11.5px; color:var(--ink-3) }
 .fo-mpb.dflt{ border-style:dashed; opacity:.7 }
+/* add148: 319 дни недели / 320 загрузка за неделю */
+.fo-days-ask .fo-day{ box-shadow:0 0 0 2px rgba(124,92,255,.55); transition:box-shadow .2s }
+.fo-kpirow{ display:flex; align-items:flex-end; gap:16px }
+.fo-kpiwk{ padding-left:16px; border-left:1px solid var(--stroke-2) }
+/* add149: 321 календарь задач от ИИ */
+.fo-aidates{ display:flex; flex-direction:column; gap:6px }
+.fo-aidate{ display:flex; flex-wrap:wrap; align-items:center; gap:8px }
+.fo-aidh{ font-size:11px; color:var(--ink-3) }
+.fo-aical{ background:var(--panel-2, rgba(120,120,160,.06)); border:1px solid var(--stroke-2); border-radius:12px; padding:10px 12px; max-width:420px }
+.fo-aicalh{ display:flex; align-items:center; gap:10px; margin-bottom:8px; flex-wrap:wrap }
+.fo-aicalh b{ font-size:13px; min-width:120px; text-align:center }
+.fo-aicalh .fo-lnk{ font-size:16px; padding:0 6px }
+.fo-aicalg{ display:grid; grid-template-columns:repeat(7, 1fr); gap:4px }
+.fo-aicalw{ font-size:10.5px; color:var(--ink-3); text-align:center; padding:2px 0 }
+.fo-aicalc{ position:relative; min-height:44px; border-radius:9px; border:1px solid transparent; background:transparent; font:inherit; color:var(--ink-3);
+  display:flex; flex-direction:column; align-items:center; justify-content:flex-start; padding:3px 2px; gap:1px; cursor:default }
+.fo-aicalc .n{ font-size:11.5px; line-height:1 }
+.fo-aicalc b{ font-size:13px; line-height:1.1; color:#6d4bd8 }
+.fo-aicalc i{ font-size:10px; font-style:normal; line-height:1; color:var(--ink-3); opacity:.8 }
+.fo-aicalc.has{ cursor:pointer; color:var(--ink); border-color:rgba(109,75,216,.25); background:rgba(109,75,216,.06) }
+.fo-aicalc.has:hover{ background:rgba(109,75,216,.14) }
+.fo-aicalc.today .n{ font-weight:700; text-decoration:underline }
+.fo-aicalc.on{ background:#6d4bd8; border-color:#6d4bd8; color:#fff }
+.fo-aicalc.on b, .fo-aicalc.on i, .fo-aicalc.on .n{ color:#fff }
+.fo-aicalc.empty{ border:none; background:transparent }
 </style>
 </head>
 <body>
@@ -34733,6 +34758,221 @@ function foDistFillSelects(){
       try{ if(typeof view !== "undefined" && view === "projects") renderProjects(); else renderCards(); }catch(x){}
     });
   }, true);
+})();
+
+/* ===== add148: 319–320 (Виталий 09.10)
+   319 «SEO разработка · Юлия · Раз в неделю · 30 мин → „Добавить“ → „Отметьте дни недели“ — а дней на экране нет».
+     · Выбор функции из подсказки (add86 → change fn_id) запускал обработчик add79, который прячет дни, если у функции
+       в справочнике цикл не «раз в неделю/раз в 2 недели» — а в селекте оставалось «Раз в неделю». Дни спрятаны,
+       нажать некуда, «Добавить» ругается. Теперь: при «Раз в неделю», «Раз в 2 недели», «Несколько раз в неделю»
+       дни всегда видны (после выбора функции, после смены цикла, после перерисовки); «Каждый день» — Пн–Пт (add139);
+       «Добавить» без дня — показывает дни и подсказывает, на какой день ставить.
+   320 Плитка «Загрузка команды» на главной: слева — на сегодня (как было), справа — средняя за рабочую неделю Пн–Пт.
+       У менеджеров плитки по-прежнему нет (add121).                                                                 */
+(function(){
+  var WEEKLY = {weekly: 1, biweekly: 1, wdays: 1};
+  function cycSel(row){ return row && row.querySelector('[data-fok="cycle_kind"], [data-foa="cycle_kind"]'); }
+  function daysBox(row){ return row && row.querySelector(".fo-days"); }
+  function showDays(row){ var d = daysBox(row); if(!d) return; d.hidden = false; d.removeAttribute("hidden"); }
+  function hideDays(row){ var d = daysBox(row); if(!d) return; d.hidden = true; }
+  function fixRow(row){
+    var sel = cycSel(row); if(!sel) return;
+    var v = sel.value;
+    if(WEEKLY[v]) showDays(row);
+    else if(v === "daily"){
+      showDays(row);
+      if(!row.querySelector(".fo-day.on")) row.querySelectorAll(".fo-day").forEach(function(b){ b.classList.toggle("on", +b.getAttribute("data-foday") <= 4); });
+    }
+    else hideDays(row);
+  }
+  /* после перерисовки блока: строка «Добавить» и строки функций — дни по циклу */
+  if(typeof foCabFnBlock === "function"){
+    var _fb = foCabFnBlock;
+    foCabFnBlock = function(pr){
+      var h = _fb.apply(this, arguments);
+      try{
+        var box = document.createElement("div"); box.innerHTML = h;
+        box.querySelectorAll(".fo-fnr, .fo-fnadd").forEach(function(row){
+          var sel = cycSel(row); if(!sel) return;
+          var on = sel.querySelector("option[selected]"), v = on ? on.value : sel.value;
+          if(WEEKLY[v]) showDays(row);
+        });
+        return box.innerHTML;
+      }catch(e){ return h; }
+    };
+  }
+  /* выбрали функцию (add86 → change fn_id) или сменили цикл в строке «Добавить» — дни по циклу; идём после add79 */
+  document.addEventListener("change", function(e){
+    var el = e.target; if(!el || !el.matches) return;
+    if(el.matches('.fo-fnadd [data-foa="fn_id"], .fo-fnadd [data-foa="cycle_kind"], .fo-fnr [data-fok="cycle_kind"]')){
+      var row = el.closest(".fo-fnadd, .fo-fnr"); if(!row) return;
+      fixRow(row);
+      setTimeout(function(){ fixRow(row); }, 0);
+    }
+  });
+  /* «Добавить» без дня при недельном цикле — показываем дни и подсказываем (раньше add79: на window) */
+  window.addEventListener("click", function(e){
+    var b = e.target.closest && e.target.closest(".fo-fnadd [data-foadd]"); if(!b) return;
+    var row = b.closest(".fo-fnadd"), sel = cycSel(row); if(!sel || !WEEKLY[sel.value]) return;
+    if(row.querySelector(".fo-day.on")) return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    showDays(row);
+    var d = daysBox(row);
+    if(d){ d.classList.add("fo-days-ask"); setTimeout(function(){ d.classList.remove("fo-days-ask"); }, 1600); }
+    try{ toast(sel.value === "wdays" ? "Отметьте дни недели — задача встанет на каждый отмеченный" : "Отметьте день недели — в какой день ставить задачу"); }catch(x){}
+  }, true);
+
+  /* ── 320: «Загрузка команды» — сегодня | за неделю ── */
+  function weekPct(){
+    try{
+      var pl = visiblePeople(); if(!pl.length) return null;
+      var m = 0; for(var d = 0; d < 5; d++) pl.forEach(function(p){ m += loadOf(p.id, d); });
+      return Math.round(m / (NORM * pl.length * 5) * 100);
+    }catch(e){ return null; }
+  }
+  if(typeof B !== "undefined" && typeof B.kpistrip === "function"){
+    var _k = B.kpistrip;
+    B.kpistrip = function(el){
+      var v = _k.apply(this, arguments);
+      try{
+        if(!el || !el.firstElementChild) return v;
+        var cards = Array.from(el.firstElementChild.children);
+        var card = cards.filter(function(c){ var l = c.firstElementChild; return l && /^(Загрузка команды|Моя загрузка)$/.test(l.textContent.trim()); })[0];
+        if(!card || card.querySelector(".fo-kpiwk")) return v;
+        var wk = weekPct(); if(wk == null) return v;
+        var val = card.children[1], desc = card.children[2]; if(!val || !desc) return v;
+        var row = document.createElement("div"); row.className = "fo-kpirow";
+        var left = document.createElement("div"); left.appendChild(val); left.appendChild(desc);
+        var right = document.createElement("div"); right.className = "fo-kpiwk";
+        right.innerHTML = '<div class="u" style="font-size:23px;font-weight:500;margin-top:2px'+(wk > 125 ? ';color:var(--crit)' : wk > 100 ? ';color:var(--warn)' : '')+'">'+wk+'%</div>'+
+          '<div style="font-size:11px;color:var(--ink-3)">за неделю</div>';
+        row.appendChild(left); row.appendChild(right); card.appendChild(row);
+      }catch(e){}
+      return v;
+    };
+  }
+})();
+
+/* ===== add149: 321 — календарь задач от ИИ (Виталий 09.10)
+   «По задачам ИИ: открыть календарь и посмотреть, какие задачи в какой день поставлены, отфильтровать по этой дате
+   и сбросить фильтр». «Задачи дня → На согласование → От ИИ из чатов с клиентами»: над карточками — «Поставлены:
+   📅 Календарь»; в календаре по дням — сколько задач ИИ поставил (крупно — ждут согласования, мелко — уже разобраны);
+   клик по дню — остаются карточки этого дня (день по created_at на сервере, в вашем часовом поясе), «Сбросить» —
+   снимает дату. Фильтр по кабинету и галочки работают вместе с датой. Счёт по дням — с сервера (/refs/ai/tasks?status=all). */
+var FO_AI_DAY = "";          // "YYYY-MM-DD" — день постановки, "" — все
+var FO_AI_CALOPEN = false;
+var FO_AI_CALM = null;       // {y, m} — показанный месяц
+var FO_AI_ALL = null;        // все задачи ИИ (pending + решённые) для счёта по дням
+var FO_AI_ALL_AT = 0;
+(function(){
+  var MON = ["января","февраля","марта","апреля","мая","июня","июля","августа","сентября","октября","ноября","декабря"];
+  var MONN = ["Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"];
+  function iso(d){ return d.getFullYear()+"-"+("0"+(d.getMonth()+1)).slice(-2)+"-"+("0"+d.getDate()).slice(-2); }
+  function dayOf(a){ var v = a && (a.created_at || a.msg_at); if(!v) return ""; var d = new Date(v); return isNaN(d) ? "" : iso(d); }
+  function human(s){ var p = String(s || "").split("-"); if(p.length !== 3) return s; return (+p[2])+" "+MON[(+p[1]) - 1]; }
+  window.foAiDayOf = dayOf;
+
+  function allLoad(){
+    if(FO_AI_ALL && Date.now() - FO_AI_ALL_AT < 60000) return Promise.resolve(FO_AI_ALL);
+    return api("/refs/ai/tasks?status=all").then(function(r){ FO_AI_ALL = Array.isArray(r) ? r : []; FO_AI_ALL_AT = Date.now(); return FO_AI_ALL; })
+      .catch(function(){ FO_AI_ALL = FO_AI_ALL || []; FO_AI_ALL_AT = Date.now(); return FO_AI_ALL; });
+  }
+  function counts(){
+    var c = {};
+    var src = FO_AI_ALL || (FO_AI || []);
+    src.forEach(function(a){ var k = dayOf(a); if(!k) return; c[k] = c[k] || {p: 0, d: 0}; if(a.status === "pending") c[k].p++; else c[k].d++; });
+    return c;
+  }
+
+  /* видимые карточки: кабинет (add102) + день */
+  if(typeof foAiVisible === "function"){
+    var _vis = foAiVisible;
+    foAiVisible = function(){
+      var l = _vis.apply(this, arguments);
+      return FO_AI_DAY ? l.filter(function(a){ return dayOf(a) === FO_AI_DAY; }) : l;
+    };
+  }
+
+  function dateRowHTML(){
+    var all = (typeof foAiPending === "function") ? foAiPending() : [];
+    var n = FO_AI_DAY ? all.filter(function(a){ return dayOf(a) === FO_AI_DAY; }).length : 0;
+    return '<div class="fo-aidate"><span class="fo-aifl">Поставлены:</span>'+
+      '<button class="fo-aichip'+(FO_AI_DAY || FO_AI_CALOPEN ? ' on' : '')+'" data-foaical>📅 '+(FO_AI_DAY ? esc(human(FO_AI_DAY))+' · '+n : 'Календарь')+'</button>'+
+      (FO_AI_DAY ? '<button class="fo-lnk" data-foaidayreset>Сбросить</button>' : '')+
+      (FO_AI_DAY ? '' : '<span class="fo-aidh">все дни</span>')+
+    '</div>';
+  }
+  function calHTML(){
+    if(!FO_AI_CALOPEN) return "";
+    var now = new Date();
+    if(!FO_AI_CALM) FO_AI_CALM = {y: now.getFullYear(), m: now.getMonth()};
+    var y = FO_AI_CALM.y, m = FO_AI_CALM.m, c = counts(), today = iso(now);
+    var first = new Date(y, m, 1), lead = (first.getDay() + 6) % 7, days = new Date(y, m + 1, 0).getDate();
+    var h = '<div class="fo-aical"><div class="fo-aicalh">'+
+      '<button class="fo-lnk" data-foaicalnav="-1">‹</button><b>'+MONN[m]+' '+y+'</b><button class="fo-lnk" data-foaicalnav="1">›</button>'+
+      '<span class="fo-aidh">крупно — ждут согласования, мелко — уже разобраны</span></div>'+
+      '<div class="fo-aicalg">'+["Пн","Вт","Ср","Чт","Пт","Сб","Вс"].map(function(d){ return '<span class="fo-aicalw">'+d+'</span>'; }).join("");
+    for(var i = 0; i < lead; i++) h += '<span class="fo-aicalc empty"></span>';
+    for(var d = 1; d <= days; d++){
+      var k = y+"-"+("0"+(m+1)).slice(-2)+"-"+("0"+d).slice(-2), x = c[k] || {p: 0, d: 0}, has = x.p || x.d;
+      h += '<button type="button" class="fo-aicalc'+(k === today ? ' today' : '')+(k === FO_AI_DAY ? ' on' : '')+(has ? ' has' : '')+'"'+
+        (has ? ' data-foaiday="'+k+'" title="ждут: '+x.p+' · разобраны: '+x.d+'"' : ' disabled')+'>'+
+        '<span class="n">'+d+'</span>'+(x.p ? '<b>'+x.p+'</b>' : '')+(x.d ? '<i>'+x.d+'</i>' : '')+'</button>';
+    }
+    return h + '</div></div>';
+  }
+
+  if(typeof foDayExtras === "function"){
+    var _fx = foDayExtras;
+    foDayExtras = function(el){
+      _fx.apply(this, arguments);
+      try{
+        var pane = el.querySelector(".fo-aipane"); if(!pane) return;
+        var tools = pane.querySelector(".fo-aitools"); if(!tools) return;
+        var box = document.createElement("div"); box.className = "fo-aidates";
+        box.innerHTML = dateRowHTML() + calHTML();
+        var filt = tools.querySelector(".fo-aifilt");
+        if(filt && filt.nextSibling) tools.insertBefore(box, filt.nextSibling); else tools.appendChild(box);
+        var head = pane.querySelector(".fo-aih");
+        if(head){
+          var n = foAiVisible().length, tot = foAiPending().length;
+          head.textContent = "От ИИ из чатов с клиентами · " + (n !== tot ? n + " из " + tot : tot);
+        }
+        if(FO_AI_DAY && !foAiVisible().length){
+          var c = counts()[FO_AI_DAY] || {p: 0, d: 0};
+          var e = document.createElement("div"); e.className = "empty";
+          e.textContent = c.d ? "За " + human(FO_AI_DAY) + " все задачи от ИИ уже разобраны · " + c.d : "За " + human(FO_AI_DAY) + " задач от ИИ не было";
+          pane.appendChild(e);
+        }
+      }catch(e){}
+    };
+  }
+
+  window.addEventListener("click", function(e){
+    var t = e.target.closest && e.target.closest("[data-foaical], [data-foaidayreset], [data-foaicalnav], [data-foaiday]");
+    if(!t) return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    if(t.hasAttribute("data-foaical")){
+      FO_AI_CALOPEN = !FO_AI_CALOPEN;
+      if(FO_AI_CALOPEN){ FO_AI_CALM = null; allLoad().then(function(){ try{ render(); }catch(x){} }); }
+    } else if(t.hasAttribute("data-foaidayreset")){
+      FO_AI_DAY = ""; FO_AI_SEL = {};
+    } else if(t.hasAttribute("data-foaicalnav")){
+      var now = new Date(); if(!FO_AI_CALM) FO_AI_CALM = {y: now.getFullYear(), m: now.getMonth()};
+      var d = new Date(FO_AI_CALM.y, FO_AI_CALM.m + (+t.getAttribute("data-foaicalnav")), 1);
+      FO_AI_CALM = {y: d.getFullYear(), m: d.getMonth()};
+    } else {
+      FO_AI_DAY = (t.getAttribute("data-foaiday") === FO_AI_DAY) ? "" : t.getAttribute("data-foaiday");
+      FO_AI_SEL = {}; FO_AI_CALOPEN = false;
+    }
+    try{ render(); }catch(x){}
+  }, true);
+
+  /* решение по задаче меняет счёт по дням — обновим кэш при следующем открытии */
+  if(typeof foAiLoad === "function"){
+    var _al = foAiLoad;
+    foAiLoad = function(){ FO_AI_ALL_AT = 0; return _al.apply(this, arguments); };
+  }
 })();
 
 })();
