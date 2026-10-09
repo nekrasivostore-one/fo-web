@@ -4851,6 +4851,20 @@ input[data-sk2="role"].edok, input[data-edk="role"].edok{ border-color:var(--ok,
 .fo-aicalc.on{ background:#6d4bd8; border-color:#6d4bd8; color:#fff }
 .fo-aicalc.on b, .fo-aicalc.on i, .fo-aicalc.on .n{ color:#fff }
 .fo-aicalc.empty{ border:none; background:transparent }
+/* add150: 322 тексты ботов */
+.fo-bottx-grid{ display:grid; grid-template-columns:minmax(0,1.2fr) minmax(0,1fr); gap:18px }
+@media (max-width:900px){ .fo-bottx-grid{ grid-template-columns:1fr } }
+.fo-bottx-form{ display:flex; flex-direction:column; gap:10px }
+.fo-bottx-f{ display:flex; flex-direction:column; gap:4px }
+.fo-bottx-f span{ font-size:11.5px; color:var(--ink-3); font-weight:600 }
+.fo-bottx-f textarea{ width:100%; resize:vertical; font:inherit; font-size:13px; line-height:1.4; box-sizing:border-box }
+.fo-bottx-hint{ font-size:11.5px; color:var(--ink-3) }
+.fo-bottx-hint code{ background:rgba(120,120,160,.12); padding:0 4px; border-radius:4px }
+.fo-bottx-btns{ display:flex; flex-wrap:wrap; gap:8px }
+.fo-bottx-res{ white-space:pre-wrap; font-size:12px; color:var(--ink-2); background:rgba(120,120,160,.08); border-radius:9px; padding:8px 10px }
+.fo-bottx-res.ok{ color:var(--ink) }
+.fo-bottx-prev h5{ margin:0 0 6px; font-size:11.5px; color:var(--ink-3); font-weight:600 }
+.fo-bottx-prev pre{ white-space:pre-wrap; font:inherit; font-size:13px; line-height:1.45; background:rgba(120,120,160,.08); border-radius:12px; padding:10px 12px; margin:0 0 10px }
 </style>
 </head>
 <body>
@@ -34973,6 +34987,84 @@ var FO_AI_ALL_AT = 0;
     var _al = foAiLoad;
     foAiLoad = function(){ FO_AI_ALL_AT = 0; return _al.apply(this, arguments); };
   }
+})();
+
+/* ===== add150: 322 — тексты ботов в «Чат-ботах» (Виталий 09.10)
+   Приветствие «чат подключён» (✅ по строке на бота) и аннотации 🤖 📋 📅 — хранятся на сервере (GET/PUT /refs/bots/texts),
+   здесь их можно поправить и сохранить; «Разослать аннотации» — в чаты с клиентами, подключённые до v121
+   (каждый бот — один раз на чат). Подстановки: {agency} {client} {bot_main} {bot_report} {bot_meet}. */
+var FO_BOTTX = null, FO_BOTTX_BUSY = false;
+(function(){
+  var F = [["hello", "Приветствие — начало (после него строки ✅ по ботам)", 3], ["hello_foot", "Приветствие — концовка (можно пусто)", 2],
+           ["main", "🤖 Аннотация бота задач", 4], ["report", "📋 Аннотация бота отчётов", 3], ["meet", "📅 Аннотация бота планёрок", 3]];
+  function load(){ return api("/refs/bots/texts").then(function(r){ FO_BOTTX = r || {}; }).catch(function(e){ FO_BOTTX = {error: (e && e.message) || "сервер не ответил"}; }); }
+  function fill(t, ag){
+    return String(t || "").replace(/\{agency\}/g, ag || "агентства").replace(/\{client\}/g, "ООО Пример")
+      .replace(/\{bot_main\}/g, "@" + (botUser("main") || "бот_задач")).replace(/\{bot_report\}/g, "@" + (botUser("report") || "бот_отчётов")).replace(/\{bot_meet\}/g, "@" + (botUser("meet") || "бот_планёрок"));
+  }
+  function botUser(k){ try{ return ((FO_BOTS && FO_BOTS.bots) || []).filter(function(b){ return b.key === k; })[0].username; }catch(e){ return ""; } }
+  function preview(tx, ag){
+    var lines = [["main", "Задачи из чата"], ["report", "Отчёты и напоминания"], ["meet", "Планёрки"]].map(function(x){
+      return "✅ " + x[1] + " — @" + (botUser(x[0]) || "…"); }).join("\n");
+    var parts = [fill(tx.hello, ag), "", lines]; if(String(tx.hello_foot || "").trim()) parts.push("", fill(tx.hello_foot, ag));
+    return parts.join("\n");
+  }
+  function html(){
+    if(!FO_BOTTX) return '<div class="gl fo-bottx"><div class="empty">Загружаю тексты…</div></div>';
+    if(FO_BOTTX.error) return '<div class="gl fo-bottx"><div class="empty">Тексты ботов: '+esc(FO_BOTTX.error)+' (сервер мог ещё обновляться)</div></div>';
+    var tx = FO_BOTTX.texts || {}, ag = FO_BOTTX.agency || "";
+    return '<div class="gl fo-bottx"><div class="gl-t"><h2>Сообщения в чатах клиентов</h2><span class="fo-sub">приветствие и аннотации ботов · хранятся на сервере</span></div>'+
+      '<div class="fo-bottx-grid"><div class="fo-bottx-form">'+F.map(function(f){
+        return '<label class="fo-bottx-f"><span>'+esc(f[1])+'</span><textarea class="fi" rows="'+f[2]+'" data-bottx="'+f[0]+'">'+esc(tx[f[0]] || "")+'</textarea></label>'; }).join("")+
+        '<div class="fo-bottx-hint">Подстановки: <code>{agency}</code> — название агентства ('+esc(ag)+'), <code>{client}</code> — клиент, <code>{bot_main}</code> <code>{bot_report}</code> <code>{bot_meet}</code> — @боты.</div>'+
+        '<div class="fo-bottx-btns"><button class="bt sm pri" data-bottx-save>Сохранить</button>'+
+        '<button class="bt sm" data-bottx-def>Вернуть стандартные</button>'+
+        '<button class="bt sm gh2" data-bottx-ann title="В чаты с клиентами, где аннотации ещё не было: каждый бот напишет о себе один раз">Разослать аннотации в подключённые чаты</button></div>'+
+        '<div class="fo-bottx-res" data-bottx-res hidden></div>'+
+      '</div><div class="fo-bottx-prev"><h5>Так выглядит приветствие</h5><pre data-bottx-prev>'+esc(preview(tx, ag))+'</pre>'+
+        '<h5>Аннотации — отдельными сообщениями от каждого бота</h5>'+["main", "report", "meet"].map(function(k){ return '<pre>'+esc(fill(tx[k], ag))+'</pre>'; }).join("")+
+      '</div></div></div>';
+  }
+  function mount(host){
+    if(!host || host.querySelector(".fo-bottx")) return;
+    var root = host.querySelector(".fo-bots"); if(!root || !FO_BOTS || !FO_BOTS.enabled || FO_BOTS_PREVIEW) return;
+    var box = document.createElement("div"); box.innerHTML = html(); root.insertAdjacentElement("afterend", box.firstElementChild);
+    if(!FO_BOTTX) load().then(function(){ var old = host.querySelector(".fo-bottx"); if(old){ var b2 = document.createElement("div"); b2.innerHTML = html(); old.replaceWith(b2.firstElementChild); } });
+  }
+  if(typeof foBotsRender === "function"){
+    var _r = foBotsRender;
+    foBotsRender = function(){ var v = _r.apply(this, arguments); try{ mount(document.getElementById("sect")); }catch(e){} return v; };
+  }
+  function vals(root){ var o = {}; root.querySelectorAll("[data-bottx]").forEach(function(t){ o[t.getAttribute("data-bottx")] = t.value; }); return o; }
+  function say(root, msg, ok){ var r = root.querySelector("[data-bottx-res]"); if(!r) return; r.hidden = false; r.textContent = msg; r.classList.toggle("ok", !!ok); }
+  document.addEventListener("input", function(e){
+    var t = e.target; if(!t || !t.matches || !t.matches("[data-bottx]")) return;
+    var root = t.closest(".fo-bottx"), pv = root && root.querySelector("[data-bottx-prev]"); if(!pv) return;
+    pv.textContent = preview(vals(root), (FO_BOTTX && FO_BOTTX.agency) || "");
+  });
+  window.addEventListener("click", function(e){
+    var b = e.target.closest && e.target.closest("[data-bottx-save], [data-bottx-def], [data-bottx-ann]"); if(!b) return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    var root = b.closest(".fo-bottx"); if(!root || FO_BOTTX_BUSY) return;
+    if(b.hasAttribute("data-bottx-def")){
+      var d = (FO_BOTTX && FO_BOTTX.defaults) || {};
+      root.querySelectorAll("[data-bottx]").forEach(function(t){ t.value = d[t.getAttribute("data-bottx")] || ""; });
+      var pv = root.querySelector("[data-bottx-prev]"); if(pv) pv.textContent = preview(vals(root), FO_BOTTX.agency || "");
+      say(root, "Стандартные тексты подставлены — нажмите «Сохранить»", true); return;
+    }
+    FO_BOTTX_BUSY = true; b.disabled = true;
+    if(b.hasAttribute("data-bottx-save")){
+      api("/refs/bots/texts", {method: "PUT", body: vals(root)}).then(function(){ return load(); })
+        .then(function(){ say(root, "Сохранено на сервере · приветствия в чатах подправятся сами в течение минуты", true); try{ toast("Тексты ботов сохранены"); }catch(x){} })
+        .catch(function(err){ say(root, "Не сохранилось: " + (err && err.message || ""), false); })
+        .then(function(){ FO_BOTTX_BUSY = false; b.disabled = false; });
+      return;
+    }
+    api("/refs/bots/announce", {method: "POST", body: {}}).then(function(r){
+        var l = (r && r["итог"]) || []; say(root, l.length ? l.join("\n") : "Подключённых чатов с клиентами нет", true); })
+      .catch(function(err){ say(root, "Не разослалось: " + (err && err.message || ""), false); })
+      .then(function(){ FO_BOTTX_BUSY = false; b.disabled = false; });
+  }, true);
 })();
 
 })();
