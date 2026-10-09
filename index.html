@@ -34996,7 +34996,8 @@ var FO_AI_ALL_AT = 0;
 var FO_BOTTX = null, FO_BOTTX_BUSY = false;
 (function(){
   var F = [["hello", "Приветствие — начало (после него строки ✅ по ботам)", 3], ["hello_foot", "Приветствие — концовка (можно пусто)", 2],
-           ["main", "🤖 Аннотация бота задач", 4], ["report", "📋 Аннотация бота отчётов", 3], ["meet", "📅 Аннотация бота планёрок", 3]];
+           ["main", "🤖 Аннотация бота задач", 4], ["report", "📋 Аннотация бота отчётов", 3], ["meet", "📅 Аннотация бота планёрок", 3],
+           ["agency", "Название агентства в текстах — {agency} (пусто — коротко из названия организации)", 1]];
   function load(){ return api("/refs/bots/texts").then(function(r){ FO_BOTTX = r || {}; }).catch(function(e){ FO_BOTTX = {error: (e && e.message) || "сервер не ответил"}; }); }
   function fill(t, ag){
     return String(t || "").replace(/\{agency\}/g, ag || "агентства").replace(/\{client\}/g, "ООО Пример")
@@ -35016,7 +35017,7 @@ var FO_BOTTX = null, FO_BOTTX_BUSY = false;
     return '<div class="gl fo-bottx"><div class="gl-t"><h2>Сообщения в чатах клиентов</h2><span class="fo-sub">приветствие и аннотации ботов · хранятся на сервере</span></div>'+
       '<div class="fo-bottx-grid"><div class="fo-bottx-form">'+F.map(function(f){
         return '<label class="fo-bottx-f"><span>'+esc(f[1])+'</span><textarea class="fi" rows="'+f[2]+'" data-bottx="'+f[0]+'">'+esc(tx[f[0]] || "")+'</textarea></label>'; }).join("")+
-        '<div class="fo-bottx-hint">Подстановки: <code>{agency}</code> — название агентства ('+esc(ag)+'), <code>{client}</code> — клиент, <code>{bot_main}</code> <code>{bot_report}</code> <code>{bot_meet}</code> — @боты.</div>'+
+        '<div class="fo-bottx-hint">Подстановки: <code>{agency}</code> — название агентства (сейчас: '+esc(ag)+(FO_BOTTX.org_name && FO_BOTTX.org_name !== ag ? ', организация «'+esc(FO_BOTTX.org_name)+'»' : '')+'), <code>{client}</code> — клиент, <code>{bot_main}</code> <code>{bot_report}</code> <code>{bot_meet}</code> — @боты.</div>'+
         '<div class="fo-bottx-btns"><button class="bt sm pri" data-bottx-save>Сохранить</button>'+
         '<button class="bt sm" data-bottx-def>Вернуть стандартные</button>'+
         '<button class="bt sm gh2" data-bottx-ann title="В чаты с клиентами, где аннотации ещё не было: каждый бот напишет о себе один раз">Разослать аннотации в подключённые чаты</button></div>'+
@@ -35040,7 +35041,7 @@ var FO_BOTTX = null, FO_BOTTX_BUSY = false;
   document.addEventListener("input", function(e){
     var t = e.target; if(!t || !t.matches || !t.matches("[data-bottx]")) return;
     var root = t.closest(".fo-bottx"), pv = root && root.querySelector("[data-bottx-prev]"); if(!pv) return;
-    pv.textContent = preview(vals(root), (FO_BOTTX && FO_BOTTX.agency) || "");
+    var v = vals(root); pv.textContent = preview(v, String(v.agency || "").trim() || (FO_BOTTX && FO_BOTTX.agency) || "");
   });
   window.addEventListener("click", function(e){
     var b = e.target.closest && e.target.closest("[data-bottx-save], [data-bottx-def], [data-bottx-ann]"); if(!b) return;
