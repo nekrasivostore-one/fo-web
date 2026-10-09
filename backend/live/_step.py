@@ -3322,12 +3322,29 @@ _FO_PRIV_CLIENT = {"amount", "owner", "payDate", "phone", "sheet", "tg", "telegr
 _FO_PRIV_PAY = re.compile(r"^(pay|salary|oklad|rate|prem|bonus|fine|shtraf|penalty)", re.I)
 
 
-# ══ 317 (Виталий 08.10): «когда добавляю менеджера — сделать проджекта по Ozon, чтобы она увидела только проекты по Ozon» ══
-# Пометка площадок в карточке сотрудника (312: WB / Ozon / обе) теперь решает, какие кабинеты он видит:
-# проджект и ниже с пометкой «Ozon» видит только Ozon-кабинеты, «WB» — только WB, «WB и Ozon» — все.
-# Собственник, директор, руководитель — видят всё. Фильтр стоит на списках: клиенты, карточки, задачи дня, планёрки.
+# ══ 317/324 (Виталий 08–09.10): проджект с пометкой «Ozon» видит только Ozon: кабинеты, карточки, задачи дня, планёрки
+# и — с 324 — команду (сотрудники с той же площадкой) и задачи без кабинета только у этой команды. ══
+_FO_MP_ALL = ("wb", "ozon")
+
+
+def _fo_mp_list(cd):
+    mps = cd.get("mp") if isinstance(cd, dict) else None
+    return [str(x).lower() for x in (mps or []) if str(x).lower() in _FO_MP_ALL] or ["wb"]
+
+
+def _fo_mp_of_client(name, data):
+    d = _fo_st_load(data) or {}
+    mp = str((d.get("mp") if isinstance(d, dict) else "") or "").lower()
+    if mp in _FO_MP_ALL:
+        return mp
+    try:
+        return _fo_chat_split(_fo_chat_norm(name))[1] or "wb"
+    except Exception:
+        return "wb"
+
+
 async def _fo_mp_scope(c, p):
-    """None — видно всё; иначе множество id клиентов на площадках сотрудника."""
+    """None — видно всё; иначе {"cli": клиенты, "cab": кабинеты, "emp": сотрудники (своя площадка + я), "me": я}."""
     lvl = _fo_st_lvl(p)
     if lvl <= 3:
         return None
@@ -3335,42 +3352,68 @@ async def _fo_mp_scope(c, p):
     if not me:
         return None
     cd = _fo_st_load(await c.fetchval("SELECT data FROM fo_card WHERE kind='employee' AND ref_id=$1 AND org_id=$2", str(me), p.org_id)) or {}
-    mps = cd.get("mp") if isinstance(cd, dict) else None
-    mps = [str(x).lower() for x in (mps or []) if str(x).lower() in ("wb", "ozon")] or ["wb"]
+    mps = _fo_mp_list(cd)
     if "wb" in mps and "ozon" in mps:
         return None
-    out = set()
+    cli = set()
     rows = await c.fetch("SELECT c.id, c.name, cd.data FROM client c LEFT JOIN fo_card cd ON cd.kind='client' AND cd.ref_id=c.id::text "
                          "WHERE c.org_id=$1::uuid", str(p.org_id))
     for r in rows:
-        d = _fo_st_load(r["data"]) or {}
-        mp = str((d.get("mp") if isinstance(d, dict) else "") or "").lower()
-        if mp not in ("wb", "ozon"):
-            try:
-                mp = _fo_chat_split(_fo_chat_norm(r["name"]))[1] or "wb"
-            except Exception:
-                mp = "wb"
-        if mp in mps:
-            out.add(str(r["id"]))
-    return out
+        if _fo_mp_of_client(r["name"], r["data"]) in mps:
+            cli.add(str(r["id"]))
+    cab = set()
+    try:
+        for r in await c.fetch("SELECT cb.id FROM cabinet cb WHERE cb.client_id::text = ANY($1::text[])", list(cli)):
+            cab.add(str(r["id"]))
+    except Exception:
+        pass
+    emp = {str(me)}
+    try:
+        er = await c.fetch("SELECT e.id, f.data FROM employee e LEFT JOIN fo_card f ON f.kind='employee' AND f.ref_id=e.id::text "
+                           "WHERE e.org_id=$1::uuid", str(p.org_id))
+    except Exception:
+        er = await c.fetch("SELECT e.id, f.data FROM employee e LEFT JOIN fo_card f ON f.kind='employee' AND f.ref_id=e.id::text "
+                           "WHERE e.org_id=$1", p.org_id)
+    for r in er:
+        if set(_fo_mp_list(_fo_st_load(r["data"]) or {})) & set(mps):
+            emp.add(str(r["id"]))
+    return {"cli": cli, "cab": cab, "emp": emp, "me": str(me)}
 
 
 async def _fo_mp_apply(p, res, kind):
-    """Применить фильтр площадок к ответу маршрута: clients / cards / tasks / meet."""
+    """Применить фильтр площадок к ответу маршрута: clients / employees / cards / tasks / meet."""
     try:
         async with pool().acquire() as c:
-            ids = await _fo_mp_scope(c, p)
+            sc = await _fo_mp_scope(c, p)
     except Exception:
         return res
-    if ids is None:
+    if sc is None:
         return res
+    ids, cab, emp = sc["cli"], sc["cab"], sc["emp"]
     try:
         if kind == "clients" and isinstance(res, list):
             return [x for x in res if str(_fo_row_get(x, "id")) in ids]
+        if kind == "employees" and isinstance(res, list):
+            return [x for x in res if str(_fo_row_get(x, "id")) in emp]
         if kind == "tasks" and isinstance(res, list):
-            return [x for x in res if not _fo_row_get(x, "client_id") or str(_fo_row_get(x, "client_id")) in ids]
+            out = []
+            for x in res:
+                ci, cb, a = _fo_row_get(x, "client_id"), _fo_row_get(x, "cabinet_id"), _fo_row_get(x, "assignee_id")
+                if ci or cb:
+                    if (ci and str(ci) in ids) or (cb and str(cb) in cab):
+                        out.append(x)
+                elif not a or str(a) in emp:
+                    out.append(x)
+            return out
         if kind == "cards" and isinstance(res, list):
-            return [x for x in res if _fo_row_get(x, "kind") not in ("client", "cab") or str(_fo_row_get(x, "ref_id")) in ids]
+            def ok(x):
+                k, r = _fo_row_get(x, "kind"), str(_fo_row_get(x, "ref_id"))
+                if k in ("client", "cab"):
+                    return r in ids or r in cab
+                if k == "employee":
+                    return r in emp
+                return True
+            return [x for x in res if ok(x)]
         if kind == "meet" and isinstance(res, dict) and isinstance(res.get("rows"), list):
             res = dict(res); res["rows"] = [x for x in res["rows"] if str(_fo_row_get(x, "client_id")) in ids]
             return res
@@ -6622,6 +6665,171 @@ def _fo_chat_hello_txt(name, kind, line, miss):
     return ("✅ Чат подключён к сервису агентства: «%s», %s.\nБоты: %s" % (name, kn, line)) + ("" if miss else "\nВсе боты на месте.")
 
 
+# ══ 322 (Виталий 09.10): «Инфо о подключении каждого бота с новой строки, галочки зелёные; по каждому боту короткая
+# аннотация — зачем он, разными сообщениями». Тексты — на сервере (fo_card sys bot_texts:<org>), редактируются
+# в «Чат-ботах» (GET/PUT /refs/bots/texts); подстановки {agency} {client} {bot_main} {bot_report} {bot_meet}.
+# Аннотацию шлёт сам бот (своим токеном), один раз на чат с клиентом, когда он в чате появился; чаты, подключённые
+# до v121, — только по кнопке (POST /refs/bots/announce). ══
+_FO_BOT_LBL = {"main": "Задачи из чата", "report": "Отчёты и напоминания", "meet": "Планёрки"}
+_FO_BOT_TXT_DEF = {
+    "hello": "Здравствуйте! На связи команда {agency}.\nЭтот чат подключён к нашей системе — всё, что вы напишете, дойдёт до вашего менеджера.",
+    "hello_foot": "",
+    "main": "Здравствуйте! Я помощник команды {agency}. Когда вы пишете в чат, что нужно сделать, я аккуратно фиксирую и передаю это в работу — чтобы ни одна просьба не потерялась. Отвечать мне не нужно.",
+    "report": "Здравствуйте! Я буду приносить сюда отчёты по кабинету и напоминать о важных датах. Коротко и по делу.",
+    "meet": "Здравствуйте! Я помогаю с планёрками: накануне напомню и пришлю повестку, а после встречи — что решили и кто за что отвечает.",
+}
+
+
+async def _fo_bot_texts(c, org_id):
+    tx = dict(_FO_BOT_TXT_DEF)
+    try:
+        d = _fo_mt_load(await c.fetchval("SELECT data FROM fo_card WHERE kind='sys' AND ref_id=$1", "bot_texts:%s" % org_id), None)
+        if isinstance(d, dict):
+            for k in _FO_BOT_TXT_DEF:
+                if isinstance(d.get(k), str):
+                    tx[k] = d[k]
+    except Exception:
+        pass
+    try:
+        tx["_agency"] = str(await c.fetchval("SELECT name FROM org WHERE id=$1", org_id) or "").strip() or "агентства"
+    except Exception:
+        tx["_agency"] = "агентства"
+    return tx
+
+
+def _fo_bot_fill(text, tx, r, users):
+    users = users or {}
+    out = str(text or "")
+    for k, v in (("{agency}", tx.get("_agency") or ""), ("{client}", r["name"] or ""),
+                 ("{bot_main}", "@" + users["main"] if users.get("main") else "бот задач"),
+                 ("{bot_report}", "@" + users["report"] if users.get("report") else "бот отчётов"),
+                 ("{bot_meet}", "@" + users["meet"] if users.get("meet") else "бот планёрок")):
+        out = out.replace(k, v)
+    return out.strip()
+
+
+async def _fo_chat_bots_st2(chat_id):
+    line, miss, st = await _fo_chat_bots_st(chat_id)
+    toks, users = _fo_bot_toks(), {}
+    for bk in ("main", "report", "meet"):
+        me = await _fo_bot_me(toks.get(bk)) if toks.get(bk) else {}
+        users[bk] = me.get("username") or ""
+    return line, miss, st, users
+
+
+async def _fo_chat_hello_txt2(c, r, st, users):
+    tx = await _fo_bot_texts(c, r["org_id"])
+    kn = {"client": "чат с клиентом", "mpv": "рабочий чат команды", "internal": "внутренний чат"}.get(r["kind"], r["kind"] or "")
+    if r["kind"] == "client":
+        head = _fo_bot_fill(tx.get("hello") or "", tx, r, users)
+        foot = _fo_bot_fill(tx.get("hello_foot") or "", tx, r, users)
+    else:
+        head = "✅ Чат подключён к сервису агентства: «%s», %s." % (r["name"], kn)
+        foot = ""
+    lines = []
+    for bk in ("main", "report", "meet"):
+        who = ("@" + users[bk]) if (users or {}).get(bk) else ("бот: " + _FO_BOT_LBL[bk].lower())
+        if st.get(bk):
+            lines.append("✅ %s — %s" % (_FO_BOT_LBL[bk], who))
+        else:
+            lines.append("⬜ %s — %s — ещё подключаем" % (_FO_BOT_LBL[bk], who))
+    parts = [head, "", "\n".join(lines)]
+    if foot:
+        parts += ["", foot]
+    return "\n".join(parts).strip()
+
+
+async def _fo_chat_announce(c, chat_pk, r, st, users, force=False):
+    """322: аннотация от каждого бота — один раз на чат с клиентом, когда бот в нём появился."""
+    try:
+        if r["kind"] != "client":
+            return "не чат с клиентом"
+        h = await _fo_chat_hello_get(c, chat_pk)
+        if not isinstance(h, dict):
+            return "приветствия нет"
+        if not force and int(h.get("v") or 0) < 121:
+            return "чат подключён до v121 — только по кнопке"
+        ann = dict(h.get("ann") or {})
+        tx = await _fo_bot_texts(c, r["org_id"])
+        toks = _fo_bot_toks()
+        sent = []
+        for bk in ("main", "report", "meet"):
+            if not st.get(bk) or ann.get(bk) or not toks.get(bk):
+                continue
+            body = _fo_bot_fill(tx.get(bk) or "", tx, r, users)
+            if not body:
+                continue
+            res = await _fo_aio.to_thread(_fo_tg_api_sync, "sendMessage",
+                                          {"chat_id": str(r["chat_id"]), "text": body, "disable_web_page_preview": True}, toks[bk], 15)
+            if res and res.get("ok"):
+                ann[bk] = _fo_mt_now().strftime("%d.%m %H:%M")
+                sent.append(bk)
+            else:
+                print("322 аннотация не ушла:", bk, r["name"], str((res or {}).get("description"))[:80])
+        if sent:
+            await _fo_chat_hello_put(c, chat_pk, {"ann": ann})
+        return ("отправлено: " + ", ".join(sent)) if sent else "нечего отправлять"
+    except Exception as e:
+        return "ошибка: " + str(e)[:100]
+
+
+class FoBotTextsIn(_FoBM):
+    hello: str | None = None
+    hello_foot: str | None = None
+    main: str | None = None
+    report: str | None = None
+    meet: str | None = None
+
+
+@router.get("/bots/texts")
+async def fo_bot_texts_get(p: Principal = Depends(max_level(2))):
+    """322: тексты приветствия и аннотаций ботов (с подстановками)."""
+    async with pool().acquire() as c:
+        tx = await _fo_bot_texts(c, p.org_id)
+    return {"texts": {k: tx.get(k, "") for k in _FO_BOT_TXT_DEF}, "defaults": _FO_BOT_TXT_DEF, "agency": tx.get("_agency"),
+            "placeholders": ["{agency}", "{client}", "{bot_main}", "{bot_report}", "{bot_meet}"]}
+
+
+@router.put("/bots/texts")
+async def fo_bot_texts_put(body: FoBotTextsIn, p: Principal = Depends(max_level(2))):
+    """322: сохранить тексты; статусы в чатах подправятся сами."""
+    d = {k: str(getattr(body, k) or "").strip()[:1500] for k in _FO_BOT_TXT_DEF if getattr(body, k) is not None}
+    async with pool().acquire() as c:
+        await c.execute("INSERT INTO fo_card (kind, ref_id, org_id, data) VALUES ('sys', $1, $2, $3::jsonb) "
+                        "ON CONFLICT (kind, ref_id) DO UPDATE SET data = fo_card.data || EXCLUDED.data, updated_at = now()",
+                        "bot_texts:%s" % p.org_id, p.org_id, _fo_json.dumps(d, ensure_ascii=False))
+    try:
+        _fo_aio.get_running_loop().create_task(_fo_chat_sweep(2))
+    except Exception:
+        pass
+    return {"ok": True, "texts": d}
+
+
+class FoBotAnnounceIn(_FoBM):
+    chat_pk: int | None = None
+
+
+@router.post("/bots/announce")
+async def fo_bot_announce(body: FoBotAnnounceIn, p: Principal = Depends(max_level(2))):
+    """322: разослать аннотации ботов в подключённые чаты с клиентами (каждый бот — один раз на чат)."""
+    out = []
+    async with pool().acquire() as c:
+        if body.chat_pk:
+            pks = [int(body.chat_pk)]
+        else:
+            pks = [int(x["pk"]) for x in await c.fetch(
+                "SELECT split_part(ref_id, ':', 2) AS pk FROM fo_card WHERE kind='sys' AND ref_id LIKE 'chat_hello:%' AND org_id=$1 "
+                "AND NOT (data ? 'old') AND split_part(ref_id, ':', 2) ~ '^[0-9]+$'", p.org_id)]
+        for pk in pks[:30]:
+            r = await _fo_chat_row(c, pk)
+            if not r or str(r["org_id"]) != str(p.org_id):
+                out.append("%s: не ваш чат" % pk)
+                continue
+            line, miss, st, users = await _fo_chat_bots_st2(r["chat_id"])
+            out.append("%s: %s" % (r["name"], await _fo_chat_announce(c, pk, r, st, users, force=True)))
+    return {"итог": out}
+
+
 async def _fo_chat_row(c, chat_pk):
     return await c.fetchrow("SELECT ch.id, ch.org_id, ch.chat_id, cl.name, cc.kind FROM chat ch "
                             "JOIN client_chat cc ON cc.chat_pk = ch.id JOIN client cl ON cl.id = cc.client_id "
@@ -6644,13 +6852,14 @@ async def _fo_chat_hello(c, chat_pk):
     key = "chat_hello:%s" % chat_pk
     if not await _fo_flag_take(c, r["org_id"], key):
         return None
-    line, miss, st = await _fo_chat_bots_st(r["chat_id"])
-    txt = _fo_chat_hello_txt(r["name"], r["kind"], line, miss)
+    line, miss, st, users = await _fo_chat_bots_st2(r["chat_id"])
+    txt = await _fo_chat_hello_txt2(c, r, st, users)
     res = await _fo_chat_tg("sendMessage", {"chat_id": str(r["chat_id"]), "text": txt, "disable_web_page_preview": True})
     if not (res and res.get("ok")):
         await _fo_flag_drop(c, key)                     # не ушло (бота задач ещё нет в группе) — повторим позже
     else:
-        await _fo_chat_hello_put(c, chat_pk, {"mid": int((res.get("result") or {}).get("message_id") or 0), "txt": txt, "st": st})
+        await _fo_chat_hello_put(c, chat_pk, {"mid": int((res.get("result") or {}).get("message_id") or 0), "txt": txt, "st": st, "v": 121})
+        print("322 аннотации:", r["name"], await _fo_chat_announce(c, chat_pk, r, st, users))
     print("301 чат подключён:", r["name"], r["kind"], "· в группу:", "ушло" if res and res.get("ok") else str((res or {}).get("description"))[:80])
     return res
 
@@ -6695,10 +6904,11 @@ async def _fo_chat_status(c, chat_pk, sweep=False):
     if not await _fo_flag_take(c, r["org_id"], lk):
         return "уже обновляется"
     try:
-        line, miss, st = await _fo_chat_bots_st(r["chat_id"])
+        line, miss, st, users = await _fo_chat_bots_st2(r["chat_id"])
         if any(v is None for v in st.values()):
             return "Telegram не ответил — не трогаем"
-        txt = _fo_chat_hello_txt(r["name"], r["kind"], line, miss)
+        txt = await _fo_chat_hello_txt2(c, r, st, users)
+        await _fo_chat_announce(c, chat_pk, r, st, users)
         now = _fo_mt_now().strftime("%d.%m %H:%M")
         mid, how, hist = h.get("mid"), "", False
         if mid and h.get("txt") == txt:
@@ -10382,7 +10592,7 @@ def _fo_wrap_mp_scope():
     if refs is None:
         return "нет модуля с фильтром"
     done = []
-    for path, kind in (("/refs/clients", "clients"), ("/refs/cards", "cards"), ("/tasks/day", "tasks"), ("/refs/meet", "meet")):
+    for path, kind in (("/refs/clients", "clients"), ("/refs/cards", "cards"), ("/tasks/day", "tasks"), ("/refs/meet", "meet"), ("/refs/employees", "employees")):
         for r in list(app.router.routes):
             if not (isinstance(r, _FoRoute) and r.path == path and "GET" in (r.methods or set())):
                 continue
@@ -10733,6 +10943,17 @@ p("")
 p("== 317 ПЛОЩАДКИ: КТО ЧТО ВИДИТ ==")
 p(sh("journalctl -u fo --since '-15min' --no-pager -o cat | grep -E 'FO площадки|FO tasks/day' | tail -3").strip() or "(служба ещё не перезапускалась)")
 p(sh("sudo -u postgres psql -d fo -Atc \"SELECT e.name||' · '||coalesce(f.data->>'mp','[wb по умолчанию]') FROM employee e LEFT JOIN fo_card f ON f.kind='employee' AND f.ref_id=e.id::text WHERE e.org_id='3b04b815-6ec2-4818-88cf-55db8163fd89' AND e.is_active ORDER BY e.name\"").strip())
+p("")
+p("== 324 ЮЛЯ: ПЛОЩАДКА И КОМАНДА ==")
+p(sh("journalctl -u fo --since '-15min' --no-pager -o cat | grep -E 'FO площадки' | tail -2").strip() or "(служба ещё не перезапускалась)")
+p(sh("sudo -u postgres psql -d fo -Atc \"SELECT e.name||' · mp='||coalesce(f.data->>'mp','[нет → wb]')||' · user='||coalesce(left(e.user_id::text,8),'—') FROM employee e LEFT JOIN fo_card f ON f.kind='employee' AND f.ref_id=e.id::text WHERE e.org_id='3b04b815-6ec2-4818-88cf-55db8163fd89' AND e.is_active ORDER BY e.name\"").strip())
+p("задачи Вероники сегодня (название · клиент · кабинет):")
+p(sh("sudo -u postgres psql -d fo -Atc \"SELECT t.title||' · '||coalesce(cl.name,'[без клиента]')||' · '||coalesce(left(t.cabinet_id::text,8),'[без кабинета]')||' · '||t.status FROM task t JOIN employee e ON e.id=t.assignee_id LEFT JOIN client cl ON cl.id=t.client_id WHERE e.name LIKE 'Вероник%' AND t.plan_date=current_date ORDER BY 1 LIMIT 20\"").strip() or "(нет)")
+p("")
+p("== 322 ПРИВЕТСТВИЯ И АННОТАЦИИ ==")
+p(sh("sudo -u postgres psql -d fo -Atc \"SELECT ref_id||' · v='||coalesce(data->>'v','-')||' · ann='||coalesce(data->>'ann','-')||' · '||coalesce(data->>'fix','') FROM fo_card WHERE kind='sys' AND ref_id LIKE 'chat_hello:%' ORDER BY ref_id\"").strip() or "(нет)")
+p("тексты ботов (свои): " + (sh("sudo -u postgres psql -d fo -Atc \"SELECT count(*) FROM fo_card WHERE kind='sys' AND ref_id LIKE 'bot_texts:%'\"").strip() or "0"))
+p(sh("journalctl -u fo --since '-15min' --no-pager -o cat | grep -E '^322 |^305 ' | tail -8").strip() or "(в журнале пока тихо)")
 p("")
 p("== КОД ==")
 p("дописано в refs.py и signup.py, копия в", bak)
