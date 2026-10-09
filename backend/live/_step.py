@@ -6677,11 +6677,26 @@ _FO_BOT_TXT_DEF = {
     "main": "Здравствуйте! Я помощник команды {agency}. Когда вы пишете в чат, что нужно сделать, я аккуратно фиксирую и передаю это в работу — чтобы ни одна просьба не потерялась. Отвечать мне не нужно.",
     "report": "Здравствуйте! Я буду приносить сюда отчёты по кабинету и напоминать о важных датах. Коротко и по делу.",
     "meet": "Здравствуйте! Я помогаю с планёрками: накануне напомню и пришлю повестку, а после встречи — что решили и кто за что отвечает.",
+    "agency": "",
 }
+
+
+def _fo_agency_short(name):
+    """«Flater - Агенство по управлению…» → «Flater»: до первого « - », « — », «:», «,», «(», «|»."""
+    nm = str(name or "").strip()
+    try:
+        head = re.split(r"\s+[-—–:|(]\s*|,|\(", nm, 1)[0].strip()
+    except Exception:
+        head = nm
+    return head or nm or "агентства"
 
 
 async def _fo_bot_texts(c, org_id):
     tx = dict(_FO_BOT_TXT_DEF)
+    try:
+        tx["_org_name"] = str(await c.fetchval("SELECT name FROM org WHERE id=$1", org_id) or "")
+    except Exception:
+        tx["_org_name"] = ""
     try:
         d = _fo_mt_load(await c.fetchval("SELECT data FROM fo_card WHERE kind='sys' AND ref_id=$1", "bot_texts:%s" % org_id), None)
         if isinstance(d, dict):
@@ -6691,9 +6706,10 @@ async def _fo_bot_texts(c, org_id):
     except Exception:
         pass
     try:
-        tx["_agency"] = str(await c.fetchval("SELECT name FROM org WHERE id=$1", org_id) or "").strip() or "агентства"
+        own = str(tx.get("agency") or "").strip()
+        tx["_agency"] = own or _fo_agency_short(await c.fetchval("SELECT name FROM org WHERE id=$1", org_id))
     except Exception:
-        tx["_agency"] = "агентства"
+        tx["_agency"] = str(tx.get("agency") or "").strip() or "агентства"
     return tx
 
 
@@ -6779,6 +6795,7 @@ class FoBotTextsIn(_FoBM):
     main: str | None = None
     report: str | None = None
     meet: str | None = None
+    agency: str | None = None
 
 
 @router.get("/bots/texts")
@@ -6787,6 +6804,7 @@ async def fo_bot_texts_get(p: Principal = Depends(max_level(2))):
     async with pool().acquire() as c:
         tx = await _fo_bot_texts(c, p.org_id)
     return {"texts": {k: tx.get(k, "") for k in _FO_BOT_TXT_DEF}, "defaults": _FO_BOT_TXT_DEF, "agency": tx.get("_agency"),
+            "org_name": tx.get("_org_name"),
             "placeholders": ["{agency}", "{client}", "{bot_main}", "{bot_report}", "{bot_meet}"]}
 
 
@@ -10952,6 +10970,7 @@ p(sh("sudo -u postgres psql -d fo -Atc \"SELECT t.title||' · '||coalesce(cl.nam
 p("")
 p("== 322 ПРИВЕТСТВИЯ И АННОТАЦИИ ==")
 p(sh("sudo -u postgres psql -d fo -Atc \"SELECT ref_id||' · v='||coalesce(data->>'v','-')||' · ann='||coalesce(data->>'ann','-')||' · '||coalesce(data->>'fix','') FROM fo_card WHERE kind='sys' AND ref_id LIKE 'chat_hello:%' ORDER BY ref_id\"").strip() or "(нет)")
+p("короткое имя агентства Flater: " + (sh("sudo -u postgres psql -d fo -Atc \"SELECT name FROM org WHERE id='3b04b815-6ec2-4818-88cf-55db8163fd89'\"").strip().split(" - ")[0] or "?"))
 p("тексты ботов (свои): " + (sh("sudo -u postgres psql -d fo -Atc \"SELECT count(*) FROM fo_card WHERE kind='sys' AND ref_id LIKE 'bot_texts:%'\"").strip() or "0"))
 p(sh("journalctl -u fo --since '-15min' --no-pager -o cat | grep -E '^322 |^305 ' | tail -8").strip() or "(в журнале пока тихо)")
 p("")
