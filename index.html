@@ -35068,6 +35068,40 @@ var FO_BOTTX = null, FO_BOTTX_BUSY = false;
   }, true);
 })();
 
+/* ===== add151: 325 — подключение группы только из карточки (Виталий 12.10)
+   «Пока я не вбил название — не нужно фиксировать в карточке группу» (квиз: «только когда я впишу название»).
+   Сервер v124: бот, добавленный в группу, её только запоминает (список «Подключить вручную»), в чат не пишет;
+   вписали название в карточку → «Добавить» → группа подключается, уходят приветствие и аннотации.
+   Здесь: «Добавить» с названием группы, которая уже подключена к этой карточке, — не создаёт повтор, а говорит об этом;
+   подписи блока — под этот порядок. */
+(function(){
+  function norm(t){ return String(t || "").replace(/\s+/g, " ").trim().toLowerCase(); }
+  window.addEventListener("click", function(e){
+    var b = e.target.closest && e.target.closest(".fo-chatadd [data-fochatadd]"); if(!b) return;
+    var box = b.closest(".fo-chatadd"), cid = box && box.getAttribute("data-focli"); if(!cid) return;
+    var t = box.querySelector('[data-foch="title"]'), tv = norm(t && t.value); if(!tv) return;
+    var list = (typeof FO_CHATS !== "undefined" && FO_CHATS[cid]) || [];
+    var same = list.filter(function(x){ return norm(x.title) === tv; })[0];
+    if(!same) return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    var num = /^-?\d+$/.test(String(same.chat_id || "").trim());
+    try{ toast(num ? "Эта группа уже подключена к карточке — повторно добавлять не нужно" : "Эта группа уже вписана в карточку и ждёт бота — добавьте ботов в группу, подключится сама"); }catch(x){}
+    if(t){ t.value = ""; }
+    var l = box.querySelector('[data-foch="chat_id"]'); if(l && /^ждёт бота/.test(l.value || "")) l.value = "";
+  }, true);
+  if(typeof foChatsBlock === "function"){
+    var _cb = foChatsBlock;
+    foChatsBlock = function(pr){
+      var h = _cb.apply(this, arguments);
+      try{
+        h = h.replace("если группа не подключилась сама", "группы, где боты уже есть, — выбрать из списка");
+        h = h.replace("Сервис сам найдёт группу и поставит её номер.", "Сервис найдёт группу, подключит её и напишет в неё приветствие. Пока название не вписано — группа к карточке не подключается и в чат ничего не уходит.");
+      }catch(e){}
+      return h;
+    };
+  }
+})();
+
 })();
 </script>
 </body>
