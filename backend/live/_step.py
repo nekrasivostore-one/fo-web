@@ -11323,8 +11323,13 @@ for f in (REFS, SIGN, MAIN):
 
 if ok:
     sh("systemctl restart fo"); sh("sleep 4")
-    h = sh("curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8000/health").strip()
-    p("health после правки:", h)
+    h = ""
+    for _hi in range(18):                      # 327: старт бывает дольше 4 с (Telegram медленный) — ждём до ~40 с
+        h = sh("curl -s -m 3 -o /dev/null -w '%{http_code}' http://127.0.0.1:8000/health").strip()
+        if h == "200":
+            break
+        sh("sleep 2")
+    p("health после правки:", h, "(попыток: %d)" % (_hi + 1))
     if h != "200" and H0 == "200":
         ok = False
 
