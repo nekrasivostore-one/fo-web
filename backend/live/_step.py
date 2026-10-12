@@ -8140,6 +8140,13 @@ async def _fo_mt_chatstate(chat_id):
     if hit and _fo_time.time() - hit["t"] < 600:
         return hit["v"]
     res = await _fo_aio.to_thread(_fo_tg_api_sync, "getChatMember", {"chat_id": str(chat_id), "user_id": str(bid)}, None, 8)
+    if not res.get("ok") and re.search(r"timed out|timeout|urlopen|temporar|connection", str(res.get("description") or res.get("err") or ""), re.I):
+        if hit:                                            # 327: Telegram не ответил — оставляем прошлый ответ, проверим через минуту
+            hit["t"] = _fo_time.time() - 540
+            return hit["v"]
+        v = {"in": None, "pin": None, "why": "Telegram не ответил"}
+        _FO_MT_CM[str(chat_id)] = {"t": _fo_time.time() - 540, "v": v}
+        return v
     r = res.get("result") or {}
     st = r.get("status") or ""
     v = {"in": st in ("administrator", "member", "creator", "restricted"),
@@ -9373,12 +9380,89 @@ async def fo_meet_send(client_id: str, body: FoMtSendIn, p: Principal = Depends(
         r = await _fo_mt_row(c, p.org_id, client_id)
         if not r or not _fo_mt_slots(r["slots"]):
             raise HTTPException(400, "сначала задайте график: дни, время и кто ведёт")
-        lv = (await _fo_mt_levels(c, p.org_id)).get(client_id, {"level": 3})
-        st = await _fo_mt_settings(c, p.org_id)
-        busy = await _fo_mt_busy(c, p.org_id, skip=[client_id])
-        offer = _fo_mt_offer(busy, _fo_mt_slots(r["slots"]), lv["level"], bool(r["fixed"]), st, client_id)
-        await c.execute("UPDATE fo_meet SET rounds=0 WHERE org_id=$1::uuid AND client_id=$2::uuid", str(p.org_id), client_id)
-        return await _fo_mt_offer_send(c, p.org_id, client_id, "confirm" if r["fixed"] else "offer", offer, test=body.test)
+        await c.execute("DELETE FROM fo_card WHERE kind='sys' AND ref_id=$1", "meet_at:%s" % client_id)   # 327: отправили сейчас
+        return await _fo_meet_send_now(c, p.org_id, client_id, test=body.test)
+
+
+# ══ 327 (Виталий 12.10): «я вписал время планёрки — сервис должен отправить на согласование и спросить: сейчас или
+# завтра в 10:00». «Сейчас» — POST /meet/{клиент}/send (как «предложить сейчас»); «завтра в 10:00» — запись
+# fo_card sys meet_at:<клиент> {at: "YYYY-MM-DD HH:MM" МСК}, раз в минуту сервер отправляет наступившие (если график
+# всё ещё не согласован). GET /refs/meet/sched — что и когда уйдёт. ══
+async def _fo_meet_send_now(c, org_id, client_id, test=False):
+    r = await _fo_mt_row(c, org_id, client_id)
+    if not r or not _fo_mt_slots(r["slots"]):
+        return {"state": "none", "why": "сначала задайте график: дни, время и кто ведёт"}
+    lv = (await _fo_mt_levels(c, org_id)).get(str(client_id), {"level": 3})
+    st = await _fo_mt_settings(c, org_id)
+    busy = await _fo_mt_busy(c, org_id, skip=[str(client_id)])
+    offer = _fo_mt_offer(busy, _fo_mt_slots(r["slots"]), lv["level"], bool(r["fixed"]), st, str(client_id))
+    await c.execute("UPDATE fo_meet SET rounds=0 WHERE org_id=$1::uuid AND client_id=$2::uuid", str(org_id), str(client_id))
+    return await _fo_mt_offer_send(c, org_id, str(client_id), "confirm" if r["fixed"] else "offer", offer, test=test)
+
+
+class FoMeetAtIn(_FoBM):
+    at: str | None = None
+
+
+@router.post("/meet/{client_id}/send-at")
+async def fo_meet_send_at(client_id: str, body: FoMeetAtIn, p: Principal = Depends(max_level(4))):
+    """327: отправить предложение клиенту в заданное время (МСК) или снять (at = null)."""
+    key = "meet_at:%s" % client_id
+    async with pool().acquire() as c:
+        if not await c.fetchval("SELECT 1 FROM client WHERE id=$1::uuid AND org_id=$2", client_id, p.org_id):
+            raise HTTPException(404, "клиент не найден")
+        if not body.at:
+            await c.execute("DELETE FROM fo_card WHERE kind='sys' AND ref_id=$1", key)
+            return {"ok": True, "at": None}
+        at = str(body.at).replace("T", " ")[:16]
+        if not re.match(r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$", at):
+            raise HTTPException(400, "время в формате ГГГГ-ММ-ДД ЧЧ:ММ")
+        await c.execute("INSERT INTO fo_card (kind, ref_id, org_id, data) VALUES ('sys', $1, $2, $3::jsonb) "
+                        "ON CONFLICT (kind, ref_id) DO UPDATE SET data = EXCLUDED.data, updated_at = now()",
+                        key, p.org_id, _fo_json.dumps({"at": at, "by": str(_fo_uid(p))}))
+        await c.execute("UPDATE fo_meet SET log = log || $3::jsonb WHERE org_id=$1::uuid AND client_id=$2::uuid",
+                        str(p.org_id), client_id, _fo_mt_item("отправить клиенту на согласование " + at[8:10] + "." + at[5:7] + " в " + at[11:]))
+    return {"ok": True, "at": at}
+
+
+@router.get("/meet/sched")
+async def fo_meet_sched(p: Principal = Depends(max_level(4))):
+    async with pool().acquire() as c:
+        rows = await c.fetch("SELECT split_part(ref_id, ':', 2) AS cid, data->>'at' AS at FROM fo_card "
+                             "WHERE kind='sys' AND ref_id LIKE 'meet_at:%' AND org_id=$1", p.org_id)
+    return {str(r["cid"]): r["at"] for r in rows}
+
+
+async def _fo_meet_at_tick():
+    await _fo_aio.sleep(90)
+    while True:
+        try:
+            now = _fo_mt_now().strftime("%Y-%m-%d %H:%M")
+            async with pool().acquire() as c:
+                due = await c.fetch("SELECT ref_id, org_id, split_part(ref_id, ':', 2) AS cid, data->>'at' AS at FROM fo_card "
+                                    "WHERE kind='sys' AND ref_id LIKE 'meet_at:%' AND data->>'at' <= $1", now)
+                for d in due:
+                    await c.execute("DELETE FROM fo_card WHERE kind='sys' AND ref_id=$1", d["ref_id"])
+                    stt = await c.fetchval("SELECT status FROM fo_meet WHERE org_id=$1::uuid AND client_id=$2::uuid", str(d["org_id"]), d["cid"])
+                    if stt not in ("draft", "queued"):
+                        print("327 по расписанию не отправлено — график уже", stt, d["cid"])
+                        continue
+                    try:
+                        res = await _fo_meet_send_now(c, d["org_id"], d["cid"])
+                        print("327 отправлено по расписанию:", d["cid"], d["at"], (res or {}).get("state"), (res or {}).get("why") or "")
+                    except Exception as e:
+                        print("327 по расписанию — ошибка:", d["cid"], str(e)[:150])
+        except Exception as e:
+            print("327 расписание:", str(e)[:150])
+        await _fo_aio.sleep(60)
+
+
+@router.on_event("startup")
+async def _fo_meet_at_boot():
+    try:
+        _fo_aio.get_running_loop().create_task(_fo_meet_at_tick())
+    except Exception:
+        pass
 
 
 class FoMtReplyIn(_FoBM):
@@ -11223,6 +11307,10 @@ p("ждут решения: " + (sh("sudo -u postgres psql -d fo -Atc \"SELECT s
 p("")
 p("== 326 ЧИСТКА: ПОВТОР БОТА ОТЧЁТОВ В ЧАТЕ OZON ==")
 p(sh("journalctl -u fo --since '-20min' --no-pager -o cat | grep -E '^326 ' | tail -8").strip() or "(пока не выполнено — через ~40 с после перезапуска)")
+p("")
+p("== 327 ПЛАНЁРКИ: ОТПРАВКА ПО РАСПИСАНИЮ ==")
+p("ждут отправки: " + (sh("sudo -u postgres psql -d fo -Atc \"SELECT string_agg(split_part(ref_id,':',2)||' в '||(data->>'at'), ', ') FROM fo_card WHERE kind='sys' AND ref_id LIKE 'meet_at:%%'\"").strip() or "нет"))
+p(sh("journalctl -u fo --since '-30min' --no-pager -o cat | grep -E '^(327|326) ' | tail -8").strip() or "(журнал пока тихий)")
 p("")
 p("== КОД ==")
 p("дописано в refs.py и signup.py, копия в", bak)
