@@ -6775,15 +6775,22 @@ async def _fo_chat_announce(c, chat_pk, r, st, users, force=False):
             body = _fo_bot_fill(tx.get(bk) or "", tx, r, users)
             if not body:
                 continue
+            fk = "chat_ann:%s:%s" % (chat_pk, bk)
+            if not await _fo_flag_take(c, r["org_id"], fk):     # 325: другой поток уже отправил или отправляет
+                continue
             res = await _fo_aio.to_thread(_fo_tg_api_sync, "sendMessage",
                                           {"chat_id": str(r["chat_id"]), "text": body, "disable_web_page_preview": True}, toks[bk], 15)
             if res and res.get("ok"):
-                ann[bk] = _fo_mt_now().strftime("%d.%m %H:%M")
+                mid = int(((res.get("result") or {}).get("message_id")) or 0)
+                ann[bk] = _fo_mt_now().strftime("%d.%m %H:%M") + (" #%d" % mid if mid else "")
                 sent.append(bk)
+                h2 = await _fo_chat_hello_get(c, chat_pk)
+                a2 = dict((h2.get("ann") or {}) if isinstance(h2, dict) else {})
+                a2[bk] = ann[bk]
+                await _fo_chat_hello_put(c, chat_pk, {"ann": a2})
             else:
+                await _fo_flag_drop(c, fk)
                 print("322 аннотация не ушла:", bk, r["name"], str((res or {}).get("description"))[:80])
-        if sent:
-            await _fo_chat_hello_put(c, chat_pk, {"ann": ann})
         return ("отправлено: " + ", ".join(sent)) if sent else "нечего отправлять"
     except Exception as e:
         return "ошибка: " + str(e)[:100]
@@ -6875,7 +6882,9 @@ async def _fo_chat_hello(c, chat_pk):
     res = await _fo_chat_tg("sendMessage", {"chat_id": str(r["chat_id"]), "text": txt, "disable_web_page_preview": True})
     if not (res and res.get("ok")):
         await _fo_flag_drop(c, key)                     # не ушло (бота задач ещё нет в группе) — повторим позже
+        _fo_hello_retry(chat_pk, str((res or {}).get("description"))[:80])
     else:
+        _FO_HELLO_TRY.pop(chat_pk, None)
         await _fo_chat_hello_put(c, chat_pk, {"mid": int((res.get("result") or {}).get("message_id") or 0), "txt": txt, "st": st, "v": 121})
         print("322 аннотации:", r["name"], await _fo_chat_announce(c, chat_pk, r, st, users))
     print("301 чат подключён:", r["name"], r["kind"], "· в группу:", "ушло" if res and res.get("ok") else str((res or {}).get("description"))[:80])
@@ -7113,6 +7122,53 @@ async def fo_route_text_put(client_id: str, body: FoRtIn, p: Principal = Depends
                         "ON CONFLICT (kind, ref_id) DO UPDATE SET data = EXCLUDED.data, updated_at = now() "
                         "WHERE fo_card.org_id = EXCLUDED.org_id", client_id, p.org_id, _fo_json.dumps(d, ensure_ascii=False))
     return {"ok": True, "событие": body.event, "текст": d.get(body.event), "стандартный": not txt}
+
+
+_FO_HELLO_TRY = {}
+
+
+def _fo_hello_retry(chat_pk, why=""):
+    """325: приветствие не ушло — повтор через 5 минут, не больше 12 раз (час)."""
+    n = _FO_HELLO_TRY.get(chat_pk, 0) + 1
+    if n > 12:
+        print("325 приветствие: час повторов не помог", chat_pk, why)
+        return
+    _FO_HELLO_TRY[chat_pk] = n
+
+    async def later():
+        await _fo_aio.sleep(300)
+        _fo_chat_hello_soon(chat_pk, 1)
+    try:
+        _fo_aio.get_running_loop().create_task(later())
+        print("325 приветствие не ушло, повтор через 5 мин:", chat_pk, "попытка", n, why)
+    except Exception:
+        pass
+
+
+async def _fo_hello_watch():
+    """325: каждые 15 минут — подключённые чаты с клиентом с номером группы, где приветствия ещё не было."""
+    await _fo_aio.sleep(120)
+    while True:
+        try:
+            async with pool().acquire() as c:
+                pks = [int(x["id"]) for x in await c.fetch(
+                    "SELECT DISTINCT ch.id FROM chat ch JOIN client_chat cc ON cc.chat_pk = ch.id "
+                    "WHERE ch.is_active AND ch.chat_id ~ '^-?[0-9]+$' AND cc.kind = 'client' "
+                    "AND NOT EXISTS (SELECT 1 FROM fo_card f WHERE f.kind='sys' AND f.ref_id = 'chat_hello:' || ch.id::text)")]
+            for pk in pks[:20]:
+                print("325 сверка: приветствия не было —", pk)
+                _fo_chat_hello_soon(pk, 2)
+        except Exception as e:
+            print("325 сверка приветствий:", str(e)[:150])
+        await _fo_aio.sleep(900)
+
+
+@router.on_event("startup")
+async def _fo_hello_watch_boot():
+    try:
+        _fo_aio.get_running_loop().create_task(_fo_hello_watch())
+    except Exception:
+        pass
 
 
 def _fo_chat_hello_soon(chat_pk, delay=25):
@@ -10973,6 +11029,17 @@ p(sh("sudo -u postgres psql -d fo -Atc \"SELECT ref_id||' · v='||coalesce(data-
 p("короткое имя агентства Flater: " + (sh("sudo -u postgres psql -d fo -Atc \"SELECT name FROM org WHERE id='3b04b815-6ec2-4818-88cf-55db8163fd89'\"").strip().split(" - ")[0] or "?"))
 p("тексты ботов (свои): " + (sh("sudo -u postgres psql -d fo -Atc \"SELECT count(*) FROM fo_card WHERE kind='sys' AND ref_id LIKE 'bot_texts:%'\"").strip() or "0"))
 p(sh("journalctl -u fo --since '-15min' --no-pager -o cat | grep -E '^322 |^305 ' | tail -8").strip() or "(в журнале пока тихо)")
+p("")
+p("== 325 АББЯСОВА: ЧАТЫ, ПРИВЕТСТВИЯ, ЖУРНАЛ ==")
+p(sh("sudo -u postgres psql -d fo -Atc \"SELECT string_agg(column_name,', ' ORDER BY ordinal_position) FROM information_schema.columns WHERE table_name='client_chat'\"").strip())
+p(sh("sudo -u postgres psql -d fo -Atc \"SELECT 'чат '||ch.id||' · '||ch.title||' · номер '||(ch.chat_id ~ '^-?[0-9]+$')::text||' · добавлен '||coalesce(to_char(ch.added_at AT TIME ZONE 'Europe/Moscow','DD.MM HH24:MI'),'—')||' · '||coalesce(cc.kind,'не подключён')||' · '||coalesce(cl.name,'—') FROM chat ch LEFT JOIN client_chat cc ON cc.chat_pk=ch.id LEFT JOIN client cl ON cl.id=cc.client_id WHERE ch.title ILIKE '%%ббясов%%' OR cl.name ILIKE '%%ббясов%%' ORDER BY ch.id\"").strip() or "(нет)")
+p(sh("sudo -u postgres psql -d fo -Atc \"SELECT f.ref_id||' · изм. '||to_char(f.updated_at AT TIME ZONE 'Europe/Moscow','DD.MM HH24:MI')||' · at='||coalesce(f.data->>'at','')||' · mid='||coalesce(f.data->>'mid','')||' · v='||coalesce(f.data->>'v','')||' · ann='||coalesce((f.data->'ann')::text,'')||' · old='||coalesce(f.data->>'old','') FROM fo_card f WHERE f.kind='sys' AND (f.ref_id LIKE 'chat_%%') AND split_part(f.ref_id,':',2) IN (SELECT ch.id::text FROM chat ch LEFT JOIN client_chat cc ON cc.chat_pk=ch.id LEFT JOIN client cl ON cl.id=cc.client_id WHERE ch.title ILIKE '%%ббясов%%' OR cl.name ILIKE '%%ббясов%%') ORDER BY f.ref_id\"").strip() or "(флагов нет)")
+p("журнал сервиса с 09.10 (Аббясова):")
+p(sh("journalctl -u fo --since '2026-10-09 00:00' --no-pager -o short-iso | grep -E 'ббясов' | grep -vE 'Bearer|token' | tail -40").strip() or "(в журнале нет)")
+p("журнал опроса Telegram с 09.10 (Аббясова):")
+p(sh("journalctl --since '2026-10-09 00:00' --no-pager -o short-iso | grep -E 'ббясов' | grep -vE 'Bearer|token|/fo\\[' | tail -20").strip() or "(нет)")
+p("замки аннотаций для уже отправленных (чтобы не повторить):")
+p(sh("sudo -u postgres psql -d fo -Atc \"INSERT INTO fo_card (kind, ref_id, org_id, data) SELECT 'sys', 'chat_ann:' || split_part(f.ref_id, ':', 2) || ':' || k.key, f.org_id, jsonb_build_object('at', k.value, 'backfill', true) FROM fo_card f, jsonb_each(f.data->'ann') k WHERE f.kind='sys' AND f.ref_id LIKE 'chat_hello:%%' AND jsonb_typeof(f.data->'ann')='object' ON CONFLICT (kind, ref_id) DO NOTHING RETURNING ref_id\"").strip() or "(нечего)")
 p("")
 p("== КОД ==")
 p("дописано в refs.py и signup.py, копия в", bak)
