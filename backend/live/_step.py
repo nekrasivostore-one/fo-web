@@ -7287,6 +7287,48 @@ async def _fo_hello_watch():
 
 
 @router.on_event("startup")
+async def _fo_cleanup_326():
+    """326: удалить повтор аннотации бота отчётов (чат 59, отправлен 14:35) — только своё сообщение по номеру."""
+    await _fo_aio.sleep(40)
+    try:
+        async with pool().acquire() as c:
+            r = await _fo_chat_row(c, 59)
+            if not r or "ббясов" not in str(r["name"] or ""):
+                print("326 чистка: чат 59 не тот —", r and r["name"])
+                return
+            if not await _fo_flag_take(c, r["org_id"], "cleanup326:59:report"):
+                return
+            h = await _fo_chat_hello_get(c, 59) or {}
+            a = str(((h.get("ann") or {}).get("report")) or "")
+            m = re.search(r"14:35 #(\d+)$", a)
+            if not m:
+                print("326 чистка: номера повтора нет —", a)
+                return
+            tok = _fo_bot_toks().get("report")
+            res = None
+            for _i in range(3):
+                res = await _fo_aio.to_thread(_fo_tg_api_sync, "deleteMessage",
+                                              {"chat_id": str(r["chat_id"]), "message_id": int(m.group(1))}, tok, 20)
+                if res and (res.get("ok") or "not found" in str(res.get("description") or "")):
+                    break
+                await _fo_aio.sleep(20)
+            ok = bool(res and res.get("ok"))
+            ann = dict(h.get("ann") or {})
+            ann["report"] = a + (" · повтор удалён " if ok else " · удалить не вышло ") + _fo_mt_now().strftime("%d.%m %H:%M")
+            await _fo_chat_hello_put(c, 59, {"ann": ann})
+            print("326 чистка: повтор бота отчётов в чате", r["name"], "удалён" if ok else "не удалён: " + str((res or {}).get("description"))[:80])
+    except Exception as e:
+        print("326 чистка:", str(e)[:150])
+
+
+@router.on_event("startup")
+async def _fo_cleanup_326_boot():
+    try:
+        _fo_aio.get_running_loop().create_task(_fo_cleanup_326())
+    except Exception:
+        pass
+
+
 async def _fo_hello_watch_boot():
     print("325 сверка выключена: приветствие — только при подключении из карточки")
 
@@ -11178,6 +11220,9 @@ p("")
 p("== 326 ВОРОТА: БЕЗ РЕШЕНИЯ СОБСТВЕННИКА В ГРУППЫ НЕ ПИШЕМ ==")
 p(sh("journalctl -u fo --since '-20min' --no-pager -o cat | grep -E '^(326|325|322|301) ' | tail -12").strip() or "(журнал пока тихий)")
 p("ждут решения: " + (sh("sudo -u postgres psql -d fo -Atc \"SELECT string_agg(ref_id, ', ') FROM fo_card WHERE kind='sys' AND ref_id LIKE 'chat_hello_wait:%%'\"").strip() or "нет"))
+p("")
+p("== 326 ЧИСТКА: ПОВТОР БОТА ОТЧЁТОВ В ЧАТЕ OZON ==")
+p(sh("journalctl -u fo --since '-20min' --no-pager -o cat | grep -E '^326 ' | tail -8").strip() or "(пока не выполнено — через ~40 с после перезапуска)")
 p("")
 p("== КОД ==")
 p("дописано в refs.py и signup.py, копия в", bak)
