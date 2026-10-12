@@ -4865,6 +4865,16 @@ input[data-sk2="role"].edok, input[data-edk="role"].edok{ border-color:var(--ok,
 .fo-bottx-res.ok{ color:var(--ink) }
 .fo-bottx-prev h5{ margin:0 0 6px; font-size:11.5px; color:var(--ink-3); font-weight:600 }
 .fo-bottx-prev pre{ white-space:pre-wrap; font:inherit; font-size:13px; line-height:1.45; background:rgba(120,120,160,.08); border-radius:12px; padding:10px 12px; margin:0 0 10px }
+/* add151: 326 решение о приветствии в группе */
+.fo-hellobox{ margin:6px 0 2px }
+.fo-hello{ display:flex; flex-wrap:wrap; align-items:center; gap:10px; font-size:12px; padding:6px 10px; border-radius:10px }
+.fo-hello.wait{ background:rgba(255,159,67,.12); color:#a85d00 }
+.fo-hello.ok{ color:#2e8b57 }
+.fo-hello.mute{ color:var(--ink-3) }
+.fo-hello-pv{ margin-top:8px; padding:10px 12px; border-radius:12px; background:rgba(120,120,160,.08) }
+.fo-hello-pv h5{ margin:6px 0 4px; font-size:11.5px; color:var(--ink-3); font-weight:600 }
+.fo-hello-pv pre{ white-space:pre-wrap; font:inherit; font-size:13px; line-height:1.45; margin:0 0 6px; background:var(--panel, rgba(255,255,255,.6)); border-radius:10px; padding:8px 10px }
+.fo-hello-btns{ display:flex; gap:8px; margin-top:8px }
 </style>
 </head>
 <body>
@@ -33422,6 +33432,8 @@ function foDistFillSelects(){
    · В «Чат-ботах» и на «Планёрке» «не проверилось» больше не показывается как «✗ бота нет».          */
 (function(){
   var ST = {};     /* клиент → {loading, chats, free, bots, at, err} */
+  window.foChState = function(pid){ return ST[pid]; };           /* 326: состояние для add151 */
+  window.foChReload = function(pid){ try{ load(pid, true); }catch(e){} };
   var KINDS = [["client", "Чат с клиентом"], ["mpv", "Рабочий чат МПВ"], ["internal", "Внутренний"]];
   function liveMgr(){
     try{ return (typeof foLive !== "function" || foLive()) && typeof A !== "undefined" && A && (+A.level || 9) <= 4; }
@@ -35101,6 +35113,75 @@ var FO_BOTTX = null, FO_BOTTX_BUSY = false;
     };
   }
 })();
+
+/* ── 326: «почини сначала, потом спроси меня — можно прислать или нет» (сервер v126) ──
+   У группы клиента в карточке: приветствие и аннотации не уходят, пока собственник/директор не решит:
+   «Посмотреть и отправить» (показываем, что уйдёт) → «Отправить в группу» / «Не отправлять». */
+var FO_HELLO_PV = {};
+(function(){
+  var ANN = {main: "🤖 бот задач", report: "📋 бот отчётов", meet: "📅 бот планёрок"};
+  function top(){ try{ return typeof A !== "undefined" && A && (+A.level || 9) <= 2; }catch(e){ return false; } }
+  function rowHTML(pk, s){
+    var h = (s && s.hello) || {}, st = h.st;
+    if(st === "sent") return '<div class="fo-hello ok">Приветствие в группе — отправлено '+esc(h.at || "")+'</div>';
+    if(st === "declined") return '<div class="fo-hello mute">Приветствие: решили не отправлять</div>';
+    if(st === "old" || st === "sending" || !st) return '';
+    if(!top()) return '<div class="fo-hello wait">Приветствие в группу ждёт решения собственника</div>';
+    var pv = FO_HELLO_PV[pk];
+    var body = '';
+    if(pv && pv.loading) body = '<div class="fo-hint">Готовлю текст…</div>';
+    else if(pv && pv.err) body = '<div class="fo-hint">Не получилось: '+esc(pv.err)+'</div>';
+    else if(pv && pv.d){
+      body = '<div class="fo-hello-pv"><h5>Сообщение «чат подключён»</h5><pre>'+esc(pv.d.hello || "")+'</pre>'+
+        Object.keys(pv.d.ann || {}).map(function(k){ return '<h5>'+esc(ANN[k] || k)+' — отдельным сообщением</h5><pre>'+esc(pv.d.ann[k])+'</pre>'; }).join("")+
+        '<div class="fo-hello-btns"><button class="bt sm pri" data-hellosend="'+esc(pk)+'">Отправить в группу</button>'+
+        '<button class="bt sm gh2" data-hellono="'+esc(pk)+'">Не отправлять</button></div></div>';
+    }
+    return '<div class="fo-hello wait"><span>Приветствие и аннотации в группу не отправлялись — ждут вашего решения</span>'+
+      (pv && pv.d ? '' : '<button class="fo-lnk" data-hellopv="'+esc(pk)+'">Посмотреть и отправить</button>')+'</div>'+body;
+  }
+  if(typeof foChatsBlock === "function"){
+    var _cb2 = foChatsBlock;
+    foChatsBlock = function(pr){
+      var h = _cb2.apply(this, arguments);
+      try{
+        if(!pr || !pr.id || typeof window.foChState !== "function") return h;
+        var d = window.foChState(pr.id); if(!d || !d.chats) return h;
+        var box = document.createElement("div"); box.innerHTML = h;
+        box.querySelectorAll(".fo-chatr").forEach(function(r){
+          var del = r.querySelector("[data-fochatdel]"), pk = del ? del.getAttribute("data-fochatdel") : null; if(!pk) return;
+          var s = d.chats.filter(function(x){ return String(x.pk) === String(pk); })[0];
+          if(!s || !s.tg || s.kind !== "client") return;
+          var html = rowHTML(pk, s); if(!html) return;
+          var w = document.createElement("div"); w.className = "fo-hellobox"; w.setAttribute("data-hellocli", pr.id); w.innerHTML = html;
+          r.appendChild(w);
+        });
+        return box.innerHTML;
+      }catch(e){ return h; }
+    };
+  }
+  function redraw(){ try{ renderCards(); }catch(x){} try{ render(); }catch(x){} }
+  window.addEventListener("click", function(e){
+    var b = e.target.closest && e.target.closest("[data-hellopv], [data-hellosend], [data-hellono]"); if(!b) return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    var pk = b.getAttribute("data-hellopv") || b.getAttribute("data-hellosend") || b.getAttribute("data-hellono");
+    var cli = (b.closest("[data-hellocli]") || {}).getAttribute ? b.closest("[data-hellocli]").getAttribute("data-hellocli") : null;
+    if(b.hasAttribute("data-hellopv")){
+      FO_HELLO_PV[pk] = {loading: true}; redraw();
+      api("/refs/chats/" + encodeURIComponent(pk) + "/hello").then(function(r){ FO_HELLO_PV[pk] = {d: r}; },
+        function(err){ FO_HELLO_PV[pk] = {err: (err && err.message) || "сервер не ответил"}; }).then(redraw);
+      return;
+    }
+    var send = b.hasAttribute("data-hellosend");
+    b.disabled = true;
+    api("/refs/chats/" + encodeURIComponent(pk) + "/hello", {method: "POST", body: {send: send}}).then(function(r){
+      try{ toast(send ? ("Приветствие: " + ((r && r["итог"]) || "отправлено")) : "Хорошо — в эту группу приветствие не отправляем"); }catch(x){}
+      delete FO_HELLO_PV[pk];
+      if(cli && typeof window.foChReload === "function") window.foChReload(cli);
+    }, function(err){ b.disabled = false; try{ toast("Не получилось: " + ((err && err.message) || "")); }catch(x){} });
+  }, true);
+})();
+
 
 })();
 </script>
