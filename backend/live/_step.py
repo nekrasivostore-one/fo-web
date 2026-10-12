@@ -6484,6 +6484,10 @@ async def fo_client_chats_state(client_id: str, p: Principal = Depends(max_level
         for x in await c.fetch("SELECT split_part(ref_id, ':', 2) AS pk, data FROM fo_card WHERE kind='sys' AND ref_id = ANY($1::text[])",
                                ["chat_hello:%s" % r["pk"] for r in rows]):
             hs[str(x["pk"])] = _fo_mt_load(x["data"], None)
+        hw = {str(x["pk"]) for x in await c.fetch("SELECT split_part(ref_id, ':', 2) AS pk FROM fo_card WHERE kind='sys' AND ref_id = ANY($1::text[])",
+                                                  ["chat_hello_wait:%s" % r["pk"] for r in rows])}
+        hk = {str(x["pk"]) for x in await c.fetch("SELECT split_part(ref_id, ':', 2) AS pk FROM fo_card WHERE kind='sys' AND ref_id = ANY($1::text[])",
+                                                  ["chat_hello_ok:%s" % r["pk"] for r in rows])}
     free = sorted(({"pk": f["pk"], "title": f["title"] or "", "added": f["added_at"].isoformat() if f["added_at"] else None,
                     "match": _fo_chat_has(_fo_chat_norm(f["title"]), cname)}
                    for f in free if not _FO_CHAT_SKIP.search(_fo_chat_norm(f["title"]))), key=lambda x: -x["match"])
@@ -6507,7 +6511,8 @@ async def fo_client_chats_state(client_id: str, p: Principal = Depends(max_level
             for bk, (ok, st) in zip(("main", "meet", "report"), res):
                 bots.append({"bot": bk, "name": names[bk], "username": (mes.get(bk) or {}).get("username") or "",
                              "in": ok, "status": st})
-        out.append({"pk": r["pk"], "title": r["title"] or "", "kind": r["kind"], "tg": num if isnum else None, "bots": bots})
+        out.append({"pk": r["pk"], "title": r["title"] or "", "kind": r["kind"], "tg": num if isnum else None, "bots": bots,
+                    "hello": _fo_hello_state(hs.get(str(r["pk"])), str(r["pk"]) in hw, str(r["pk"]) in hk)})
         if isnum:
             _fo_chat_hello_soon(r["pk"], 3)               # 301: подключили из карточки — в группу «подключились» (один раз)
             h = hs.get(str(r["pk"]))
@@ -6777,6 +6782,8 @@ async def _fo_chat_announce(c, chat_pk, r, st, users, force=False):
             return "приветствия нет"
         if not force and int(h.get("v") or 0) < 121:
             return "чат подключён до v121 — только по кнопке"
+        if not force and not await _fo_hello_ok(c, chat_pk):
+            return "нет разрешения собственника — не отправляем"
         ann = dict(h.get("ann") or {})
         tx = await _fo_bot_texts(c, r["org_id"])
         toks = _fo_bot_toks()
@@ -6895,6 +6902,14 @@ async def _fo_chat_hello(c, chat_pk):
     if not r:
         return None
     key = "chat_hello:%s" % chat_pk
+    if await c.fetchval("SELECT 1 FROM fo_card WHERE kind='sys' AND ref_id=$1", key):
+        return None
+    if not await _fo_hello_ok(c, chat_pk):                 # 326: сначала решение собственника в карточке
+        await c.execute("INSERT INTO fo_card (kind, ref_id, org_id, data) VALUES ('sys', $1, $2, $3::jsonb) "
+                        "ON CONFLICT (kind, ref_id) DO NOTHING", "chat_hello_wait:%s" % chat_pk, r["org_id"],
+                        _fo_json.dumps({"at": _fo_mt_now().strftime("%d.%m %H:%M")}))
+        print("326 приветствие ждёт решения собственника:", r["name"])
+        return None
     if not await _fo_flag_take(c, r["org_id"], key):
         return None
     line, miss, st, users = await _fo_chat_bots_st2(r["chat_id"])
@@ -6909,6 +6924,91 @@ async def _fo_chat_hello(c, chat_pk):
         print("322 аннотации:", r["name"], await _fo_chat_announce(c, chat_pk, r, st, users))
     print("301 чат подключён:", r["name"], r["kind"], "· в группу:", "ушло" if res and res.get("ok") else str((res or {}).get("description"))[:80])
     return res
+
+
+# ══ 326 (Виталий 12.10): «почини сначала, потом спроси меня — можно прислать или нет». В группу клиента сервис сам
+# ничего не пишет: приветствие и аннотации ждут решения собственника/директора в карточке клиента
+# («Посмотреть и отправить» / «Не отправлять»). Разрешение — fo_card sys chat_hello_ok:<чат>; ожидание —
+# chat_hello_wait:<чат>; отказ — chat_hello:<чат> {old, declined}. Без разрешения статус «чат подключён» только
+# правится на месте (если уже был), новым сообщением не уходит; аннотации не уходят. ══
+async def _fo_hello_ok(c, chat_pk):
+    return bool(await c.fetchval("SELECT 1 FROM fo_card WHERE kind='sys' AND ref_id=$1", "chat_hello_ok:%s" % chat_pk))
+
+
+def _fo_hello_state(h, wait, ok):
+    if isinstance(h, dict):
+        if h.get("declined"):
+            return {"st": "declined", "at": h.get("at")}
+        if h.get("old"):
+            return {"st": "old"}
+        if h.get("mid"):
+            return {"st": "sent", "at": h.get("at"), "ann": h.get("ann") or {}}
+        return {"st": "sending", "at": h.get("at")}
+    if wait:
+        return {"st": "wait", "ok": ok}
+    return {"st": "none", "ok": ok}
+
+
+async def _fo_hello_preview(c, chat_pk):
+    r = await _fo_chat_row(c, chat_pk)
+    if not r:
+        raise HTTPException(404, "чат не подключён к клиенту или у группы нет номера")
+    line, miss, st, users = await _fo_chat_bots_st2(r["chat_id"])
+    tx = await _fo_bot_texts(c, r["org_id"])
+    ann = {}
+    if r["kind"] == "client":
+        for bk in ("main", "report", "meet"):
+            if st.get(bk):
+                ann[bk] = _fo_bot_fill(tx.get(bk) or "", tx, r, users)
+    return r, {"chat": r["name"], "kind": r["kind"], "hello": await _fo_chat_hello_txt2(c, r, st, users), "ann": ann,
+               "bots": {k: bool(v) for k, v in st.items()}}
+
+
+@router.get("/chats/{chat_pk}/hello")
+async def fo_chat_hello_get(chat_pk: int, p: Principal = Depends(max_level(2))):
+    """326: что уйдёт в группу (приветствие и аннотации) и в каком состоянии решение."""
+    async with pool().acquire() as c:
+        r, pv = await _fo_hello_preview(c, chat_pk)
+        if str(r["org_id"]) != str(p.org_id):
+            raise HTTPException(404, "чат не найден")
+        h = await _fo_chat_hello_get(c, chat_pk)
+        w = await c.fetchval("SELECT 1 FROM fo_card WHERE kind='sys' AND ref_id=$1", "chat_hello_wait:%s" % chat_pk)
+        pv["state"] = _fo_hello_state(h, bool(w), await _fo_hello_ok(c, chat_pk))
+    return pv
+
+
+class FoHelloDecideIn(_FoBM):
+    send: bool = True
+
+
+@router.post("/chats/{chat_pk}/hello")
+async def fo_chat_hello_decide(chat_pk: int, body: FoHelloDecideIn, p: Principal = Depends(max_level(2))):
+    """326: «Отправить» — приветствие и аннотации уходят сейчас; «Не отправлять» — в эту группу сервис не пишет."""
+    async with pool().acquire() as c:
+        r = await _fo_chat_row(c, chat_pk)
+        if not r or str(r["org_id"]) != str(p.org_id):
+            raise HTTPException(404, "чат не найден")
+        h = await _fo_chat_hello_get(c, chat_pk)
+        if isinstance(h, dict) and (h.get("mid") or h.get("old")):
+            return {"ok": True, "итог": "уже решено: " + _fo_hello_state(h, False, True)["st"]}
+        now = _fo_mt_now().strftime("%d.%m %H:%M")
+        if not body.send:
+            await c.execute("INSERT INTO fo_card (kind, ref_id, org_id, data) VALUES ('sys', $1, $2, $3::jsonb) "
+                            "ON CONFLICT (kind, ref_id) DO UPDATE SET data = fo_card.data || EXCLUDED.data, updated_at = now()",
+                            "chat_hello:%s" % chat_pk, r["org_id"], _fo_json.dumps({"old": True, "declined": True, "at": now}))
+            await _fo_flag_drop(c, "chat_hello_wait:%s" % chat_pk)
+            print("326 приветствие: собственник решил не отправлять —", r["name"])
+            return {"ok": True, "итог": "не отправляем"}
+        await c.execute("INSERT INTO fo_card (kind, ref_id, org_id, data) VALUES ('sys', $1, $2, $3::jsonb) "
+                        "ON CONFLICT (kind, ref_id) DO NOTHING",
+                        "chat_hello_ok:%s" % chat_pk, r["org_id"], _fo_json.dumps({"at": now, "by": str(_fo_uid(p))}))
+        await _fo_flag_drop(c, "chat_hello_wait:%s" % chat_pk)
+        res = await _fo_chat_hello(c, chat_pk)
+        h2 = await _fo_chat_hello_get(c, chat_pk)
+    ok = bool(res and res.get("ok"))
+    print("326 приветствие по решению собственника:", r["name"], "ушло" if ok else str((res or {}).get("description"))[:80])
+    return {"ok": ok, "итог": "отправлено" if ok else ("не ушло: " + str((res or {}).get("description") or "Telegram не ответил")[:80] +
+            " — повторю через 5 минут"), "ann": (h2 or {}).get("ann") if isinstance(h2, dict) else None}
 
 
 async def _fo_chat_find_mid(c, chat_id, h):
@@ -6981,6 +7081,9 @@ async def _fo_chat_status(c, chat_pk, sweep=False):
                 if sweep:
                     await _fo_chat_hello_put(c, chat_pk, {"st": st, "fix": how + " · не наше: " + d[:60], "upd": now})
                     return "старое сообщение не нашлось: " + how + " · не наше"
+        if not await _fo_hello_ok(c, chat_pk):               # 326: новое сообщение в группу — только с разрешения
+            await _fo_chat_hello_put(c, chat_pk, {"st": st, "upd": now, "fix": "правка не прошла, новым не пишем — нет разрешения"})
+            return "правка не прошла; новым сообщением не пишем без разрешения"
         res = await _fo_chat_tg("sendMessage", {"chat_id": str(r["chat_id"]), "text": txt, "disable_web_page_preview": True})
         if not (res and res.get("ok")):
             return "не ушло: " + str((res or {}).get("description"))[:80]
@@ -11071,6 +11174,10 @@ p("")
 p("== 325 v125: ЧТО УШЛО В ЧАТЫ СЕГОДНЯ ==")
 p(sh("journalctl -u fo --since '2026-10-12 11:00' --no-pager -o short-iso | grep -E ' (325|322|301|305) ' | grep -vE 'Bearer|token' | tail -60").strip() or "(журнал пуст)")
 p(sh("sudo -u postgres psql -d fo -Atc \"SELECT f.ref_id||' · '||coalesce(cl.name,'?')||' · '||coalesce(ch.title,'?')||' · изм. '||to_char(f.updated_at AT TIME ZONE 'Europe/Moscow','DD.MM HH24:MI')||' · mid='||coalesce(f.data->>'mid','')||' · ann='||coalesce((f.data->'ann')::text,'') FROM fo_card f LEFT JOIN chat ch ON ch.id::text = split_part(f.ref_id,':',2) LEFT JOIN client_chat cc ON cc.chat_pk = ch.id LEFT JOIN client cl ON cl.id = cc.client_id WHERE f.kind='sys' AND f.ref_id LIKE 'chat_hello:%%' AND f.updated_at > now() - interval '6 hours' ORDER BY f.updated_at\"").strip() or "(сегодня приветствий нет)")
+p("")
+p("== 326 ВОРОТА: БЕЗ РЕШЕНИЯ СОБСТВЕННИКА В ГРУППЫ НЕ ПИШЕМ ==")
+p(sh("journalctl -u fo --since '-20min' --no-pager -o cat | grep -E '^(326|325|322|301) ' | tail -12").strip() or "(журнал пока тихий)")
+p("ждут решения: " + (sh("sudo -u postgres psql -d fo -Atc \"SELECT string_agg(ref_id, ', ') FROM fo_card WHERE kind='sys' AND ref_id LIKE 'chat_hello_wait:%%'\"").strip() or "нет"))
 p("")
 p("== КОД ==")
 p("дописано в refs.py и signup.py, копия в", bak)
