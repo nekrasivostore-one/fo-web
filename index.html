@@ -4875,25 +4875,23 @@ input[data-sk2="role"].edok, input[data-edk="role"].edok{ border-color:var(--ok,
 .fo-hello-pv h5{ margin:6px 0 4px; font-size:11.5px; color:var(--ink-3); font-weight:600 }
 .fo-hello-pv pre{ white-space:pre-wrap; font:inherit; font-size:13px; line-height:1.45; margin:0 0 6px; background:var(--panel, rgba(255,255,255,.6)); border-radius:10px; padding:8px 10px }
 .fo-hello-btns{ display:flex; gap:8px; margin-top:8px }
-/* add152: 327 планёрки — свободные окна, выбор клиента, вопрос «сейчас / завтра» */
+/* add152: 327 планёрки — свободные окна, форма в клетке, кнопки отправки в строке */
 .fo-mtfree{ display:block; width:100%; box-sizing:border-box; text-align:left; margin:0 0 6px; padding:6px 10px; border-radius:10px;
   border:1.5px dashed rgba(124,92,255,.35); background:transparent; color:var(--ink-3); font:inherit; font-size:12px; cursor:pointer }
 .fo-mtfree b{ color:#6d4bd8; font-weight:600 }
 .fo-mtfree:hover{ background:rgba(124,92,255,.07); border-color:#7C5CFF; color:var(--ink) }
-.fo-mtpop{ position:fixed; z-index:9999; width:360px; max-width:calc(100vw - 24px); box-sizing:border-box; padding:12px 14px; border-radius:14px;
-  background:var(--panel, #fff); border:1px solid var(--stroke-2, rgba(0,0,0,.12)); box-shadow:0 12px 40px rgba(20,10,60,.22); display:flex; flex-direction:column; gap:8px; font-size:12.5px }
-.fo-mtpop label{ display:flex; flex-direction:column; gap:3px; color:var(--ink-3); font-size:11.5px }
-.fo-mtpop select, .fo-mtpop input[type=time]{ width:100% }
-.fo-mtpoph{ font-weight:600; color:var(--ink); font-size:12.5px }
-.fo-mtpopq{ color:var(--ink) }
-.fo-mtpopr{ display:grid; grid-template-columns:1fr 1fr; gap:8px }
-.fo-mtpopm{ display:flex; flex-direction:column; gap:4px }
-.fo-mtpopm label{ flex-direction:row; align-items:center; gap:6px; color:var(--ink); font-size:12px }
-.fo-mtpopst{ color:#c0392b; font-size:11.5px; min-height:0 }
-.fo-mtpopst:empty{ display:none }
-.fo-mtpopb{ display:flex; flex-wrap:wrap; gap:8px }
-.fo-mtask{ flex-basis:100%; display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-top:8px; padding:8px 10px; border-radius:10px; background:rgba(124,92,255,.08); font-size:12.5px }
-.fo-mtask span{ font-weight:600 }
+.fo-mtslotf{ display:flex; flex-direction:column; gap:6px; margin:0 0 6px; padding:8px 10px; border-radius:12px; border:1.5px solid #7C5CFF; background:rgba(124,92,255,.06) }
+.fo-mtsh{ font-size:12px; font-weight:600; color:var(--ink) }
+.fo-mtslotf select, .fo-mtslotf input[type=time]{ width:100%; box-sizing:border-box }
+.fo-mtsr{ display:grid; grid-template-columns:1fr 1fr; gap:6px }
+.fo-mtsm2{ display:flex; flex-direction:column; gap:3px; font-size:11.5px }
+.fo-mtsm2 label{ display:flex; align-items:flex-start; gap:6px }
+.fo-mtserr{ color:#c0392b; font-size:11.5px }
+.fo-mtsb{ display:flex; flex-wrap:wrap; gap:6px; align-items:center }
+.fo-mtsb .bt{ flex:1 1 auto }
+.fo-mtgo{ display:none; gap:8px; align-items:center }
+.fo-mted.dirty .fo-mtgo, .fo-mted[data-mtst="draft"] .fo-mtgo, .fo-mted[data-mtst="queued"] .fo-mtgo, .fo-mtgo.on{ display:inline-flex }
+.fo-mtsending{ font-size:12px; color:#6d4bd8; font-weight:600 }
 .fo-mtsch{ flex-basis:100%; margin-top:6px; font-size:12px; color:#6d4bd8 }
 .fo-mthint{ flex-basis:100%; display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin-top:6px; font-size:11.5px; color:var(--ink-3) }
 .fo-mthl{ font-weight:600 }
@@ -35211,27 +35209,35 @@ var FO_HELLO_PV = {};
 
 
 /* ===== add152: 327 — «Планёрка»: отправка на согласование, свободные окна, подсказки (Виталий 12.10)
-   1) «Вписал время и нажал „Сохранить“ — отправь на согласование и спроси: сейчас или завтра в 10:00».
-      После «Сохранить» (график изменился, «не согласована») в строке клиента: «Отправить клиенту на согласование?
-      [Сейчас] [Завтра в 10:00] [Не отправлять]». «Завтра» — следующий рабочий день 10:00, сервер отправит сам
-      (POST /refs/meet/{клиент}/send-at, v128); в строке видно «отправится … · отменить».
-   2) «Пустые слоты с выбором клиента — выбирать и со стороны клиента, и со стороны слотов; расположение не меняй».
-      Календарь «Ведёт × дни»: в клетке между планёрками — пунктирные «+ свободно 13:00–17:00» (окно 09:00–17:00,
-      не короче 30 мин, прошлые дни — без окон). Нажали → выбрать клиента, время, длительность, «перенести сюда» или
-      «добавить ещё одну» → «Поставить» → тот же вопрос «сейчас / завтра в 10:00».
-   3) «График по кабинетам»: когда правите строку, под ней — «Свободно у Вероники: вт 09:00–11:50 · 13:00–17:00»,
-      нажали окно — время подставилось.                                                                         */
-var FO_MT_ASK = {};       /* клиент → "pending" (ждём ответа сервера) | true (спросить) */
+   1) «Вписал время — отправь на согласование: сейчас или завтра в 10:00; кнопки — сразу, без второго „Сохранить“».
+      В строке клиента, как только время/дни/ведущий изменены (или график «не согласован»), рядом с «Сохранить» —
+      «Отправить сейчас» и «Завтра в 10:00» (в пятницу — «В понедельник в 10:00»): сохраняют и отправляют одним
+      нажатием. Отправка идёт на сервере в фоне (v131): на экране «Отправляю клиенту…», потом настоящий результат;
+      повтор той же отправки 3 минуты не проходит — дублей нет. «Завтра» — сервер отправит сам, в строке видно
+      «Отправится … · отменить».
+   2) «Пустые слоты с выбором клиента; расположение не меняй». Календарь «Ведёт × дни»: между планёрками — пунктирные
+      «+ свободно 13:00–17:00» (09:00–17:00, от 30 мин, прошлые дни — без окон). Нажали — форма раскрывается прямо в
+      клетке (не всплывающим окном): клиент, время, длительность, «перенести сюда» / «добавить ещё одну» →
+      «Отправить сейчас» / «Завтра в 10:00» / «Только поставить».
+   3) «График по кабинетам»: когда правите строку — «Свободно: вт у Вероники 09:00–11:50 · 13:00–17:00», нажали окно —
+      время подставилось.                                                                                        */
 var FO_MT_SCHED = {};     /* клиент → "ГГГГ-ММ-ДД ЧЧ:ММ" — отправится по расписанию */
 var FO_MT_SCHED_AT = 0;
+var FO_MT_SENDING = {};   /* клиент → текст «Отправляю…» */
+var FO_MT_SLOT = null;    /* открытая форма свободного окна в календаре */
 (function(){
   var FROM = 9 * 60, TO = 17 * 60, MINW = 30;
   var DOWL = ["в воскресенье", "в понедельник", "во вторник", "в среду", "в четверг", "в пятницу", "в субботу"];
   function hm(m){ m = Math.round(m); return ("0" + Math.floor(m / 60)).slice(-2) + ":" + ("0" + (m % 60)).slice(-2); }
   function toMin(t){ var h = foMtHour(t); return h == null ? null : Math.round(h * 60); }
   function nextWork(){ var d = new Date(); d.setDate(d.getDate() + 1); while(d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() + 1); return d; }
-  function nextLabel(){ var d = nextWork(), t = new Date(); t.setDate(t.getDate() + 1); return (d.toDateString() === t.toDateString() ? "завтра" : DOWL[d.getDay()]) + " в 10:00"; }
+  function nextLabel(cap){ var d = nextWork(), t = new Date(); t.setDate(t.getDate() + 1); var s = (d.toDateString() === t.toDateString() ? "завтра" : DOWL[d.getDay()]) + " в 10:00";
+    return cap ? s.charAt(0).toUpperCase() + s.slice(1) : s; }
   function atLabel(at){ var p = String(at || "").split(" "), d = (p[0] || "").split("-"); return d.length === 3 ? d[2] + "." + d[1] + " в " + (p[1] || "") : at; }
+  function rows(){ return ((FO_MT.srv || {}).rows || []); }
+  function hasSlots(r){ return !!(r && Object.keys(r.slots || {}).length && r.status !== "off"); }
+  function slotTxt(r){ var sl = r.slots || {}; return Object.keys(sl).sort().map(function(k){ return FO_MT_DOW[+k] + " " + sl[k].time; }).join(", "); }
+  function redraw(){ try{ foMtRender(); }catch(e){} }
   function schedLoad(force){
     if(!force && Date.now() - FO_MT_SCHED_AT < 20000) return Promise.resolve();
     FO_MT_SCHED_AT = Date.now();
@@ -35247,11 +35253,78 @@ var FO_MT_SCHED_AT = 0;
     return out;
   }
   function nowMin(){ var n = new Date(); return Math.ceil((n.getHours() * 60 + n.getMinutes()) / 5) * 5; }
-  function rows(){ return ((FO_MT.srv || {}).rows || []); }
-  function hasSlots(r){ return r && Object.keys(r.slots || {}).length && r.status !== "off"; }
-  function slotTxt(r){ var sl = r.slots || {}; return Object.keys(sl).sort().map(function(k){ return FO_MT_DOW[+k] + " " + sl[k].time; }).join(", "); }
 
-  /* ── 2) календарь: свободные окна в клетках ── */
+  /* ── сервер: сохранить график, отправить сейчас (в фоне), отправить по расписанию ── */
+  function saveSlots(pid, slots, fixed){
+    return api("/refs/meet/" + encodeURIComponent(pid) + "/save", {method: "POST", body: {slots: slots, fixed: !!fixed, mark: null}}).then(function(res){
+      delete FO_MT.draft[pid]; foMtPut(res.row); FO_MT.timesAt = 0;
+      try{ if(typeof loadLive === "function") loadLive(); }catch(e){}
+      return res.row;
+    });
+  }
+  function finish(pid, st){
+    delete FO_MT_SENDING[pid];
+    var msg = st && st.state === "proposed" ? "Бот планёрок отправил клиенту на согласование" :
+      st && st.state === "sending" ? "Telegram отвечает медленно — отправка ещё идёт, статус обновится сам" :
+      "Не отправилось: " + ((st && st.why) || "сервер не ответил");
+    try{ toast(msg); }catch(e){}
+    foMtLoad(true).then(redraw);
+  }
+  function poll(pid, n){
+    return new Promise(function(r){ setTimeout(r, 3000); }).then(function(){ return api("/refs/meet/" + encodeURIComponent(pid) + "/send-state"); })
+      .then(function(st){ if((!st || st.state === "sending" || st.state === "none") && n < 30) return poll(pid, n + 1); finish(pid, st); },
+            function(){ if(n < 30) return poll(pid, n + 1); finish(pid, {state: "sending"}); });
+  }
+  function sendNow(pid){
+    FO_MT_SENDING[pid] = "Отправляю клиенту…"; redraw();
+    return api("/refs/meet/" + encodeURIComponent(pid) + "/send", {method: "POST", body: {test: false}}).then(function(res){
+      delete FO_MT_SCHED[pid];
+      if(res && res.dup){ try{ toast("Только что уже отправлено — повторно не отправляю"); }catch(e){} }
+      if(res && res.state && res.state !== "sending"){ finish(pid, res); return; }
+      return poll(pid, 0);
+    }, function(err){
+      if(/400/.test(String(err && err.message)) || /задайте график/.test(String(err && err.message))){ finish(pid, {state: "error", why: err.message}); return; }
+      return poll(pid, 0);          /* ответ не дошёл (сервер перезапускался / долго) — смотрим, что на самом деле */
+    });
+  }
+  function sendLater(pid){
+    var at = foMtIso(nextWork()) + " 10:00";
+    return api("/refs/meet/" + encodeURIComponent(pid) + "/send-at", {method: "POST", body: {at: at}}).then(function(){
+      FO_MT_SCHED[pid] = at; try{ toast("Отправлю клиенту на согласование " + nextLabel()); }catch(e){} foMtLoad(true).then(redraw);
+    });
+  }
+  /* «предложить сейчас» из старого кода — тем же путём */
+  if(typeof foMtSend === "function"){ foMtSend = function(pid){ sendNow(pid); }; }
+  if(typeof foMtLoad === "function"){
+    var _ld = foMtLoad;
+    foMtLoad = function(force){ var p = _ld.apply(this, arguments); try{ schedLoad(!!force); }catch(e){} return p; };
+  }
+
+  /* ── 2) календарь: свободные окна, форма — прямо в клетке ── */
+  function minsOpts(pid, cur){
+    var r = foMtRow(pid) || {}, lv = FO_MT_LV[r.level] || FO_MT_LV[3], o = lv.mins.slice(); cur = +cur || o[0];
+    if(o.indexOf(cur) < 0) o.push(cur);
+    return o.sort(function(a, b){ return a - b; }).map(function(n){ return '<option value="' + n + '"' + (n === cur ? ' selected' : '') + '>' + n + ' мин</option>'; }).join("");
+  }
+  function slotForm(P){
+    var list = rows().slice().sort(function(a, b){ return (hasSlots(a) ? 1 : 0) - (hasSlots(b) ? 1 : 0) || (a.rank || 0) - (b.rank || 0); });
+    var r = P.pid ? foMtRow(P.pid) : null, has = hasSlots(r);
+    if(P.busy) return '<div class="fo-mtslotf"><div class="fo-mtsh">' + esc(P.busy) + '</div></div>';
+    return '<div class="fo-mtslotf" data-mtslotf="' + esc(P.key) + '">' +
+      '<div class="fo-mtsh">' + FO_MT_DOW[P.dw] + ' ' + foMtDm(P.iso) + ' · свободно ' + hm(P.a) + '–' + hm(P.b) + '</div>' +
+      '<select class="sel sm" data-mtscli><option value="">— клиент —</option>' + list.map(function(x){
+        return '<option value="' + esc(x.client_id) + '"' + (String(x.client_id) === String(P.pid) ? ' selected' : '') + '>' + esc(x.name) +
+          (hasSlots(x) ? ' · сейчас ' + esc(slotTxt(x)) : ' · без планёрки') + '</option>'; }).join("") + '</select>' +
+      '<div class="fo-mtsr"><input class="fi sm" type="time" data-mtstime value="' + esc(P.time || hm(P.a)) + '" min="' + hm(P.a) + '" max="' + hm(P.b) + '">' +
+        '<select class="sel sm" data-mtsmin>' + (P.pid ? minsOpts(P.pid, P.min) : '<option value="40">40 мин</option>') + '</select></div>' +
+      (has ? '<div class="fo-mtsm2"><label><input type="radio" name="mtsmode" value="move"' + (P.mode !== "add" ? ' checked' : '') + '> перенести сюда (было: ' + esc(slotTxt(r)) + ')</label>' +
+        '<label><input type="radio" name="mtsmode" value="add"' + (P.mode === "add" ? ' checked' : '') + '> добавить ещё одну</label></div>' : '') +
+      (P.err ? '<div class="fo-mtserr">' + esc(P.err) + '</div>' : '') +
+      '<div class="fo-mtsb"><button class="bt sm pri" data-mtsgo="now">Отправить сейчас</button>' +
+        '<button class="bt sm" data-mtsgo="later">' + esc(nextLabel(true)) + '</button>' +
+        '<button class="bt sm gh2" data-mtsgo="save">Только поставить</button>' +
+        '<button class="fo-lnk" data-mtsgo="cancel">Отмена</button></div></div>';
+  }
   if(typeof foMtWeekGrid === "function"){
     var _wg = foMtWeekGrid;
     foMtWeekGrid = function(ev, mon, rg, cur){
@@ -35271,11 +35344,15 @@ var FO_MT_SCHED_AT = 0;
             var busy = wev.filter(function(e){ return e.host === host && e.iso === dd.iso; }).map(function(e){ return {t: e.t, min: e.min}; });
             var cards = Array.prototype.slice.call(cell.querySelectorAll(".fo-mtev"));
             free(busy, dd.iso === today ? nowMin() : 0).forEach(function(w){
-              var b = document.createElement("button"); b.className = "fo-mtfree";
-              b.setAttribute("data-mtfree", [host, dd.iso, dd.dw, w[0], w[1]].join("|"));
-              b.innerHTML = '<b>+ свободно</b> ' + hm(w[0]) + '–' + hm(w[1]);
-              var before = cards.filter(function(c){ var t = toMin((c.querySelector("b") || {}).textContent); return t != null && t >= w[1]; })[0];
-              if(before) cell.insertBefore(b, before); else cell.appendChild(b);
+              var key = [host, dd.iso, dd.dw, w[0], w[1]].join("|"), el;
+              if(FO_MT_SLOT && FO_MT_SLOT.key === key){
+                var t = document.createElement("div"); t.innerHTML = slotForm(FO_MT_SLOT); el = t.firstElementChild;
+              } else {
+                el = document.createElement("button"); el.className = "fo-mtfree"; el.setAttribute("data-mtfree", key);
+                el.innerHTML = '<b>+ свободно</b> ' + hm(w[0]) + '–' + hm(w[1]);
+              }
+              var before = cards.filter(function(c){ var tt = toMin((c.querySelector("b") || {}).textContent); return tt != null && tt >= w[1]; })[0];
+              if(before) cell.insertBefore(el, before); else cell.appendChild(el);
             });
           });
         });
@@ -35283,98 +35360,36 @@ var FO_MT_SCHED_AT = 0;
       }catch(e){ return h; }
     };
   }
-
-  /* окно выбора клиента для свободного слота */
-  var POP = null;
-  function popClose(){ if(POP && POP.el && POP.el.parentNode) POP.el.parentNode.removeChild(POP.el); POP = null; }
-  function minsOpts(pid, cur){
-    var r = foMtRow(pid) || {}, lv = FO_MT_LV[r.level] || FO_MT_LV[3], o = lv.mins.slice(); cur = +cur || o[0];
-    if(o.indexOf(cur) < 0) o.push(cur);
-    return o.sort(function(a, b){ return a - b; }).map(function(n){ return '<option value="' + n + '"' + (n === cur ? ' selected' : '') + '>' + n + ' мин</option>'; }).join("");
+  function slotRead(){
+    var f = FO_MT_SLOT && document.querySelector('#sect [data-mtslotf="' + FO_MT_SLOT.key.replace(/"/g, '') + '"]'); if(!f) return;
+    var c = f.querySelector("[data-mtscli]"), t = f.querySelector("[data-mtstime]"), m = f.querySelector("[data-mtsmin]"), md = f.querySelector('input[name="mtsmode"]:checked');
+    if(c) FO_MT_SLOT.pid = c.value; if(t) FO_MT_SLOT.time = t.value; if(m) FO_MT_SLOT.min = +m.value; if(md) FO_MT_SLOT.mode = md.value;
   }
-  function popBody(){
-    var P = POP, list = rows().slice().sort(function(a, b){ var x = hasSlots(a) ? 1 : 0, y = hasSlots(b) ? 1 : 0; return x - y || (a.rank || 0) - (b.rank || 0); });
-    if(P.step === "ask"){
-      return '<div class="fo-mtpoph">' + esc(P.done || "") + '</div><div class="fo-mtpopq">Отправить клиенту на согласование?</div>' +
-        '<div class="fo-mtpopb"><button class="bt sm pri" data-mtask="now|' + esc(P.pid) + '">Сейчас</button>' +
-        '<button class="bt sm" data-mtask="later|' + esc(P.pid) + '">' + esc(nextLabel().charAt(0).toUpperCase() + nextLabel().slice(1)) + '</button>' +
-        '<button class="bt sm gh2" data-mtask="no|' + esc(P.pid) + '">Не отправлять</button></div>';
-    }
-    var r = P.pid ? foMtRow(P.pid) : null, has = r && hasSlots(r);
-    return '<div class="fo-mtpoph">' + FO_MT_DOW[P.dw].toUpperCase() + ' ' + foMtDm(P.iso) + ' · ' + esc(foMtName(P.host) || "") + ' · свободно ' + hm(P.a) + '–' + hm(P.b) + '</div>' +
-      '<label>Клиент <select class="sel sm" data-mtpcli><option value="">— выберите клиента —</option>' + list.map(function(x){
-        return '<option value="' + esc(x.client_id) + '"' + (String(x.client_id) === String(P.pid) ? ' selected' : '') + '>' + esc(x.name) +
-          (hasSlots(x) ? ' — сейчас: ' + esc(slotTxt(x)) : ' — без планёрки') + '</option>'; }).join("") + '</select></label>' +
-      '<div class="fo-mtpopr"><label>Время <input class="fi sm" type="time" data-mtptime value="' + esc(P.time || hm(P.a)) + '" min="' + hm(P.a) + '" max="' + hm(P.b) + '"></label>' +
-      '<label>Длится <select class="sel sm" data-mtpmin>' + (P.pid ? minsOpts(P.pid, P.min) : '<option value="40">40 мин</option>') + '</select></label></div>' +
-      (has ? '<div class="fo-mtpopm"><label><input type="radio" name="mtpmode" value="move"' + (P.mode !== "add" ? ' checked' : '') + '> перенести сюда (вместо: ' + esc(slotTxt(r)) + ')</label>' +
-        '<label><input type="radio" name="mtpmode" value="add"' + (P.mode === "add" ? ' checked' : '') + '> добавить ещё одну</label></div>' : '') +
-      '<div class="fo-mtpopst" data-mtpst>' + esc(P.err || "") + '</div>' +
-      '<div class="fo-mtpopb"><button class="bt sm pri" data-mtpok' + (P.busy ? ' disabled' : '') + '>' + (P.busy ? 'Ставлю…' : 'Поставить') + '</button><button class="bt sm gh2" data-mtpno>Отмена</button></div>';
-  }
-  function popDraw(){ if(!POP) return; POP.el.innerHTML = popBody(); }   /* обычные списки: свои выпадашки рисуются вне окна и закрыли бы его */
-  function popOpen(btn, v){
-    popClose();
-    var p = String(v).split("|"), r = btn.getBoundingClientRect(), el = document.createElement("div");
-    el.className = "fo-mtpop";
-    el.style.top = Math.min(window.innerHeight - 330, r.bottom + 6) + "px";
-    el.style.left = Math.max(12, Math.min(window.innerWidth - 372, r.left)) + "px";
-    POP = {el: el, host: p[0], iso: p[1], dw: +p[2], a: +p[3], b: +p[4], pid: "", time: "", min: 0, mode: ""};
-    document.body.appendChild(el); popDraw();
-  }
-  function popRead(){
-    if(!POP) return;
-    var q = function(s){ return POP.el.querySelector(s); };
-    var c = q("[data-mtpcli]"), t = q("[data-mtptime]"), m = q("[data-mtpmin]"), md = POP.el.querySelector('input[name="mtpmode"]:checked');
-    if(c) POP.pid = c.value; if(t) POP.time = t.value; if(m) POP.min = +m.value; if(md) POP.mode = md.value;
-  }
-  function popSave(){
-    popRead();
-    var P = POP; if(!P) return;
-    if(!P.pid){ P.err = "Выберите клиента"; popDraw(); return; }
+  function slotGo(how){
+    slotRead();
+    var P = FO_MT_SLOT; if(!P) return;
+    if(how === "cancel"){ FO_MT_SLOT = null; redraw(); return; }
+    if(!P.pid){ P.err = "Выберите клиента"; redraw(); return; }
     var t = toMin(P.time), r = foMtRow(P.pid) || {}, lv = FO_MT_LV[r.level] || FO_MT_LV[3], mn = +P.min || lv.mins[0];
-    if(t == null){ P.err = "Укажите время"; popDraw(); return; }
-    if(t < P.a || t + mn > P.b){ P.err = "Не помещается в свободное окно " + hm(P.a) + "–" + hm(P.b) + " — выберите время раньше или короче"; popDraw(); return; }
+    if(t == null){ P.err = "Укажите время"; redraw(); return; }
+    if(t < P.a || t + mn > P.b){ P.err = "Не помещается в окно " + hm(P.a) + "–" + hm(P.b) + ": выберите время раньше или короче"; redraw(); return; }
     var sl = (P.mode === "add" || !hasSlots(r)) ? JSON.parse(JSON.stringify(hasSlots(r) ? r.slots : {})) : {};
     sl[String(P.dw)] = {time: hm(t), minutes: mn, host: P.host};
-    P.busy = true; P.err = ""; popDraw();
-    api("/refs/meet/" + encodeURIComponent(P.pid) + "/save", {method: "POST", body: {slots: sl, fixed: !!r.fixed, mark: null}}).then(function(res){
-      if(!POP) return;
-      foMtPut(res.row); FO_MT.timesAt = 0;
-      POP.busy = false; POP.step = "ask";
-      POP.done = "Поставлено: " + (res.row.name || "") + " · " + FO_MT_DOW[P.dw] + " " + hm(t) + ", " + mn + " мин · " + (foMtName(P.host) || "");
-      popDraw();
-      try{ foMtRenderSoft(); }catch(e){}
-      try{ if(typeof loadLive === "function") loadLive(); }catch(e){}
-    }).catch(function(e){ if(!POP) return; POP.busy = false; POP.err = "Не сохранилось: " + ((e && e.message) || ""); popDraw(); });
+    var pid = P.pid, name = r.name || "";
+    P.busy = "Ставлю " + name + " · " + FO_MT_DOW[P.dw] + " " + hm(t) + "…"; redraw();
+    saveSlots(pid, sl, r.fixed).then(function(){
+      FO_MT_SLOT = null;
+      if(how === "now") return sendNow(pid);
+      if(how === "later") return sendLater(pid);
+      try{ toast("Поставлено: " + name + " — не согласована. Отправить можно в строке клиента"); }catch(e){}
+      redraw();
+    }).catch(function(e){ if(FO_MT_SLOT){ FO_MT_SLOT.busy = ""; FO_MT_SLOT.err = "Не сохранилось: " + ((e && e.message) || ""); } redraw(); });
   }
 
-  /* ── 1) после «Сохранить»: спросить «сейчас / завтра в 10:00» ── */
-  if(typeof foMtSaveRow === "function"){
-    var _sr = foMtSaveRow;
-    foMtSaveRow = function(pid, mark){ if(!mark) FO_MT_ASK[pid] = "pending"; else delete FO_MT_ASK[pid]; return _sr.apply(this, arguments); };
-  }
-  if(typeof foMtPut === "function"){
-    var _put = foMtPut;
-    foMtPut = function(row){
-      var v = _put.apply(this, arguments);
-      try{
-        if(row && FO_MT_ASK[row.client_id] === "pending"){
-          if(row.status === "draft" && Object.keys(row.slots || {}).length) FO_MT_ASK[row.client_id] = true; else delete FO_MT_ASK[row.client_id];
-        }
-      }catch(e){}
-      return v;
-    };
-  }
-  if(typeof foMtLoad === "function"){
-    var _ld = foMtLoad;
-    foMtLoad = function(force){ var p = _ld.apply(this, arguments); try{ schedLoad(!!force); }catch(e){} return p; };
-  }
-
-  /* ── 3) строка клиента: подсказка свободного времени ведущего ── */
+  /* ── 1) строка клиента: «Отправить сейчас» / «Завтра в 10:00» сразу; 3) подсказка свободного времени ── */
   function rowHosts(rowEl, pid){
     var dr = FO_MT.draft[pid], r = foMtRow(pid) || {}, sl = dr ? dr.slots : (r.slots || {}), out = [];
-    var ch = rowEl.querySelector('[data-mtc="host"]'), ct = rowEl.querySelector('[data-mtc="time"]');
+    var ch = rowEl.querySelector('[data-mtc="host"]');
     Object.keys(sl).sort().forEach(function(k){
       var s = sl[k] || {}, ph = rowEl.querySelector('[data-mts="' + k + ':host"]');
       out.push({dw: +k, host: (ph && ph.value) || (ch && ch.value) || s.host || ""});
@@ -35411,19 +35426,21 @@ var FO_MT_SCHED_AT = 0;
       try{
         var box = document.createElement("div"); box.innerHTML = h;
         box.querySelectorAll("[data-mtrow]").forEach(function(rowEl){
-          var pid = rowEl.getAttribute("data-mtrow");
+          var pid = rowEl.getAttribute("data-mtrow"), r = foMtRow(pid) || {};
+          rowEl.setAttribute("data-mtst", (r.status === "off" && !hasSlots(r)) ? "off" : (r.status || ""));
+          var sv = rowEl.querySelector("[data-mtsave]");
+          if(sv){
+            var g = document.createElement("span"); g.className = "fo-mtgo";
+            g.innerHTML = FO_MT_SENDING[pid] ? '<span class="fo-mtsending">' + esc(FO_MT_SENDING[pid]) + '</span>' :
+              '<button class="bt sm pri" data-mtgo="now|' + esc(pid) + '">Отправить сейчас</button>' +
+              '<button class="bt sm" data-mtgo="later|' + esc(pid) + '">' + esc(nextLabel(true)) + '</button>';
+            if(FO_MT_SENDING[pid]) g.className += " on";
+            sv.parentNode.insertBefore(g, sv.nextSibling);
+          }
           if(FO_MT_SCHED[pid]){
             var s = document.createElement("div"); s.className = "fo-mtsch";
             s.innerHTML = '🕙 Отправится клиенту на согласование ' + esc(atLabel(FO_MT_SCHED[pid])) + ' · <button class="fo-lnk" data-mtunsched="' + esc(pid) + '">отменить</button>';
             rowEl.appendChild(s);
-          }
-          if(FO_MT_ASK[pid] === true){
-            var a = document.createElement("div"); a.className = "fo-mtask";
-            a.innerHTML = '<span>Отправить клиенту на согласование?</span>' +
-              '<button class="bt sm pri" data-mtask="now|' + esc(pid) + '">Сейчас</button>' +
-              '<button class="bt sm" data-mtask="later|' + esc(pid) + '">' + esc(nextLabel().charAt(0).toUpperCase() + nextLabel().slice(1)) + '</button>' +
-              '<button class="bt sm gh2" data-mtask="no|' + esc(pid) + '">Не отправлять</button>';
-            rowEl.appendChild(a);
           }
           if(FO_MT.draft[pid]){ var hh = hintHTML(rowEl, pid); if(hh){ var d = document.createElement("div"); d.className = "fo-mthint"; d.innerHTML = hh; rowEl.appendChild(d); } }
         });
@@ -35431,54 +35448,60 @@ var FO_MT_SCHED_AT = 0;
       }catch(e){ return h; }
     };
   }
+  function rowGo(how, pid){
+    var r = foMtRow(pid) || {}, rowEl = document.querySelector('#sect [data-mtrow="' + pid + '"]');
+    var dr = FO_MT.draft[pid];
+    var go = function(){ return how === "now" ? sendNow(pid) : sendLater(pid); };
+    if(dr || (rowEl && rowEl.classList.contains("dirty"))){
+      dr = dr || {slots: JSON.parse(JSON.stringify(r.slots || {})), fixed: !!r.fixed};
+      if(rowEl) foMtReadRow(rowEl, dr);
+      var bad = Object.keys(dr.slots).filter(function(k){ var s = dr.slots[k]; return !s.time || !s.host; });
+      if(!Object.keys(dr.slots).length){ try{ toast("Выберите день планёрки"); }catch(e){} return; }
+      if(bad.length){ try{ toast(FO_MT_DOW[+bad[0]] + ": укажите время и кто ведёт"); }catch(e){} return; }
+      FO_MT_SENDING[pid] = "Сохраняю…"; redraw();
+      saveSlots(pid, dr.slots, dr.fixed).then(function(){ delete FO_MT_SENDING[pid]; return go(); })
+        .catch(function(e){ delete FO_MT_SENDING[pid]; try{ toast("Не сохранилось: " + ((e && e.message) || "")); }catch(x){} redraw(); });
+      return;
+    }
+    if(!hasSlots(r)){ try{ toast("Сначала выберите день и время планёрки"); }catch(e){} return; }
+    go();
+  }
 
   /* ── клики ── */
-  function done(pid){ delete FO_MT_ASK[pid]; popClose(); foMtLoad(true).then(function(){ try{ foMtRender(); }catch(e){} try{ loadLive(); }catch(e){} }); }
   window.addEventListener("click", function(e){
     var t = e.target; if(!t.closest) return;
     var b;
-    if(POP && !t.closest(".fo-mtpop") && !t.closest("[data-mtfree]")){ popClose(); }
-    if((b = t.closest("[data-mtfree]"))){ e.preventDefault(); e.stopImmediatePropagation(); popOpen(b, b.getAttribute("data-mtfree")); return; }
-    if((b = t.closest("[data-mtpok]"))){ e.preventDefault(); e.stopImmediatePropagation(); popSave(); return; }
-    if((b = t.closest("[data-mtpno]"))){ e.preventDefault(); e.stopImmediatePropagation(); popClose(); return; }
+    if((b = t.closest("[data-mtfree]"))){
+      e.preventDefault(); e.stopImmediatePropagation();
+      var p = b.getAttribute("data-mtfree").split("|");
+      FO_MT_SLOT = {key: b.getAttribute("data-mtfree"), host: p[0], iso: p[1], dw: +p[2], a: +p[3], b: +p[4], pid: "", time: "", min: 0, mode: "", err: "", busy: ""};
+      redraw(); return;
+    }
+    if((b = t.closest("[data-mtsgo]"))){ e.preventDefault(); e.stopImmediatePropagation(); slotGo(b.getAttribute("data-mtsgo")); return; }
+    if((b = t.closest("[data-mtgo]"))){
+      e.preventDefault(); e.stopImmediatePropagation();
+      var v = b.getAttribute("data-mtgo").split("|"); if(FO_MT_SENDING[v[1]]) return;
+      rowGo(v[0], v[1]); return;
+    }
     if((b = t.closest("[data-mtpick]"))){
       e.preventDefault(); e.stopImmediatePropagation();
       var q = b.getAttribute("data-mtpick").split("|"), rowEl = b.closest("[data-mtrow]"); if(!rowEl) return;
       var inp = rowEl.querySelector('[data-mts="' + q[1] + ':time"]') || rowEl.querySelector('[data-mtc="time"]');
       if(inp){ inp.value = q[2]; inp.dispatchEvent(new Event("change", {bubbles: true})); }
-      try{ toast(FO_MT_DOW[+q[1]] + " — " + q[2] + ". Нажмите «Сохранить»"); }catch(x){}
+      try{ toast(FO_MT_DOW[+q[1]] + " — " + q[2] + ". Теперь «Отправить сейчас» или «" + nextLabel(true) + "»"); }catch(x){}
       return;
     }
     if((b = t.closest("[data-mtunsched]"))){
       e.preventDefault(); e.stopImmediatePropagation();
       var up = b.getAttribute("data-mtunsched");
       api("/refs/meet/" + encodeURIComponent(up) + "/send-at", {method: "POST", body: {at: null}}).then(function(){
-        delete FO_MT_SCHED[up]; try{ toast("Отправка по расписанию отменена"); }catch(x){} foMtRender(); })
+        delete FO_MT_SCHED[up]; try{ toast("Отправка по расписанию отменена"); }catch(x){} redraw(); })
         .catch(function(err){ try{ toast("Не отменилось: " + ((err && err.message) || "")); }catch(x){} });
-      return;
-    }
-    if((b = t.closest("[data-mtask]"))){
-      e.preventDefault(); e.stopImmediatePropagation();
-      var v = b.getAttribute("data-mtask").split("|"), how = v[0], pid = v[1];
-      if(how === "no"){ delete FO_MT_ASK[pid]; popClose(); try{ toast("Хорошо — не отправляю. Можно отправить позже: «предложить сейчас» в строке клиента"); }catch(x){} foMtRender(); return; }
-      b.disabled = true;
-      if(how === "now"){
-        api("/refs/meet/" + encodeURIComponent(pid) + "/send", {method: "POST", body: {test: false}}).then(function(res){
-          delete FO_MT_SCHED[pid];
-          try{ toast(res && res.state === "proposed" ? "Бот планёрок отправил клиенту на согласование" : "Не отправилось: " + ((res && res.why) || "")); }catch(x){}
-          done(pid);
-        }).catch(function(err){ b.disabled = false; try{ toast("Не отправилось: " + ((err && err.message) || "")); }catch(x){} });
-        return;
-      }
-      var d = nextWork(), at = foMtIso(d) + " 10:00";
-      api("/refs/meet/" + encodeURIComponent(pid) + "/send-at", {method: "POST", body: {at: at}}).then(function(){
-        FO_MT_SCHED[pid] = at; try{ toast("Отправлю клиенту на согласование " + nextLabel()); }catch(x){} done(pid);
-      }).catch(function(err){ b.disabled = false; try{ toast("Не получилось: " + ((err && err.message) || "")); }catch(x){} });
     }
   }, true);
   window.addEventListener("change", function(e){
     var t = e.target; if(!t || !t.closest) return;
-    if(t.closest(".fo-mtpop")){ popRead(); if(t.hasAttribute("data-mtpcli")){ POP.min = 0; POP.mode = ""; popDraw(); } return; }
+    if(t.closest(".fo-mtslotf")){ slotRead(); if(t.hasAttribute("data-mtscli")){ FO_MT_SLOT.min = 0; FO_MT_SLOT.mode = ""; FO_MT_SLOT.err = ""; redraw(); } return; }
     if(t.matches && t.matches('[data-mtrow] [data-mtc], [data-mtrow] [data-mts]')) hintPut(t.closest("[data-mtrow]"));
   });
   document.addEventListener("focusin", function(e){
