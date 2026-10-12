@@ -7185,10 +7185,7 @@ async def _fo_hello_watch():
 
 @router.on_event("startup")
 async def _fo_hello_watch_boot():
-    try:
-        _fo_aio.get_running_loop().create_task(_fo_hello_watch())
-    except Exception:
-        pass
+    print("325 сверка выключена: приветствие — только при подключении из карточки")
 
 
 def _fo_chat_hello_soon(chat_pk, delay=25):
@@ -11070,6 +11067,10 @@ p("")
 p("== 325 v124: ПОДКЛЮЧЕНИЕ ПО НАЗВАНИЮ ИЗ КАРТОЧКИ ==")
 p(sh("journalctl -u fo --since '-20min' --no-pager -o cat | grep -E '^325 ' | tail -12").strip() or "(журнал пока тихий)")
 p(sh("sudo -u postgres psql -d fo -Atc \"SELECT 'чат '||ch.id||' · '||ch.title||' · номер '||(ch.chat_id ~ '^-?[0-9]+$')::text||' · активен '||ch.is_active::text||' · '||coalesce(cl.name,'не в карточке') FROM chat ch LEFT JOIN client_chat cc ON cc.chat_pk=ch.id LEFT JOIN client cl ON cl.id=cc.client_id WHERE ch.title ILIKE '%%ббясов%%' ORDER BY ch.id\"").strip())
+p("")
+p("== 325 v125: ЧТО УШЛО В ЧАТЫ СЕГОДНЯ ==")
+p(sh("journalctl -u fo --since '2026-10-12 11:00' --no-pager -o short-iso | grep -E ' (325|322|301|305) ' | grep -vE 'Bearer|token' | tail -60").strip() or "(журнал пуст)")
+p(sh("sudo -u postgres psql -d fo -Atc \"SELECT f.ref_id||' · '||coalesce(cl.name,'?')||' · '||coalesce(ch.title,'?')||' · изм. '||to_char(f.updated_at AT TIME ZONE 'Europe/Moscow','DD.MM HH24:MI')||' · mid='||coalesce(f.data->>'mid','')||' · ann='||coalesce((f.data->'ann')::text,'') FROM fo_card f LEFT JOIN chat ch ON ch.id::text = split_part(f.ref_id,':',2) LEFT JOIN client_chat cc ON cc.chat_pk = ch.id LEFT JOIN client cl ON cl.id = cc.client_id WHERE f.kind='sys' AND f.ref_id LIKE 'chat_hello:%%' AND f.updated_at > now() - interval '6 hours' ORDER BY f.updated_at\"").strip() or "(сегодня приветствий нет)")
 p("")
 p("== КОД ==")
 p("дописано в refs.py и signup.py, копия в", bak)
