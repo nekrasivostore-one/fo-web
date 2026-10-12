@@ -6386,6 +6386,18 @@ async def _fo_chat_merge(c, card_id, num_id, num):
 
 
 async def _fo_chat_reconcile(c, org_id):
+    try:                                             # 325: та же группа уже подключена к этому клиенту с номером
+        for d in await c.fetch(
+                "SELECT DISTINCT c.id AS cid, c.title FROM chat c JOIN client_chat cc ON cc.chat_pk = c.id "
+                "JOIN client_chat cn ON cn.client_id = cc.client_id JOIN chat n ON n.id = cn.chat_pk AND n.id <> c.id "
+                "WHERE c.org_id = $1 AND c.chat_id !~ '^-?[0-9]+$' AND n.chat_id ~ '^-?[0-9]+$' AND n.is_active "
+                " AND lower(regexp_replace(btrim(n.title), '\\s+', ' ', 'g')) = lower(regexp_replace(btrim(c.title), '\\s+', ' ', 'g'))",
+                org_id):
+            await c.execute("DELETE FROM client_chat WHERE chat_pk=$1", d["cid"])
+            await c.execute("UPDATE chat SET is_active=false WHERE id=$1", d["cid"])
+            print("325 повтор группы в карточке убран:", d["title"], d["cid"])
+    except Exception as e:
+        print("325 повтор группы:", str(e)[:150])
     rows = await c.fetch(
         "SELECT c.id AS cid, n.id AS nid, n.chat_id AS num, c.title FROM chat c "
         "JOIN chat n ON n.org_id = c.org_id AND n.channel = c.channel AND n.id <> c.id "
@@ -6789,8 +6801,16 @@ async def _fo_chat_announce(c, chat_pk, r, st, users, force=False):
                 a2[bk] = ann[bk]
                 await _fo_chat_hello_put(c, chat_pk, {"ann": a2})
             else:
-                await _fo_flag_drop(c, fk)
-                print("322 аннотация не ушла:", bk, r["name"], str((res or {}).get("description"))[:80])
+                d = str((res or {}).get("description") or (res or {}).get("err") or "")
+                if re.search(r"timed out|timeout|urlopen", d, re.I):   # 325: могло дойти — повтор дал бы дубль
+                    ann[bk] = "без ответа Telegram " + _fo_mt_now().strftime("%d.%m %H:%M")
+                    h2 = await _fo_chat_hello_get(c, chat_pk)
+                    a2 = dict((h2.get("ann") or {}) if isinstance(h2, dict) else {})
+                    a2[bk] = ann[bk]
+                    await _fo_chat_hello_put(c, chat_pk, {"ann": a2})
+                else:
+                    await _fo_flag_drop(c, fk)
+                print("322 аннотация не ушла:", bk, r["name"], d[:80])
         return ("отправлено: " + ", ".join(sent)) if sent else "нечего отправлять"
     except Exception as e:
         return "ошибка: " + str(e)[:100]
@@ -7227,12 +7247,18 @@ async def _fo_chat_link(c, pk, client_id, kind):
                         "VALUES ($1::uuid, $2, $3, 'by_employee', true, true)", str(client_id), pk, kind)
 
 
+_FO_CHAT_AUTOLINK = False      # 325 (Виталий 12.10): «пока я не вбил название — не нужно фиксировать в карточке группу»
+
+
 async def _fo_chat_auto(c, org, tg, title, ev):
     """Группа ни к кому не подключена → по названию, иначе кнопки в личку собственнику / тому, кто добавил бота."""
     pk = await c.fetchval("SELECT id FROM chat WHERE org_id=$1 AND channel='telegram' AND chat_id=$2", org, tg)
     if not pk or await c.fetchval("SELECT 1 FROM client_chat WHERE chat_pk=$1", pk):
         return
     if _FO_CHAT_SKIP.search(_fo_chat_norm(title)):
+        return
+    if not _FO_CHAT_AUTOLINK:                       # 325: подключаем, только когда название вписано в карточку
+        print("325 группа ждёт названия в карточке:", title)
         return
     tn = _fo_chat_norm(title)
     cls = await c.fetch("SELECT id, name FROM client WHERE org_id=$1 ORDER BY name", org)
@@ -11040,6 +11066,10 @@ p("журнал опроса Telegram с 09.10 (Аббясова):")
 p(sh("journalctl --since '2026-10-09 00:00' --no-pager -o short-iso | grep -E 'ббясов' | grep -vE 'Bearer|token|/fo\\[' | tail -20").strip() or "(нет)")
 p("замки аннотаций для уже отправленных (чтобы не повторить):")
 p(sh("sudo -u postgres psql -d fo -Atc \"INSERT INTO fo_card (kind, ref_id, org_id, data) SELECT 'sys', 'chat_ann:' || split_part(f.ref_id, ':', 2) || ':' || k.key, f.org_id, jsonb_build_object('at', k.value, 'backfill', true) FROM fo_card f, jsonb_each(f.data->'ann') k WHERE f.kind='sys' AND f.ref_id LIKE 'chat_hello:%%' AND jsonb_typeof(f.data->'ann')='object' ON CONFLICT (kind, ref_id) DO NOTHING RETURNING ref_id\"").strip() or "(нечего)")
+p("")
+p("== 325 v124: ПОДКЛЮЧЕНИЕ ПО НАЗВАНИЮ ИЗ КАРТОЧКИ ==")
+p(sh("journalctl -u fo --since '-20min' --no-pager -o cat | grep -E '^325 ' | tail -12").strip() or "(журнал пока тихий)")
+p(sh("sudo -u postgres psql -d fo -Atc \"SELECT 'чат '||ch.id||' · '||ch.title||' · номер '||(ch.chat_id ~ '^-?[0-9]+$')::text||' · активен '||ch.is_active::text||' · '||coalesce(cl.name,'не в карточке') FROM chat ch LEFT JOIN client_chat cc ON cc.chat_pk=ch.id LEFT JOIN client cl ON cl.id=cc.client_id WHERE ch.title ILIKE '%%ббясов%%' ORDER BY ch.id\"").strip())
 p("")
 p("== КОД ==")
 p("дописано в refs.py и signup.py, копия в", bak)
