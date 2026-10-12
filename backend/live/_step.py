@@ -7286,7 +7286,6 @@ async def _fo_hello_watch():
         await _fo_aio.sleep(900)
 
 
-@router.on_event("startup")
 async def _fo_cleanup_326():
     """326: удалить повтор аннотации бота отчётов (чат 59, отправлен 14:35) — только своё сообщение по номеру."""
     await _fo_aio.sleep(40)
@@ -7329,6 +7328,7 @@ async def _fo_cleanup_326_boot():
         pass
 
 
+@router.on_event("startup")
 async def _fo_hello_watch_boot():
     print("325 сверка выключена: приветствие — только при подключении из карточки")
 
