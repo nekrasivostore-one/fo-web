@@ -35406,7 +35406,7 @@ var FO_MT_SLOT = null;    /* открытая форма свободного о
         var s = foMtEff(r)[String(x.dw)]; if(s && s.host === x.host){ var t = toMin(s.time); if(t != null) busy.push({t: t, min: +s.minutes || 60}); }
       });
       var w = free(busy, 0);
-      parts.push('<span class="fo-mthd">' + FO_MT_DOW[x.dw] + ' у ' + esc(foMtName(x.host) || "ведущего") + ':</span>' + (w.length ? w.map(function(z){
+      parts.push('<span class="fo-mthd">' + FO_MT_DOW[x.dw] + ' · ' + esc(foMtName(x.host) || "ведущий") + ':</span>' + (w.length ? w.map(function(z){
         return '<button class="fo-mthc" data-mtpick="' + esc(pid) + '|' + x.dw + '|' + hm(z[0]) + '">' + hm(z[0]) + '–' + hm(z[1]) + '</button>'; }).join("") :
         '<span class="fo-mthn">свободного окна 09:00–17:00 нет</span>'));
     });
