@@ -7295,11 +7295,13 @@ async def _fo_cleanup_326():
             if not r or "ббясов" not in str(r["name"] or ""):
                 print("326 чистка: чат 59 не тот —", r and r["name"])
                 return
-            if not await _fo_flag_take(c, r["org_id"], "cleanup326:59:report"):
+            if not await _fo_flag_take(c, r["org_id"], "cleanup326b:59:report"):
                 return
             h = await _fo_chat_hello_get(c, 59) or {}
             a = str(((h.get("ann") or {}).get("report")) or "")
-            m = re.search(r"14:35 #(\d+)$", a)
+            m = re.search(r"14:35 #(\d+)", a)
+            if "удалён" in a:
+                return
             if not m:
                 print("326 чистка: номера повтора нет —", a)
                 return
@@ -7311,7 +7313,7 @@ async def _fo_cleanup_326():
                 if res and (res.get("ok") or "not found" in str(res.get("description") or "")):
                     break
                 await _fo_aio.sleep(20)
-            ok = bool(res and res.get("ok"))
+            ok = bool(res and (res.get("ok") or "not found" in str(res.get("description") or "")))
             ann = dict(h.get("ann") or {})
             ann["report"] = a + (" · повтор удалён " if ok else " · удалить не вышло ") + _fo_mt_now().strftime("%d.%m %H:%M")
             await _fo_chat_hello_put(c, 59, {"ann": ann})
@@ -9376,12 +9378,50 @@ class FoMtSendIn(_FoBM):
 @router.post("/meet/{client_id}/send")
 async def fo_meet_send(client_id: str, body: FoMtSendIn, p: Principal = Depends(max_level(4))):
     """Предложить время одному клиенту сейчас, вне волн."""
+    key = "meet_send:%s" % client_id
     async with pool().acquire() as c:
         r = await _fo_mt_row(c, p.org_id, client_id)
         if not r or not _fo_mt_slots(r["slots"]):
             raise HTTPException(400, "сначала задайте график: дни, время и кто ведёт")
+        if body.test:
+            return await _fo_meet_send_now(c, p.org_id, client_id, test=True)
+        d = _fo_mt_load(await c.fetchval("SELECT data FROM fo_card WHERE kind='sys' AND ref_id=$1", key), None)
+        if isinstance(d, dict) and not d.get("free") and _fo_time.time() - float(d.get("ts") or 0) < 180:
+            return {"state": (d.get("state") or "sending") if d.get("done") else "sending", "dup": True,
+                    "why": "уже отправлено только что — повторно не отправляю"}
+        await c.execute("INSERT INTO fo_card (kind, ref_id, org_id, data) VALUES ('sys', $1, $2, $3::jsonb) "
+                        "ON CONFLICT (kind, ref_id) DO UPDATE SET data = EXCLUDED.data, updated_at = now()",
+                        key, p.org_id, _fo_json.dumps({"ts": _fo_time.time(), "by": str(_fo_uid(p))}))
         await c.execute("DELETE FROM fo_card WHERE kind='sys' AND ref_id=$1", "meet_at:%s" % client_id)   # 327: отправили сейчас
-        return await _fo_meet_send_now(c, p.org_id, client_id, test=body.test)
+    _fo_aio.get_running_loop().create_task(_fo_meet_send_bg(p.org_id, client_id, key))
+    return {"state": "sending"}
+
+
+async def _fo_meet_send_bg(org_id, client_id, key):
+    """327: отправка в фоне — страница не ждёт медленный Telegram и не показывает ложное «не отправилось»."""
+    try:
+        async with pool().acquire() as c:
+            res = await _fo_meet_send_now(c, org_id, client_id)
+            st = (res or {}).get("state") or "error"
+            why = str((res or {}).get("why") or "")
+            free = st != "proposed" and not re.search(r"timed out|timeout|urlopen", why, re.I)   # явная ошибка — можно сразу ещё раз
+            await c.execute("UPDATE fo_card SET data = data || $2::jsonb, updated_at = now() WHERE kind='sys' AND ref_id=$1", key,
+                            _fo_json.dumps({"state": st, "why": why[:200], "done": _fo_time.time(), "free": free}))
+            print("327 отправка планёрки:", client_id, st, why[:80])
+    except Exception as e:
+        print("327 отправка планёрки — ошибка:", client_id, str(e)[:150])
+
+
+@router.get("/meet/{client_id}/send-state")
+async def fo_meet_send_state(client_id: str, p: Principal = Depends(max_level(4))):
+    async with pool().acquire() as c:
+        d = _fo_mt_load(await c.fetchval("SELECT data FROM fo_card WHERE kind='sys' AND ref_id=$1 AND org_id=$2",
+                                         "meet_send:%s" % client_id, p.org_id), None)
+    if not isinstance(d, dict):
+        return {"state": "none"}
+    if not d.get("done"):
+        return {"state": "sending", "sec": int(_fo_time.time() - float(d.get("ts") or 0))}
+    return {"state": d.get("state"), "why": d.get("why") or ""}
 
 
 # ══ 327 (Виталий 12.10): «я вписал время планёрки — сервис должен отправить на согласование и спросить: сейчас или
@@ -11311,6 +11351,9 @@ p("")
 p("== 327 ПЛАНЁРКИ: ОТПРАВКА ПО РАСПИСАНИЮ ==")
 p("ждут отправки: " + (sh("sudo -u postgres psql -d fo -Atc \"SELECT string_agg(split_part(ref_id,':',2)||' в '||(data->>'at'), ', ') FROM fo_card WHERE kind='sys' AND ref_id LIKE 'meet_at:%%'\"").strip() or "нет"))
 p(sh("journalctl -u fo --since '-30min' --no-pager -o cat | grep -E '^(327|326) ' | tail -8").strip() or "(журнал пока тихий)")
+p("")
+p("== 327 v131: ОТПРАВКА ПЛАНЁРОК В ФОНЕ ==")
+p(sh("sudo -u postgres psql -d fo -Atc \"SELECT split_part(ref_id,':',2)||' · '||coalesce(data->>'state','идёт')||' · '||coalesce(data->>'why','') FROM fo_card WHERE kind='sys' AND ref_id LIKE 'meet_send:%%' AND updated_at > now() - interval '1 day'\"").strip() or "(сегодня через новый путь не отправляли)")
 p("")
 p("== КОД ==")
 p("дописано в refs.py и signup.py, копия в", bak)
