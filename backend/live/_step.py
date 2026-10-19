@@ -8707,6 +8707,9 @@ async def _fo_mt_parse(text, offer, org_id=None):
                 if js["answer"] == "yes" and not _fo_mt_agree_word(text):     # 328: «да» без согласия в тексте не считаем
                     js["answer"] = "unclear"
                     js["by"] = "ИИ сказал «да», но в тексте нет согласия — непонятно"
+                if js["answer"] == "other" and not rx["days"] and not rx["time"]:   # 328: время — только из текста клиента
+                    js["answer"] = "unclear"
+                    js["by"] = "ИИ назвал время, которого нет в тексте клиента — непонятно"
                 js["slots"] = _fo_mt_norm(js.get("slots"), rx) if js["answer"] == "other" else []
                 # 288: клиент прямо назвал один день — он важнее номера дня от ИИ (ИИ путает 2/3: «среда» → четверг)
                 if js["answer"] == "other" and len(rx["days"]) == 1 and js["slots"] and \
@@ -10094,6 +10097,8 @@ async def _fo_mt_req_parse(text, items, now, held, org_id):
         return base
     if js.get("intent") not in ("move", "cancel", "extra", "confirm", "not_about", "unclear"):
         return base
+    if js.get("intent") == "confirm" and not _fo_mt_agree_word(text):     # 328: подтверждение — только явное
+        js["intent"] = "unclear"
     js["by"] = "ИИ"
     js["time"] = _fo_mt_hm(_fo_mt_m(js.get("time"))) if _fo_mt_m(js.get("time")) is not None else base["time"]
     js["day"], js["from_day"] = base["day"], base["from_day"]
@@ -11450,6 +11455,10 @@ p("ИП Аббясова · WB — последние записи журнал�
 p(sh("sudo -u postgres psql -d fo -Atc \"SELECT x->>'at'||' · '||coalesce(x->>'what','')||' · '||coalesce(x->>'понял','')||' · '||coalesce(x->>'by','')||' · '||left(coalesce(x->>'text',''),90) FROM fo_meet m JOIN client cl ON cl.id=m.client_id, jsonb_array_elements(m.log) WITH ORDINALITY AS t(x, n) WHERE cl.name='ИП Аббясова · WB' ORDER BY n DESC LIMIT 8\"").strip())
 p("откат ложного согласия: " + (sh("sudo -u postgres psql -d fo -Atc \"WITH last AS (SELECT m.client_id, (SELECT x->>'text' FROM jsonb_array_elements(m.log) WITH ORDINALITY t(x, n) WHERE x->>'what'='ответ клиента' ORDER BY n DESC LIMIT 1) AS txt FROM fo_meet m JOIN client cl ON cl.id=m.client_id WHERE cl.name='ИП Аббясова · WB' AND m.status='agreed') UPDATE fo_meet m SET status='proposed', agreed_at=NULL, log = m.log || jsonb_build_array(jsonb_build_object('at', to_char(now() AT TIME ZONE 'Europe/Moscow','DD.MM HH24:MI'), 'what', 'откат: «согласовано» засчитано по сообщению «ответьте боту» (не ответ клиента) — ждём ответа клиента')) FROM last WHERE m.client_id=last.client_id AND last.txt ILIKE '%%ответьте боту%%' RETURNING 'ИП Аббясова · WB → предложена'\"").strip() or "не понадобился (статус уже не «назначена» или последний ответ другой)"))
 p(sh("journalctl -u fo --since '-20min' --no-pager -o cat | grep -E '^328 ' | tail -6").strip() or "")
+p("")
+p("== 328 v133: ИИ НЕ ДОДУМЫВАЕТ ОТВЕТ КЛИЕНТА ==")
+p("пауза бота планёрок: " + (sh("sudo -u postgres psql -d fo -Atc \"SELECT 'стоит с '||coalesce(data->>'at','') FROM fo_card WHERE kind='sys' AND ref_id LIKE 'meet_pause:%%'\"").strip() or "НЕТ"))
+p("ИП Аббясова · WB сейчас: " + sh("sudo -u postgres psql -d fo -Atc \"SELECT m.status||' · отправлено '||coalesce(to_char(m.sent_at AT TIME ZONE 'Europe/Moscow','DD.MM HH24:MI'),'—') FROM fo_meet m JOIN client cl ON cl.id=m.client_id WHERE cl.name='ИП Аббясова · WB'\"").strip())
 p("")
 p("== КОД ==")
 p("дописано в refs.py и signup.py, копия в", bak)
