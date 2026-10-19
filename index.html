@@ -4900,6 +4900,9 @@ input[data-sk2="role"].edok, input[data-edk="role"].edok{ border-color:var(--ok,
 .fo-mthc:hover{ background:rgba(124,92,255,.08) }
 .fo-mthn{ font-style:italic }
 .fo-mthsep{ opacity:.5 }
+.fo-mtpause{ display:flex; flex-wrap:wrap; align-items:center; gap:10px; margin:0 0 12px; padding:10px 14px; border-radius:12px;
+  background:rgba(255,159,67,.14); border:1px solid rgba(255,159,67,.45); font-size:13px }
+.fo-mtpause span{ color:var(--ink-2, var(--ink)) }
 </style>
 </head>
 <body>
@@ -35508,6 +35511,45 @@ var FO_MT_SLOT = null;    /* открытая форма свободного о
     var t = e.target; if(!t || !t.matches || !t.matches('[data-mtrow] [data-mtc="time"], [data-mtrow] [data-mts$=":time"]')) return;
     hintPut(t.closest("[data-mtrow]"));
   });
+})();
+
+/* ── 328 (19.10): пауза бота планёрок — «никому не отправляй предложение, пока не поправишь работу бота».
+   На экране «Планёрка» сверху: «Бот планёрок на паузе — клиентам ничего не уходит» и (собственнику) «Снять паузу». ── */
+var FO_MT_PAUSE = null;
+(function(){
+  function pLoad(){ return api("/refs/meet/pause").then(function(r){ var was = JSON.stringify(FO_MT_PAUSE); FO_MT_PAUSE = r || {on: false};
+    if(was !== JSON.stringify(FO_MT_PAUSE)){ try{ foMtRenderSoft(); }catch(e){} } }).catch(function(){}); }
+  var at = 0;
+  if(typeof foMtLoad === "function"){
+    var _l = foMtLoad;
+    foMtLoad = function(force){ var p = _l.apply(this, arguments); if(force || Date.now() - at > 20000){ at = Date.now(); pLoad(); } return p; };
+  }
+  if(typeof foMtRender === "function"){
+    var _r = foMtRender;
+    foMtRender = function(){
+      var v = _r.apply(this, arguments);
+      try{
+        var host = document.getElementById("sect");
+        if(host && FO_MT_PAUSE && FO_MT_PAUSE.on && !host.querySelector(".fo-mtpause")){
+          var own = typeof A !== "undefined" && A && (+A.level || 9) <= 2;
+          var d = document.createElement("div"); d.className = "fo-mtpause";
+          d.innerHTML = '<b>⏸ Бот планёрок на паузе</b><span>Клиентам ничего не уходит: ни предложения, ни ответы; рассылка и отправка по расписанию стоят' +
+            (FO_MT_PAUSE.at ? ' · с ' + esc(FO_MT_PAUSE.at) : '') + '.</span>' +
+            (own ? '<button class="bt sm" data-mtunpause>Снять паузу</button>' : '');
+          host.insertBefore(d, host.firstChild);
+        }
+      }catch(e){}
+      return v;
+    };
+  }
+  window.addEventListener("click", function(e){
+    var b = e.target.closest && e.target.closest("[data-mtunpause]"); if(!b) return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    if(!b.getAttribute("data-sure")){ b.setAttribute("data-sure", "1"); b.textContent = "Точно снять? Бот снова будет писать клиентам"; return; }
+    b.disabled = true;
+    api("/refs/meet/pause", {method: "POST", body: {on: false}}).then(function(){ FO_MT_PAUSE = {on: false}; try{ toast("Пауза снята — бот планёрок снова работает"); }catch(x){} try{ foMtRender(); }catch(x){} })
+      .catch(function(err){ b.disabled = false; try{ toast("Не снялась: " + ((err && err.message) || "")); }catch(x){} });
+  }, true);
 })();
 
 })();
