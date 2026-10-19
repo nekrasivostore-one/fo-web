@@ -35253,7 +35253,8 @@ var FO_MT_SLOT = null;    /* открытая форма свободного о
     var l = busy.slice().sort(function(a, b){ return a.t - b.t; }), out = [], cur = Math.max(FROM, fromMin || 0);
     l.forEach(function(e){ if(e.t > cur && Math.min(e.t, TO) - cur >= MINW) out.push([cur, Math.min(e.t, TO)]); cur = Math.max(cur, e.t + e.min); });
     if(TO - cur >= MINW) out.push([cur, TO]);
-    return out;
+    /* 329: только ровное время — окно начинается с ближайших :00 / :30 */
+    return out.map(function(w){ return [Math.ceil(w[0] / 30) * 30, w[1]]; }).filter(function(w){ return w[1] - w[0] >= MINW; });
   }
   function nowMin(){ var n = new Date(); return Math.ceil((n.getHours() * 60 + n.getMinutes()) / 5) * 5; }
 
@@ -35318,7 +35319,7 @@ var FO_MT_SLOT = null;    /* открытая форма свободного о
       '<select class="sel sm" data-mtscli><option value="">— клиент —</option>' + list.map(function(x){
         return '<option value="' + esc(x.client_id) + '"' + (String(x.client_id) === String(P.pid) ? ' selected' : '') + '>' + esc(x.name) +
           (hasSlots(x) ? ' · сейчас ' + esc(slotTxt(x)) : ' · без планёрки') + '</option>'; }).join("") + '</select>' +
-      '<div class="fo-mtsr"><input class="fi sm" type="time" data-mtstime value="' + esc(P.time || hm(P.a)) + '" min="' + hm(P.a) + '" max="' + hm(P.b) + '">' +
+      '<div class="fo-mtsr"><input class="fi sm" type="time" step="1800" data-mtstime value="' + esc(P.time || hm(P.a)) + '" min="' + hm(P.a) + '" max="' + hm(P.b) + '">' +
         '<select class="sel sm" data-mtsmin>' + (P.pid ? minsOpts(P.pid, P.min) : '<option value="40">40 мин</option>') + '</select></div>' +
       (has ? '<div class="fo-mtsm2"><label><input type="radio" name="mtsmode" value="move"' + (P.mode !== "add" ? ' checked' : '') + '> перенести сюда (было: ' + esc(slotTxt(r)) + ')</label>' +
         '<label><input type="radio" name="mtsmode" value="add"' + (P.mode === "add" ? ' checked' : '') + '> добавить ещё одну</label></div>' : '') +
@@ -35375,6 +35376,7 @@ var FO_MT_SLOT = null;    /* открытая форма свободного о
     if(!P.pid){ P.err = "Выберите клиента"; redraw(); return; }
     var t = toMin(P.time), r = foMtRow(P.pid) || {}, lv = FO_MT_LV[r.level] || FO_MT_LV[3], mn = +P.min || lv.mins[0];
     if(t == null){ P.err = "Укажите время"; redraw(); return; }
+    if(t % 30){ P.err = "Только ровное время: :00 или :30"; redraw(); return; }
     if(t < P.a || t + mn > P.b){ P.err = "Не помещается в окно " + hm(P.a) + "–" + hm(P.b) + ": выберите время раньше или короче"; redraw(); return; }
     var sl = (P.mode === "add" || !hasSlots(r)) ? JSON.parse(JSON.stringify(hasSlots(r) ? r.slots : {})) : {};
     sl[String(P.dw)] = {time: hm(t), minutes: mn, host: P.host};
