@@ -7895,7 +7895,7 @@ _FO_MT_DOWACC = ["понедельник", "вторник", "среду", "че
 _FO_MT_DOWGEN = ["понедельника", "вторника", "среды", "четверга", "пятницы", "субботы", "воскресенья"]
 _FO_MT_LVL = {1: (60, 80, 60), 2: (40, 50, 45), 3: (35, 40, 40)}      # мин, макс, по умолчанию
 # рабочие дни пн–пт; планёрка заканчивается не позже 18:00: часовая — не позже 17:00, получасовая — 17:30 (Виталий 29.09)
-_FO_MT_DEF = {"brk": 15, "gap": 180, "from": 10 * 60, "to": 18 * 60, "auto": True, "auto_at": 10 * 60}
+_FO_MT_DEF = {"brk": 0, "gap": 180, "from": 10 * 60, "to": 18 * 60, "auto": True, "auto_at": 10 * 60}
 _FO_MT_LOOP = {"task": None}
 _FO_MT_ROUNDS = 2          # после двух встречных предложений без согласия — решает проджект
 
@@ -8394,6 +8394,16 @@ async def _fo_mt_busy(c, org_id, skip=None, with_queued=False):
     return busy
 
 
+def _fo_mt_up30(t):
+    """329: ближайшее ровное время (:00 / :30) не раньше t."""
+    return ((int(t) + 29) // 30) * 30
+
+
+def _fo_mt_dn30(t):
+    """329: ближайшее ровное время не позже t."""
+    return (int(t) // 30) * 30
+
+
 def _fo_mt_fits(busy, host, d, t, mins, st):
     if t is None or t < st["from"] or t + mins > st["to"]:
         return False
@@ -8407,16 +8417,16 @@ def _fo_mt_place(busy, host, d, pref, mins, st, n=1):
     have = sorted(busy.get((host, d), []))
     p0 = pref if pref is not None else st["from"]
     if not have:
-        t = max(st["from"], min(p0, st["to"] - mins))
+        t = max(_fo_mt_up30(st["from"]), min(_fo_mt_dn30(p0 + 15), _fo_mt_dn30(st["to"] - mins)))   # 329: ровное время
         return [t] if _fo_mt_fits(busy, host, d, t, mins, st) else []
     cands = set()
     for x, y, _ in have:
-        cands.add(y + st["brk"])
-        cands.add(x - st["brk"] - mins)
+        cands.add(_fo_mt_up30(y + st["brk"]))
+        cands.add(_fo_mt_dn30(x - st["brk"] - mins))
     good = sorted((t for t in cands if _fo_mt_fits(busy, host, d, t, mins, st)), key=lambda t: (abs(t - p0), t))
     if not good:
         mid = (have[0][0] + have[-1][1]) // 2
-        good = sorted((t for t in range(st["from"], st["to"] - mins + 1, 5) if _fo_mt_fits(busy, host, d, t, mins, st)),
+        good = sorted((t for t in range(_fo_mt_up30(st["from"]), st["to"] - mins + 1, 30) if _fo_mt_fits(busy, host, d, t, mins, st)),
                       key=lambda t: (abs(t - mid), t))
     return good[:n]
 
@@ -8526,13 +8536,11 @@ def _fo_mt_range_slots(busy, host, d, lo, hi, mins, st, n=3, after=None):
     have = sorted(busy.get((host, d), []))
     adj = set()
     for x, y, _ in have:
-        adj.add(y + st["brk"])
-        adj.add(x - st["brk"] - mins)
+        adj.add(_fo_mt_up30(y + st["brk"]))                  # 329: вплотную — ближайшее ровное
+        adj.add(_fo_mt_dn30(x - st["brk"] - mins))
     good = sorted(t for t in adj if lo <= t <= hi and _fo_mt_fits(busy, host, d, t, mins, st))
     g0 = ((lo + 29) // 30) * 30
     grid = [t for t in range(g0, hi + 1, 30) if _fo_mt_fits(busy, host, d, t, mins, st) and t not in good]
-    if not grid and not good:
-        grid = [t for t in range(lo, hi + 1, 5) if _fo_mt_fits(busy, host, d, t, mins, st)]
     out = good[:1]
     for t in ([grid[0], grid[-1], grid[len(grid) // 2]] if grid else []) + good[1:]:
         if len(out) >= n:
@@ -8933,7 +8941,8 @@ def _fo_mt_adjacent(busy, host, d, t, mins, st):
     if t is None:
         return False
     for x, y, _ in busy.get((host, d), []):
-        if abs(t - (y + st["brk"])) <= 5 or abs((t + mins + st["brk"]) - x) <= 5:
+        if abs(t - (y + st["brk"])) <= 5 or abs((t + mins + st["brk"]) - x) <= 5 or \
+                t == _fo_mt_up30(y + st["brk"]) or t == _fo_mt_dn30(x - st["brk"] - mins):     # 329
             return True
     return False
 
@@ -11459,6 +11468,9 @@ p("")
 p("== 328 v133: ИИ НЕ ДОДУМЫВАЕТ ОТВЕТ КЛИЕНТА ==")
 p("пауза бота планёрок: " + (sh("sudo -u postgres psql -d fo -Atc \"SELECT 'стоит с '||coalesce(data->>'at','') FROM fo_card WHERE kind='sys' AND ref_id LIKE 'meet_pause:%%'\"").strip() or "НЕТ"))
 p("ИП Аббясова · WB сейчас: " + sh("sudo -u postgres psql -d fo -Atc \"SELECT m.status||' · отправлено '||coalesce(to_char(m.sent_at AT TIME ZONE 'Europe/Moscow','DD.MM HH24:MI'),'—') FROM fo_meet m JOIN client cl ON cl.id=m.client_id WHERE cl.name='ИП Аббясова · WB'\"").strip())
+p("")
+p("== 329 ПЛАНЁРКИ: БЕЗ ПЕРЕРЫВА, РОВНОЕ ВРЕМЯ ==")
+p("перерыв Flater: " + (sh("sudo -u postgres psql -d fo -Atc \"INSERT INTO fo_card (kind, ref_id, org_id, data) VALUES ('org', 'meet:3b04b815-6ec2-4818-88cf-55db8163fd89', '3b04b815-6ec2-4818-88cf-55db8163fd89', '{\\\"brk\\\": 0}'::jsonb) ON CONFLICT (kind, ref_id) DO UPDATE SET data = fo_card.data || '{\\\"brk\\\": 0}'::jsonb RETURNING coalesce(data->>'brk','?')||' мин'\"").strip() or "?"))
 p("")
 p("== КОД ==")
 p("дописано в refs.py и signup.py, копия в", bak)
