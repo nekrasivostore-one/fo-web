@@ -8205,6 +8205,8 @@ async def _fo_mt_send(c, org_id, client_id, text, reply_to=None, test=False):
         mid = int(await c.fetchval("SELECT count(*) FROM fo_chat_msg WHERE tg_chat_id=$1", tg) or 0) + 1
         chat_pk = None
     else:
+        if await _fo_mt_paused(c, org_id):                              # 328
+            return None, "бот планёрок на паузе — клиенту не отправлено"
         ch = await _fo_mt_chat(c, client_id)
         if not ch:
             return None, "у клиента нет чата с ботом"
@@ -8592,6 +8594,35 @@ _FO_MT_SYS = (
     "Ответь только JSON без пояснений: {\"answer\": \"yes\", \"slots\": []}")
 
 
+# ══ 328: пауза и строгое «да» ══
+async def _fo_mt_paused(c, org_id):
+    try:
+        return bool(await c.fetchval("SELECT 1 FROM fo_card WHERE kind='sys' AND ref_id=$1", "meet_pause:%s" % org_id))
+    except Exception:
+        return False
+
+
+_FO_MT_AGREE_RX = re.compile(r"(?<![а-яa-z])(да|ага|ок|окей|ok|okay|подходит|удобно|договорились|согласен|согласна|согласны|"
+                             r"отлично|хорошо|супер|конечно|норм|нормально|пойдет|устраивает|идет|принято|оставляем|оставим|"
+                             r"подтверждаю|годится|ладно|согласовано|в\s+силе)(?![а-яa-z])|\+|👍|✅|👌", re.I)
+
+
+def _fo_mt_agree_word(text):
+    """328: в тексте есть явное согласие клиента."""
+    return bool(_FO_MT_AGREE_RX.search(str(text or "").lower().replace("ё", "е")))
+
+
+def _fo_mt_addressed(text):
+    """328: сообщение обращено к другому участнику (@ник, «ответьте боту») — это не ответ на предложение."""
+    t = str(text or "")
+    mine = {str(_FO_MT_ME.get("v") or "").lower()}
+    for m in re.finditer(r"@([A-Za-z0-9_]{4,})", t):
+        if m.group(1).lower() not in mine and not m.group(1).lower().endswith("bot"):
+            return True
+    tl = t.lower().replace("ё", "е")
+    return bool(re.search(r"(ответьте|ответь|подтвердите|подтверди|посмотрите|гляньте|напишите)[^.!?]{0,30}бот", tl))
+
+
 def _fo_mt_rx(text):
     t = str(text or "").lower().replace("ё", "е")
     days = [d for d, rx in _FO_MT_DAYRX if re.search(rx, t)]
@@ -8673,6 +8704,9 @@ async def _fo_mt_parse(text, offer, org_id=None):
             js = _fo_ai_json(txt) or {}
             if js.get("answer") in ("yes", "other", "no", "unclear", "not_about"):
                 js["by"] = "ИИ"
+                if js["answer"] == "yes" and not _fo_mt_agree_word(text):     # 328: «да» без согласия в тексте не считаем
+                    js["answer"] = "unclear"
+                    js["by"] = "ИИ сказал «да», но в тексте нет согласия — непонятно"
                 js["slots"] = _fo_mt_norm(js.get("slots"), rx) if js["answer"] == "other" else []
                 # 288: клиент прямо назвал один день — он важнее номера дня от ИИ (ИИ путает 2/3: «среда» → четверг)
                 if js["answer"] == "other" and len(rx["days"]) == 1 and js["slots"] and \
@@ -8771,6 +8805,19 @@ async def _fo_meet_answer_do(org_id, client_id, text, msg_id=None, pk=None, test
     ведущего с перерывом, иначе предлагаем ближайшие окна блока; после двух кругов — решает проджект."""
     soft = _FO_MT_SOFT.get()
     async with pool().acquire() as c:
+        if not test and await _fo_mt_paused(c, org_id):                 # 328: пауза — не разбираем, ничего не пишем
+            await c.execute("UPDATE fo_meet SET log=log||$3::jsonb WHERE org_id=$1::uuid AND client_id=$2::uuid", str(org_id),
+                            str(client_id), _fo_mt_item("бот на паузе — сообщение не разбиралось", text=str(text or "")[:200]))
+            return {"state": "пауза"}
+        if _fo_mt_addressed(text):                                      # 328: обращение к другому участнику — не ответ
+            await c.execute("UPDATE fo_meet SET log=log||$3::jsonb WHERE org_id=$1::uuid AND client_id=$2::uuid", str(org_id),
+                            str(client_id), _fo_mt_item("обращение к участнику чата — не ответ на предложение", text=str(text or "")[:200]))
+            if not test:
+                try:
+                    await _fo_mt_ai_handoff(pk)
+                except Exception:
+                    pass
+            return {"state": "не ответ — обращение к участнику"}
         try:
             _FO_MT_CTX.set(await _fo_mt_history(c, org_id, client_id, text))
         except Exception:
@@ -8788,13 +8835,18 @@ async def _fo_meet_answer_do(org_id, client_id, text, msg_id=None, pk=None, test
         offer = _fo_mt_slots(r["offer"]) or _fo_mt_slots(r["slots"])
     js = await _fo_mt_parse(text, offer, org_id)
     kind = js.get("answer")
-    if kind == "not_about" or (soft and kind == "unclear"):
+    if kind == "not_about" or kind == "unclear":       # 328: «непонятно» — клиенту не пишем, помечаем проджекту
+        if kind == "unclear" and not soft:
+            async with pool().acquire() as c:
+                await c.execute("UPDATE fo_meet SET attn=$3, log=log||$4::jsonb WHERE org_id=$1::uuid AND client_id=$2::uuid",
+                                str(org_id), str(client_id), "ответ на предложение непонятен — посмотрите: «%s»" % str(text or "")[:120],
+                                _fo_mt_item("ответ непонятен — бот не отвечал, отметил проджекту", text=str(text or "")[:200], by=js.get("by")))
         if not test:
             try:
                 await _fo_mt_ai_handoff(pk)
             except Exception:
                 pass
-        return {"state": "не про планёрку", "понял": js}
+        return {"state": "не про планёрку" if kind == "not_about" else "непонятно — отмечено проджекту", "понял": js}
     async with pool().acquire() as c:
         await c.execute("UPDATE fo_meet SET answered_at=now(), answer=$3, log=log||$4::jsonb, updated_at=now() "
                         "WHERE org_id=$1::uuid AND client_id=$2::uuid", str(org_id), str(client_id), str(text or "")[:500],
@@ -8965,6 +9017,13 @@ async def _fo_mt_people(c, org_id):
                 staff_id.add(str(d["tg_id"]))
         elif tgs:
             client_tg.setdefault(str(r["ref_id"]), set()).update(tgs)
+    try:                                        # 328: аккаунт агентства пишет в чатах многих клиентов
+        for r in await c.fetch("SELECT lower(author_tg) AS tg FROM fo_chat_msg WHERE org_id=$1 AND coalesce(author_tg,'')<>'' "
+                               "AND msg_at > now() - interval '90 days' GROUP BY 1 HAVING count(DISTINCT client_id) >= 3", org_id):
+            if r["tg"] and not any(r["tg"] in v for v in client_tg.values()):
+                staff_tg.add(r["tg"])
+    except Exception:
+        pass
     hit = {"t": _fo_time.time(), "staff_tg": staff_tg, "staff_id": staff_id, "client_tg": client_tg}
     _FO_MT_PPL[k] = hit
     return hit
@@ -9440,6 +9499,33 @@ async def _fo_meet_send_now(c, org_id, client_id, test=False):
     return await _fo_mt_offer_send(c, org_id, str(client_id), "confirm" if r["fixed"] else "offer", offer, test=test)
 
 
+class FoMeetPauseIn(_FoBM):
+    on: bool = True
+
+
+@router.get("/meet/pause")
+async def fo_meet_pause_get(p: Principal = Depends(max_level(4))):
+    async with pool().acquire() as c:
+        d = _fo_mt_load(await c.fetchval("SELECT data FROM fo_card WHERE kind='sys' AND ref_id=$1", "meet_pause:%s" % p.org_id), None)
+    return {"on": isinstance(d, dict), "at": (d or {}).get("at") if isinstance(d, dict) else None, "why": (d or {}).get("why") if isinstance(d, dict) else None}
+
+
+@router.post("/meet/pause")
+async def fo_meet_pause_set(body: FoMeetPauseIn, p: Principal = Depends(max_level(2))):
+    """328: пауза бота планёрок — в чаты клиентов ничего не уходит, ответы не разбираются, рассылка стоит."""
+    key = "meet_pause:%s" % p.org_id
+    async with pool().acquire() as c:
+        if body.on:
+            await c.execute("INSERT INTO fo_card (kind, ref_id, org_id, data) VALUES ('sys', $1, $2, $3::jsonb) "
+                            "ON CONFLICT (kind, ref_id) DO NOTHING", key, p.org_id,
+                            _fo_json.dumps({"at": _fo_mt_now().strftime("%d.%m %H:%M"), "why": "поставил собственник", "by": str(_fo_uid(p))}))
+            await c.execute("UPDATE fo_meet_camp SET status='stopped' WHERE org_id=$1::uuid AND status='active'", str(p.org_id))
+        else:
+            await c.execute("DELETE FROM fo_card WHERE kind='sys' AND ref_id=$1", key)
+    print("328 пауза бота планёрок:", "включена" if body.on else "снята", p.org_id)
+    return {"on": bool(body.on)}
+
+
 class FoMeetAtIn(_FoBM):
     at: str | None = None
 
@@ -9482,6 +9568,8 @@ async def _fo_meet_at_tick():
                 due = await c.fetch("SELECT ref_id, org_id, split_part(ref_id, ':', 2) AS cid, data->>'at' AS at FROM fo_card "
                                     "WHERE kind='sys' AND ref_id LIKE 'meet_at:%' AND data->>'at' <= $1", now)
                 for d in due:
+                    if await _fo_mt_paused(c, d["org_id"]):                    # 328: пауза — ждём, запись не трогаем
+                        continue
                     await c.execute("DELETE FROM fo_card WHERE kind='sys' AND ref_id=$1", d["ref_id"])
                     stt = await c.fetchval("SELECT status FROM fo_meet WHERE org_id=$1::uuid AND client_id=$2::uuid", str(d["org_id"]), d["cid"])
                     if stt not in ("draft", "queued"):
@@ -11354,6 +11442,14 @@ p(sh("journalctl -u fo --since '-30min' --no-pager -o cat | grep -E '^(327|326) 
 p("")
 p("== 327 v131: ОТПРАВКА ПЛАНЁРОК В ФОНЕ ==")
 p(sh("sudo -u postgres psql -d fo -Atc \"SELECT split_part(ref_id,':',2)||' · '||coalesce(data->>'state','идёт')||' · '||coalesce(data->>'why','') FROM fo_card WHERE kind='sys' AND ref_id LIKE 'meet_send:%%' AND updated_at > now() - interval '1 day'\"").strip() or "(сегодня через новый путь не отправляли)")
+p("")
+p("== 328 БОТ ПЛАНЁРОК: ПАУЗА И РАЗБОР ОШИБКИ ==")
+p("пауза: " + (sh("sudo -u postgres psql -d fo -Atc \"INSERT INTO fo_card (kind, ref_id, org_id, data) VALUES ('sys', 'meet_pause:3b04b815-6ec2-4818-88cf-55db8163fd89', '3b04b815-6ec2-4818-88cf-55db8163fd89', '{\\\"why\\\": \\\"Виталий 19.10: никому не отправлять, пока не поправлен бот\\\", \\\"at\\\": \\\"19.10\\\"}'::jsonb) ON CONFLICT (kind, ref_id) DO NOTHING RETURNING 'включена'\"").strip() or "уже стояла"))
+p("рассылка: " + (sh("sudo -u postgres psql -d fo -Atc \"UPDATE fo_meet_camp SET status='stopped' WHERE status='active' RETURNING 'остановлена №'||id\"").strip() or "активной не было"))
+p("ИП Аббясова · WB — последние записи журнала планёрки:")
+p(sh("sudo -u postgres psql -d fo -Atc \"SELECT x->>'at'||' · '||coalesce(x->>'what','')||' · '||coalesce(x->>'понял','')||' · '||coalesce(x->>'by','')||' · '||left(coalesce(x->>'text',''),90) FROM fo_meet m JOIN client cl ON cl.id=m.client_id, jsonb_array_elements(m.log) WITH ORDINALITY AS t(x, n) WHERE cl.name='ИП Аббясова · WB' ORDER BY n DESC LIMIT 8\"").strip())
+p("откат ложного согласия: " + (sh("sudo -u postgres psql -d fo -Atc \"WITH last AS (SELECT m.client_id, (SELECT x->>'text' FROM jsonb_array_elements(m.log) WITH ORDINALITY t(x, n) WHERE x->>'what'='ответ клиента' ORDER BY n DESC LIMIT 1) AS txt FROM fo_meet m JOIN client cl ON cl.id=m.client_id WHERE cl.name='ИП Аббясова · WB' AND m.status='agreed') UPDATE fo_meet m SET status='proposed', agreed_at=NULL, log = m.log || jsonb_build_array(jsonb_build_object('at', to_char(now() AT TIME ZONE 'Europe/Moscow','DD.MM HH24:MI'), 'what', 'откат: «согласовано» засчитано по сообщению «ответьте боту» (не ответ клиента) — ждём ответа клиента')) FROM last WHERE m.client_id=last.client_id AND last.txt ILIKE '%%ответьте боту%%' RETURNING 'ИП Аббясова · WB → предложена'\"").strip() or "не понадобился (статус уже не «назначена» или последний ответ другой)"))
+p(sh("journalctl -u fo --since '-20min' --no-pager -o cat | grep -E '^328 ' | tail -6").strip() or "")
 p("")
 p("== КОД ==")
 p("дописано в refs.py и signup.py, копия в", bak)
